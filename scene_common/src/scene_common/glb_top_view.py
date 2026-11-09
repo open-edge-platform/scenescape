@@ -96,6 +96,9 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   renderer.scene.scene.enable_sun_light(True)
   renderer.scene.show_axes(False)
 
+  bounds = triangle_mesh.get_axis_aligned_bounding_box()
+  min_bound = bounds.min_bound.numpy()
+  max_bound = bounds.max_bound.numpy()
   floor_width = glb_size[0]
   floor_height = glb_size[1]
   aspect_ratio = res_x / res_y
@@ -107,14 +110,20 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
     right = (floor_height) * aspect_ratio
     top = floor_height
 
+  min_z = float(min_bound[2])
+  max_z = float(max_bound[2])
+  center_x = float((min_bound[0] + max_bound[0]) / 2)
+  center_y = float((min_bound[1] + max_bound[1]) / 2)
+  margin = max(float(glb_size.max()), 1e-3)
   renderer.scene.camera.look_at(
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, glb_size.max()],
+    [center_x, center_y, min_z],
+    [center_x, center_y, max_z + margin],
     [0.0, 1.0, 0.0]
   )
 
   renderer.scene.camera.set_projection(renderer.scene.camera.Projection.Ortho,
-                                       0.0, right, 0.0, top, 0.0, glb_size.max()*2)
+                                       -right / 2, right / 2, -top / 2, top / 2,
+                                       0.0, max_z - min_z + 2 * margin)
   # We use the vertical resolution as the base for all computations
   pixels_per_meter = res_y / top
   img = renderer.render_to_image()
@@ -150,7 +159,14 @@ def generateOrthoView(scene_obj, glb_file):
   rotation_vector = np.float64([scene_obj.rotation_x,
                                 scene_obj.rotation_y,
                                 scene_obj.rotation_z])
-  triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_file, rotation_vector)
+  triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_file)
+  scale = np.float64([
+    getattr(scene_obj, f"scale_{axis}", 1.0) if getattr(scene_obj, f"scale_{axis}", 1.0) is not None else 1.0
+    for axis in "xyz"])
+  transform = np.eye(4)
+  transform[:3, :3] = o3d.geometry.get_rotation_matrix_from_xyz(
+    np.deg2rad(rotation_vector)) @ np.diag(scale)
+  triangle_mesh.transform(transform)
   # Frame from the mesh's own min corner: the stored translation places the map in the scene and must not shift the image.
   triangle_mesh.translate(-triangle_mesh.get_axis_aligned_bounding_box().min_bound.numpy())
 

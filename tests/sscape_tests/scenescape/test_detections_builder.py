@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
@@ -10,7 +10,7 @@ import pytest
 from scene_common.detections_builder import buildDetectionsDict, buildDetectionsList, prepareObjDict
 from controller.moving_object import ChainData, ReidState
 from scene_common.reid_constants import DEFAULT_MINIMUM_BBOX_AREA
-from scene_common.geometry import Point
+from scene_common.geometry import Point, Rectangle, Size
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
 
@@ -198,6 +198,26 @@ class TestDetectionsBuilder:
 
     assert 'reid' not in detection['metadata']
 
+  def test_prepare_obj_dict_includes_association_window(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.association_window = {
+      'method': 'euclidean',
+      'shape': 'circle',
+      'radius_m': 2.0,
+    }
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert detection['association_window'] == obj.association_window
+
+  def test_prepare_obj_dict_omits_empty_association_window(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.association_window = None
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert 'association_window' not in detection
+
   def test_prepare_obj_dict_handles_chain_data_without_sensor_fields(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
     obj.chain_data = ChainData(regions=[], persist={}, publishedLocations=[])
@@ -268,14 +288,15 @@ class TestDetectionsBuilder:
 
   @patch('scene_common.detections_builder.calculateHeading')
   @patch('scene_common.detections_builder.convertXYZToLLA')
-  def test_prepare_obj_dict_omits_lla_when_georeference_unavailable(self, mock_convert_xyz_to_lla, mock_calculate_heading):
-    obj = _build_object(include_sensor_payload=False)
+  def test_prepare_obj_dict_skips_lla_when_transform_unavailable(self, mock_convert_xyz_to_lla, mock_calculate_heading):
+    obj = _build_object(velocity=Point(4.0, 5.0, 6.0), include_sensor_payload=False)
     scene = SimpleNamespace(output_lla=True, trs_xyz_to_lla=None)
 
     detection = prepareObjDict(scene, obj, update_visibility=False)
 
     assert 'lat_long_alt' not in detection
     assert 'heading' not in detection
+    assert detection['translation'] == [1.0, 2.0, 3.0]
     mock_convert_xyz_to_lla.assert_not_called()
     mock_calculate_heading.assert_not_called()
 
@@ -576,6 +597,23 @@ class TestComputeCameraBounds:
   obj_dict entries that never had a 'visibility' key populated (for example
   an already-tracked/retrack=False object whose visibility was not computed
   because it bypassed the normal per-frame retrack path)."""
+
+  @pytest.mark.parametrize("pixel_box", [None, Rectangle({'x': 10, 'y': 20, 'width': 30, 'height': 40})])
+  def test_source_bounds_use_observation_pose_or_original_pixels(self, pixel_box):
+    from scene_common.detections_builder import computeCameraBounds
+    expected = Rectangle({'x': 100, 'y': 200, 'width': 30, 'height': 40})
+    configured = SimpleNamespace(cameraID='mobile', pose=SimpleNamespace(
+      projectEstimatedBoundsToCameraPixels=Mock(side_effect=AssertionError("Stale calibration"))))
+    observation = SimpleNamespace(cameraID='mobile', pose=SimpleNamespace(
+      projectEstimatedBoundsToCameraPixels=Mock(return_value=expected)))
+    obj = SimpleNamespace(vectors=[SimpleNamespace(camera=observation)],
+                          sceneLoc=Point(1, 2, 0), bbMeters=SimpleNamespace(size=Size(1, 2)),
+                          boundingBoxPixels=pixel_box)
+    output = {'visibility': ['mobile']}
+    computeCameraBounds(SimpleNamespace(cameraWithID=lambda cid: configured), obj, output)
+    assert output['camera_bounds']['mobile']['projected'] is (pixel_box is None)
+    assert output['camera_bounds']['mobile']['x'] == (100 if pixel_box is None else 10)
+    assert observation.pose.projectEstimatedBoundsToCameraPixels.call_count == (1 if pixel_box is None else 0)
 
   def test_missing_visibility_key_does_not_raise(self):
     from scene_common.detections_builder import computeCameraBounds

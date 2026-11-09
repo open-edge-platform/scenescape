@@ -19,7 +19,7 @@ def test_save_mesh_unapplies_glb_only_before_overwriting_map(mock_glb, use_glb_m
   scene = MagicMock(name="scene", use_glb_map=use_glb_map)
   scene.map.save.side_effect = lambda *_args, **_kwargs: order.append("save")
 
-  MeshGenerator()._saveMeshToScene(scene, trimesh.creation.box(), align=False)
+  MeshGenerator()._saveMeshToScene(scene, trimesh.creation.box())
 
   expected = ["unapply", "save"] if use_glb_map else ["save"]
   assert order == expected

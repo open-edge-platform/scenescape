@@ -29,7 +29,7 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from uploader import (  # noqa: E402
-  DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, read_object_library, upload_all,
+  DEFAULT_WAIT_SECONDS, REQUEST_TIMEOUT_SECONDS, SceneScapeClient, log, parse_auth, read_object_library, upload_all,
   upload_object_library, is_application_ready
 )
 
@@ -41,15 +41,26 @@ def build_argparser():
   parser.add_argument("--restauth", required=True,
                       help="path to an auth file, or a user:password string")
   parser.add_argument("--rootcert", help="CA certificate used to verify the server")
+  parser.add_argument("--restore-ids", action="store_true",
+                      help="restore original scene UUIDs; reject collisions")
+  parser.add_argument("--reuse-existing", action="store_true",
+                      help="reuse matching scenes without overwriting resources; reconcile missing links")
+  parser.add_argument("--remote-credentials",
+                      help="JSON credentials file keyed by remote scene UUID (never included in scene ZIPs)")
   parser.add_argument("--insecure", action="store_true",
                       help="do not verify the server certificate")
   parser.add_argument("--wait", type=int, default=DEFAULT_WAIT_SECONDS, metavar="SECONDS",
                       help="how long to wait for the database to become ready (0 disables waiting)")
+  parser.add_argument("--import-timeout", type=int, default=REQUEST_TIMEOUT_SECONDS, metavar="SECONDS",
+                      help="positive read timeout for each scene import (default: 60 seconds)")
   return parser
 
 
 def main():
-  args = build_argparser().parse_args()
+  parser = build_argparser()
+  args = parser.parse_args()
+  if args.import_timeout <= 0:
+    parser.error("--import-timeout must be a positive integer")
   logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
                       datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -74,7 +85,12 @@ def main():
   if args.insecure:
     log.warning("Server certificate verification is disabled")
     requests.packages.urllib3.disable_warnings()
-  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True))
+  if args.remote_credentials and not os.path.isfile(args.remote_credentials):
+    log.error("Remote credentials file does not exist")
+    return 1
+  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True),
+                           restore_ids=args.restore_ids, remote_credentials=args.remote_credentials,
+                           reuse_existing=args.reuse_existing, import_timeout=args.import_timeout)
 
   if args.wait and not is_application_ready(client, args.wait, user, password):
     log.error(f"{args.url} was not ready after {args.wait} seconds")

@@ -36,6 +36,7 @@ set(TRACKER_LIB_SOURCES
 
 add_executable(tracker_tests
     logger_test.cpp
+    association_window_test.cpp
     cli_test.cpp
     config_loader_test.cpp
     coordinate_transformer_test.cpp
@@ -77,9 +78,6 @@ target_compile_definitions(tracker_tests
         TRACKER_TEST_DIR="${PROJECT_SOURCE_DIR}/test/unit"
         TRACKER_CONFIG_DIR="${PROJECT_SOURCE_DIR}/config"
 )
-
-# Use C++20 standard (required for tracking_types.hpp)
-target_compile_features(tracker_tests PRIVATE cxx_std_20)
 
 target_link_libraries(tracker_tests
     PRIVATE

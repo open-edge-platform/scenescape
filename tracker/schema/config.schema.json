@@ -255,6 +255,31 @@
           "description": "DoS protection: maximum worker threads (one per scene+category). Limits resource exhaustion from unexpected categories.",
           "default": 50,
           "minimum": 1
+        },
+        "association": {
+          "type": "object",
+          "description": "Detection-to-track data association settings.",
+          "properties": {
+            "method": {
+              "type": "string",
+              "description": "Association metric: position_mahalanobis (default, UKF predicted covariance gate) or euclidean (legacy meter gate).",
+              "enum": ["euclidean", "position_mahalanobis"],
+              "default": "position_mahalanobis"
+            },
+            "gate_probability": {
+              "type": "number",
+              "description": "Chi-squared gate probability for position_mahalanobis (2 DOF). Ignored for euclidean.",
+              "default": 0.99,
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            },
+            "max_radius_m": {
+              "type": "number",
+              "description": "Euclidean distance threshold (m) or hard Mahalanobis ceiling (m). Default: 2 m for euclidean, 10 m for position_mahalanobis.",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
         }
       }
     },

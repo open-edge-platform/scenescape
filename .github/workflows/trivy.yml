@@ -23,24 +23,14 @@ jobs:
     runs-on: self-hosted
     if: github.event_name != 'pull_request'
     steps:
+      - name: "Pre-clean workspace"
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Free up runner space
-        run: |
-          # Remove Java (JDKs)
-          sudo rm -rf /usr/lib/jvm
-          # Remove .NET SDKs
-          sudo rm -rf /usr/share/dotnet
-          # Remove Swift toolchain
-          sudo rm -rf /usr/share/swift
-          # Remove Haskell (GHC)
-          sudo rm -rf /usr/local/.ghcup
-          # Remove Julia
-          sudo rm -rf /usr/local/julia*
-          # Remove Android SDKs
-          sudo rm -rf /usr/local/lib/android
       - name: "Remove all Docker images"
         uses: ./.github/actions/cleanup
         with:
@@ -75,6 +65,9 @@ jobs:
             fi
           done <<< $(cat images.txt)
           exit $EXIT_CODE
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
 
   trivy-critical-filesystem-scan:
     name: "Run Trivy Critical Filesystem Scan"
