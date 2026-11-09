@@ -5,6 +5,7 @@ import numpy as np
 import base64
 
 from scene_common import log
+from scene_common.association import add_association_window
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -311,6 +312,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     _addChainData(obj_dict, aobj.chain_data, include_sensors, include_region_dwell, current_time)
 
   _addOptionalAttributes(obj_dict, aobj)
+  add_association_window(obj_dict, aobj)
   if len(aobj.chain_data.persist):
     obj_dict['persistent_data'] = aobj.chain_data.persist
   return obj_dict
@@ -320,10 +322,8 @@ def computeCameraBounds(scene, aobj, obj_dict):
   for cameraID in obj_dict.get('visibility', []):
     bounds = None
     projected = False
-    is_source_camera = (
-      aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID')
-      and cameraID == aobj.vectors[0].camera.cameraID
-    )
+    source_camera = _source_camera(aobj, cameraID)
+    is_source_camera = source_camera is not None
 
     # Prefer source detector pixel bbox when available. This preserves the
     # detector-provided 2D box instead of a reprojected estimate.
@@ -360,8 +360,8 @@ def computeCameraBounds(scene, aobj, obj_dict):
       else:
         obj_translation = Point(obj_dict['translation'])
         obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
-      bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
-                                                                obj_size)
+      pose = getattr(source_camera, 'pose', camera.pose)
+      bounds = pose.projectEstimatedBoundsToCameraPixels(obj_translation, obj_size)
       projected = True
 
     if bounds:
@@ -370,3 +370,10 @@ def computeCameraBounds(scene, aobj, obj_dict):
       camera_bounds[cameraID] = bound_dict
   obj_dict['camera_bounds'] = camera_bounds
   return
+
+
+def _source_camera(aobj, camera_id):
+  vectors = getattr(aobj, 'vectors', [])
+  if vectors and getattr(vectors[0].camera, 'cameraID', None) == camera_id:
+    return vectors[0].camera
+  return None

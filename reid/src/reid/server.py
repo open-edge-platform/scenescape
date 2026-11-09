@@ -46,6 +46,7 @@ class PurgeScheduler:
   def _run(self):
     while not self._stop.wait(self.interval_secs):
       try:
+        self.service.health()
         self.service.purge_expired()
       except Exception as error:
         log.error(f"ReID expired-descriptor purge failed: {error}")

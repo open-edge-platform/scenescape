@@ -13,6 +13,8 @@ from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExp
 from scene_common import log
 
 SERVICE_NAME = "reid-service"
+BACKEND_DURATION_BUCKETS = (0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
+DECISION_LATENCY_BUCKETS = (0.1, 0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10, 15, 20, 30)
 _provider = None
 _decision_latency = None
 _backend_query_duration = None
@@ -48,13 +50,16 @@ def init():
     meter = provider.get_meter(__name__)
     decision_latency = meter.create_histogram(
       "scenescape_reid_decision_latency", unit="s",
-      description="Track first observation to completed ReID decision")
+      description="Track first observation to completed ReID decision",
+      explicit_bucket_boundaries_advisory=DECISION_LATENCY_BUCKETS)
     backend_query_duration = meter.create_histogram(
       "scenescape_reid_backend_query_duration", unit="s",
-      description="Duration of a ReID backend similarity query")
+      description="Duration of a ReID backend similarity query",
+      explicit_bucket_boundaries_advisory=BACKEND_DURATION_BUCKETS)
     backend_write_duration = meter.create_histogram(
       "scenescape_reid_backend_write_duration", unit="s",
-      description="Duration of a ReID backend descriptor write")
+      description="Duration of a ReID backend descriptor write",
+      explicit_bucket_boundaries_advisory=BACKEND_DURATION_BUCKETS)
   except Exception as error:
     if provider is not None:
       provider.shutdown()

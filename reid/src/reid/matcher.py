@@ -515,6 +515,9 @@ class TrackMatcher:
           self._incrementUniqueIdCount()
           state.reid_state = "query_no_match"
           self._publishState(obs, state)
+        if state.first_seen is not None:
+          observability.record_decision_latency(
+            time.perf_counter() - state.first_seen, obs.category)
         return None
       decision = self._decide(track_id, state, obs, gid, similarity, per_vector)
     decision["query_secs"] = query_secs

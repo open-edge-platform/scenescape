@@ -62,7 +62,6 @@ public:
   // tracked object parameters; fixed-size matrices, so copies never share them
   MeasurementVector predictedMeasurementMean;
   MeasurementMatrix predictedMeasurementCov;
-  MeasurementMatrix predictedMeasurementCovInv;
   StateMatrix errorCovariance;
 
   Classification classification;

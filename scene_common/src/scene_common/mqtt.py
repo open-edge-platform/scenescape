@@ -163,6 +163,7 @@ class PubSub(_PubSubTopicBase):
     regex = regex.replace(r'\$\{scene_name\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{sensor_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{source_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_type\}', r'([^/]+)')
     regex = regex.replace(r'\$\{event_type\}', r'([^/]+)')
     pattern = re.compile(f'^{regex}$', re.IGNORECASE)

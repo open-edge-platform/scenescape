@@ -236,11 +236,15 @@ class Object3DChainedDataProcessor:
     self.associations_created = associations_created
     return sub_detections
 
-  def annotateObjectAssociations(self, img, objects, obj_colors, primary_type='car', secondary_type='license_plate', intrinsics=None):
+  def annotateObjectAssociations(self, img, objects, obj_colors, primary_type='car', secondary_type='license_plate', intrinsics=None, scale=1.0):
+    """Draw associations on `img`; `scale` maps native pixel coordinates and intrinsics onto it."""
     primary_objects = objects.get(primary_type, [])
 
     if not primary_objects or intrinsics is None:
       return
+
+    if scale != 1.0:
+      intrinsics = np.array(intrinsics, dtype=float).reshape(3, 3) * [[scale], [scale], [1.0]]
 
     for obj in primary_objects:
       if 'bounding_box_3D' not in obj and 'translation' in obj:
@@ -258,13 +262,13 @@ class Object3DChainedDataProcessor:
       secondary_key = f'{secondary_type}s'
       if secondary_key in obj:
         for secondary_obj in obj[secondary_key]:
-          secondary_topleft = (int(secondary_obj['bounding_box_px']['x']), int(secondary_obj['bounding_box_px']['y']))
-          secondary_bottomright = (int(secondary_obj['bounding_box_px']['x'] + secondary_obj['bounding_box_px']['width']),
-                                           int(secondary_obj['bounding_box_px']['y'] + secondary_obj['bounding_box_px']['height']))
+          bounds = {key: value * scale for key, value in secondary_obj['bounding_box_px'].items()}
+          secondary_topleft = (int(bounds['x']), int(bounds['y']))
+          secondary_bottomright = (int(bounds['x'] + bounds['width']), int(bounds['y'] + bounds['height']))
           cv2.rectangle(img, secondary_topleft, secondary_bottomright, obj_colors[3], 2)
 
           if 'text' in secondary_obj and secondary_obj['text']:
-            self.annotateText(img, secondary_obj['bounding_box_px'], secondary_obj['text'])
+            self.annotateText(img, bounds, secondary_obj['text'])
 
   def annotate3DObject(self, img, obj, intrinsics, color=(66, 186, 150), thickness=2):
     try:
