@@ -63,3 +63,9 @@ sample client command are documented in the
 The Observation Processor is currently available only through Docker Compose.
 A Helm chart for this service has not been created yet, so it is not deployable
 through the Scenescape Kubernetes chart.
+
+:::{toctree}
+:hidden:
+
+get-started/build-from-source.md
+:::
