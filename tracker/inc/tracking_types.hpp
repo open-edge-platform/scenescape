@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "association_window.hpp"
 #include "observability_context.hpp"
 
 #include <array>
@@ -102,6 +103,7 @@ struct Track {
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>
         confidence; ///< Detection confidence score in [0, 1] (absent if not available)
+    std::optional<AssociationWindow> association_window; ///< Gate geometry for UI visualization
     std::string reid_sighting_json; ///< Current-chunk detection crop and embedding, if any
 };
 
