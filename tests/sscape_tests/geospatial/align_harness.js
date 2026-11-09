@@ -16,11 +16,32 @@ class FakeEl {
   constructor() {
     this.style = {};
     this.value = "";
-    this.textContent = "";
+    this.children = [];
+    this._text = "";
     this.disabled = false;
     this.dataset = {};
     this.files = [];
     this.listeners = {};
+  }
+
+  get textContent() {
+    return this._text + this.children.map((c) => c.textContent).join("");
+  }
+
+  set textContent(v) {
+    this._text = String(v);
+    this.children = [];
+  }
+
+  appendChild(el) {
+    el.parent = this;
+    this.children.push(el);
+    return el;
+  }
+
+  replaceChildren(...els) {
+    this.children = [];
+    els.forEach((el) => this.appendChild(el));
   }
 
   addEventListener(type, fn) {
@@ -66,6 +87,7 @@ function load(args) {
   const fakeForm = new FakeForm();
   const sessionStore = new Map();
   const mapCalls = [];
+  const confirms = [];
   const docGetElementById = (id) => {
     if (!fakeEls[id]) {
       fakeEls[id] = new FakeEl();
@@ -125,7 +147,10 @@ function load(args) {
     return {
       ok: resp.status < 400,
       status: resp.status,
-      json: async () => resp.body,
+      json: async () => {
+        if (resp.nonJson) throw new SyntaxError("Unexpected token <");
+        return resp.body;
+      },
     };
   };
 
@@ -134,8 +159,13 @@ function load(args) {
       return { lat: 37 - y * 1e-5, lng: -122 + x * 1e-5 };
     },
     calls: [],
+    frame: null,
     setOverlay(...a) {
       this.calls.push(["setOverlay", ...a]);
+      this.frame = a[3] ?? null;
+    },
+    setOverlayFrameColor(color) {
+      this.frame = color;
     },
     updateOverlay(...a) {
       this.calls.push(["updateOverlay", ...a]);
@@ -145,6 +175,7 @@ function load(args) {
     },
     removeOverlay(...a) {
       this.calls.push(["removeOverlay", ...a]);
+      this.frame = null;
     },
     fitToCorners(...a) {
       this.calls.push(["fitToCorners", ...a]);
@@ -156,7 +187,8 @@ function load(args) {
     document: {
       getElementById: docGetElementById,
       querySelector: () => ({ value: "tok" }),
-      createElement: () => new FakeEl(),
+      createElement: (tag) =>
+        Object.assign(new FakeEl(), { tagName: String(tag).toUpperCase() }),
       addEventListener: () => {},
     },
     window: {
@@ -170,7 +202,10 @@ function load(args) {
       fire(t, ev) {
         (this.listeners[t] || []).forEach((fn) => fn(ev));
       },
-      confirm: () => args.confirm ?? true,
+      confirm: (msg) => {
+        confirms.push(msg);
+        return args.confirm ?? true;
+      },
       location: { reload() {}, pathname: "/scene/s1/update/" },
       sessionStorage: {
         getItem: (k) => sessionStore.get(k) ?? null,
@@ -202,7 +237,26 @@ function load(args) {
 
   vm.runInContext(src, ctx);
 
-  return { ctx, fakeEls, fakeForm, fetches, strategy, sessionStore, mapCalls };
+  return {
+    ctx,
+    fakeEls,
+    fakeForm,
+    fetches,
+    strategy,
+    sessionStore,
+    mapCalls,
+    confirms,
+  };
+}
+
+function statusListOf(statusEl) {
+  const box = statusEl?.children[0];
+  if (!box) return null;
+  return {
+    tagName: box.tagName,
+    className: box.className,
+    items: box.children.map((li) => li.textContent),
+  };
 }
 
 const scenarios = {
@@ -215,14 +269,19 @@ const scenarios = {
       strategy,
       sessionStore,
       mapCalls,
+      confirms,
     } = load(args);
     const a = new ctx.__api.GlbAlignment();
+    if (args.geomapReady) ctx.window.fire("geomap-ready", {});
     const events = [];
     const takes = [];
+    const clicks = [];
 
     const savePosShown = () =>
       fakeEls["glbSavePosition"]?.style?.display ?? null;
     const savePosTrail = [];
+    const frameState = () => strategy.frame;
+    const frameTrail = [];
     const drag = (from, to) => {
       const ev0 = {
         type: "pointerdown",
@@ -243,12 +302,23 @@ const scenarios = {
 
     await new Promise((r) => setImmediate(r));
     savePosTrail.push(savePosShown());
+    frameTrail.push(frameState());
     {
       for (const step of args.steps || []) {
         if (step[0] === "upload") {
           const fileEl = fakeEls["glbFileInput"];
           fileEl.files = [{ name: "a.glb" }];
           fileEl.fire("change", { target: fileEl });
+        } else if (step[0] === "click") {
+          const fileEl = fakeEls["glbFileInput"];
+          const ev = {
+            type: "click",
+            preventDefault() {
+              this.prevented = true;
+            },
+          };
+          fileEl.fire("click", ev);
+          clicks.push({ prevented: !!ev.prevented });
         } else if (step[0] === "drag") {
           drag(step[1], step[2]);
         } else if (step[0] === "save") {
@@ -259,6 +329,9 @@ const scenarios = {
           await inflight;
         } else if (step[0] === "remove") {
           await a._remove?.();
+        } else if (step[0] === "toggleUse") {
+          fakeEls["glbUse"].checked = step[1];
+          await a._toggleUse?.();
         } else if (step[0] === "heading") {
           const headEl = fakeEls["glbHeadingNumber"];
           headEl.value = step[1];
@@ -277,6 +350,7 @@ const scenarios = {
         }
         await new Promise((r) => setImmediate(r));
         savePosTrail.push(savePosShown());
+        frameTrail.push(frameState());
       }
     }
 
@@ -286,13 +360,20 @@ const scenarios = {
       calls: strategy.calls,
       events,
       takes,
+      clicks,
+      confirms,
+      staged: a.staged?.token ?? null,
       mapCalls,
       stored: sessionStore.has("glbAcceptedView")
         ? JSON.parse(sessionStore.get("glbAcceptedView"))
         : null,
       savePosTrail,
+      frameTrail,
+      mapFrame: frameState(),
+      savedBlockDisplay: fakeEls["glbSavedBlock"]?.style?.display ?? null,
       savedAnchor: a.saved?.anchor ?? null,
       status: fakeEls["glbAlignStatus"]?.textContent || "",
+      statusList: statusListOf(fakeEls["glbAlignStatus"]),
       controlsDisplay: fakeEls["glbAlignControls"]?.style?.display ?? "none",
       fileDisabled: fakeEls["glbFileInput"]?.disabled ?? false,
       filePointerEvents: fakeEls["glbFileInput"]?.style?.pointerEvents ?? "",

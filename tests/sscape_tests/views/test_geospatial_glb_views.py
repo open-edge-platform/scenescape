@@ -161,6 +161,13 @@ class TestGeospatialGlbPreview(TestCase):
     self.assertEqual(response.status_code, 400)
     self.assertEqual(len(os.listdir(self.staging_dir)), 0)
 
+  def test_invalid_glb_returns_validation_message(self):
+    """Invalid GLB returns the same validation message the scene upload form shows."""
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
+    response = self._upload_glb(self.scene.id, file_data=b"garbage")
+    self.assertEqual(response.status_code, 400)
+    self.assertIn("(.glb)", json.loads(response.content)["error"])
+
   def test_oversized_file_returns_413(self):
     """GLB exceeding MAX_GLB_BYTES returns 413 Payload Too Large."""
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
@@ -859,6 +866,66 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_scene')
     self.assertFalse(self.scene.glb_anchor)
+
+  def test_staged_glb_is_accepted_with_scene_update(self):
+    """Save Scene Updates with a staged GLB stores it, the same as the Accept button."""
+    token = self._stage_glb()
+
+    resp = self._post_scene_form(
+      name='geo_renamed', glb_token=token, glb_anchor=json.dumps(self.SHIFTED)
+    )
+
+    self.assertEqual(resp.status_code, 302)
+    self.scene.refresh_from_db()
+    self.assertEqual(self.scene.name, 'geo_renamed')
+    self.assertTrue(self.scene.glb_map)
+    self.assertFalse(self.scene.use_glb_map)
+    self.assertAlmostEqual(self.scene.glb_anchor['lat'], 37.391, places=6)
+    self.assertAlmostEqual(self.scene.glb_anchor['lng'], -121.969, places=6)
+    self.assertAlmostEqual(self.scene.glb_anchor['heading_deg'], 90.0, places=6)
+    self.assertIn('footprint_m', self.scene.glb_anchor)
+    self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
+
+  def test_staged_glb_with_unknown_token_is_rejected(self):
+    """A staged token with no file is refused and nothing is saved."""
+    resp = self._post_scene_form(
+      name='geo_renamed', glb_token=str(uuid.uuid4()), glb_anchor=json.dumps(self.SHIFTED)
+    )
+
+    self.assertEqual(resp.status_code, 200)
+    self.assertIn('Staged GLB not found or expired', resp.context['form'].non_field_errors())
+    self.scene.refresh_from_db()
+    self.assertEqual(self.scene.name, 'geo_scene')
+    self.assertFalse(self.scene.glb_map)
+
+  def test_staged_glb_with_invalid_anchor_is_rejected(self):
+    """A staged GLB with a malformed anchor is refused and the staged file is kept for retry."""
+    token = self._stage_glb()
+
+    resp = self._post_scene_form(
+      name='geo_renamed', glb_token=token, glb_anchor='{not json'
+    )
+
+    self.assertEqual(resp.status_code, 200)
+    self.assertIn('Invalid GLB anchor', resp.context['form'].non_field_errors())
+    self.scene.refresh_from_db()
+    self.assertEqual(self.scene.name, 'geo_scene')
+    self.assertFalse(self.scene.glb_map)
+    self.assertTrue(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
+
+  def test_staged_glb_on_non_geospatial_scene_is_rejected(self):
+    """A staged GLB is not stored when the form switches the scene to another map type."""
+    token = self._stage_glb()
+
+    resp = self._post_scene_form(
+      name='geo_renamed', map_type='map_upload', glb_token=token, glb_anchor=json.dumps(self.SHIFTED)
+    )
+
+    self.assertEqual(resp.status_code, 200)
+    self.assertIn('Scene map type must be geospatial_map', resp.context['form'].non_field_errors())
+    self.scene.refresh_from_db()
+    self.assertEqual(self.scene.name, 'geo_scene')
+    self.assertFalse(self.scene.glb_map)
 
   def test_clearing_map_on_geospatial_scene_is_rejected(self):
     """Ticking Clear on the map of an output_lla scene is refused, not saved as an empty map."""

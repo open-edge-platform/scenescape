@@ -301,8 +301,9 @@ class MapboxPlugin extends MapInterface {
     ];
   }
 
-  setOverlay(imageUrl, corners, opacity) {
+  setOverlay(imageUrl, corners, opacity, frameColor = null) {
     this.removeOverlay();
+    this.overlayCorners = corners;
     const coordinates = this._cornersToMapboxCoordinates(corners);
     this.map.addSource("glb-overlay", {
       type: "image",
@@ -318,13 +319,52 @@ class MapboxPlugin extends MapInterface {
         "raster-fade-duration": 0,
       },
     });
+    this.setOverlayFrameColor(frameColor);
+  }
+
+  _frameFeature(corners) {
+    const ring = [...corners, corners[0]].map((c) => [c.lng, c.lat]);
+    return {
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: ring },
+    };
+  }
+
+  setOverlayFrameColor(color) {
+    this._removeOverlayFrame();
+    if (!color || !this.overlayCorners) return;
+    this.map.addSource("glb-overlay-frame", {
+      type: "geojson",
+      data: this._frameFeature(this.overlayCorners),
+    });
+    this.map.addLayer({
+      id: "glb-overlay-frame",
+      type: "line",
+      source: "glb-overlay-frame",
+      paint: {
+        "line-color": color,
+        "line-width": 3,
+        "line-dasharray": [2, 2],
+      },
+    });
+  }
+
+  _removeOverlayFrame() {
+    if (this.map.getLayer("glb-overlay-frame")) {
+      this.map.removeLayer("glb-overlay-frame");
+    }
+    if (this.map.getSource("glb-overlay-frame")) {
+      this.map.removeSource("glb-overlay-frame");
+    }
   }
 
   updateOverlay(corners) {
     const source = this.map.getSource("glb-overlay");
     if (source) {
+      this.overlayCorners = corners;
       const coordinates = this._cornersToMapboxCoordinates(corners);
       source.setCoordinates(coordinates);
+      this.map.getSource("glb-overlay-frame")?.setData(this._frameFeature(corners));
     }
   }
 
@@ -335,24 +375,14 @@ class MapboxPlugin extends MapInterface {
   }
 
   removeOverlay() {
+    this._removeOverlayFrame();
+    this.overlayCorners = null;
     if (this.map.getLayer("glb-overlay")) {
       this.map.removeLayer("glb-overlay");
     }
     if (this.map.getSource("glb-overlay")) {
       this.map.removeSource("glb-overlay");
     }
-  }
-
-  fitToCorners(corners) {
-    const lngs = corners.map((c) => c.lng);
-    const lats = corners.map((c) => c.lat);
-    this.map.fitBounds(
-      [
-        [Math.min(...lngs), Math.min(...lats)],
-        [Math.max(...lngs), Math.max(...lats)],
-      ],
-      { padding: 40, maxZoom: 20, duration: 0 },
-    );
   }
 
   async saveSnapshotToServer(imageData) {

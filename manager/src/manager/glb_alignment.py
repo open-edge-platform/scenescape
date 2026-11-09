@@ -82,7 +82,7 @@ def stage_glb(upload):
     validate_glb(upload)
   except ValidationError as e:
     log.error(f'Rejected GLB upload: {e}')
-    raise GlbAlignmentError(400, 'Invalid GLB file')
+    raise GlbAlignmentError(400, e.messages[0])
   token = str(uuid.uuid4())
   os.makedirs(staging_dir(), exist_ok=True)
   try:

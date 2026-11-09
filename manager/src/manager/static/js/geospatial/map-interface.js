@@ -64,12 +64,13 @@ class MapInterface {
     throw new Error("Method 'setOverlayOpacity' must be implemented");
   }
 
-  removeOverlay() {
-    throw new Error("Method 'removeOverlay' must be implemented");
+  // A dashed outline of the given colour around the overlay; null removes it.
+  setOverlayFrameColor(color) {
+    throw new Error("Method 'setOverlayFrameColor' must be implemented");
   }
 
-  fitToCorners(corners) {
-    throw new Error("Method 'fitToCorners' must be implemented");
+  removeOverlay() {
+    throw new Error("Method 'removeOverlay' must be implemented");
   }
 
   // Common utility methods

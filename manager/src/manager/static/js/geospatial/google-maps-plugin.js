@@ -343,6 +343,14 @@ class GoogleMapsPlugin extends MapInterface {
         this.imageUrl = "";
         this.corners = [];
         this.opacity = 1.0;
+        this.frameColor = null;
+      }
+
+      setFrameColor(color) {
+        this.frameColor = color;
+        if (this.img) {
+          this.img.style.outline = color ? `3px dashed ${color}` : "";
+        }
       }
 
       setImageUrl(url) {
@@ -370,6 +378,7 @@ class GoogleMapsPlugin extends MapInterface {
           this.img.style.pointerEvents = "none";
           this.img.style.opacity = this.opacity;
         }
+        this.setFrameColor(this.frameColor);
         panes.overlayLayer.appendChild(this.img);
       }
 
@@ -407,13 +416,14 @@ class GoogleMapsPlugin extends MapInterface {
     return new GroundOverlay();
   }
 
-  setOverlay(imageUrl, corners, opacity) {
+  setOverlay(imageUrl, corners, opacity, frameColor = null) {
     this.removeOverlay();
     try {
       this.overlay = this._createOverlayView();
       this.overlay.setImageUrl(imageUrl);
       this.overlay.setCorners(corners);
       this.overlay.setOpacity(opacity);
+      this.overlay.setFrameColor(frameColor);
       this.overlay.setMap(this.map);
     } catch (error) {
       console.error("Error creating overlay:", error);
@@ -433,18 +443,17 @@ class GoogleMapsPlugin extends MapInterface {
     }
   }
 
+  setOverlayFrameColor(color) {
+    if (this.overlay) {
+      this.overlay.setFrameColor(color);
+    }
+  }
+
   removeOverlay() {
     if (this.overlay) {
       this.overlay.setMap(null);
       this.overlay = null;
     }
-  }
-
-  fitToCorners(corners) {
-    const bounds = new google.maps.LatLngBounds();
-    corners.forEach((c) => bounds.extend({ lat: c.lat, lng: c.lng }));
-    this.map.fitBounds(bounds, 40);
-    if (this.map.getZoom() > 20) this.map.setZoom(20);
   }
 
   async saveSnapshotToServer(imageData) {

@@ -459,26 +459,37 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     context['mapbox_api_key'] = settings.MAPBOX_API_KEY
     return context
 
+  def _save_glb_changes(self, form, glb_token, glb_anchor):
+    """Persist a staged GLB or a moved saved GLB with the scene; returns an error message or None."""
+    scene = form.instance
+    try:
+      if glb_token:
+        if scene.map_type != 'geospatial_map':
+          return 'Scene map type must be geospatial_map'
+        glb_alignment.commit_glb(scene, glb_token, json.loads(glb_anchor or 'null'))
+      elif glb_anchor:
+        if not scene.glb_map:
+          return 'No stored GLB to move'
+        glb_alignment.move_glb_anchor(scene, json.loads(glb_anchor))
+    except json.JSONDecodeError:
+      return 'Invalid GLB anchor'
+    except glb_alignment.GlbAlignmentError as e:
+      return e.message
+    return None
+
   def form_valid(self, form):
     # Check if a generated map filename was provided
     generated_filename = self.request.POST.get('generated_map_filename')
     if generated_filename:
       # Set the map field to the generated file
       form.instance.map = generated_filename
-    # A shifted saved GLB is posted by glb-alignment.js; persist it like the Save position button does
-    glb_anchor = self.request.POST.get('glb_anchor')
-    if glb_anchor:
-      if not form.instance.glb_map:
-        form.add_error(None, 'No stored GLB to move')
-        return self.form_invalid(form)
-      try:
-        glb_alignment.move_glb_anchor(form.instance, json.loads(glb_anchor))
-      except json.JSONDecodeError:
-        form.add_error(None, 'Invalid GLB anchor')
-        return self.form_invalid(form)
-      except glb_alignment.GlbAlignmentError as e:
-        form.add_error(None, e.message)
-        return self.form_invalid(form)
+    # glb-alignment.js posts a staged GLB (token + anchor) or a moved saved GLB (anchor);
+    # they are persisted like the Accept and Save position buttons do
+    error = self._save_glb_changes(
+      form, self.request.POST.get('glb_token'), self.request.POST.get('glb_anchor'))
+    if error:
+      form.add_error(None, error)
+      return self.form_invalid(form)
     return super().form_valid(form)
 
 class SceneImportView(SuperUserCheck, CreateView):

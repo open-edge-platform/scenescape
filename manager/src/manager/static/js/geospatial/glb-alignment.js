@@ -8,6 +8,8 @@
 const MOVING_OPACITY = 0.25;
 const DEFAULT_OPACITY = 0.6;
 const SAVED_OPACITY = 1;
+const FRAME_APPLIED = "#2e7d32";
+const FRAME_UNAPPLIED = "#c62828";
 const GLB_ACCEPTED_VIEW_KEY = "glbAcceptedView";
 const MAP_EMPTY_HINT =
   "Set the map location and save the scene before aligning a 3D model.";
@@ -113,6 +115,7 @@ class GlbAlignment {
         this._cancel("Map provider changed; upload the 3D model again.");
     });
 
+    on(this.ui.file, "click", (e) => this._confirmReplaceStaged(e));
     on(this.ui.file, "change", (e) => this._handleFileUpload(e));
     on(this.ui.opacity, "input", (e) => {
       this.opacity = parseFloat(e.target.value);
@@ -154,7 +157,7 @@ class GlbAlignment {
       }
     });
     const form = row.closest("form");
-    if (form) on(form, "submit", () => this._attachSavedAnchor(form));
+    if (form) on(form, "submit", () => this._attachGlbChanges(form));
   }
 
   _strategy() {
@@ -224,8 +227,22 @@ class GlbAlignment {
     if (this.ui.useCheckbox) {
       this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
     }
-    this.ui.savedBlock.style.display = "";
+    this._updateSavedBlockVisibility();
     this._updateControlsVisibility();
+  }
+
+  // The saved block is hidden while a replacement is staged, so only one state shows.
+  _updateSavedBlockVisibility() {
+    if (!this.ui.savedBlock) return;
+    this.ui.savedBlock.style.display = this.saved && !this.staged ? "" : "none";
+  }
+
+  _frameColor() {
+    return this.saved?.use_glb_map ? FRAME_APPLIED : FRAME_UNAPPLIED;
+  }
+
+  _updateMapFrame() {
+    if (this.mapReady) this._strategy().setOverlayFrameColor(this._frameColor());
   }
 
   _updateControlsVisibility() {
@@ -247,10 +264,24 @@ class GlbAlignment {
         this.saved.preview_url,
         corners,
         SAVED_OPACITY,
+        this._frameColor(),
       );
     } catch (e) {
       console.error("Failed to draw saved overlay:", e);
     }
+  }
+
+  _confirmReplaceStaged(e) {
+    if (!this.staged && !this.saved) return;
+
+    const msg = this.staged
+      ? "Discard the staged 3D model and choose a new one?"
+      : "Replace the saved 3D model with a new one? The saved model is kept until you accept the new one.";
+    if (!window.confirm(msg)) {
+      e.preventDefault();
+      return;
+    }
+    if (this.staged) this._cancel();
   }
 
   async _handleFileUpload(e) {
@@ -283,16 +314,16 @@ class GlbAlignment {
       this.opacity = DEFAULT_OPACITY;
       this.dirty = false;
       this._updateInputs();
+      this._updateSavedBlockVisibility();
       this.ui.controls.style.display = "";
       this._updateControlsVisibility();
       this.ui.footprint.textContent = `Footprint: ${this.staged.footprint.width.toFixed(1)} × ${this.staged.footprint.height.toFixed(1)} m`;
 
       const corners = buildOverlayCorners(this.anchor, this.staged.footprint);
       this._strategy().setOverlay(this.staged.imageUrl, corners, this.opacity);
-      this._strategy().fitToCorners(corners);
       e.target.value = "";
     } catch (error) {
-      this.ui.status.textContent = error.message;
+      this._showError(error.message);
     } finally {
       this.uploading = false;
       this._updateLocks();
@@ -400,7 +431,7 @@ class GlbAlignment {
     } catch (error) {
       this.saving = false;
       this._updateLocks();
-      this.ui.status.textContent = error.message;
+      this._showError(error.message);
     }
   }
 
@@ -434,6 +465,16 @@ class GlbAlignment {
     this._render();
   }
 
+  // Renders an error like Django form errors: a ul.errorlist with one li.
+  _showError(message) {
+    const list = document.createElement("ul");
+    list.className = "errorlist";
+    const item = document.createElement("li");
+    item.textContent = message;
+    list.appendChild(item);
+    this.ui.status.replaceChildren(list);
+  }
+
   _cancel(status = "") {
     try {
       this._strategy().removeOverlay();
@@ -447,6 +488,7 @@ class GlbAlignment {
       this.anchor = null;
     }
     this.dirty = false;
+    this._updateSavedBlockVisibility();
     this._updateControlsVisibility();
     this.ui.status.textContent = status;
   }
@@ -473,23 +515,35 @@ class GlbAlignment {
       this._updateControlsVisibility();
       this.ui.status.textContent = "Position saved";
     } catch (error) {
-      this.ui.status.textContent = error.message;
+      this._showError(error.message);
     } finally {
       this.saving = false;
       this._updateLocks();
     }
   }
 
-  // Save Scene Updates carries a shifted saved anchor; SceneUpdateView.form_valid persists it.
-  _attachSavedAnchor(form) {
+  // Save Scene Updates carries a staged GLB (token + anchor) or a shifted saved anchor;
+  // SceneUpdateView.form_valid persists them.
+  _attachGlbChanges(form) {
+    form.querySelector('input[name="glb_token"]')?.remove();
     form.querySelector('input[name="glb_anchor"]')?.remove();
-    if (!this.saved || this.staged || !this.dirty || !this.anchor) return;
+    if (!this.anchor || this.ui.mapType.value !== "geospatial_map") return;
 
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = "glb_anchor";
-    input.value = JSON.stringify(this.anchor);
-    form.appendChild(input);
+    const fields = [];
+    if (this.staged) {
+      fields.push(["glb_token", this.staged.token]);
+    } else if (!this.saved || !this.dirty) {
+      return;
+    }
+    fields.push(["glb_anchor", JSON.stringify(this.anchor)]);
+
+    for (const [name, value] of fields) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    }
     // The submit navigates away, so the unsaved-changes prompt must not fire.
     this.dirty = false;
   }
@@ -511,12 +565,13 @@ class GlbAlignment {
       );
 
       this.saved.use_glb_map = response.use_glb_map;
+      this._updateMapFrame();
       this.ui.status.textContent = this.saved.use_glb_map
         ? "3D model applied to scene map"
         : "3D model overlay only";
     } catch (error) {
       this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
-      this.ui.status.textContent = error.message;
+      this._showError(error.message);
     } finally {
       this.saving = false;
       this._updateLocks();
@@ -543,11 +598,11 @@ class GlbAlignment {
       this.anchor = null;
       this.dirty = false;
       this._updateControlsVisibility();
-      if (this.ui.savedBlock) this.ui.savedBlock.style.display = "none";
+      this._updateSavedBlockVisibility();
       this._strategy().removeOverlay();
       this.ui.status.textContent = "3D model removed";
     } catch (error) {
-      this.ui.status.textContent = error.message;
+      this._showError(error.message);
     } finally {
       this.saving = false;
       this._updateLocks();
@@ -564,7 +619,8 @@ class GlbAlignment {
     }
     const response = await fetch(url, { method, headers, body });
     if (response.status === 204) return {};
-    const data = await response.json();
+    // Proxy errors (e.g. 413 from a front-end limit) are not JSON.
+    const data = await response.json().catch(() => ({}));
     if (!response.ok)
       throw new Error(data.error || `Request failed (${response.status})`);
     return data;
