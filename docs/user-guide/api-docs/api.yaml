@@ -2575,6 +2575,287 @@ paths:
                       - deny
         "401":
           description: Unauthorized
+  /scene/{uid}/mapping-artifacts:
+    get:
+      tags:
+        - scene
+      operationId: scene_mapping_artifacts_list
+      summary: List mapping resume artifacts for a scene
+      description: >-
+        Returns every method's current resume zip metadata, including the
+        optional manifest. The zip itself is downloaded from the method path.
+        Requires an authenticated token. Reads are allowed for any authenticated
+        user.
+      parameters:
+        - $ref: "#/components/parameters/SceneUid"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Artifacts ordered by method. An empty list means none are stored.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MappingArtifact"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Scene not found
+  /scene/{uid}/mapping-artifacts/{method}:
+    parameters:
+      - $ref: "#/components/parameters/SceneUid"
+      - $ref: "#/components/parameters/MappingMethod"
+    get:
+      tags:
+        - scene
+      operationId: scene_mapping_artifact_retrieve
+      summary: Download one method's mapping resume zip
+      description: >-
+        Returns the current zip for this method. The response header
+        X-Scenescape-Sha256 is the stored digest, recomputed when the file size
+        no longer matches. Requires an authenticated token.
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Resume zip for this method
+          headers:
+            Content-Disposition:
+              description: attachment; filename=<method>.zip
+              schema:
+                type: string
+              required: true
+            X-Scenescape-Sha256:
+              description: Lowercase hex SHA-256 of the zip
+              schema:
+                type: string
+                pattern: ^[0-9a-f]{64}$
+              required: true
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid mapping method
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Scene or artifact not found
+    put:
+      tags:
+        - scene
+      operationId: scene_mapping_artifact_update
+      summary: Store one method's mapping resume zip
+      description: >-
+        Replaces any previous zip for this method. The mesh is uploaded
+        separately as the scene map. Unknown form fields are ignored. Requires
+        a superuser token. The zip must be at most 512 MiB.
+      security:
+        - tokenAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                bundle:
+                  type: string
+                  format: binary
+                  description: Resume zip for this method
+                sha256:
+                  type: string
+                  pattern: ^[0-9a-fA-F]{64}$
+                  description: SHA-256 of the uploaded zip. Compared case-insensitively.
+                fiducials:
+                  type: string
+                  description: >-
+                    Optional JSON list of fiducials. When omitted, fiducials are
+                    taken from manifest.json inside the zip.
+                contributor:
+                  type: string
+                  maxLength: 200
+                  description: Optional contributor recorded with the artifact
+              required:
+                - bundle
+                - sha256
+      responses:
+        "200":
+          description: Stored artifact metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MappingArtifact"
+        "400":
+          description: >-
+            Missing bundle or sha256, digest mismatch, invalid method, or a zip
+            that fails method validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can upload artifacts
+        "404":
+          description: Scene not found
+        "409":
+          description: Concurrent mapping change; retry the upload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "413":
+          description: Mapping artifact exceeds 512 MiB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+    delete:
+      tags:
+        - scene
+      operationId: scene_mapping_artifact_delete
+      summary: Delete one method's mapping resume zip
+      description: >-
+        Deletes this method's current zip without removing its mesh. Requires a
+        superuser token.
+      security:
+        - tokenAuth: []
+      responses:
+        "204":
+          description: Artifact deleted
+        "400":
+          description: Invalid mapping method
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can delete artifacts
+        "404":
+          description: Scene or artifact not found
+  /scene/{uid}/maps:
+    get:
+      tags:
+        - scene
+      operationId: scene_source_maps_list
+      summary: List recorded source meshes for a scene
+      description: >-
+        Returns the current mesh from each method and the method whose mesh is
+        mirrored into the scene map. Requires an authenticated token.
+      parameters:
+        - $ref: "#/components/parameters/SceneUid"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Source meshes ordered by method
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceMapList"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Scene not found
+  /scene/{uid}/maps/{method}:
+    parameters:
+      - $ref: "#/components/parameters/SceneUid"
+      - $ref: "#/components/parameters/MappingMethod"
+    get:
+      tags:
+        - scene
+      operationId: scene_source_map_retrieve
+      summary: Get one method's source mesh
+      description: Requires an authenticated token. POST on this path is not supported.
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Source mesh metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceMap"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Scene or source map not found
+    delete:
+      tags:
+        - scene
+      operationId: scene_source_map_delete
+      summary: Delete one method's source mesh
+      description: >-
+        Deletes this method's mesh and its resume zip. The default map cannot
+        be deleted. Requires a superuser token.
+      security:
+        - tokenAuth: []
+      responses:
+        "204":
+          description: Source map deleted
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can delete source maps
+        "404":
+          description: Scene or source map not found
+        "409":
+          description: Cannot delete the default map, or a concurrent mapping change is in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+  /scene/{uid}/maps/{method}/activate:
+    post:
+      tags:
+        - scene
+      operationId: scene_source_map_activate
+      summary: Make one method's mesh the scene default
+      description: >-
+        Copies that mesh into the scene map and records it as the default
+        source. Requires a superuser token. Activation is only this path; POST
+        on the map resource returns 405.
+      parameters:
+        - $ref: "#/components/parameters/SceneUid"
+        - $ref: "#/components/parameters/MappingMethod"
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Activated source mesh
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceMap"
+        "400":
+          description: Source map does not belong to this scene
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can activate a source map
+        "404":
+          description: Scene or source map not found
+        "409":
+          description: Source map has no GLB file, or a concurrent mapping change is in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
   /scene/{uid}/export:
     get:
       tags:
@@ -2679,6 +2960,23 @@ paths:
         "500":
           description: Internal server error
 components:
+  parameters:
+    SceneUid:
+      name: uid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MappingMethod:
+      name: method
+      in: path
+      required: true
+      description: Mapping method slug. Must match [a-z][a-z0-9_-]{0,31}.
+      schema:
+        type: string
+        maxLength: 32
+        pattern: ^[a-z][a-z0-9_-]{0,31}$
   schemas:
     AccessEnum:
       enum:
@@ -3104,8 +3402,6 @@ components:
               required:
                 - width
                 - height
-          type: object
-          additionalProperties: {}
         ptz_calibration:
           type: object
           additionalProperties: true
@@ -3802,6 +4098,46 @@ components:
             - scene
           maxProperties: 1
       properties:
+        pose_locked:
+          type: boolean
+          default: false
+          description: >-
+            When true (Pose locked), live MQTT extrinsics and optics
+            (intrinsics, distortion, resolution) are ignored and configuration
+            refreshes reload stored calibration. When false, calibration
+            initializes the runtime pose and the latest valid observed pose is
+            retained in cache across frames and refreshes while optics refresh;
+            missing or invalid extrinsics do not reset that pose. Switching to
+            locked reapplies stored calibration. Omitted updates preserve the
+            current value. Existing database cameras are backfilled as locked;
+            new creates default unlocked until calibrated (calibrate UI defaults
+            locked). Runtime retention ends on removal, scene reassignment, or
+            process restart; observations never modify stored calibration.
+        calibration_origin:
+          type: string
+          maxLength: 64
+          default: manager.rest
+          description: >-
+            Durable calibration writer identity used as pose_provenance.origin
+            when Analytics/Controller load Manager config (manager.rest,
+            manager.mesh, manager.import). Scene import and Generate Mesh set
+            this automatically; REST/3D pose saves default to manager.rest.
+        pose_provenance:
+          type: object
+          readOnly: true
+          description: >-
+            Effective durable calibration provenance for scene payloads
+            ({class: calibration, origin: <calibration_origin>}). Regulated
+            MQTT cameras may instead report class live after an accepted
+            observation; see ADR 18.
+          properties:
+            class:
+              type: string
+              enum: [calibration, live]
+            origin:
+              type: string
+            updated_at:
+              type: string
         uid:
           type: string
           readOnly: true
@@ -3895,6 +4231,20 @@ components:
             format: double
           minItems: 3
           maxItems: 4
+          readOnly: true
+        pose_matrix:
+          type: array
+          items:
+            type: array
+            minItems: 4
+            maxItems: 4
+            items:
+              type: number
+              format: double
+          minItems: 4
+          maxItems: 4
+          readOnly: true
+          description: Row-major 4x4 camera-to-scene home pose matrix computed by Manager for every transform type. Present only when the camera has a scene and pose.
         scale:
           type: array
           description: Camera scale [x, y, z]. Written only with `transform_type` euler or quaternion.
@@ -3928,6 +4278,11 @@ components:
               required:
                 - width
                 - height
+        ptz_calibration:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Versioned PTZ calibration block validated against the Positioning v1 calibration contract.
         scene:
           type: string
           format: uuid
@@ -4187,6 +4542,10 @@ components:
           readOnly: true
         name:
           type: string
+          description: >
+            Scene name. Letters, digits, spaces, dashes, underscores, and dots
+            only; must not start with a dot or contain '..'.
+          pattern: ^(?!.*\.\.)(?!\.)[\w \-.]+$
           maxLength: 150
         map_type:
           oneOf:
@@ -4411,6 +4770,31 @@ components:
           default: 0.0
           title: Map Bearing/Rotation (degrees)
           description: Rotation angle for the geospatial map view in degrees
+        map_contributor:
+          type: string
+          maxLength: 200
+          default: ""
+          description: Last contributor recorded for the scene map.
+        source:
+          type: string
+          writeOnly: true
+          maxLength: 32
+          pattern: ^[a-z][a-z0-9_-]{0,31}$
+          description: >-
+            Method slug recorded as the source of an uploaded GLB. Must match
+            [a-z][a-z0-9_-]{0,31}.
+        map_source:
+          type: string
+          readOnly: true
+          nullable: true
+          maxLength: 32
+          description: Method slug of the mesh currently mirrored into the scene map. Omitted when none is recorded.
+        mapping_artifacts:
+          type: array
+          readOnly: true
+          description: Current resume artifact for each mapping method. Omitted when none are stored.
+          items:
+            $ref: "#/components/schemas/SceneMappingArtifactSummary"
         calibration_markers:
           type: array
           items:
@@ -4867,6 +5251,31 @@ components:
           default: 0.0
           title: Map Bearing/Rotation (degrees)
           description: Rotation angle for the geospatial map view in degrees
+        map_contributor:
+          type: string
+          maxLength: 200
+          default: ""
+          description: Last contributor recorded for the scene map.
+        source:
+          type: string
+          writeOnly: true
+          maxLength: 32
+          pattern: ^[a-z][a-z0-9_-]{0,31}$
+          description: >-
+            Method slug recorded as the source of an uploaded GLB. Must match
+            [a-z][a-z0-9_-]{0,31}.
+        map_source:
+          type: string
+          readOnly: true
+          nullable: true
+          maxLength: 32
+          description: Method slug of the mesh currently mirrored into the scene map. Omitted when none is recorded.
+        mapping_artifacts:
+          type: array
+          readOnly: true
+          description: Current resume artifact for each mapping method. Omitted when none are stored.
+          items:
+            $ref: "#/components/schemas/SceneMappingArtifactSummary"
         calibration_markers:
           type: array
           items:
@@ -5181,6 +5590,160 @@ components:
       required:
         - password
         - username
+    ErrorMessage:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    MappingArtifact:
+      type: object
+      description: Metadata for one method's current resume zip.
+      properties:
+        id:
+          type: string
+          format: uuid
+        method:
+          type: string
+          maxLength: 32
+          pattern: ^[a-z][a-z0-9_-]{0,31}$
+        created:
+          type: string
+          format: date-time
+          nullable: true
+        contributor:
+          type: string
+          maxLength: 200
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        size:
+          type: integer
+          minimum: 0
+        fiducials:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fiducial"
+        manifest:
+          type: object
+          additionalProperties: true
+    SceneMappingArtifactSummary:
+      type: object
+      description: Resume-artifact metadata embedded in a scene. Size is omitted here.
+      properties:
+        id:
+          type: string
+          format: uuid
+        method:
+          type: string
+          maxLength: 32
+        created:
+          type: string
+          format: date-time
+          nullable: true
+        contributor:
+          type: string
+          maxLength: 200
+        sha256:
+          type: string
+        fiducials:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fiducial"
+        manifest:
+          type: object
+          additionalProperties: true
+    Fiducial:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - apriltag
+            - aruco
+        family:
+          type: string
+        id:
+          type: string
+        size_m:
+          type: number
+          format: double
+        t:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: number
+            format: double
+        q:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            type: number
+            format: double
+        observations:
+          type: integer
+          minimum: 0
+    SourceMap:
+      type: object
+      properties:
+        method:
+          type: string
+          maxLength: 32
+        contributor:
+          type: string
+          maxLength: 200
+        created:
+          type: string
+          format: date-time
+          nullable: true
+        sha256:
+          type: string
+        transform:
+          type: object
+          additionalProperties: true
+          properties:
+            translation:
+              type: array
+              items:
+                type: number
+                format: double
+            rotation:
+              type: array
+              items:
+                type: number
+                format: double
+            scale:
+              type: array
+              items:
+                type: number
+                format: double
+        is_default:
+          type: boolean
+        file:
+          type: string
+          format: uri
+          nullable: true
+        thumbnail:
+          type: string
+          format: uri
+          nullable: true
+    SourceMapList:
+      type: object
+      properties:
+        default:
+          type: string
+          nullable: true
+          description: Method whose mesh is mirrored into the scene map.
+        maps:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceMap"
+      required:
+        - default
+        - maps
   securitySchemes:
     tokenAuth:
       type: apiKey
