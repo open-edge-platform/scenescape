@@ -9,6 +9,7 @@ import queue
 import threading
 
 import orjson
+from pathlib import Path
 import pytest
 import tempfile
 from collections import defaultdict
@@ -22,10 +23,143 @@ from controller.scene_controller import (FAILURE_RATE_LIMIT_WINDOW_S, RateLimite
 from scene_common.mqtt import PubSub
 
 
+CONTROLLER_CONFIG_DIR = Path(__file__).resolve().parents[3] / 'controller' / 'config'
+LEGACY_ASSOCIATION = {'method': 'euclidean', 'gate_probability': 0.99, 'max_radius_m': None}
+
+
 def _set_failure_log_limiter(controller):
   """SceneController.__new__ skips __init__, so install the failure log limiter."""
   controller._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_S)
   return controller
+
+
+class TestSceneControllerInitialization:
+  """Constructor setup that must happen before the MQTT loop starts."""
+
+  def test_connects_pubsub_to_configured_broker(self):
+    with (
+      patch('controller.scene_controller.PubSub') as pubsub_class,
+      patch('controller.scene_controller.SchemaValidation'),
+      patch('controller.scene_controller.CacheManager'),
+      patch('controller.scene_controller.ExternalSourcePoseCache'),
+      patch('controller.scene_controller.IdentityClaimRegistry'),
+      patch('controller.scene_controller.threading.Thread'),
+    ):
+      SceneController(
+        False, False, 30, 'broker.example', None, 'https://manager/api',
+        None, None, None, 'ntp.example', None, 'schema.json', 'regulated', None)
+
+    pubsub_class.return_value.connect.assert_called_once_with()
+
+
+class TestSceneControllerExtractTrackerConfigAssociation:
+  """Association block parsing from tracker-config.json."""
+
+  @pytest.mark.parametrize('config_file, expected', [
+    ('tracker-config.json', LEGACY_ASSOCIATION),
+    ('tracker-config-immediate.json', LEGACY_ASSOCIATION),
+    ('tracker-config-persist-attr.json', LEGACY_ASSOCIATION),
+    ('tracker-config-mahalanobis.json',
+     {'method': 'position_mahalanobis', 'gate_probability': 0.99, 'max_radius_m': 10.0}),
+  ])
+  def test_shipped_configs_select_the_association(self, config_file, expected):
+    # The shipped configs keep the legacy Euclidean association on the objects' tracking_radius;
+    # tracker-config-mahalanobis.json is the probabilistic alternative.
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+
+    scene_controller.extractTrackerConfigData(str(CONTROLLER_CONFIG_DIR / config_file))
+
+    assert scene_controller.tracker_config_data['association'] == expected
+
+  @pytest.mark.parametrize('association', [
+    {'method': 'bogus', 'gate_probability': 0.95, 'max_radius_m': 7.0},
+    {'method': 'euclidian', 'max_radius_m': 3.0},
+    {'method': [], 'max_radius_m': 3.0},
+    {'method': {}},
+    'euclidean',
+    ['euclidean', 3.0],
+  ])
+  def test_extract_association_malformed_block_uses_default_block(self, tmp_path, association):
+    # A malformed block (unknown method, not an object) is dropped as a whole: its other fields were meant for
+    # another method, and keeping them mixes two configs.
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    config_path = tmp_path / 'tracker-config.json'
+    config_path.write_text(json.dumps({
+      'max_unreliable_time_s': 1.0,
+      'non_measurement_time_dynamic_s': 0.8,
+      'non_measurement_time_static_s': 1.6,
+      'time_chunking_enabled': True,
+      'time_chunking_rate_fps': 10,
+      'association': association,
+    }))
+
+    with patch('controller.scene_controller.log') as log:
+      scene_controller.extractTrackerConfigData(str(config_path))
+
+    assert scene_controller.tracker_config_data['association'] == {
+      'method': 'position_mahalanobis',
+      'gate_probability': 0.99,
+      'max_radius_m': 10.0,
+    }
+    log.error.assert_called_once()
+
+  def test_extract_association_position_mahalanobis(self, tmp_path):
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    config_path = tmp_path / 'tracker-config.json'
+    config_path.write_text(json.dumps({
+      'max_unreliable_time_s': 1.0,
+      'non_measurement_time_dynamic_s': 0.8,
+      'non_measurement_time_static_s': 1.6,
+      'association': {
+        'method': 'position_mahalanobis',
+        'gate_probability': 0.99,
+        'max_radius_m': 10.0,
+      },
+    }))
+
+    scene_controller.extractTrackerConfigData(str(config_path))
+
+    association = scene_controller.tracker_config_data['association']
+    assert association['method'] == 'position_mahalanobis'
+    assert association['max_radius_m'] == pytest.approx(10.0)
+
+  @pytest.mark.parametrize('max_radius_m, warnings', [(2.0, 1), (10.0, 0)])
+  def test_extract_association_warns_once_on_tight_mahalanobis_ceiling(self, tmp_path, max_radius_m, warnings):
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    config_path = tmp_path / 'tracker-config.json'
+    config_path.write_text(json.dumps({
+      'max_unreliable_time_s': 1.0,
+      'non_measurement_time_dynamic_s': 0.8,
+      'non_measurement_time_static_s': 1.6,
+      'association': {'method': 'position_mahalanobis', 'max_radius_m': max_radius_m},
+    }))
+
+    with patch('controller.ilabs_tracking.log') as log:
+      scene_controller.extractTrackerConfigData(str(config_path))
+
+    assert log.warning.call_count == warnings
+
+  def test_extract_association_euclidean_without_max_radius_gates_on_tracking_radius(self, tmp_path):
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    config_path = tmp_path / 'tracker-config.json'
+    config_path.write_text(json.dumps({
+      'max_unreliable_time_s': 1.0,
+      'non_measurement_time_dynamic_s': 0.8,
+      'non_measurement_time_static_s': 1.6,
+      'association': {'method': 'euclidean'},
+    }))
+
+    scene_controller.extractTrackerConfigData(str(config_path))
+
+    association = scene_controller.tracker_config_data['association']
+    assert association['method'] == 'euclidean'
+    # The tracker gates on the objects' tracking_radius, as before the association block.
+    assert association['max_radius_m'] is None
 
 
 class TestSceneControllerExtractTrackerRate:
@@ -303,6 +437,71 @@ class TestSceneDeserializeReidConfigPropagation:
     assert scene.pose_adjustment._resolved_detection_types['pedestrian'] == 'person'
 
 
+class TestSceneDeserializeAssociationConfigPropagation:
+  """Regression: association_config from scene data must reach the live tracker."""
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_deserialize_applies_association_config_to_tracker(self, mock_tracking):
+    """Deserialize with association_config updates scene and tracker association."""
+    mock_tracker = MagicMock()
+    mock_tracking.return_value = mock_tracker
+
+    from controller.scene import Scene
+    association = {
+      'method': 'position_mahalanobis',
+      'gate_probability': 0.95,
+      'max_radius_m': 10.0,
+    }
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene_data = {
+        'uid': 'test-uid-assoc-1',
+        'name': 'test_scene',
+        'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'association_config': association,
+      }
+      scene = Scene.deserialize(scene_data)
+
+    assert scene.association_config['method'] == 'position_mahalanobis'
+    assert scene.association_config['gate_probability'] == pytest.approx(0.95)
+    assert scene.association_config['max_radius_m'] == pytest.approx(10.0)
+    mock_tracker.applyAssociationConfig.assert_called()
+    applied = mock_tracker.applyAssociationConfig.call_args.args[0]
+    assert applied['method'] == 'position_mahalanobis'
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_update_scene_pushes_association_without_recreating_tracker(self, mock_tracking):
+    """Hydrate/updateScene applies association even when timing params are unchanged."""
+    mock_tracker = MagicMock()
+    mock_tracking.return_value = mock_tracker
+
+    from controller.scene import Scene
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene = Scene.deserialize({
+        'uid': 'test-uid-assoc-2',
+        'name': 'test_scene',
+        'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+      })
+      mock_tracker.applyAssociationConfig.reset_mock()
+      scene.updateScene({
+        'uid': 'test-uid-assoc-2',
+        'name': 'test_scene',
+        'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'association_config': {
+          'method': 'position_mahalanobis',
+          'gate_probability': 0.99,
+          'max_radius_m': 8.0,
+        },
+      })
+
+    assert scene.association_config['method'] == 'position_mahalanobis'
+    mock_tracker.applyAssociationConfig.assert_called()
+
+
 class TestSceneControllerPublishers:
   """Unit tests for SceneController publish* methods."""
 
@@ -346,6 +545,23 @@ class TestSceneControllerPublishers:
       payload = orjson.loads(call.args[1])
       assert payload['objects'] == []
     assert scene_controller.publishExternalDetections.call_count == 2
+
+  def test_publish_detections_attaches_source_camera_id(self):
+    scene_controller = self._build_controller('regulated')
+    scene_controller.publishExternalDetections = MagicMock()
+    scene = SimpleNamespace(uid='scene-1', name='Test Scene')
+    extrinsics = {'translation': [1.0, 2.0, 3.0], 'rotation': [0.0, 0.0, 0.0]}
+    jdata = {'timestamp': '2026-01-01T00:00:01Z', 'extrinsics': extrinsics}
+
+    with patch('controller.scene_controller.metrics'), \
+         patch('controller.scene_controller.buildDetectionsList', return_value=[]):
+      scene_controller.publishDetections(scene, [], 1.0, 'person', jdata, 'handheld-01')
+
+    payload = orjson.loads(scene_controller.pubsub.publish.call_args.args[1])
+    assert payload['camera_id'] == 'handheld-01'
+    # The per-message pose rides through untouched for analytics.
+    assert payload['extrinsics'] == extrinsics
+    scene_controller.publishExternalDetections.assert_called_once()
 
   def test_publish_external_detections_publishes_with_sensor_enriched_objects(self):
     """Hierarchy publish strips the dynamic external-source envelope."""
@@ -742,12 +958,35 @@ class TestSceneControllerHandleExternalSourceObject:
     controller.trusted_positioning_sources = frozenset({'positioning-svc-1'})
     return controller
 
+  @staticmethod
+  def _build_scene(camera_pose=None):
+    """Scene stub that records createMovingObjectsForSceneData / finishProcessing."""
+    def create_moving(jdata, source, pose, detection_type, when=None):
+      objects = list(jdata.get('objects', []))
+      if source.retrack:
+        return objects, []
+      return [], objects
+
+    return SimpleNamespace(
+      uid='scene-1',
+      createMovingObjectsForSceneData=MagicMock(side_effect=create_moving),
+      finishProcessing=MagicMock(),
+      processSceneData=MagicMock(),
+      _camera_pose=camera_pose,
+    )
+
+  @staticmethod
+  def _resolved_jdata(call_args):
+    return call_args.args[2]
+
   def test_ingests_objects_when_pose_resolves(self):
-    """Omitted track uses tracking and source ids as internal hints."""
+    """Omitted track tracks detections; platform still merges as trusted id."""
     scene_controller = self._build_controller()
     fake_camera_pose = MagicMock()
-    scene_controller.external_source_pose_cache.resolve.return_value = (fake_camera_pose, None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    source_state = SimpleNamespace(cameras=None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      fake_camera_pose, source_state, None)
+    scene = self._build_scene(fake_camera_pose)
     jdata = {
       'source_id': 'drone-1',
       'objects': [{'id': 'agent-track-1', 'category': 'vehicle', 'translation': [1.0, 2.0, 0.0]}],
@@ -756,74 +995,231 @@ class TestSceneControllerHandleExternalSourceObject:
     result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
     assert result is True
-    scene_controller.external_source_pose_cache.resolve.assert_called_once_with(
-      scene, 'drone-1', None, 42.0, trusted_scene_pose=False)
-    scene.processSceneData.assert_called_once()
-    args, kwargs = scene.processSceneData.call_args
-    assert args[0] is not jdata
-    assert args[0]['objects'] == [
-      {
-        'id': 'tracked:drone-1:vehicle:agent-track-1',
-        'category': 'vehicle',
-        'translation': [1.0, 2.0, 0.0],
-      },
-    ]
+    resolve_args = scene_controller.external_source_pose_cache.resolveMessage.call_args
+    assert resolve_args.args[:2] == (scene, 'drone-1')
+    assert resolve_args.kwargs == {'trusted_scene_pose': False}
+    resolved = self._resolved_jdata(resolve_args)
+    assert resolved['source_id'] == 'drone-1'
+    assert any(obj['id'] == 'drone-1' for obj in resolved['objects'])
     assert jdata['objects'][0]['id'] == 'agent-track-1'
-    assert args[1].name == 'drone-1'
-    assert args[1].retrack is True
-    assert args[2] is fake_camera_pose
-    assert args[3] == 'vehicle'
-    assert kwargs == {'when': 42.0}
+
+    create_calls = scene.createMovingObjectsForSceneData.call_args_list
+    assert len(create_calls) == 2
+    platform_jdata, platform_source, pose, dtype = create_calls[0].args[:4]
+    assert platform_source.retrack is False
+    assert platform_jdata['objects'] == [{
+      'id': 'drone-1',
+      'category': 'vehicle',
+      'translation': [0.0, 0.0, 0.0],
+      'rotation': [0.0, 0.0, 0.0, 1.0],
+      'source_id': 'drone-1',
+    }]
+    assert pose is fake_camera_pose
+    assert dtype == 'vehicle'
+    assert create_calls[0].kwargs == {'when': 42.0}
+
+    tracked_jdata, tracked_source, _, _ = create_calls[1].args[:4]
+    assert tracked_source.retrack is True
+    assert tracked_jdata['objects'] == [{
+      'id': 'tracked:drone-1:vehicle:agent-track-1',
+      'category': 'vehicle',
+      'translation': [1.0, 2.0, 0.0],
+      'source_id': 'drone-1',
+    }]
+
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert [obj['id'] for obj in moving] == ['tracked:drone-1:vehicle:agent-track-1']
+    assert [obj['id'] for obj in already] == ['drone-1']
+    scene.processSceneData.assert_not_called()
 
   def test_trusted_scene_pose_flag_is_passed_through(self):
     """Only allowlisted source_ids are marked trusted for scene-frame poses."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = self._build_scene()
     jdata = {'source_id': 'positioning-svc-1', 'objects': []}
 
     scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
-    scene_controller.external_source_pose_cache.resolve.assert_called_once_with(
-      scene, 'positioning-svc-1', None, 42.0, trusted_scene_pose=True)
+    resolve_args = scene_controller.external_source_pose_cache.resolveMessage.call_args
+    assert resolve_args.args[:2] == (scene, 'positioning-svc-1')
+    assert resolve_args.kwargs == {'trusted_scene_pose': True}
+
+  def test_pose_only_message_emits_platform_object(self):
+    """Pose-only (empty objects) still materializes the platform on object output."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = self._build_scene()
+    jdata = {'source_id': 'drone-1', 'objects': []}
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
+
+    scene.createMovingObjectsForSceneData.assert_called_once()
+    platform_jdata, platform_source, _, _ = scene.createMovingObjectsForSceneData.call_args.args[:4]
+    assert platform_source.retrack is False
+    assert platform_jdata['objects'] == [{
+      'id': 'drone-1',
+      'category': 'person',
+      'translation': [0.0, 0.0, 0.0],
+      'rotation': [0.0, 0.0, 0.0, 1.0],
+      'source_id': 'drone-1',
+    }]
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert moving == []
+    assert [obj['id'] for obj in already] == ['drone-1']
+
+  def test_adapter_provided_platform_is_not_duplicated(self):
+    """Adapters that already publish id==source_id do not get a second platform."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = self._build_scene()
+    jdata = {
+      'source_id': 'drone-1',
+      'track': False,
+      'objects': [{
+        'id': 'drone-1',
+        'category': 'vehicle',
+        'translation': [0.0, 0.0, 0.0],
+        'size': [1.2, 0.8, 0.4],
+      }],
+    }
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    scene.createMovingObjectsForSceneData.assert_called_once()
+    objects = scene.createMovingObjectsForSceneData.call_args.args[0]['objects']
+    assert len(objects) == 1
+    assert objects[0]['id'] == 'drone-1'
+    assert objects[0]['size'] == [1.2, 0.8, 0.4]
+
+  def test_cached_cameras_attach_to_platform_object(self):
+    """Known camera config is projected onto the platform for object-graph frustums."""
+    scene_controller = self._build_controller()
+    cameras = [{
+      'id': 'front',
+      'mount': {'translation': [0.1, 0.0, 0.0], 'rotation': [0.0, 0.0, 0.0, 1.0]},
+      'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+    }]
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=cameras, intrinsics=None, distortion=None), None)
+    scene = self._build_scene()
+    jdata = {'source_id': 'drone-1', 'objects': []}
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    platform = scene.createMovingObjectsForSceneData.call_args.args[0]['objects'][0]
+    assert platform['id'] == 'drone-1'
+    assert platform['cameras'] == cameras
+    assert 'objects' not in platform['cameras'][0]
+
+  def test_legacy_intrinsics_become_default_platform_camera(self):
+    """Single-view cached intrinsics map to an identity-mount platform camera."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(),
+      SimpleNamespace(
+        cameras=None,
+        intrinsics={'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
+        distortion={'k1': -0.1},
+      ),
+      None)
+    scene = self._build_scene()
+
+    scene_controller._handleExternalSourceObject(
+      scene, {'source_id': 'drone-1', 'objects': []}, 'vehicle', 42.0)
+
+    platform = scene.createMovingObjectsForSceneData.call_args.args[0]['objects'][0]
+    assert platform['cameras'] == [{
+      'id': 'default',
+      'mount': {
+        'translation': [0.0, 0.0, 0.0],
+        'rotation': [0.0, 0.0, 0.0, 1.0],
+      },
+      'intrinsics': {'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
+      'distortion': {'k1': -0.1},
+    }]
+
+  def test_legacy_intrinsics_attach_after_resolution_on_same_message(self):
+    """First legacy top-level intrinsics appear on this message's platform."""
+    scene_controller = self._build_controller()
+    pose_state = SimpleNamespace(cameras=None, intrinsics=None, distortion=None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), pose_state, None)
+
+    def resolve_intrinsics(_scene_uid, _source_id, intrinsics, distortion, _when):
+      pose_state.intrinsics = dict(intrinsics)
+      pose_state.distortion = None if distortion is None else dict(distortion)
+      return MagicMock(), None
+
+    scene_controller.external_source_pose_cache.resolveIntrinsics.side_effect = (
+      resolve_intrinsics)
+    scene = self._build_scene()
+    jdata = {
+      'source_id': 'drone-1',
+      'intrinsics': {'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
+      'objects': [],
+    }
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    platform = scene.createMovingObjectsForSceneData.call_args.args[0]['objects'][0]
+    assert platform['cameras'] == [{
+      'id': 'default',
+      'mount': {
+        'translation': [0.0, 0.0, 0.0],
+        'rotation': [0.0, 0.0, 0.0, 1.0],
+      },
+      'intrinsics': {'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
+    }]
 
   def test_skips_ingestion_without_crashing_when_pose_unavailable(self):
     """When no transform can be resolved, ingestion is skipped but not treated as failure."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (None, 'no_pose_available')
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock())
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      None, None, 'no_pose_available')
+    scene = self._build_scene()
     jdata = {'source_id': 'drone-1', 'objects': []}
 
     result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
     assert result is True
-    scene.processSceneData.assert_not_called()
+    scene.createMovingObjectsForSceneData.assert_not_called()
+    scene.finishProcessing.assert_not_called()
 
-  def test_omitted_track_uses_tracking_without_identity_claim(self):
-    """Tracking is the default and does not claim source ids as global ids."""
+  def test_omitted_track_uses_tracking_without_identity_claim_on_detections(self):
+    """Tracking is the default for detections; only the platform claims its id."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = self._build_scene()
     jdata = {'source_id': 'never-before-seen-source', 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
     ]}
 
     scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
 
-    args, _ = scene.processSceneData.call_args
-    assert args[1].retrack is True
-    assert args[0]['objects'][0]['id'] == (
+    create_calls = scene.createMovingObjectsForSceneData.call_args_list
+    assert create_calls[0].args[1].retrack is False
+    assert create_calls[1].args[1].retrack is True
+    assert create_calls[1].args[0]['objects'][0]['id'] == (
       'tracked:never-before-seen-source:person:tag-1')
-    assert len(args[0]['objects']) == 1
-    assert len(scene_controller.identity_claim_registry._claims) == 0
+    claimed_ids = {
+      claim_id
+      for (_, _, claim_id) in scene_controller.identity_claim_registry._claims
+    }
+    assert claimed_ids == {'never-before-seen-source'}
 
   def test_colliding_id_from_different_source_is_dropped(self):
     """If a different source_id is already using the same id in the same scene and
     category, the newly arriving, colliding object is dropped rather than merged
     into an unrelated track; non-colliding objects in the same message still pass."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = self._build_scene()
 
     first_jdata = {'source_id': 'source-a', 'track': False, 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [0.0, 0.0, 0.0]},
@@ -836,16 +1232,18 @@ class TestSceneControllerHandleExternalSourceObject:
     ]}
     scene_controller._handleExternalSourceObject(scene, second_jdata, 'person', 11.0)
 
-    args, _ = scene.processSceneData.call_args
-    accepted_ids = [obj['id'] for obj in args[0]['objects']]
-    assert accepted_ids == ['tag-2']
+    # Last message: platform source-b + non-colliding tag-2 (tag-1 dropped).
+    last_finish = scene.finishProcessing.call_args_list[-1]
+    _, already = last_finish.args[2:]
+    assert sorted(obj['id'] for obj in already) == ['source-b', 'tag-2']
 
   def test_same_source_reclaiming_its_own_id_is_not_a_collision(self):
     """A source repeatedly reporting the same id for the same object is not a
     collision; the object is accepted on every message."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = self._build_scene()
     jdata_1 = {'source_id': 'uwb-hub-1', 'track': False, 'objects': [
       {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
     ]}
@@ -856,10 +1254,10 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller._handleExternalSourceObject(scene, jdata_1, 'person', 10.0)
     scene_controller._handleExternalSourceObject(scene, jdata_2, 'person', 11.0)
 
-    args, _ = scene.processSceneData.call_args
-    assert len(args[0]['objects']) == 1
-    assert args[0]['objects'][0]['id'] == 'tag-aa:bb:cc'
-    assert args[1].uid == 'uwb-hub-1'
+    _, already = scene.finishProcessing.call_args.args[2:]
+    assert sorted(obj['id'] for obj in already) == ['tag-aa:bb:cc', 'uwb-hub-1']
+    last_create = scene.createMovingObjectsForSceneData.call_args_list[-1]
+    assert last_create.args[1].uid == 'uwb-hub-1'
 
 
 class TestParseExternalSourceBindings:
@@ -1025,15 +1423,27 @@ class TestScenesForExternalPublisherAdditional:
 class TestTrustedScenePoseWithManualBinding:
   """Manual binding + trusted positioning source enables scene-frame ingest."""
 
-  def test_bound_trusted_source_reaches_process_scene_data(self):
+  def test_bound_trusted_source_reaches_object_ingest(self):
     controller = SceneController.__new__(SceneController)
     controller.external_source_bindings = {'pos-1': frozenset({'scene-a'})}
     controller.trusted_positioning_sources = frozenset({'pos-1'})
     controller.identity_claim_registry = IdentityClaimRegistry()
     fake_pose = MagicMock()
     controller.external_source_pose_cache = MagicMock()
-    controller.external_source_pose_cache.resolve.return_value = (fake_pose, None)
-    scene = SimpleNamespace(uid='scene-a', processSceneData=MagicMock(return_value=True))
+    controller.external_source_pose_cache.resolveMessage.return_value = (
+      fake_pose, SimpleNamespace(cameras=None), None)
+
+    def create_moving(jdata, source, pose, detection_type, when=None):
+      objects = list(jdata.get('objects', []))
+      if source.retrack:
+        return objects, []
+      return [], objects
+
+    scene = SimpleNamespace(
+      uid='scene-a',
+      createMovingObjectsForSceneData=MagicMock(side_effect=create_moving),
+      finishProcessing=MagicMock(),
+    )
     controller.cache_manager = MagicMock()
     controller.cache_manager.sceneWithID.return_value = scene
 
@@ -1050,9 +1460,11 @@ class TestTrustedScenePoseWithManualBinding:
     assert scenes == [scene]
 
     assert controller._handleExternalSourceObject(scene, jdata, 'person', 5.0) is True
-    controller.external_source_pose_cache.resolve.assert_called_once_with(
-      scene, 'pos-1', jdata['pose'], 5.0, trusted_scene_pose=True)
-    scene.processSceneData.assert_called_once()
+    resolve_args = controller.external_source_pose_cache.resolveMessage.call_args
+    assert resolve_args.args[:2] == (scene, 'pos-1')
+    assert resolve_args.kwargs == {'trusted_scene_pose': True}
+    assert scene.createMovingObjectsForSceneData.call_count == 2
+    scene.finishProcessing.assert_called_once()
 
 
 class TestHandleMovingObjectExternal:
@@ -1130,6 +1542,35 @@ class TestHandleMovingObjectExternal:
     controller._handleExternalSourceObject.assert_called_once()
     controller.publishDetections.assert_called_once()
     controller.cache_manager.invalidate.assert_not_called()
+
+  @pytest.mark.parametrize('camera_observation', [False, True])
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_drone_topic_publishes_person_observations(
+    self, _mock_epoch, _mock_adjust, _mock_metrics, camera_observation
+  ):
+    controller = self._build_controller()
+    scene = controller._scenesForExternalPublisher.return_value[0]
+    scene.tracker.currentObjects.side_effect = lambda category: [category]
+    observation = {'id': 'person-1', 'category': 'person', 'translation': [1, 2, 0]}
+    payload = {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'drone-1',
+      'objects': [] if camera_observation else [observation],
+    }
+    if camera_observation:
+      payload['cameras'] = [{'id': 'front', 'objects': [observation]}]
+    message = self._external_message('drone-1', payload)
+    message.topic = PubSub.formatTopic(
+      PubSub.DATA_EXTERNAL, scene_id='drone-1', thing_type='drone')
+
+    controller._processMovingObjectMessage(None, None, message)
+
+    assert [call.args[3] for call in controller.publishDetections.call_args_list] == [
+      'drone', 'person']
+    assert [call.args[1] for call in controller.publishDetections.call_args_list] == [
+      ['drone'], ['person']]
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))

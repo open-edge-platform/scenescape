@@ -50,6 +50,8 @@ from sscape_track_annotation import TrackSync, draw_track_labels, parse_track_me
 ROOT_CA = os.environ.get("ROOT_CA", "/run/secrets/certs/scenescape-ca.pem")
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 TIMEZONE = "UTC"
+LIVE_VIEW_MAX_WIDTH = 960
+LIVE_VIEW_JPEG_QUALITY = 65
 
 METADATA_POLICIES = {
   "detectionPolicy": detectionPolicy,
@@ -170,6 +172,21 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       1, 65535, 1883,
       GObject.ParamFlags.READWRITE,
     ),
+    "live-view-width": (
+      int,
+      "Live View maximum width",
+      "Live View preview frames wider than this many pixels are downscaled "
+      "to it; narrower frames are sent as they are.",
+      1, 65535, LIVE_VIEW_MAX_WIDTH,
+      GObject.ParamFlags.READWRITE,
+    ),
+    "live-view-quality": (
+      int,
+      "Live View JPEG quality",
+      "JPEG quality (1-100) of Live View preview frames.",
+      1, 100, LIVE_VIEW_JPEG_QUALITY,
+      GObject.ParamFlags.READWRITE,
+    ),
   }
 
   def __init__(self):
@@ -188,7 +205,8 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       "MQTT_HOST", "broker.scenescape.intel.com"
     )
     self._mqtt_port: int = 1883
-
+    self._live_view_width: int = LIVE_VIEW_MAX_WIDTH
+    self._live_view_quality: int = LIVE_VIEW_JPEG_QUALITY
     # Runtime state
     self._sink_caps = None
     self._policy = METADATA_POLICIES[self._policy_name]
@@ -227,6 +245,10 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       return self._mqtt_host
     if name == "mqtt-port":
       return self._mqtt_port
+    if name == "live-view-width":
+      return self._live_view_width
+    if name == "live-view-quality":
+      return self._live_view_quality
     raise AttributeError(f"Unknown property {name}")
 
   def do_set_property(self, prop, value):  # pylint: disable=arguments-differ
@@ -253,6 +275,10 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         self._mqtt_host = value
     elif name == "mqtt-port":
       self._mqtt_port = int(value)
+    elif name == "live-view-width":
+      self._live_view_width = int(value)
+    elif name == "live-view-quality":
+      self._live_view_quality = int(value)
     else:
       raise AttributeError(f"Unknown property {name}")
 
@@ -498,12 +524,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     else:
       self._frame_level_data.pop("initial_intrinsics", None)
 
+    # Publish sensor-frame size on the camera data topic so Scene Controller can
+    # persist Cam.width/height from incoming detections (not only image replies).
+    framewidth, frameheight = self._publish_resolution(gvadata.get("resolution"))
+
     objects = defaultdict(list)
     raw_objects = gvadata.get("objects") or []
     if raw_objects:
-      resolution = gvadata.get("resolution", {})
-      framewidth = resolution.get("width")
-      frameheight = resolution.get("height")
       has_parent_ids = any("parent_id" in det for det in raw_objects)
       if has_parent_ids:
         region_id_map: dict = {}
@@ -551,6 +578,21 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     self._process_sub_detections(objects)
     self._frame_level_data["objects"] = objects
 
+  def _publish_resolution(self, resolution):
+    """Copy GVA frame size into the MQTT payload; return (width, height) or (None, None)."""
+    width = height = None
+    if isinstance(resolution, dict):
+      width, height = resolution.get("width"), resolution.get("height")
+    elif isinstance(resolution, (list, tuple)) and len(resolution) == 2:
+      width, height = resolution[0], resolution[1]
+
+    if type(width) is int and type(height) is int and width > 0 and height > 0:
+      self._frame_level_data["resolution"] = {"width": width, "height": height}
+      return width, height
+
+    self._frame_level_data.pop("resolution", None)
+    return None, None
+
   @staticmethod
   def _resolve_object_id(det: dict, existing_objects: list):
     """Preserve tracker ID when available; otherwise use sequential fallback."""
@@ -582,9 +624,11 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       self._image_worker = Thread(target=self._publish_track_images, daemon=True)
       self._image_worker.start()
     image = self._image_pixels(frame, original_image_base64).copy()
-    self._annotate_objects(image)
-    self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
-    payload.update(id=self._cameraid, timestamp=self._frame_level_data.get("timestamp"))
+    payload.update(
+      id=self._cameraid, timestamp=self._frame_level_data.get("timestamp"),
+      resolution=[image.shape[1], image.shape[0]],
+    )
+    image = self._render_live_view(image)
     self._track_sync.submit(image, payload, self._track_options["track-wait-ms"])
 
   def _publish_track_images(self) -> None:
@@ -594,8 +638,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         return
       image, payload, entries = pending
       try:
+        # Track boxes are in native pixels; map them onto the downscaled preview.
+        scale = image.shape[1] / payload["resolution"][0]
+        entries = [(gid, tuple(v * scale for v in box)) for gid, box in entries]
         payload["track_ids"] = draw_track_labels(image, entries)
-        success, jpeg = cv2.imencode(".jpg", image)
+        success, jpeg = cv2.imencode(
+          ".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, self._live_view_quality]
+        )
         if not success:
           raise ValueError("Failed to encode annotated image")
         payload["image"] = base64.b64encode(jpeg).decode("utf-8")
@@ -619,11 +668,30 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       "id": self._cameraid,
     })
     image = self._image_pixels(gvaframe, original_image_base64)
+    params = []
+    # Native size lets consumers keep using calibrated pixel intrinsics even
+    # when the image itself is downscaled below.
+    imgdatadict["resolution"] = [image.shape[1], image.shape[0]]
     if annotate:
-      self._annotate_objects(image)
-      self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
-    _, jpeg = cv2.imencode(".jpg", image)
+      image = self._render_live_view(image)
+      params = [cv2.IMWRITE_JPEG_QUALITY, self._live_view_quality]
+    _, jpeg = cv2.imencode(".jpg", image, params)
     imgdatadict["image"] = base64.b64encode(jpeg).decode("utf-8")
+
+  def _render_live_view(self, image):
+    # Live View frames share the MQTT connection with detections; keep them
+    # small so they neither delay detections nor exceed broker packet limits.
+    # Downscale first so annotations are drawn once, at preview size.
+    scale = 1.0
+    width = image.shape[1]
+    if width > self._live_view_width:
+      scale = self._live_view_width / width
+      image = cv2.resize(
+        image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
+      )
+    self._annotate_objects(image, scale)
+    self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
+    return image
 
   def _image_pixels(self, gvaframe, original_image_base64: str = None):
     image = None
@@ -647,13 +715,15 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         image = self._try_convert_to_bgr(img, video_meta)
     return image
 
-  def _annotate_objects(self, img) -> None:
+  def _annotate_objects(self, img, scale: float = 1.0) -> None:
+    # `scale` maps native-resolution detection coordinates onto `img`.
     obj_colors = ((0, 0, 255), (66, 186, 150), (207, 83, 255), (31, 156, 238))
     objects = self._frame_level_data.get("objects", {})
     if "car" in objects:
       intrinsics = self._frame_level_data.get("initial_intrinsics")
       self._sub_detector.annotateObjectAssociations(
-        img, objects, obj_colors, "car", "license_plate", intrinsics=intrinsics
+        img, objects, obj_colors, "car", "license_plate",
+        intrinsics=intrinsics, scale=scale,
       )
       return
     for otype, obj_list in objects.items():
@@ -665,10 +735,10 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         cindex = 2
       for obj in obj_list:
         bbox = obj["bounding_box_px"]
-        topleft = (int(bbox["x"]), int(bbox["y"]))
+        topleft = (int(bbox["x"] * scale), int(bbox["y"] * scale))
         bottomright = (
-          int(bbox["x"] + bbox["width"]),
-          int(bbox["y"] + bbox["height"]),
+          int((bbox["x"] + bbox["width"]) * scale),
+          int((bbox["y"] + bbox["height"]) * scale),
         )
         cv2.rectangle(img, topleft, bottomright, obj_colors[cindex], 4)
 
