@@ -20,8 +20,10 @@ The library is **stateless and mode-agnostic**. It does not decide whether an ob
 ```cmake
 include(FetchContent)
 FetchContent_Declare(frustum_gaussian
-  GIT_REPOSITORY https://github.com/intel/frustum-gaussian.git
-  GIT_TAG        main)
+  GIT_REPOSITORY https://github.com/open-edge-platform/scenescape.git
+  GIT_TAG        main
+  SOURCE_SUBDIR  spatial_performance_primitives/frustum_gaussian
+)
 FetchContent_MakeAvailable(frustum_gaussian)
 target_link_libraries(my_target PRIVATE frustum_gaussian_core)
 ```
