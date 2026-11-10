@@ -8,59 +8,22 @@
 #include "rv/tracking/TrackedObject.hpp"
 
 #include <chrono>
-#include <optional>
+#include <limits>
 #include <vector>
 
 namespace rv {
 namespace tracking {
 
-namespace metadata_fusion {
-
-/**
- * @brief Decide whether a metadata candidate should replace the current winner.
- *
- * A candidate with confidence takes precedence over a winner without confidence.
- * When both values have confidence, the greater confidence wins and camera order
- * breaks ties. When neither has confidence, the later camera wins.
- *
- * @param winnerExists Whether a winner has already been selected for the field.
- * @param candidateConfidence Confidence reported by the candidate, if available.
- * @param candidateCameraIndex Camera-order index of the candidate.
- * @param winnerConfidence Confidence reported by the current winner, if available.
- * @param winnerCameraIndex Camera-order index of the current winner.
- * @return true when the candidate should replace the current winner.
- */
-inline bool shouldReplace(bool winnerExists,
-                          const std::optional<double> &candidateConfidence,
-                          size_t candidateCameraIndex,
-                          const std::optional<double> &winnerConfidence,
-                          size_t winnerCameraIndex)
-{
-  if (!winnerExists)
-  {
-    return true;
-  }
-  if (candidateConfidence && !winnerConfidence)
-  {
-    return true;
-  }
-  if (!candidateConfidence && winnerConfidence)
-  {
-    return false;
-  }
-  if (candidateConfidence && winnerConfidence)
-  {
-    return *candidateConfidence > *winnerConfidence
-      || (*candidateConfidence == *winnerConfidence && candidateCameraIndex > winnerCameraIndex);
-  }
-  return candidateCameraIndex > winnerCameraIndex;
-}
-
-} // namespace metadata_fusion
+/// Default Euclidean radius (m) for cross-camera detection↔detection birth clustering.
+/// Kept at the legacy tracking scale so Mahalanobis ``max_radius_m`` (ceiling)
+/// does not widen birth merges in dense scenes. Track↔detection association
+/// still uses the caller-supplied ``maxRadiusM``.
+constexpr double kDefaultBirthClusterRadiusM = 2.0;
 
 class MultipleObjectTracker
 {
 public:
+  // The default distance type (MultiClassEuclidean, 5.0) is legacy; the services pass theirs to every track() call.
   MultipleObjectTracker()
   : mDistanceType(DistanceType::MultiClassEuclidean), mDistanceThreshold(5.0)
   {
@@ -71,16 +34,23 @@ public:
   {
   }
 
-  MultipleObjectTracker(TrackManagerConfig const &config, const DistanceType & distanceType, double distanceThreshold)
-  : mTrackManager(config), mDistanceType(distanceType),  mDistanceThreshold(distanceThreshold)
+  /// The distance type, threshold and maxRadiusM apply to the track() overloads without them.
+  MultipleObjectTracker(TrackManagerConfig const &config,
+                        const DistanceType &distanceType,
+                        double distanceThreshold,
+                        double maxRadiusM = std::numeric_limits<double>::infinity())
+    : mTrackManager(config)
+    , mDistanceType(distanceType)
+    , mDistanceThreshold(distanceThreshold)
+    , mMaxRadiusM(maxRadiusM)
   {
   }
 
   MultipleObjectTracker(const MultipleObjectTracker &) = delete;
   MultipleObjectTracker &operator=(const MultipleObjectTracker &) = delete;
   /**
-   * @brief Sets the list of measurements and triggers the tracking procedure
-   *
+   * @brief Sets the list of measurements and triggers the tracking procedure with the constructor's distance type,
+   * threshold and maxRadiusM
    */
   void track(std::vector<tracking::TrackedObject> objects,
              const std::chrono::system_clock::time_point &timestamp,
@@ -93,10 +63,12 @@ public:
   void track(std::vector<tracking::TrackedObject> objects,
              const std::chrono::system_clock::time_point &timestamp,
              const DistanceType & distanceType, double distanceThreshold,
-             double scoreThreshold = 0.50);
+             double scoreThreshold = 0.50,
+             double maxRadiusM = std::numeric_limits<double>::infinity());
 
   /**
-   * @brief Sets the list of measurements from multiple cameras and triggers the tracking procedure
+   * @brief Sets the list of measurements from multiple cameras and triggers the tracking procedure with the
+   * constructor's distance type, threshold and maxRadiusM
    * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one camera
    * @param timestamp Time point for this tracking iteration
    * @param scoreThreshold Threshold for object scoring
@@ -112,11 +84,16 @@ public:
    * @param distanceType Distance type for matching
    * @param distanceThreshold Distance threshold for matching
    * @param scoreThreshold Threshold for object scoring
+   * @param maxRadiusM Euclidean ceiling (m) of track association
+   * @param birthClusterRadiusM Euclidean radius (m) that groups unmatched detections of different cameras into one new
+   * track
    */
   void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
              const std::chrono::system_clock::time_point &timestamp,
              const DistanceType & distanceType, double distanceThreshold,
-             double scoreThreshold = 0.50);
+             double scoreThreshold = 0.50,
+             double maxRadiusM = std::numeric_limits<double>::infinity(),
+             double birthClusterRadiusM = kDefaultBirthClusterRadiusM);
 
   /**
    * @brief Returns a list of reliable tracked objects states
@@ -158,6 +135,7 @@ private:
   TrackManager mTrackManager;
   DistanceType mDistanceType;
   double mDistanceThreshold{5.0};
+  double mMaxRadiusM{std::numeric_limits<double>::infinity()};
 
   std::chrono::system_clock::time_point mLastTimestamp;
 
@@ -176,7 +154,8 @@ private:
     std::vector<tracking::TrackedObject> &objects,
     const DistanceType &distanceType,
     double distanceThreshold,
-    std::vector<size_t> &unassignedObjects);
+    std::vector<size_t> &unassignedObjects,
+    double maxRadiusM = std::numeric_limits<double>::infinity());
 
   /**
    * @brief Helper function to match tracks with objects batched from multiple cameras
@@ -193,7 +172,8 @@ private:
     const std::vector<tracking::TrackedObject> &tracks,
     std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
     const DistanceType &distanceType,
-    double distanceThreshold);
+    double distanceThreshold,
+    double maxRadiusM = std::numeric_limits<double>::infinity());
 
 };
 } // namespace tracking

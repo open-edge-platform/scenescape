@@ -37,6 +37,8 @@ jobs:
             scenescape-tracker,
             scenescape-mapping,
             scenescape-cluster-analytics,
+            scenescape-positioning,
+            scenescape-reid,
             scenescape-sources,
           ]
     steps:
@@ -79,6 +81,12 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-cluster-analytics" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C cluster_analytics
+          elif [[ "${{ matrix.images }}" == "scenescape-positioning" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C positioning
+          elif [[ "${{ matrix.images }}" == "scenescape-reid" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C reid
           elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
             echo "Building ${{ matrix.images }}"
             make build-sources-image
@@ -111,7 +119,7 @@ jobs:
 
       - name: "Log in to DockerHub"
         if: ${{ github.event.inputs.publish == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: scenescape
           password: ${{ secrets.DOCKERHUB_TOKEN }}

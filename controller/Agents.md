@@ -46,10 +46,10 @@ The **Scene Controller** is the central runtime state management service for Sce
    - Object metadata (attributes, ReID features)
    - Coordinate transformations
 
-5. **`cache_manager.py`**: State caching and optimization
-   - LRU caching for frequently accessed data
-   - Scene state snapshots
-   - Performance optimization for queries
+5. **`cache_manager.py`** (shared, in `scene_common/src/scene_common/`): Scene cache
+   - Builds `Scene` objects from REST (or JSON files) and indexes them by scene, camera, sensor and remote-child ID
+   - `invalidate()` on `CMD_DATABASE`; the next lookup refreshes the cache
+   - Also used by Analytics (`scene_cls` selects the scene implementation)
 
 6. **`child_scene_controller.py`**: Hierarchical scene support
    - Parent-child scene relationships
@@ -100,6 +100,7 @@ The **Scene Controller** is the central runtime state management service for Sce
 - `detector/<camera_id>`: Object detection messages (JSON schema validation)
 - `singleton`: Single-object detections (special case for non-standard detectors)
 - `calibration/result/<camera_id>`: Camera calibration updates from Auto Calibration
+- `scenescape/positioning/pose/<camera_id>` and `scenescape/positioning/status/<resolver_id>`: PTZ PoseContext and Resolver status, only when a PTZ mode is on and only for PTZ cameras of the loaded scenes that the assignment manifest names
 - `cluster/result/<scene_id>`: Cluster analysis results from Cluster Analytics
 
 **Publishes**:
@@ -171,6 +172,7 @@ docker compose exec scene bash
 - `TRACKER_CONFIG`: Path to tracker configuration JSON
 - `CONTROLLER_ENABLE_METRICS`: Enable OpenTelemetry metrics (true/false)
 - `CONTROLLER_ENABLE_TRACING`: Enable OpenTelemetry tracing (true/false)
+- `CONTROLLER_PTZ_ENABLED` / `CONTROLLER_PTZ_SHADOW_MODE`: PTZ pose consumption, both off by default and mutually exclusive. Settings and bounds live in `ptz-consumer-config.json` and `positioning-assignments.json` (`--ptz_config_file`, `--positioning_assignments_file`), read only when a mode is on. Startup fails on an invalid combination, including with `--rewriteAllTime` / `--rewriteBadTime`. Code is in `controller/ptz/`; see `docs/user-guide/microservices/controller/ptz-pose-consumption.md`.
 - `REID_DATABASE`: ReID vector backend (`VDMS` default, or `QDRANT`) — the only backend selector
 - Shared connection/tuning (same for every backend): `REID_HOSTNAME` (`reid.scenescape.intel.com`), `REID_PORT` (`55555`), `REID_USE_TLS` (`true`), `REID_API_KEY`, `REID_CONFIDENCE_THRESHOLD`, `REID_CA_CERT`, `REID_CLIENT_CERT`, `REID_CLIENT_KEY`, `REID_DESCRIPTOR_TTL_SECS` (`86400`), `REID_PURGE_INTERVAL_SECS` (`300`) (see `controller.reid_env`)
 - `reid_env` parses strictly: out-of-range ports/thresholds/TTL/purge intervals and unrecognized booleans raise `ValueError` naming the variable and value. Read new typed settings through `_env_int` / `_env_float` / `_env_bool` rather than calling `int()` / `os.getenv` at the call site, so bad config fails at startup instead of degrading behaviour later.
@@ -185,20 +187,20 @@ User-facing switch steps: `docs/user-guide/other-topics/how-to-enable-reidentifi
    - `singleton.json`: Singleton detection schema
    - `calibration.json`: Calibration result schema
 
-2. **Tracker Configuration** (example):
+2. **Tracker Configuration** (`config/tracker-config.json`, read by `SceneController.extractTrackerConfigData`; documented in `docs/user-guide/microservices/controller/how-to-configure-tracker.md`):
 
 ```json
 {
-  "max_unreliable_time": 2.0,
-  "association_threshold": 0.5,
-  "min_confidence": 0.5,
-  "enable_reid": true,
-  "kalman_filter": {
-    "process_noise": 0.1,
-    "measurement_noise": 0.1
-  }
+  "max_unreliable_time_s": 1.0,
+  "non_measurement_time_dynamic_s": 0.8,
+  "non_measurement_time_static_s": 1.6,
+  "time_chunking_enabled": true,
+  "time_chunking_rate_fps": 10,
+  "suspended_track_timeout_secs": 60.0
 }
 ```
+
+Optional keys: `effective_object_update_rate` (Immediate mode, `config/tracker-config-immediate.json`) and `persist_attributes`. The Kalman filter noise settings are not configurable here; both the Controller and the Tracker service use `rv.tracking.PRODUCTION_*` (see "Kalman filter settings" in `src/robot_vision/README.md`).
 
 ## Extending ReID Vector Database Backends
 
@@ -461,7 +463,6 @@ controller/
 │   │   ├── scene.py                   # Scene state
 │   │   ├── tracking.py                # Tracking engine
 │   │   ├── moving_object.py           # Object representation
-│   │   ├── cache_manager.py           # State caching
 │   │   ├── child_scene_controller.py  # Hierarchical scenes
 │   │   ├── reid.py                    # ReIDDatabase ABC + embedding helpers
 │   │   ├── reid_constants.py          # Shared ReID constants
@@ -473,6 +474,7 @@ controller/
 │   │   ├── data_source.py             # Camera feeds
 │   │   ├── detections_builder.py      # Detection parsing
 │   │   ├── time_chunking.py           # Temporal processing
+│   │   ├── ptz/                       # PTZ PoseContext consumption (config, registry, ingress, shadow)
 │   │   ├── uuid_manager.py            # ID generation + ReID tracking state
 │   │   └── observability/             # Metrics/tracing
 │   ├── robot_vision/                  # Robot-specific extensions
@@ -568,6 +570,7 @@ docker stats scene
 When modifying the service, verify:
 
 - [ ] Unit tests pass: `make run_unit_tests`
+- [ ] Cognitive complexity passes: `make complexity-check SERVICE=controller`
 - [ ] Functional tests pass: `make run_functional_tests`
 - [ ] MQTT messages validated correctly against schemas
 - [ ] Object tracking maintains IDs across frames

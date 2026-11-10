@@ -37,6 +37,19 @@ import {
   resizeRendererToDisplaySize,
   waitUntil,
 } from "/static/js/utils.js";
+import {
+  PTZ_AWAY_MESSAGE,
+  PTZFrameGate,
+  PTZPoseExpiry,
+  createPTZPointMapper,
+  expiredPTZPoseContext,
+  isPTZAwayFromHomePose,
+  isPTZMoving,
+  isPTZPositionUnknown,
+  ptzMatricesClose,
+  ptzPoseToCameraMatrix,
+  sceneFromCameraToCameraMatrix,
+} from "/static/js/ptzpose.js";
 
 export class ConvergedCameraCalibration {
   constructor() {
@@ -45,10 +58,29 @@ export class ConvergedCameraCalibration {
     this.client = null;
     this.isUpdatedInVAService = false;
     this.projectionEnabled = false;
+    // Retain resolution changes for Save even after the preview refit completes.
     this.isResolutionUpdated = false;
+    this.resolutionNeedsRefit = false;
     this.calibrationRequestId = 0;
     this.calibrationFitState = "idle";
     this.rejectedPointIndices = [];
+    // Live PTZ pose state; null until a PoseContext is received.
+    this.ptzPoseValid = null;
+    this.ptzMoving = false;
+    // Positioning reported an invalid pose while not moving; the home pose is shown.
+    this.ptzPositionUnknown = false;
+    this.ptzLiveMatrix = null;
+    this.ptzLivePoseMatrix = null;
+    // Stored home pose matrix: undefined while loading, null when unavailable.
+    this.ptzHomePoseMatrix = undefined;
+    this.ptzHomeRequested = false;
+    this.ptzPointMapperKey = null;
+    this.ptzPendingPoints = null;
+    // Frame admission and expiry for the live PTZ pose.
+    this.ptzFrameGate = new PTZFrameGate();
+    this.ptzPoseExpiry = new PTZPoseExpiry();
+    // Calibration (home) pose last set by calibration fitting or the stored pose.
+    this.calibrationPoseMatrix = null;
 
     // Used for storing undistorted image for projection
     this.projectionImage = new Image();
@@ -87,7 +119,9 @@ export class ConvergedCameraCalibration {
   }
 
   initializeCamCanvas(canvasElement, imageSrc) {
-    this.camCanvas = new CamCanvas(canvasElement, imageSrc);
+    this.camCanvas = new CamCanvas(canvasElement, imageSrc, () =>
+      this.flushSensorCalibrationPoints(),
+    );
     // FIXME: Find a better way to do these event listeners which require interacting with both
     // the camCanvas and viewport
     this.camCanvas.canvas.addEventListener("mousedown", () => {
@@ -285,8 +319,9 @@ export class ConvergedCameraCalibration {
   }
 
   calculateCalibrationIntrinsics() {
+    if (!this.centerManualIntrinsics()) return;
     const requestId = ++this.calibrationRequestId;
-    const camPoints = this.camCanvas.getCalibrationPoints();
+    const camPoints = this.getSensorCalibrationPoints();
     const mapPoints = this.viewport.getCalibrationPoints(true);
     this.calibrationFitState = "stale";
     if (
@@ -303,6 +338,7 @@ export class ConvergedCameraCalibration {
         const name = this.name.split("_")[2];
         fixIntrinsics[name] = this.checked;
       });
+      fixIntrinsics.cx = fixIntrinsics.cy = true;
 
       // Collect intrinsic and distortion data
       const intrinsicData = [];
@@ -332,7 +368,7 @@ export class ConvergedCameraCalibration {
         fixIntrinsics: fixIntrinsics,
         intrinsics: intrinsicData,
         distortion: distortionData,
-        imageSize: this.camCanvas.getImageSize(),
+        imageSize: this.getSensorResolution(),
       };
       // Scene map resolution scales the RANSAC reprojection threshold.
       if (Number.isFinite(sceneScale) && sceneScale > 0) {
@@ -359,8 +395,6 @@ export class ConvergedCameraCalibration {
             if (!$(this).prop("disabled")) {
               if (this.name === "intrinsics_fx") this.value = intrinsicMtx[FX];
               if (this.name === "intrinsics_fy") this.value = intrinsicMtx[FY];
-              if (this.name === "intrinsics_cx") this.value = intrinsicMtx[CX];
-              if (this.name === "intrinsics_cy") this.value = intrinsicMtx[CY];
             }
           });
           $('input[name^="distortion_"]').each(function () {
@@ -440,29 +474,37 @@ export class ConvergedCameraCalibration {
     if (flat.length !== 16 || !flat.every(Number.isFinite)) {
       return false;
     }
+    // The fit request uses scaled map coordinates; the viewport uses metres.
+    const coordinateScale =
+      Number(this.viewport.sceneScale) * this.viewport.scaleFactor;
+    if (!Number.isFinite(coordinateScale) || coordinateScale <= 0) {
+      return false;
+    }
     const pose = new THREE.Matrix4();
     pose.set(
       flat[0],
       flat[1],
       flat[2],
-      flat[3],
+      flat[3] / coordinateScale,
       flat[4],
       flat[5],
       flat[6],
-      flat[7],
+      flat[7] / coordinateScale,
       flat[8],
       flat[9],
       flat[10],
-      flat[11],
+      flat[11] / coordinateScale,
       flat[12],
       flat[13],
       flat[14],
       flat[15],
     );
     this.viewport.setCameraPose(pose);
+    this.rememberCalibrationPose();
     this.projectionEnabled = true;
     this.camCanvas.calibrationUpdated = false;
     this.viewport.calibrationUpdated = false;
+    this.resolutionNeedsRefit = false;
     return true;
   }
 
@@ -670,6 +712,7 @@ export class ConvergedCameraCalibration {
           pose.slice(0, 3),
           pose.slice(3, 6),
         );
+        this.rememberCalibrationPose();
         this.projectionEnabled = true;
       }
       return;
@@ -687,7 +730,7 @@ export class ConvergedCameraCalibration {
       for (let i = 0; i < splitPoint; i += 2) {
         const x = parseFloat(points[i]);
         const y = parseFloat(points[i + 1]);
-        this.camCanvas.addCalibrationPoint(x, y);
+        this.addSensorCalibrationPoint(x, y);
       }
       for (let i = splitPoint; i < points.length; i += 3) {
         const x = parseFloat(points[i]);
@@ -700,7 +743,7 @@ export class ConvergedCameraCalibration {
       for (let i = 0; i < splitPoint; i += 2) {
         const x = parseFloat(points[i]);
         const y = parseFloat(points[i + 1]);
-        this.camCanvas.addCalibrationPoint(x, y);
+        this.addSensorCalibrationPoint(x, y);
       }
       for (let i = splitPoint; i < points.length; i += 2) {
         const x = parseFloat(points[i]);
@@ -717,7 +760,7 @@ export class ConvergedCameraCalibration {
       const cam_coord = msg.calibration_points_2d[i - 1];
       const map_coord = msg.calibration_points_3d[i - 1];
 
-      this.camCanvas.addCalibrationPoint(cam_coord[0], cam_coord[1]);
+      this.addSensorCalibrationPoint(cam_coord[0], cam_coord[1]);
       this.viewport.addCalibrationPoint(
         map_coord[0],
         map_coord[1],
@@ -727,6 +770,7 @@ export class ConvergedCameraCalibration {
   }
 
   clearCalibrationPoints() {
+    this.pendingSensorPoints = [];
     this.camCanvas.clearCalibrationPoints();
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;
@@ -786,12 +830,19 @@ export class ConvergedCameraCalibration {
   setupSaveCameraButton() {
     $("#calibration_form").on("submit", (event) => {
       event.preventDefault();
-      if (this.isResolutionUpdated) {
-        document.getElementById("id_intrinsics_cx").disabled = false;
-        document.getElementById("id_intrinsics_cy").disabled = false;
+      if (this.isPTZAwayFromHome()) {
+        alert(PTZ_AWAY_MESSAGE);
+        return;
+      }
+      if (!this.centerManualIntrinsics()) return;
+      if (typeof document !== "undefined") {
+        const cxField = document.getElementById("id_intrinsics_cx");
+        const cyField = document.getElementById("id_intrinsics_cy");
+        if (cxField) cxField.disabled = false;
+        if (cyField) cyField.disabled = false;
       }
 
-      const camPoints = this.camCanvas.getCalibrationPoints();
+      const camPoints = this.getSensorCalibrationPoints();
       const scenePoints = this.viewport.getCalibrationPoints();
       const camPointCount = Object.keys(camPoints).length;
       const scenePointCount = Object.keys(scenePoints).length;
@@ -898,13 +949,13 @@ export class ConvergedCameraCalibration {
   }
 
   getCameraPositionAndRotation(cameraMatrix, distCoeffs) {
-    const camPoints = this.camCanvas.getCalibrationPoints();
+    const camPoints = this.getSensorCalibrationPoints();
     const objectPoints = this.viewport.getCalibrationPoints();
     if (!(
       this.isValidCalibration(camPoints, objectPoints) &&
       (this.camCanvas.calibrationUpdated ||
         this.viewport.calibrationUpdated ||
-        this.isResolutionUpdated)
+        this.resolutionNeedsRefit)
     )) {
       return false;
     }
@@ -979,9 +1030,11 @@ export class ConvergedCameraCalibration {
       );
       T.invert(); //Format of T is column-major. Hence, T.transpose lines up with transform.py values.
       this.viewport.setCameraPose(T);
+      this.rememberCalibrationPose();
       this.projectionEnabled = true;
       this.camCanvas.calibrationUpdated = false;
       this.viewport.calibrationUpdated = false;
+      this.resolutionNeedsRefit = false;
       return true;
     } finally {
       rvec.delete();
@@ -994,9 +1047,17 @@ export class ConvergedCameraCalibration {
     }
   }
 
-  undistortAndProjectImage(image, cameraMatrix, distCoeffs) {
+  undistortAndProjectImage(
+    image,
+    cameraMatrix,
+    distCoeffs,
+    frameTimestamp,
+    generation,
+  ) {
     this.projectionImage.src = image;
     this.projectionImage.onload = () => {
+      // Skip frames invalidated by PTZ motion while the image was decoding.
+      if (!this.ptzFrameGate.accepts(frameTimestamp, generation)) return;
       this.projectionCanvas.width = this.projectionImage.width;
       this.projectionCanvas.height = this.projectionImage.height;
       this.projectionCtx.drawImage(this.projectionImage, 0, 0);
@@ -1045,6 +1106,8 @@ export class ConvergedCameraCalibration {
       this.projectImage(
         this.projectionCanvas.toDataURL("image/jpeg"),
         cameraMatrix,
+        frameTimestamp,
+        generation,
       );
 
       distortedImage.delete();
@@ -1057,42 +1120,386 @@ export class ConvergedCameraCalibration {
     };
   }
 
-  projectImage(image, cameraMatrix) {
-    if (this.projectionEnabled === false) {
+  /**
+   * Projects a camera frame onto the scene.
+   * @param {string} image - Frame image URL.
+   * @param {number[][]} cameraMatrix - Camera intrinsics matrix.
+   * @param {string} frameTimestamp - Acquisition timestamp of the frame.
+   * @param {number} generation - PTZ frame-gate generation when the frame arrived.
+   */
+  projectImage(
+    image,
+    cameraMatrix,
+    frameTimestamp,
+    generation = this.ptzFrameGate.generation,
+  ) {
+    if (this.projectionEnabled === false || this.ptzPoseValid === false) {
       this.viewport.setProjectionVisibility(false);
       return;
     }
-    this.viewport.projectImage(image, cameraMatrix);
+    const accepts = () =>
+      this.ptzPoseValid !== false &&
+      this.ptzFrameGate.accepts(frameTimestamp, generation);
+    // Frames from before the camera stopped, or for an earlier pose, are dropped.
+    if (!accepts()) return;
+    if (this.ptzLiveMatrix) {
+      this.viewport.setCameraPose(this.ptzProjectionPose());
+    }
+    this.viewport.projectImage(image, cameraMatrix, accepts);
   }
 
-  updateCameraOpticalCenter(resolution, cameraMatrix) {
-    const [width, height] = resolution;
-    const EPSILON = 1e-6;
-    if (
-      Math.abs(parseFloat($("#id_intrinsics_cx").val()) - width / 2.0) > EPSILON
-    ) {
-      $("#id_intrinsics_cx").val(width / 2.0);
-      cameraMatrix[0][2] = width / 2.0;
-      this.isResolutionUpdated = true;
+  /**
+   * The frame was captured at the live PTZ pose. Apply its offset from the stored
+   * home pose to the calibration pose being previewed, so a newly fitted home
+   * calibration stays visible while calibrating.
+   * @returns {THREE.Matrix4} Projection camera matrix.
+   */
+  ptzProjectionPose() {
+    const home =
+      this.ptzHomePoseMatrix &&
+      sceneFromCameraToCameraMatrix(this.ptzHomePoseMatrix);
+    if (!this.calibrationPoseMatrix || !home) return this.ptzLiveMatrix;
+    return this.calibrationPoseMatrix
+      .clone()
+      .multiply(home.invert())
+      .multiply(this.ptzLiveMatrix);
+  }
+
+  // Records the calibration (home) pose just set on the projection camera.
+  rememberCalibrationPose() {
+    const camera = this.viewport.projectionCamera;
+    camera.updateMatrix();
+    this.calibrationPoseMatrix = camera.matrix.clone();
+  }
+
+  /**
+   * Shows the frame from the live PTZ pose (display only; Save uses calibration points).
+   * @param {Object} msg - Parsed PoseContext payload.
+   * @param {string} sceneID - UID of the scene that owns the camera.
+   * @param {string} calibrationVersion - PTZ calibration version of the camera.
+   * @param {string} cameraUID - UID of the camera, used to load its stored home pose.
+   */
+  updatePTZPose(msg, sceneID, calibrationVersion, cameraUID) {
+    this.loadPTZHomePose(cameraUID);
+    this.ptzMoving = isPTZMoving(msg);
+    this.ptzPositionUnknown = isPTZPositionUnknown(msg);
+    let matrix = ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion);
+    this.ptzFrameGate.update(msg, Boolean(matrix), this.ptzMoving);
+    this.ptzPoseExpiry.arm(matrix ? msg : null, () =>
+      this.updatePTZPose(
+        expiredPTZPoseContext(),
+        sceneID,
+        calibrationVersion,
+        cameraUID,
+      ),
+    );
+    let poseRows = matrix ? msg.pose.matrix_4x4 : null;
+    if (!matrix && !this.ptzMoving) {
+      // Position unknown but not moving (e.g. backlash not yet learned).
+      if (this.ptzHomePoseMatrix === null) {
+        // Home pose unavailable: behave as for a non-PTZ camera.
+        this.ptzPoseValid = null;
+        this.ptzLiveMatrix = null;
+        this.ptzLivePoseMatrix = null;
+        if (this.camCanvas) this.setPTZPointMapper("static", null, true);
+        return;
+      }
+      poseRows = this.ptzHomePoseMatrix || null;
+      matrix = poseRows && sceneFromCameraToCameraMatrix(poseRows);
     }
+    this.ptzPoseValid = Boolean(matrix);
+    this.ptzLivePoseMatrix = matrix ? poseRows : null;
+    this.updatePTZCalibrationPoints();
+    if (!this.viewport || ptzMatricesClose(matrix, this.ptzLiveMatrix)) {
+      return;
+    }
+    // Hide the previous frame until one is captured at the new pose.
+    this.ptzFrameGate.invalidate();
+    this.viewport.setProjectionVisibility(false);
+    if (!matrix) return;
+    this.ptzLiveMatrix = matrix.clone();
+    this.viewport.setCameraPose(this.ptzProjectionPose());
+  }
+
+  // The stored home pose is the reference the calibration points were placed in.
+  loadPTZHomePose(cameraUID) {
+    if (this.ptzHomeRequested || !this.viewport) {
+      return;
+    }
+    this.ptzHomeRequested = true;
+    this.viewport.restClient
+      .getCamera(cameraUID)
+      .then((response) => {
+        const poseMatrix = response.content && response.content.pose_matrix;
+        this.ptzHomePoseMatrix =
+          response.statusCode === 200 && Array.isArray(poseMatrix)
+            ? poseMatrix
+            : null;
+      })
+      .catch(() => {
+        this.ptzHomePoseMatrix = null;
+      })
+      .finally(() => {
+        if (this.ptzHomePoseMatrix === null) {
+          console.warn("PTZ home pose unavailable; showing stored points.");
+        }
+        this.updatePTZCalibrationPoints();
+      });
+  }
+
+  // Shows the stored (home) calibration points where they appear in the live PTZ frame.
+  updatePTZCalibrationPoints() {
+    if (!this.camCanvas || this.ptzPoseValid === null) {
+      return;
+    }
+    // Hide while moving or while the home pose loads; without it keep static points.
+    if (!this.ptzPoseValid || this.ptzHomePoseMatrix === undefined) {
+      this.setPTZPointMapper("hidden", null, false);
+      return;
+    }
+    if (this.ptzHomePoseMatrix === null) {
+      this.setPTZPointMapper("static", null, true);
+      return;
+    }
+    const intrinsics = ["fx", "fy", "cx", "cy"].map((key) =>
+      parseFloat($(`#id_intrinsics_${key}`).val()),
+    );
+    const distortion = ["k1", "k2", "p1", "p2", "k3"].map((key) =>
+      parseFloat($(`#id_distortion_${key}`).val()),
+    );
+    const key = JSON.stringify([
+      this.ptzLivePoseMatrix,
+      intrinsics,
+      distortion,
+    ]);
+    if (key === this.ptzPointMapperKey) return;
+    if (this.ptzPendingPoints && key === this.ptzPendingPoints.key) return;
+    const mapper = createPTZPointMapper(
+      this.ptzHomePoseMatrix,
+      this.ptzLivePoseMatrix,
+      intrinsics,
+      distortion,
+    );
+    if (!Number.isFinite(this.ptzFrameGate.notBefore)) {
+      this.setPTZPointMapper(key, mapper, true);
+      return;
+    }
+    // The video lags the pose: show the moved points with the first frame
+    // captured after the camera stopped (see applyPendingPTZPoints).
+    this.setPTZPointMapper("pending", null, false);
+    this.ptzPendingPoints = {
+      key,
+      mapper,
+      notBefore: this.ptzFrameGate.notBefore,
+    };
+  }
+
+  /**
+   * Applies reprojected points held back until the camera stopped.
+   * @param {string} frameTimestamp - Acquisition timestamp of the displayed frame.
+   */
+  applyPendingPTZPoints(frameTimestamp) {
+    const pending = this.ptzPendingPoints;
+    if (!pending) return;
+    const frameTime = Date.parse(frameTimestamp);
+    if (Number.isFinite(frameTime) && frameTime < pending.notBefore) return;
+    this.setPTZPointMapper(pending.key, pending.mapper, true);
+  }
+
+  // Positioning publishes several times per second; redraw only on a change.
+  setPTZPointMapper(key, mapper, visible) {
+    this.ptzPendingPoints = null;
+    if (key === this.ptzPointMapperKey) return;
+    this.ptzPointMapperKey = key;
+    this.camCanvas.setPointMapper(mapper, visible);
+  }
+
+  // Auto calibration and Save are for the home pose, not the current frame.
+  isPTZAwayFromHome() {
+    if (this.ptzMoving || this.ptzPositionUnknown) return true;
+    if (!this.ptzPoseValid || !this.ptzHomePoseMatrix) return false;
+    return isPTZAwayFromHomePose(
+      this.ptzHomePoseMatrix,
+      this.ptzLivePoseMatrix,
+    );
+  }
+
+  getSensorResolution() {
+    const resolution = [
+      Number($("#id_width").val()),
+      Number($("#id_height").val()),
+    ];
+    return resolution.every((value) => Number.isInteger(value) && value > 0)
+      ? resolution
+      : this.camCanvas.getImageSize();
+  }
+
+  getPreviewScale() {
+    const sensor = this.getSensorResolution();
+    return this.camCanvas
+      .getImageSize()
+      .map((size, index) => size / sensor[index]);
+  }
+
+  getSensorCalibrationPoints() {
+    const scale = this.getPreviewScale();
+    return Object.fromEntries(
+      Object.entries(this.camCanvas.getCalibrationPoints()).map(
+        ([name, point]) => [
+          name,
+          point.map((value, index) => value / scale[index]),
+        ],
+      ),
+    );
+  }
+
+  addSensorCalibrationPoint(x, y) {
+    if (!this.camCanvas.getImageSize().every((value) => value > 0)) {
+      (this.pendingSensorPoints ||= []).push([x, y]);
+      return;
+    }
+    const scale = this.getPreviewScale();
+    this.camCanvas.addCalibrationPoint(x * scale[0], y * scale[1]);
+  }
+
+  flushSensorCalibrationPoints() {
+    const pending = this.pendingSensorPoints || [];
+    this.pendingSensorPoints = [];
+    for (const [x, y] of pending) this.addSensorCalibrationPoint(x, y);
+  }
+
+  updateSensorResolution(resolution) {
+    if (!resolution) return;
+    const dimensions = Array.isArray(resolution)
+      ? resolution
+      : [resolution.width, resolution.height];
     if (
-      Math.abs(parseFloat($("#id_intrinsics_cy").val()) - height / 2.0) >
-      EPSILON
+      dimensions.length !== 2 ||
+      !dimensions.every((value) => Number.isInteger(value) && value > 0)
     ) {
-      $("#id_intrinsics_cy").val(height / 2.0);
-      cameraMatrix[1][2] = height / 2.0;
-      this.isResolutionUpdated = true;
+      console.warn("Ignoring invalid sensor resolution:", resolution);
+      return;
+    }
+    const previous = this.getSensorResolution();
+    dimensions.forEach((value, index) =>
+      $(`#id_${index === 0 ? "width" : "height"}`).val(value),
+    );
+    if (dimensions.some((value, index) => value !== previous[index])) {
+      this.isResolutionUpdated = this.resolutionNeedsRefit = true;
     }
   }
 
-  updateCalibrationViews(image, cameraMatrix, distCoeffs) {
-    this.camCanvas.updateImageSrc(image);
-    this.updateCameraOpticalCenter(this.camCanvas.getImageSize(), cameraMatrix);
-    this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
+  updateCalibrationViews(
+    image,
+    cameraMatrix,
+    distCoeffs,
+    resolution,
+    frameTimestamp,
+  ) {
+    // PTZ callers pass only a frame timestamp as the 4th argument.
+    if (
+      frameTimestamp === undefined &&
+      (typeof resolution === "string" || resolution === undefined)
+    ) {
+      frameTimestamp = resolution;
+      resolution = undefined;
+    }
+    const generation = this.ptzFrameGate.generation;
+    this.updateSensorResolution(resolution);
+    this.camCanvas.updateImageSrc(image, () => {
+      this.applyPendingPTZPoints(frameTimestamp);
+      this.updateLoadedCalibrationViews(
+        image,
+        cameraMatrix,
+        distCoeffs,
+        frameTimestamp,
+        generation,
+      );
+    });
+  }
+
+  centerManualIntrinsics(cameraMatrix) {
+    const size = this.camCanvas.getImageSize();
+    if (!size.every((value) => Number.isInteger(value) && value > 0)) {
+      console.warn(
+        "Manual calibration requires a loaded image with valid dimensions:",
+        size,
+      );
+      return false;
+    }
+    let changed = size.some(
+      (value, index) => value !== this.getSensorResolution()[index],
+    );
+    this.updateSensorResolution(size);
+    for (const [index, axis] of ["cx", "cy"].entries()) {
+      const selector = `#id_intrinsics_${axis}`;
+      const center = size[index] / 2;
+      if (Number($(selector).val()) !== center) {
+        changed = true;
+        this.isResolutionUpdated = this.resolutionNeedsRefit = true;
+      }
+      $(selector).val(center);
+      if (typeof document !== "undefined") {
+        const field = document.getElementById(`id_intrinsics_${axis}`);
+        if (field) field.readOnly = true;
+        const lock = document.getElementById(`enabled_intrinsics_${axis}`);
+        if (lock) {
+          lock.checked = true;
+          lock.disabled = true;
+        }
+      }
+      if (Array.isArray(cameraMatrix?.[index])) {
+        cameraMatrix[index][2] = center;
+      }
+    }
+    if (changed && this.calibrationFitState === "pending") {
+      this.calibrationRequestId++;
+      this.calibrationFitState = "idle";
+    }
+    return true;
+  }
+
+  updateLoadedCalibrationViews(
+    image,
+    cameraMatrix,
+    distCoeffs,
+    frameTimestamp,
+    generation,
+  ) {
+    if (!this.centerManualIntrinsics(cameraMatrix)) return;
+    this.flushSensorCalibrationPoints();
+    const size = this.camCanvas.getImageSize();
+    $("#detected_resolution").val(`${size[0]} x ${size[1]}`);
+    const scale = this.getPreviewScale();
+    const previewMatrix = cameraMatrix.map((row, index) =>
+      row.map((value) =>
+        index < 2 ? Number(value) * scale[index] : Number(value),
+      ),
+    );
+    if (
+      this.calibrationFitState !== "pending" &&
+      this.calibrationFitState !== "failed" &&
+      this.calibrationFitState !== "stale" &&
+      (this.camCanvas.calibrationUpdated ||
+        this.viewport.calibrationUpdated ||
+        this.resolutionNeedsRefit) &&
+      this.isValidCalibration(
+        this.camCanvas.getCalibrationPoints(),
+        this.viewport.getCalibrationPoints(),
+      )
+    ) {
+      this.calculateCalibrationIntrinsics();
+    }
     if (distCoeffs.some((coeff) => coeff !== 0)) {
-      this.undistortAndProjectImage(image, cameraMatrix, distCoeffs);
+      this.undistortAndProjectImage(
+        image,
+        previewMatrix,
+        distCoeffs,
+        frameTimestamp,
+        generation,
+      );
     } else {
-      this.projectImage(image, cameraMatrix);
+      this.projectImage(image, previewMatrix, frameTimestamp, generation);
     }
   }
 }

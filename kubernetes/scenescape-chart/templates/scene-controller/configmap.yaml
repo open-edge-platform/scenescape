@@ -18,4 +18,14 @@ metadata:
 data:
   reid-config.json: |-
 {{ .Files.Get "files/scene-controller/reid-config.json" | indent 4 }}
+{{- if include "scene.ptzActive" . }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-scene-ptz
+data:
+  ptz-consumer-config.json: {{ .Values.scene.ptz.config | toJson | quote }}
+  positioning-assignments.json: {{ .Values.positioning.assignments | default dict | toJson | quote }}
+{{- end }}
 {{- end }}

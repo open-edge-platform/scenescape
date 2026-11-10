@@ -28,6 +28,38 @@ RANSAC_THRESHOLD_MAX_PX = 50.0
 MIN_POINTS_FOR_RANSAC = 4
 
 
+def validate_camera_extrinsics(extrinsics):
+  """Validate per-message rigid Cam pose without changing configured calibration.
+
+  Used for any perceptual modality registered as a Manager Cam (RGB, LiDAR
+  detectors, and similar) as well as shared CameraPose builders. Extrinsics are
+  translation and rotation only. Identity scale is attached so the shared
+  CameraPose TRS builder can consume the result; any caller-supplied scale is
+  ignored.
+  """
+  if not isinstance(extrinsics, dict):
+    raise ValueError("extrinsics must be an object")
+  result = {}
+  for key, lengths in (('translation', (3,)), ('rotation', (3, 4))):
+    result[key] = _extrinsics_vector(extrinsics.get(key), key, lengths)
+  if len(result['rotation']) == 4:
+    norm = math.hypot(*result['rotation'])
+    if not math.isfinite(norm) or norm == 0:
+      raise ValueError("extrinsics quaternion must have finite nonzero norm")
+    result['rotation'] = [v / norm for v in result['rotation']]
+  result['scale'] = [1.0, 1.0, 1.0]
+  return result
+
+
+def _extrinsics_vector(values, key, lengths):
+  if not isinstance(values, (list, tuple)) or len(values) not in lengths:
+    raise ValueError(f"extrinsics {key} has an invalid length")
+  if any(isinstance(v, bool) or not isinstance(v, (int, float))
+         or not math.isfinite(v) for v in values):
+    raise ValueError(f"extrinsics {key} must contain finite numbers")
+  return [float(v) for v in values]
+
+
 def scaled_reprojection_threshold_px(pixels_per_meter=None):
   """Return a camera-image RANSAC gate scaled by scene map resolution.
 
@@ -688,12 +720,13 @@ class PointCorrespondenceTransform(CameraPose):
     Uses shared solve_pnpransac (AP3P for non-coplanar, SQPNP for coplanar) to
     obtain an inlier mask, then refits with solvePnP on those inliers (or all
     points when RANSAC is unavailable). Refitting keeps the geometry-appropriate
-    solver (ITERATIVE on planes, SQPNP for sparse non-coplanar sets) so RANSAC's
-    sample solver does not bias the final pose. Records the inlier mask on
-    self.inlier_mask.
+    solver (ITERATIVE on planes, SQPNP for sparse non-coplanar sets). ITERATIVE
+    starts from the RANSAC pose rather than reinitializing on the reduced
+    geometry, which can converge to a distant solution. Records the inlier
+    mask on self.inlier_mask.
     """
     self.inlier_mask = None
-    _, _, mask = solve_pnpransac(
+    rvec, tvec, mask = solve_pnpransac(
       self.mapPoints, self.cameraPoints,
       self.intrinsics.intrinsics, self.intrinsics.distortion,
       pixels_per_meter=self.pixels_per_meter)
@@ -706,6 +739,7 @@ class PointCorrespondenceTransform(CameraPose):
     else:
       map_pts = self.mapPoints
       cam_pts = self.cameraPoints
+      rvec, tvec = None, None
 
     # ITERATIVE needs >= 6 non-coplanar points (DLT init); SQPNP for sparse
     # non-coplanar sets. Coplanar layouts use ITERATIVE.
@@ -715,6 +749,8 @@ class PointCorrespondenceTransform(CameraPose):
     _, rvec, tvec = cv2.solvePnP(
       map_pts, cam_pts,
       self.intrinsics.intrinsics, self.intrinsics.distortion,
+      rvec=rvec, tvec=tvec,
+      useExtrinsicGuess=self.inlier_mask is not None and method == cv2.SOLVEPNP_ITERATIVE,
       flags=method)
     return rvec, tvec
 

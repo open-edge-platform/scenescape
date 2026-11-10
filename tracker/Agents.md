@@ -15,7 +15,7 @@ The service uses a multi-threaded pipeline: `MqttClient` receives detections →
 
 **For detailed architecture, see**: [Design Document](../docs/design/tracker-service.md) | [Implementation Guide](docs/implementation.md)
 
-**Related ADRs**: [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) (C++ Implementation), [ADR-0007](../docs/adr/0007-tracker-service.md) (Time Chunking), [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) (Horizontal Scaling)
+**Related ADRs**: [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) (C++ Implementation), [ADR-0007](../docs/adr/0007-tracker-service.md) (Time Chunking), [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) (Horizontal Scaling), [ADR-0019](../docs/adr/0019-probabilistic-tracking-association.md) (Probabilistic Association; Phase 1 accepted — [design](../docs/design/probabilistic-tracking-association.md))
 
 ## Build System
 
@@ -82,9 +82,17 @@ Run `make test-unit-coverage` to verify locally. New code MUST maintain these th
 
 When `scenes.source=api`, the service also loads Manager `/api/v1/assets` for
 per-category projection (`shift_type`, footprint sizes) used by
-`CoordinateTransformer` and the `rotation_from_velocity` flag used by
-`TrackingWorker`. Missing assets soft-falls back to TYPE_1 defaults with
-velocity rotation disabled.
+`CoordinateTransformer` and the `rotation_from_velocity` fallback used by
+`TrackingWorker` only for tracks without observed orientation. Missing assets
+soft-falls back to TYPE_1 defaults with velocity rotation disabled. Orienting
+detections use the Kalman-versus-velocity yaw publishing rule regardless of
+this asset flag.
+
+Tracker camera detections accept either `bounding_box_px` or sensor-frame
+`translation` plus `size`; optional `[x, y, z, w]` rotation is transformed to
+world Z-yaw and passed to RobotVision as an orienting measurement. Keep the
+camera-data schema, parser validation, and both transform paths aligned when
+changing this input contract.
 
 ## Development Workflows
 

@@ -151,6 +151,42 @@ def test_convert_pixel_bbox(scene_obj, objects):
         assert_bounding_box(sub_obj, original_sub_obj)
   return
 
+def test_convert_pixel_bbox_skips_objects_with_metric_distance(scene_obj, monkeypatch):
+  converted_inputs = []
+
+  def capture_conversion(boxes, *_args):
+    converted_inputs.extend(boxes)
+    return [(0.1, 0.2, 0.3, 0.4) for _ in boxes]
+
+  monkeypatch.setattr(
+    scene_module.rv.tracking,
+    'compute_pixels_to_meter_plane_batch',
+    capture_conversion,
+  )
+  objects = [
+    {'bounding_box_px': {'x': 1, 'y': 2, 'width': 3, 'height': 4}, 'distance': 1.2},
+    {'bounding_box_px': {'x': 5, 'y': 6, 'width': 7, 'height': 8}},
+    {
+      'sub_detections': ['parts'],
+      'parts': [
+        {'bounding_box_px': {'x': 9, 'y': 10, 'width': 11, 'height': 12}, 'distance': 1.4},
+        {'bounding_box_px': {'x': 13, 'y': 14, 'width': 15, 'height': 16}},
+      ],
+    },
+  ]
+
+  scene_obj.convertPixelBoundingBoxesToMeters(
+    objects, np.eye(3), np.zeros(5),
+  )
+
+  assert converted_inputs == [(5, 6, 7, 8), (13, 14, 15, 16)]
+  assert 'bounding_box' not in objects[0]
+  assert objects[1]['bounding_box'] == {'x': 0.1, 'y': 0.2, 'width': 0.3, 'height': 0.4}
+  assert 'bounding_box' not in objects[2]['parts'][0]
+  assert objects[2]['parts'][1]['bounding_box'] == {
+    'x': 0.1, 'y': 0.2, 'width': 0.3, 'height': 0.4,
+  }
+
 def assert_bounding_box(obj, original_obj):
   """Helper function to assert the presence and immutability of bounding box fields."""
   if 'bounding_box' in original_obj:
@@ -189,20 +225,151 @@ def test_processCameraData_camera_without_pose_returns_true(scene_obj):
   }
   assert scene_obj.processCameraData(payload) is True
 
-def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, camera_obj, monkeypatch):
+def test_processCameraData_converts_px_boxes_with_message_intrinsics(
+    scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   convert_mock = Mock()
   monkeypatch.setattr(scene_obj, 'convertPixelBoundingBoxesToMeters', convert_mock)
   monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', lambda *args, **kwargs: [])
   monkeypatch.setattr(scene_obj, 'finishProcessing', lambda *args, **kwargs: None)
+  detections = [{
+    'id': 1,
+    'category': 'person',
+    'bounding_box_px': {'x': 10, 'y': 20, 'width': 30, 'height': 40},
+  }]
   payload = {
     'id': camera_obj.cameraID,
     'timestamp': '2023-05-16T21:22:58.388Z',
-    'intrinsics': {'fx': 1.0},
-    'objects': {'person': []}
+    'intrinsics': {'fx': 700.0, 'fy': 710.0, 'cx': 320.0, 'cy': 240.0},
+    'objects': {'person': detections},
   }
   assert scene_obj.processCameraData(payload) is True
-  convert_mock.assert_not_called()
+  convert_mock.assert_called_once()
+  called_detections, called_intrinsics, _called_distortion = convert_mock.call_args.args
+  assert called_detections is detections
+  assert float(called_intrinsics[0, 0]) == 700.0
+  assert float(called_intrinsics[1, 1]) == 710.0
+
+
+@pytest.mark.parametrize('locked', [True, False])
+def test_processCameraData_applies_pose_locked_across_frames(scene_obj, camera_obj, monkeypatch, locked):
+  camera_obj.pose_locked = locked
+  initial_pose = camera_obj.pose
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  captured = {}
+
+  def _capture_create(detection_type, detections, when_value, camera):
+    captured['camera'] = camera
+    return []
+
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', _capture_create)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', lambda *args, **kwargs: None)
+  payload = {
+    'id': camera_obj.cameraID,
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'extrinsics': {
+      'translation': [1.0, 2.0, 3.0],
+      'rotation': [0.0, 0.0, 0.0],
+      'scale': [1.0, 1.0, 1.0],
+    },
+    'objects': {'person': []},
+  }
+
+  assert scene_obj.processCameraData(payload) is True
+  effective = captured['camera']
+  assert scene_obj.cameras[camera_obj.cameraID] is effective
+  if not locked:
+    np.testing.assert_allclose(effective.pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
+    assert effective is not camera_obj
+  else:
+    assert effective is camera_obj
+  assert camera_obj.pose is initial_pose
+  payload.pop('extrinsics')
+  assert scene_obj.processCameraData(payload) is True
+  assert captured['camera'] is effective
+  payload['extrinsics'] = {'translation': [1], 'rotation': [0, 0, 0, 0]}
+  assert scene_obj.processCameraData(payload) is True
+  assert captured['camera'] is effective
+
+
+def test_camera_lock_refresh_preserves_observed_pose_until_locked(scene_obj):
+  configuration = {
+    'uid': 'mobile', 'resolution': [640, 480],
+    'intrinsics': {'fx': 500, 'fy': 600, 'cx': 320, 'cy': 240},
+    'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+    'pose_locked': False,
+  }
+  scene_obj.updateCameras([configuration])
+  snapshot = scene_obj.cameraSnapshot('mobile', {
+    'translation': [10, 20, 3], 'rotation': [0, 0, 0, 1],
+  })
+  refreshed = dict(configuration, translation=[7, 8, 9], intrinsics={
+    'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240,
+  })
+  scene_obj.updateCameras([refreshed])
+  camera = scene_obj.cameras['mobile']
+  np.testing.assert_allclose(camera.pose.translation.asNumpyCartesian, [10, 20, 3])
+  # Live observation retains prior optics across unlocked config refresh.
+  assert camera.pose.intrinsics.intrinsics[0, 0] == 500
+  assert snapshot.cameras['mobile'].pose.intrinsics.intrinsics[0, 0] == 500
+  scene_obj.updateCameras([dict(refreshed, pose_locked=True)])
+  camera = scene_obj.cameras['mobile']
+  np.testing.assert_allclose(camera.pose.translation.asNumpyCartesian, [7, 8, 9])
+  assert camera.pose_source == 'configured'
+  scene_obj.updateCameras([refreshed])
+  assert scene_obj.cameras['mobile'].pose_source == 'configured'
+  scene_obj.updateCameras([])
+  scene_obj.updateCameras([configuration])
+  np.testing.assert_allclose(scene_obj.cameras['mobile'].pose.translation.asNumpyCartesian, [0, 0, 3])
+
+
+@pytest.mark.parametrize("extrinsics", [
+  {'translation': [0, 0], 'rotation': [0, 0, 0]},
+  {'translation': [0, 0, 0], 'rotation': [0, 0, 0, 0]},
+  {'translation': [0, float('nan'), 0], 'rotation': [0, 0, 0]},
+])
+def test_processCameraData_rejects_invalid_extrinsics(
+    scene_obj, camera_obj, monkeypatch, extrinsics):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  create = Mock(return_value=[])
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', create)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', Mock())
+  assert scene_obj.processCameraData({
+    'id': camera_obj.cameraID, 'extrinsics': extrinsics, 'objects': {'person': []},
+  }, when=1.0)
+  assert create.call_args.args[3] is camera_obj
+
+
+def test_createMovingObjectsForDetection_skips_invalid_siblings(scene_obj, camera_obj):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  good = {
+    'id': 1, 'category': 'person', 'confidence': 0.9,
+    'bounding_box': {'x': 0.1, 'y': 0.2, 'width': 0.3, 'height': 0.4},
+  }
+  bad_distance = {**good, 'id': 2, 'distance': -1}
+  objects = scene_obj.createMovingObjectsForDetection(
+    'person', [bad_distance, good], when=1.0, camera=camera_obj)
+  assert [obj.oid for obj in objects] == [2, 1]
+  assert objects[0].metric_distance is None
+
+  kept = SimpleNamespace(oid=1)
+  scene_obj.tracker.createObject = Mock(side_effect=[ValueError("broken"), kept])
+  objects = scene_obj.createMovingObjectsForDetection(
+    'person', [good, good], when=1.0, camera=camera_obj)
+  assert objects == [kept]
+
+
+@pytest.mark.parametrize("visible", [True, False])
+def test_visibility_uses_observation_camera_without_changing_calibration(scene_obj, visible):
+  configured = SimpleNamespace(cameraID='mobile', pose=SimpleNamespace(
+    regionOfView=SimpleNamespace(isPointWithin=lambda pt: not visible)))
+  observation = SimpleNamespace(cameraID='mobile', pose=SimpleNamespace(
+    regionOfView=SimpleNamespace(isPointWithin=lambda pt: visible)))
+  scene_obj.cameras = {'mobile': configured}
+  obj = SimpleNamespace(camera=observation, sceneLoc=Point(1, 2, 0))
+  scene_obj._updateVisible([obj])
+  assert obj.visibility == (['mobile'] if visible else [])
+  assert scene_obj.cameras['mobile'] is configured
 
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
@@ -416,6 +583,41 @@ def test_deserialize_sets_core_fields(monkeypatch):
   assert scene.scale == 123
   assert scene.children == ['child-1']
 
+class _ReadRecordingDict(dict):
+  """dict that records every key looked up through it."""
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.read = set()
+
+  def __getitem__(self, key):
+    self.read.add(key)
+    return super().__getitem__(key)
+
+  def get(self, key, default=None):
+    self.read.add(key)
+    return super().get(key, default)
+
+  def __contains__(self, key):
+    self.read.add(key)
+    return super().__contains__(key)
+
+def test_scene_never_reads_keys_cache_manager_ignores():
+  """CacheManager leaves Scene.UNUSED_SCENE_KEYS out of its change signature, so an
+  edit to them keeps the old Scene. Fails when Scene starts reading one of them."""
+  unused = {key: [] for key in scene_module.Scene.UNUSED_SCENE_KEYS}
+  child = _ReadRecordingDict(name='child-1', **unused)
+  data = _ReadRecordingDict(
+    uid='scene-1', name='scene-name', map=mapFile, scale=scale,
+    children=[child], cameras=[], use_tracker=True, tracker_config=[1.0, 2.0, 3.0], **unused)
+
+  scene = scene_module.Scene.deserialize(data)
+  scene.updateScene(data)
+
+  assert {'name', 'cameras', 'children'} <= data.read
+  assert data.read.isdisjoint(scene_module.Scene.UNUSED_SCENE_KEYS)
+  assert child.read.isdisjoint(scene_module.Scene.UNUSED_SCENE_KEYS)
+
 def test_updateScene_updates_fields_and_invokes_helpers(scene_obj, monkeypatch):
   update_children_mock = Mock()
   update_cameras_mock = Mock()
@@ -480,6 +682,95 @@ def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
   scene_obj._invalidate_trs_xyz_to_lla()
   _ = scene_obj.trs_xyz_to_lla
   assert calls['count'] == 2
+
+def test_trs_xyz_to_lla_fresh_scene_returns_none(scene_obj):
+  assert scene_obj.trs_xyz_to_lla is None
+
+@pytest.mark.parametrize('output_lla, corners', [
+  (False, [[0, 0, 0], [1, 1, 1]]),
+  (True, None),
+])
+def test_trs_xyz_to_lla_incomplete_inputs_return_none_without_computing(scene_obj, monkeypatch, output_lla, corners):
+  calc_mock = Mock()
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', calc_mock)
+  scene_obj.output_lla = output_lla
+  scene_obj.map_corners_lla = corners
+
+  assert scene_obj.trs_xyz_to_lla is None
+  calc_mock.assert_not_called()
+
+def _make_failing_lla_scene(scene_obj, monkeypatch, exc):
+  calls = {'count': 0}
+
+  def _raise(mesh_corners, map_corners_lla):
+    calls['count'] += 1
+    raise exc
+
+  monkeypatch.setattr(scene_module, 'getMeshAxisAlignedProjectionToXY', lambda mesh: np.array([[0, 0, 0]]))
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
+  scene_obj.output_lla = True
+  scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
+  return calls
+
+@pytest.mark.parametrize('exc', [ValueError("boom"), TypeError("boom"), IndexError("boom")])
+def test_trs_xyz_to_lla_failure_is_cached_and_logged_once(scene_obj, monkeypatch, exc):
+  calls = _make_failing_lla_scene(scene_obj, monkeypatch, exc)
+  log_error = Mock()
+  monkeypatch.setattr(scene_module.log, 'error', log_error)
+
+  assert scene_obj.trs_xyz_to_lla is None
+  assert scene_obj.trs_xyz_to_lla is None
+  assert scene_obj.trs_xyz_to_lla is None
+
+  assert calls['count'] == 1
+  log_error.assert_called_once()
+
+def test_trs_xyz_to_lla_missing_map_mesh_is_handled_as_failure(scene_obj, monkeypatch):
+  log_error = Mock()
+  monkeypatch.setattr(scene_module.log, 'error', log_error)
+  scene_obj.output_lla = True
+  scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
+  assert scene_obj.map_triangle_mesh is None
+
+  assert scene_obj.trs_xyz_to_lla is None
+  log_error.assert_called_once()
+
+def test_trs_xyz_to_lla_invalidate_clears_cached_failure(scene_obj, monkeypatch):
+  calls = _make_failing_lla_scene(scene_obj, monkeypatch, ValueError("boom"))
+
+  assert scene_obj.trs_xyz_to_lla is None
+  scene_obj._invalidate_trs_xyz_to_lla()
+  assert scene_obj.trs_xyz_to_lla is None
+
+  assert calls['count'] == 2
+
+def test_trs_xyz_to_lla_unexpected_error_is_not_swallowed(scene_obj, monkeypatch):
+  _make_failing_lla_scene(scene_obj, monkeypatch, RuntimeError("unexpected"))
+
+  with pytest.raises(RuntimeError):
+    _ = scene_obj.trs_xyz_to_lla
+
+def test_updateScene_recovers_lla_transform_after_failed_hydration(scene_obj, monkeypatch):
+  scene_data = {'name': 'test', 'output_lla': True, 'map_corners_lla': [[0, 0, 0], [1, 1, 1]]}
+  monkeypatch.setattr(scene_module.log, 'error', Mock())
+  monkeypatch.setattr(scene_module, 'getMeshAxisAlignedProjectionToXY', lambda mesh: np.zeros((4, 3)))
+
+  def _raise(mesh_corners, map_corners_lla):
+    raise ValueError("boom")
+
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
+  scene_obj.updateScene(scene_data)
+  assert scene_obj.trs_xyz_to_lla is None
+
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints',
+                      lambda mesh_corners, map_corners_lla: np.eye(4))
+  scene_obj.updateScene(scene_data)
+  assert np.array_equal(scene_obj.trs_xyz_to_lla, np.eye(4))
+
+def test_updateScene_with_lla_disabled_leaves_transform_none(scene_obj):
+  scene_obj.updateScene({'name': 'test', 'output_lla': False})
+
+  assert scene_obj.trs_xyz_to_lla is None
 
 def test_setTracker_invalid_type_keeps_existing_tracker(scene_obj):
   original_tracker = scene_obj.tracker

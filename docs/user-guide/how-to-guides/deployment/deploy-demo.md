@@ -56,14 +56,77 @@ Connect and sign in as described in [Deploy on Docker](./deploy-docker.md#verify
 
 ### Uploading Your Own Scenes
 
-Scenes that already exist are skipped, so re-running `make demo-scenes` is safe. `make demo`/`make demo-scenes` create and reuse a virtual environment at `tools/upload_scenes/.venv`; create or reuse it directly if you have not run either target yet, since the system Python on the supported Ubuntu setup is externally managed and rejects a bare `pip install`:
+For scene hierarchies, UUID restoration, and supplying remote MQTT credentials,
+see [Exporting and Restoring a Hierarchy](../build-a-scene/configure-hierarchy-of-scenes.md#exporting-and-restoring-a-hierarchy).
+
+The Manager image includes the `upload-scenes` CLI for batch imports and automation; no host-side Python setup is needed. It runs only when explicitly invoked and does not change Manager startup.
+
+Existing standalone scenes are not re-imported by default; their calibration markers are reconciled, so re-running the uploader or `make demo-scenes` is safe. Use `--reuse-existing` when importing overlapping hierarchies or retrying an import. Existing scenes are kept unchanged while missing scenes and hierarchy links are restored; conflicting identities or links are rejected. Without this option, existing hierarchies or imports using `--restore-ids` are rejected.
+
+Prepare a directory of per-scene subdirectories, each containing its own `<scene>.zip` as produced by the **Export Scene** button of the Web UI.
+
+For a local hierarchy, the parent ZIP includes its local descendants, so importing only that ZIP creates the scenes and their links in one invocation.
+
+For large maps or hierarchies, pass `--import-timeout 600` to allow a longer
+response wait for each scene import. The default is 60 seconds; the value must
+be a positive integer. This is a read timeout, not a total import deadline.
+Other API requests retain their 60-second timeout. `--wait` controls startup
+readiness only. A timeout does not cancel or roll back the server-side import:
+check Manager logs and the imported resources before retrying.
+
+While importing, the Manager calls its own REST API to apply scene settings and
+create cameras, regions, and other resources. Applying the settings of a scene
+with a `.glb` map re-renders its thumbnail, which can take minutes for large
+meshes. Each of these internal requests may take up to 300 seconds by default;
+on Docker Compose deployments, set the `SCENE_IMPORT_REST_TIMEOUT_S` environment
+variable (positive integer seconds) on the `web` service to change it. The
+Kubernetes Helm chart does not expose this setting and uses the default. If it
+is exceeded, the import stops before the cameras and other resources are
+created and reports `Scene settings update failed (ReadTimeout)`.
+
+#### Using the Manager Image
+
+For an already-running Docker Compose deployment, run a one-off uploader container using the web service's image, network, and mounted credentials:
+
+```bash
+docker compose run --rm --no-deps --entrypoint upload-scenes \
+  --volume "$PWD/my-scenes:/scenes:ro" \
+  web \
+  --restauth /run/secrets/controller.auth \
+  --rootcert /run/secrets/certs/scenescape-ca.pem \
+  --reuse-existing \
+  --import-timeout 600 \
+  https://web.scenescape.intel.com/api/v1 /scenes
+```
+
+Without Compose, use the same Manager image version as your deployment and mount the scene directory, auth file, and CA certificate read-only. For example, with `controller.auth` and `scenescape-ca.pem` securely provisioned in the current directory:
+
+```bash
+export MANAGER_IMAGE='intel/scenescape-manager:<deployed-version>'
+export SCENESCAPE_API_URL='https://<deployment-host>/api/v1'
+docker run --rm --entrypoint upload-scenes \
+  --mount "type=bind,src=$PWD/my-scenes,dst=/scenes,readonly" \
+  --mount "type=bind,src=$PWD/controller.auth,dst=/run/secrets/controller.auth,readonly" \
+  --mount "type=bind,src=$PWD/scenescape-ca.pem,dst=/run/secrets/scenescape-ca.pem,readonly" \
+  "$MANAGER_IMAGE" \
+  --restauth /run/secrets/controller.auth \
+  --rootcert /run/secrets/scenescape-ca.pem \
+  --reuse-existing \
+  "$SCENESCAPE_API_URL" /scenes
+```
+
+Replace the image version and deployment hostname above. The API URL must be reachable from inside the uploader container and match the server certificate. The image's default non-root user must be able to read the mounted files. This command can target either a Docker or Kubernetes deployment with a reachable API endpoint.
+
+#### Host-Side Alternative
+
+The standalone uploader remains available in a repository checkout. `make demo`/`make demo-scenes` create and reuse a virtual environment at `tools/upload_scenes/.venv`; create or reuse it directly if you have not run either target yet, since the system Python on the supported Ubuntu setup is externally managed and rejects a bare `pip install`:
 
 ```bash
 python3 -m venv tools/upload_scenes/.venv
 tools/upload_scenes/.venv/bin/pip install -r tools/upload_scenes/requirements.txt
 ```
 
-To load your own scenes into an already-running deployment, point the tool at a different directory of per-scene subdirectories, each with its own `<scene>.zip` as produced by the "Export Scene" button of the web UI:
+Point the tool at your scene directory:
 
 ```bash
 tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
@@ -73,6 +136,8 @@ tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
 ```
 
 `--restauth` also accepts a `user:password` string, and `--insecure` skips certificate verification when the deployment is reached under a name the certificate was not issued for, such as `https://localhost`.
+
+The server imports each scene synchronously before it replies, which can take minutes for scenes with large maps. `upload-scenes` waits up to 60 seconds for each import by default; if uploads fail with `Read timed out`, raise the limit with `--import-timeout <seconds>` (for example, `--import-timeout 600`). If the deployment is reached through a reverse proxy or a Kubernetes ingress, make sure its read timeout (for example, the NGINX Ingress `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation, which defaults to 60 seconds) is at least as long.
 
 Scenes can also be imported through the Web UI: sign in, navigate to **Import Scene**, then select and upload the scene ZIP.
 

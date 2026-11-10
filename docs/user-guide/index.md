@@ -38,8 +38,9 @@ A key goal of Scenescape is to make writing applications and business logic fast
 
 Scenescape is built on a collection of containerized services that work together to deliver comprehensive functionality, ensuring seamless integration and operation.
 
-![Scenescape architecture diagram](./_assets/architecture.png "architecture diagram")
-Figure 1: Architecture Diagram
+![Scenescape architecture diagram](./_assets/scenescape-architecture-dataflow.drawio.svg "architecture diagram")
+
+_Figure 1: Architecture Diagram_
 
 ### **Scene Controller**
 
@@ -60,6 +61,10 @@ Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python
 ### **Auto Camera Calibration**
 
 Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](./microservices/auto-calibration/auto-calibration.md).
+
+### **Positioning**
+
+Provides the deployment boundary for future live-pose resolution for sources such as ONVIF PTZ cameras. The current service shell publishes MQTT liveness only; pose resolution is not yet implemented. For more information, refer to [Positioning Service](./microservices/positioning/positioning.md).
 
 ### **MQTT Broker**
 
@@ -82,6 +87,7 @@ PostgreSQL database server which stores static information used by the web UI an
 - [Quick Start](./get-started/quick-start.md)
 - [Installation](./get-started/installation.md)
 - [API Reference](./api-reference.md)
+- [Build Applications with Scenescape](./how-to-guides/build-applications-with-scenescape.md)
 - [Camera normalization](./additional-resources/convert-object-detections-to-normalized-image-space.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Release Notes](./release-notes.md)
@@ -113,6 +119,7 @@ Deploy Scenescape <./how-to-guides/deployment/index.md>
 Use the UI and Online Documentation <./how-to-guides/ui-tutorial.md>
 Build a Scene <./how-to-guides/build-a-scene/index.md>
 Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>
+Build Applications with Scenescape <./how-to-guides/build-applications-with-scenescape.md>
 Publish External Source Adapter <./how-to-guides/publish-external-source-adapter.md>
 Calibrate Cameras <./how-to-guides/calibrate-cameras/index.md>
 Work with Spatial Analytics Data <./how-to-guides/work-with-spatial-analytics-data.md>
@@ -128,9 +135,12 @@ Analytics <./microservices/analytics/analytics.md>
 Auto Camera Calibration <./microservices/auto-calibration/auto-calibration.md>
 Cluster Analytics <./microservices/cluster-analytics/cluster-analytics.md>
 Mapping Service <./microservices/mapping-service/mapping-service.md>
+Positioning Service <./microservices/positioning/positioning.md>
+Positioning Operations <./microservices/positioning/operations.md>
 Re-ID Service <./microservices/reid-service/reid-service.md>
 Scene Controller <./microservices/controller/controller.md>
 API Reference <./api-reference.md>
+Positioning API Reference <./positioning-api-reference.md>
 
 :::
 

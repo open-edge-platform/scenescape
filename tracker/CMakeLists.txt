@@ -59,7 +59,6 @@ find_package(OpenMP REQUIRED)
 #####################################################################
 
 # Configure robot_vision subproject options: no Python or benchmarks; tests only with BUILD_RV_TESTS.
-set(RV_CXX_STANDARD 20 CACHE STRING "C++ standard for RobotVision targets" FORCE)
 set(BUILD_PYTHON_BINDINGS OFF CACHE BOOL "Disable Python bindings in robot_vision" FORCE)
 set(BUILD_TESTING ${BUILD_RV_TESTS} CACHE BOOL "Build tests in robot_vision" FORCE)
 set(BUILD_BENCHMARKS OFF CACHE BOOL "Disable benchmarks in robot_vision" FORCE)
@@ -84,6 +83,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/object_class.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/reid_sighting.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt_client.cpp

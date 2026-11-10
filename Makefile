@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
 
 # Image variables
@@ -77,9 +77,18 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics positioning
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics positioning)
 DEPLOYMENT_TEST ?= 0
+
+# First-party application trees; this list is the complexity scope of record.
+COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
+	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
+	manager/src/manager mapping/src reid/src/reid scene_common/src/scene_common \
+	model_download/src
+COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
+COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
+COMPLEXITY_TOP ?= 20
 
 # Observability variables
 CONTROLLER_ENABLE_METRICS ?= false
@@ -117,7 +126,7 @@ help:
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, positioning, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
@@ -164,6 +173,9 @@ help:
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_unit_tests_coverage     Run unit tests and enforce per-service coverage"
 	@echo "  check-unit-coverage         Enforce per-service coverage on existing .coverage data"
+	@echo "  complexity-check            Enforce cognitive complexity <=12 against the legacy baseline (SERVICE=<name> for one service)"
+	@echo "  complexity-check-report     Report per-service and per-function complexity scores (SERVICE=<name> for one service)"
+	@echo "  dependabot-coverage-check   Check .github/dependabot.yml tracks every dependency manifest and compose file"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
@@ -187,6 +199,8 @@ help:
 	@echo "  prettier-write              Format code using prettier"
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
+	@echo ""
+	@echo "  generate-positioning-proto  Regenerate Positioning protobuf/gRPC Python stubs"
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
@@ -224,7 +238,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid positioning: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -644,6 +658,29 @@ velocity-metric: # NEX-T10463
 
 # ============================= Lint ==================================
 
+.PHONY: complexity-check
+complexity-check:
+	@case "$(SERVICE)" in \
+		"") services="$(COMPLEXITY_SERVICES)" ;; \
+		*) services="$(filter $(SERVICE),$(COMPLEXITY_SERVICES))"; \
+			[ "$$services" = "$(SERVICE)" ] || { echo "Unknown complexity SERVICE: $(SERVICE)"; exit 1; } ;; \
+	esac; \
+	rc=0; for svc in $$services; do \
+		echo "==> Cognitive complexity: $$svc"; \
+		python3 .github/scripts/check_cognitive_complexity.py \
+			--service "$$svc" --trees $(COMPLEXITY_SOURCES) || rc=1; \
+	done; exit $$rc
+
+.PHONY: complexity-check-report
+complexity-check-report:
+	@python3 .github/scripts/check_cognitive_complexity.py \
+		--report "$(COMPLEXITY_REPORT_DIR)" --top $(COMPLEXITY_TOP) \
+		$(if $(SERVICE),--service "$(SERVICE)") --trees $(COMPLEXITY_SOURCES)
+
+.PHONY: dependabot-coverage-check
+dependabot-coverage-check:
+	@python3 .github/scripts/check_dependabot_coverage.py
+
 .PHONY: lint-all
 lint-all: lint-python lint-javascript lint-cpp lint-shell lint-dockerfiles prettier-check
 	@echo "==> Linting entire code base..."
@@ -733,6 +770,14 @@ prettier-write: prettier-dependency
 .PHONY: add-licensing
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
+
+# ===================== Code Generation =============================
+
+.PHONY: generate-positioning-proto
+generate-positioning-proto:
+	@echo "==> Generating Positioning protobuf stubs..."
+	@docs/user-guide/api-docs/positioning/v1/generate.sh || (echo "Positioning protobuf generation failed" && exit 1)
+	@echo "DONE ==> Generating Positioning protobuf stubs"
 
 # ===================== Docker Compose Demo ==========================
 

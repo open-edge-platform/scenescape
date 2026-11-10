@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from scene_common.geometry import Point
+from scene_common.options import (
+  provenance_from_camera_info,
+  sync_legacy_pose_source,
+)
 from scene_common.transform import CameraIntrinsics, CameraPose
 import numpy as np
 
@@ -22,9 +26,36 @@ def keysNotEmpty(info, keys):
       return False
   return True
 
+
+def _pose_locked_from_info(info):
+  if 'pose_locked' not in info:
+    return False
+  value = info['pose_locked']
+  if not isinstance(value, bool) and value not in (0, 1):
+    raise ValueError('pose_locked must be a boolean')
+  return bool(value)
+
+
+def _camera_pose_from_info(info, cam_intrins):
+  pose_formats = [
+    ('translation', 'rotation', 'scale'),
+    ('camera points', 'map points')
+  ]
+  if any(keysNotEmpty(info, pose_format) for pose_format in pose_formats):
+    return CameraPose(info, cam_intrins)
+  return CameraPose(DEFAULT_TRANSFORM, cam_intrins)
+
+
 class Camera:
   def __init__(self, anID, info, resolution=None):
     self.cameraID = anID
+    self.pose_locked = _pose_locked_from_info(info)
+    # Untagged payloads stay unknown; Manager stamps origin on authored config.
+    self.pose_provenance = provenance_from_camera_info(info)
+    sync_legacy_pose_source(self)
+    # PTZ cameras carry a Manager-owned calibration block; its presence marks the camera as PTZ
+    ptz_calibration = info.get('ptz_calibration')
+    self.ptz_calibration = ptz_calibration if isinstance(ptz_calibration, dict) else None
 
     if resolution is None and 'width' in info and 'height' in info:
       resolution = (info['width'], info['height'])
@@ -34,16 +65,8 @@ class Camera:
       cam_intrins = CameraIntrinsics(intrinsics,
                                      info.get('distortion', None),
                                      resolution)
-
       info['resolution'] = resolution
-      pose_formats = [
-        ('translation', 'rotation', 'scale'),
-        ('camera points', 'map points')
-      ]
-      if any(keysNotEmpty(info, pose_format) for pose_format in pose_formats):
-        self.pose = CameraPose(info, cam_intrins)
-      else:
-        self.pose = CameraPose(DEFAULT_TRANSFORM, cam_intrins)
+      self.pose = _camera_pose_from_info(info, cam_intrins)
     return
 
   def groundOrigin(self, z=None):
@@ -54,6 +77,7 @@ class Camera:
     data = {
       'uid': self.cameraID,
       'name': self.cameraID,
+      'pose_locked': self.pose_locked,
     }
 
     # resolution
