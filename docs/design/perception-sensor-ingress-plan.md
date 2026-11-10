@@ -39,7 +39,8 @@ this change is confirmed; there is no compatibility adapter.
 ## 3. Non-Goals
 
 - Rewriting tracker fusion or Kalman filter math.
-- Migrating discrete event sensors (`SingletonSensor`) from `scenescape/data/sensor/+`.
+- Migrating discrete event sensors (`SingletonSensor`) from `scenescape/data/sensor/+`, or unifying
+  them with perceptual sensors under a single model/UI.
 - Shipping a long-lived camera-topic compatibility bridge.
 
 ---
@@ -88,10 +89,12 @@ Notes:
 
 A top-level `modality` field is required for perceptual ingress.
 
+Pixel detection example (`bounding_box_px`):
+
 ```json
 {
   "source_uid": "e7cdcbf4-9e2d-4b10-8d8d-f8f4be8a9dbe",
-  "source_key": "dock-north-lidar",
+  "source_key": "dock-north-cam",
   "timestamp": "2026-06-10T12:00:00.000Z",
   "modality": "camera",
   "objects": {
@@ -99,15 +102,43 @@ A top-level `modality` field is required for perceptual ingress.
       {
         "category": "person",
         "bounding_box_px": { "x": 1, "y": 2, "width": 3, "height": 4 },
-        "translation": [0.0, 0.0, 0.0],
-        "size": [0.5, 0.5, 1.7],
-        "rotation": [0, 0, 0, 1],
         "confidence": 0.9
       }
     ]
   }
 }
 ```
+
+3D bounding-box example (`bounding_box_3D`), e.g. lidar:
+
+```json
+{
+  "source_uid": "a1b2c3d4-1111-2222-3333-444455556666",
+  "source_key": "dock-north-lidar",
+  "timestamp": "2026-06-10T12:00:00.000Z",
+  "modality": "lidar",
+  "objects": {
+    "vehicle": [
+      {
+        "category": "vehicle",
+        "bounding_box_3D": {
+          "x": 1.0,
+          "y": 0.0,
+          "z": 0.5,
+          "width": 4.0,
+          "height": 1.5,
+          "depth": 2.0
+        },
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "confidence": 0.95
+      }
+    ]
+  }
+}
+```
+
+Metric pass-through example (`translation + rotation + size`) is also valid when the
+publisher has already projected into scene coordinates.
 
 Resolution rules:
 
@@ -175,10 +206,11 @@ Routing flow:
 
 ### 5.4.1 Identity resolver service
 
-Add a resolver service/module used by ingress and UI:
+Add a resolver service/module used by ingress and UI (`scope` is the owning
+`scene_uid`):
 
-- `resolve(source_key, scope) -> source_uid`
-- `reserve(source_key, scope, modality) -> source_uid`
+- `resolve(source_key, scene_uid) -> source_uid`
+- `reserve(source_key, scene_uid, modality) -> source_uid`
 - `bind(source_uid, scene_sensor_ref) -> active mapping`
 
 State machine:
@@ -187,9 +219,13 @@ State machine:
 
 Suggested scope key:
 
-- `(tenant, site, scene_path, source_key)` unique
+- `(scene_uid, source_key)` unique
 
-This allows reused friendly names in different hierarchy branches without collision.
+`scene_uid` is the owning Scene UUID (already used for hierarchy parent/child links,
+regulated MQTT topics, and controller bindings). SceneScape does not currently model
+`tenant`, `site`, or `scene_path` as configuration concepts; uniqueness is scoped to the
+owning scene so the same friendly `source_key` can exist in different scenes in a
+parent/child hierarchy.
 
 ### 5.5 C++ tracker changes
 
@@ -214,8 +250,13 @@ This allows reused friendly names in different hierarchy branches without collis
 
 ### 5.7 UI changes
 
-- Keep existing sensor editor but add modality selector.
-- Show camera/thermal intrinsics controls only for those modalities.
+Singleton (discrete event) sensors and perceptual sensors remain separate entities: different
+models, topics (`data/sensor/+` vs `data/perceptual_sensor/+`), and editors. This design does not
+merge them into one sensor type.
+
+- Keep the existing _perceptual_ sensor editor and add a modality selector there only
+  (camera / lidar / radar / thermal). Singleton sensor UI is unchanged.
+- Show camera/thermal intrinsics controls only for those perceptual modalities.
 - Show pose-centric controls for lidar/radar.
 - Existing camera objects retain current UX by default.
 - Add "reserve alias" and "bind existing alias" workflows so pipeline setup can happen before

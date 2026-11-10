@@ -193,10 +193,13 @@ Recommended identifier lifecycle:
 
 Recommended uniqueness constraint:
 
-- Unique on `(tenant, site, scene_path, source_key)`
+- Unique on `(scene_uid, source_key)`
 
-This permits reuse of friendly aliases in different branches of a hierarchy while keeping
-collision-free canonical routing.
+`scene_uid` is the owning Scene's UUID — the same identifier already used in hierarchy links
+(`ChildScene`), MQTT regulated topics, and controller bindings. There is no separate
+`tenant` / `site` / `scene_path` namespace in SceneScape configuration today; multi-tenancy is
+out of scope for this ADR. Scoping by owning scene lets the same friendly `source_key` appear
+in different scenes in a parent/child hierarchy while canonical routing stays on `source_uid`.
 
 ## References
 
