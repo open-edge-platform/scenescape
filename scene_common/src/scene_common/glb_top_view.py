@@ -167,7 +167,7 @@ def generateOrthoView(scene_obj, glb_file):
   transform[:3, :3] = o3d.geometry.get_rotation_matrix_from_xyz(
     np.deg2rad(rotation_vector)) @ np.diag(scale)
   triangle_mesh.transform(transform)
-  # Frame from the mesh's own min corner: the stored translation places the map in the scene and must not shift the image.
+  # Known bug: framing from the min corner misaligns with the posed origin; fix in ITEP-97904.
   triangle_mesh.translate(-triangle_mesh.get_axis_aligned_bounding_box().min_bound.numpy())
 
   glb_size = getMeshSize(triangle_mesh)

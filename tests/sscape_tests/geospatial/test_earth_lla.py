@@ -569,6 +569,30 @@ class TestFootprintAnchorFromCornersLLA:
     assert abs(width_computed - width_m) / width_m < 0.01
     assert abs(height_computed - height_m) / height_m < 0.01
 
+  def test_clockwise_north_up_rectangle_gives_heading_zero_unswapped(self):
+    """Provider order (SW, NW, NE, SE) for a north-up rectangle: heading 0, W and H not swapped."""
+    ccw = localFootprintCornersLLA(45.0, -120.0, 0.0, 300.0, 200.0, 0.0)
+    clockwise = ccw[[0, 3, 2, 1]]  # SW, NW, NE, SE
+
+    lat, lng, heading, width, height = footprintAnchorFromCornersLLA(clockwise)
+
+    assert lat == pytest.approx(45.0, abs=1e-6)
+    assert lng == pytest.approx(-120.0, abs=1e-6)
+    assert min(heading, 360.0 - heading) < 1e-6
+    assert width == pytest.approx(300.0, rel=1e-6)
+    assert height == pytest.approx(200.0, rel=1e-6)
+
+  @pytest.mark.parametrize("heading", [0.0, 90.0, 271.0])
+  def test_clockwise_order_matches_counter_clockwise(self, heading):
+    """Clockwise provider order recovers exactly the same footprint as SW, SE, NE, NW order."""
+    ccw = localFootprintCornersLLA(40.0, -75.0, heading, 400.0, 250.0, 0.0)
+    clockwise = ccw[[0, 3, 2, 1]]
+
+    expected = footprintAnchorFromCornersLLA(ccw)
+    recovered = footprintAnchorFromCornersLLA(clockwise)
+
+    np.testing.assert_allclose(recovered, expected, rtol=0, atol=1e-9)
+
   def test_negative_wrong_corner_count(self):
     """Test ValueError for wrong corner count."""
     with pytest.raises(ValueError, match="Expected exactly 4 corners"):

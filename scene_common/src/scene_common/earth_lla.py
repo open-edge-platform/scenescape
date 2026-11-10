@@ -280,12 +280,29 @@ def localFootprintCornersLLA(center_lat, center_lng, heading_deg, width_m, heigh
 
   return np.array(corners_lla)
 
+def _orderCornersSWSENENW(corners_lla):
+  """! Return four LLA corners in SW, SE, NE, NW order, accepting either winding.
+
+  Map providers emit SW, NW, NE, SE (clockwise) while mesh footprints emit SW, SE, NE, NW
+  (counter-clockwise). Clockwise input is reversed after SW so SW stays first. Degenerate
+  (zero-area) input is returned unchanged.
+
+  @param      corners_lla     Corners as (4,N) array with lat, lng in the first two columns
+  @returns    ndarray         Corners in SW, SE, NE, NW order
+  """
+  lat = corners_lla[:, 0]
+  lon_diff = _wrapDegrees180(corners_lla[:, 1] - corners_lla[0, 1])
+  if _signedArea(lon_diff, lat) < 0:
+    return corners_lla[[0, 3, 2, 1]]
+  return corners_lla
+
 def footprintAnchorFromCornersLLA(corners_lla):
   """! Recover footprint centre, heading, and dimensions from LLA corners.
-  Inverse of localFootprintCornersLLA for SW, SE, NE, NW corner ordering, using the same
-  local-tangent approximation.
+  Inverse of localFootprintCornersLLA using the same local-tangent approximation.
+  Accepts SW, SE, NE, NW (counter-clockwise) or SW, NW, NE, SE (clockwise, as emitted by
+  the map providers); the winding is detected from the corner positions.
 
-  @param      corners_lla     Corners as (4,3) array: [lat,lng,alt] for SW, SE, NE, NW
+  @param      corners_lla     Corners as (4,3) array: [lat,lng,alt] in either winding
   @returns    tuple           (lat, lng, heading_deg, width_m, height_m)
   """
   corners_lla = np.asarray(corners_lla)
@@ -299,6 +316,8 @@ def footprintAnchorFromCornersLLA(corners_lla):
     raise ValueError(f"Each corner must have at least lat,lng, got shape {corners_lla.shape}")
   if not np.isfinite(corners_lla).all():
     raise ValueError("All corner coordinates must be finite (not NaN or inf)")
+
+  corners_lla = _orderCornersSWSENENW(corners_lla)
 
   # Extract corners: SW, SE, NE, NW
   sw = corners_lla[0, :2]  # [lat, lng]

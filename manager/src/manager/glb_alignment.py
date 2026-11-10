@@ -243,6 +243,8 @@ def compute_glb_pose_and_corners(frame_corners_lla, anchor_lat, anchor_lng, anch
   mesh, _ = extractMeshFromGLB(glb_path, rotation=None)
   vertices_raw = mesh.vertex.positions.numpy()  # (N, 3)
 
+  # Known bug: a legacy 90 deg X rotation is not preserved through move or reapply;
+  # ALIGN_ROTATION_X is always used. Supposed to be resolved by ITEP-97904 PR.
   # Apply axis conversion: A = Rx(ALIGN_ROTATION_X)
   R_x = Rotation.from_euler('x', [ALIGN_ROTATION_X], degrees=True)
   vertices_aligned = (R_x.as_matrix() @ vertices_raw.T).T

@@ -17,6 +17,8 @@ def migrate_existing_glb_maps(apps, schema_editor):
     if scene.map_corners_lla and not scene.glb_anchor:
       try:
         lat, lng, heading, w, h = footprintAnchorFromCornersLLA(scene.map_corners_lla)
+        # Known bug: the legacy X rotation is not stored, so move and reapply use ALIGN_ROTATION_X.
+        # Supposed to be resolved by ITEP-97904 PR.
         scene.glb_anchor = {
           'lat': float(lat),
           'lng': float(lng),
