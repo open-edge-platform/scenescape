@@ -10,6 +10,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <rv/Utils.hpp>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/Classification.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
@@ -933,6 +934,53 @@ TEST(MultipleObjectTrackerTest, ProductionFilterFollowsClimbingZAndCoastsIt)
   ASSERT_EQ(tracks.size(), 1U);
   EXPECT_NEAR(tracks[0].z, zAtCoastStart + vzAtCoastStart * coastS, 0.3);
   EXPECT_GT(tracks[0].vz, 0.5 * vz);
+}
+
+TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarCameraAndThreeDSensorKeepsOneTrack)
+{
+  // A person walking at 1.4 m/s, seen 2 s by a pixel camera (ground point, z = 0, no measured z) and then 2 s by a
+  // 3D sensor reporting the box centre at height c, or the other way round. The two z references differ by c, but z is
+  // gated only when both sides measured it, so the handover keeps one track with either association method.
+  using namespace rv::tracking::test;
+  const struct
+  {
+    const char *name;
+    rv::tracking::DistanceType distanceType;
+    double threshold;
+    double maxRadiusM;
+    double centreHeight;
+  } methods[] = {
+    {"euclidean", rv::tracking::DistanceType::Euclidean, 2.0, 2.0, 2.5},
+    {"position_mahalanobis", rv::tracking::DistanceType::PositionMahalanobis, rv::chi2Threshold(0.99, 3), 10.0, 2.0},
+  };
+
+  for (const auto &method : methods)
+  {
+    for (const bool cameraFirst : {true, false})
+    {
+      SCOPED_TRACE(std::string(method.name) + (cameraFirst ? ", camera first" : ", 3D sensor first"));
+      rv::tracking::MultipleObjectTracker objectTracker(productionConfig());
+      auto timestamp = std::chrono::system_clock::now();
+      std::set<rv::tracking::Id> trackIds;
+
+      constexpr double stepS = 0.1;
+      for (int frame = 0; frame < 40; ++frame)
+      {
+        const double t = frame * stepS;
+        const bool planar = (frame < 20) == cameraFirst;
+        auto detection = makeDetection(1.4 * t, 0.0, planar ? 0.0 : method.centreHeight, 0.5, 0.5, 1.8);
+        detection.zMeasured = !planar;
+        objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{detection}}, timestamp,
+                            method.distanceType, method.threshold, 0.5, method.maxRadiusM);
+        for (const auto &track : objectTracker.getTracks())
+        {
+          trackIds.insert(track.id);
+        }
+        timestamp += std::chrono::milliseconds(100);
+      }
+      EXPECT_EQ(trackIds.size(), 1U);
+    }
+  }
 }
 
 TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)

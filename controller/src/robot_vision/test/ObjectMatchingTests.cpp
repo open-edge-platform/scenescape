@@ -114,6 +114,7 @@ TEST(ObjectMatchingTest, EuclideanSeparatesStackedFloors)
   track.x = 1.0;
   track.y = 2.0;
   track.z = 0.0;
+  track.zMeasured = true; // floors are told apart by measured z only
   track.length = track.width = track.height = 0.5;
 
   rv::tracking::TrackedObject sameFloor = track;
@@ -187,6 +188,7 @@ TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
   seed.x = 0.0;
   seed.y = 0.0;
   seed.z = 0.0;
+  seed.zMeasured = true; // floors are told apart by measured z only
   seed.length = seed.width = seed.height = 0.5;
 
   auto timestamp = std::chrono::system_clock::now();
@@ -568,6 +570,80 @@ TEST(ObjectMatchingTest, MaxRadiusRejectsPairsAtThresholdsAboveTheBoundCost)
   EXPECT_EQ(assignedCount(makePositionTrack(100.0, 0.0, 100.0), makePerson(12.0, 0.0),
                           DistanceType::PositionMahalanobis, 2000.0, 10.0),
             0U);
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGatesZOnlyWhenBothSidesMeasuredIt)
+{
+  // S = I. A detection 5 m above the prediction: z is gated only when the detection and the track both have measured
+  // z; otherwise only x and y are, and the max_radius_m ceiling uses the XY distance too.
+  const double chi2 = rv::chi2Threshold(0.99, 3);
+  auto track = makePositionTrack(1.0, 0.0, 1.0);
+  auto above = makePerson(0.0, 0.0);
+  above.z = 5.0;
+  auto farAbove = above;
+  farAbove.z = 20.0;
+
+  const struct
+  {
+    const char *name;
+    bool trackZ, detectionZ;
+    size_t expected;
+  } cases[] = {{"planar track and detection", false, false, 1U},
+               {"planar track", false, true, 1U},
+               {"planar detection", true, false, 1U},
+               {"both measured", true, true, 0U}};
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    track.zMeasured = testCase.trackZ;
+    above.zMeasured = farAbove.zMeasured = testCase.detectionZ;
+    EXPECT_EQ(assignedCount(track, above, DistanceType::PositionMahalanobis, chi2, 10.0), testCase.expected);
+    EXPECT_EQ(assignedCount(track, farAbove, DistanceType::PositionMahalanobis, chi2, 10.0), testCase.expected)
+      << "20 m above, ceiling 10 m";
+  }
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGatesXyPairsAtTwoDegreesOfFreedom)
+{
+  // The services pass chi2(p, 3). A pair gated on x and y only is a 2-DOF test, so it gets chi2(p, 2) (9.21 at 0.99),
+  // the gate before z tracking; a pair gated on x, y and z keeps chi2(p, 3) (11.34). S = I, d^2 = 10 between the two.
+  const double chi2 = rv::chi2Threshold(0.99, 3);
+  auto track = makePositionTrack(1.0, 0.0, 1.0);
+  const auto between = makePerson(std::sqrt(10.0), 0.0);
+  const auto inside = makePerson(std::sqrt(9.0), 0.0);
+
+  EXPECT_EQ(assignedCount(track, between, DistanceType::PositionMahalanobis, chi2, 10.0), 0U) << "planar";
+  EXPECT_EQ(assignedCount(track, inside, DistanceType::PositionMahalanobis, chi2, 10.0), 1U) << "planar";
+
+  track.zMeasured = true;
+  auto measuredBetween = between;
+  measuredBetween.zMeasured = true;
+  EXPECT_EQ(assignedCount(track, measuredBetween, DistanceType::PositionMahalanobis, chi2, 10.0), 1U) << "measured z";
+}
+
+TEST(ObjectMatchingTest, EuclideanGatesZOnlyWhenBothSidesMeasuredIt)
+{
+  // A detection 3 m above the track at the same x, y, with a 2 m gate: rejected only when both have measured z.
+  rv::tracking::TrackedObject track = makePerson(1.0, 2.0);
+  rv::tracking::TrackedObject above = track;
+  above.z = 3.0;
+
+  const struct
+  {
+    const char *name;
+    bool trackZ, detectionZ;
+    size_t expected;
+  } cases[] = {{"planar track and detection", false, false, 1U},
+               {"planar track", false, true, 1U},
+               {"planar detection", true, false, 1U},
+               {"both measured", true, true, 0U}};
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    track.zMeasured = testCase.trackZ;
+    above.zMeasured = testCase.detectionZ;
+    EXPECT_EQ(assignedCount(track, above, DistanceType::Euclidean, 2.0, 2.0), testCase.expected);
+  }
 }
 
 TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithDegenerateCovariance)
