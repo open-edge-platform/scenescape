@@ -26,6 +26,15 @@ harness:
     enable_metrics: true
     metrics_collector_image: otel/opentelemetry-collector-contrib:0.155.0
     metrics_export_interval_s: 2
+    # Experimental observation processor service (gRPC). Disabled by default; when enabled it runs
+    # next to the tracker/controller and the experimental client flag is set (see Agents.md).
+    # The datasets have no scene mesh, so keep mode "auto" (frustum only).
+    observation_processor:
+      enabled: false
+      image: intel/scenescape-observation-processor:latest
+      # mode: auto            # auto | full | frustum_only
+      # timeout_ms: 50        # 1-100, keep below the chunk interval
+      # ready_timeout_s: 60
     # Manager assets → shift_type / footprint (TYPE_2 for wide/short FW190D).
     # Tracker loads these via Manager /api/v1/assets into CoordinateTransformer.
     object_classes:

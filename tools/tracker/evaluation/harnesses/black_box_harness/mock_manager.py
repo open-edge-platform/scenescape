@@ -11,6 +11,9 @@ to load scene configuration, matching production behaviour exactly:
  GET  /api/v1/scenes/child      → {"results": []}
  GET  /api/v1/assets            → {"results": [<asset>, ...]} from
                                   scene_config ``object_classes`` (empty if omitted)
+ GET  /api/v1/cameras?scene=<uid> → {"results": [<camera>, ...]} with flat
+                                  ``translation``/``rotation``/``scale`` (read by
+                                  the observation processor service)
  GET  /api/v1/camera/<uid>      → <camera>
  POST /api/v1/camera/<uid>      → <camera>   (accepts updateCamera, no-ops)
 
@@ -263,6 +266,19 @@ def _build_rest_scene(scene_config: dict) -> dict:
   }
 
 
+def _with_flat_pose(camera: dict) -> dict:
+  """Return *camera* with flat ``translation``/``rotation``/``scale`` keys.
+
+  The observation processor service reads the camera pose from these keys
+  only. Point-correspondence cameras carry it under ``extrinsics`` alone, so
+  the flat keys are copied from there; existing flat keys are kept.
+  """
+  extrinsics = camera.get("extrinsics") or {}
+  flat = {key: extrinsics[key] for key in ("translation", "rotation", "scale")
+          if key in extrinsics and key not in camera}
+  return {**camera, **flat}
+
+
 class MockManagerHandler(BaseHTTPRequestHandler):
   """HTTP request handler for the mock Manager REST API."""
 
@@ -319,6 +335,13 @@ class MockManagerHandler(BaseHTTPRequestHandler):
 
     if path == "/api/v1/assets":
       self._send_json(200, {"results": getattr(self.server, "assets", [])})
+      return
+
+    if path == "/api/v1/cameras":
+      scene = self.server.scene
+      scene_filter = parse_qs(parsed.query).get("scene", [None])[0]
+      cameras = scene.get("cameras", []) if scene_filter in (None, scene["uid"]) else []
+      self._send_json(200, {"results": [_with_flat_pose(c) for c in cameras]})
       return
 
     if path.startswith("/api/v1/camera/"):

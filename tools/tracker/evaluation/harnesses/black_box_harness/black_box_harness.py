@@ -75,6 +75,17 @@ Optional:
                            (default 2).
   metrics_otlp_port (int): OTLP/gRPC port the collector listens on
                            (default 4317).
+  observation_processor (dict): Optional experimental observation processor
+                           service (see ``_parse_observation_processor``);
+                           ``enabled`` is false by default.  When enabled, the
+                           service container runs on the same network, the
+                           harness waits until it is SERVING and the
+                           tracker/controller get the experimental client
+                           flag, host and port via env vars.
+                           Keys: ``enabled``, ``image`` (required when
+                           enabled), ``mode`` (auto|full|frustum_only, default
+                           auto), ``timeout_ms`` (1-100, default 50),
+                           ``ready_timeout_s`` (default 60).
   object_classes  (list):  Optional asset definitions forwarded to the mock
                            Manager ``/api/v1/assets`` endpoint so Controller
                            and Tracker Service apply per-category
@@ -90,9 +101,10 @@ import tempfile
 import threading
 import time
 import uuid
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 import paho.mqtt.client as mqtt
 from python_on_whales import docker
@@ -100,7 +112,7 @@ from python_on_whales import docker
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from base.tracker_harness import TrackerHarness
-from utils.format_converters import write_jsonl
+from utils.format_converters import write_json, write_jsonl
 from harnesses.black_box_harness.mock_manager import run as _run_mock_manager
 from harnesses.black_box_harness import metrics_recorder
 
@@ -126,7 +138,8 @@ _CONTAINER_TRACKER_CONFIG  = _CONTAINER_WORKSPACE + "/tracker-config.json"
 # Tracker-service-specific container paths
 _TRACKER_SVC_EXECUTABLE    = "/scenescape/tracker"
 _TRACKER_SVC_CONFIG        = _CONTAINER_WORKSPACE + "/tracker_svc_config.json"
-_TRACKER_SVC_AUTH          = _CONTAINER_WORKSPACE + "/manager_auth.json"
+_MANAGER_AUTH              = _CONTAINER_WORKSPACE + "/manager_auth.json"
+_TRACKER_SVC_AUTH          = _MANAGER_AUTH
 _TRACKER_SVC_SCHEMA        = "/scenescape/schema/config.schema.json"
 
 # Mock Manager REST credentials (arbitrary — server accepts any)
@@ -153,6 +166,98 @@ DEFAULT_METRICS_OTLP_PORT         = 4317 # OTLP/gRPC port the collector listens 
 _COLLECTOR_CONFIG       = _CONTAINER_WORKSPACE + "/collector.yaml"
 _COLLECTOR_OUTPUT_DIR   = "/output"
 _COLLECTOR_OUTPUT_FILE  = "metrics.json"
+
+# Observation processor service (experimental, gRPC; plaintext inside the run network)
+_OBSERVATION_PROCESSOR_PORT    = 50052
+_OBSERVATION_PROCESSOR_SERVICE = "scenescape.observation_processor.v1.ObservationProcessorService"
+_OBSERVATION_PROCESSOR_MODES   = ("auto", "full", "frustum_only")
+_OBSERVATION_PROCESSOR_MIN_TIMEOUT_MS = 1
+_OBSERVATION_PROCESSOR_MAX_TIMEOUT_MS = 100
+DEFAULT_OBSERVATION_PROCESSOR_MODE            = "auto"
+DEFAULT_OBSERVATION_PROCESSOR_TIMEOUT_MS      = 50
+DEFAULT_OBSERVATION_PROCESSOR_READY_TIMEOUT_S = 60.0
+_OBSERVATION_PROCESSOR_SETTINGS_FILE = "observation_processor.json"
+
+# Run inside the service container: exit 0 only when the readiness service is
+# SERVING (the image's own healthcheck covers liveness only).
+_OBSERVATION_PROCESSOR_HEALTH_PROBE = (
+    "import sys, grpc\n"
+    "from grpc_health.v1 import health_pb2, health_pb2_grpc\n"
+    "channel = grpc.insecure_channel('localhost:{port}')\n"
+    "request = health_pb2.HealthCheckRequest(service='{service}')\n"
+    "reply = health_pb2_grpc.HealthStub(channel).Check(request, timeout=2)\n"
+    "sys.exit(0 if reply.status == health_pb2.HealthCheckResponse.SERVING else 1)\n"
+).format(port=_OBSERVATION_PROCESSOR_PORT, service=_OBSERVATION_PROCESSOR_SERVICE)
+
+
+@dataclass(frozen=True)
+class _ObservationProcessorSettings:
+  """Harness settings of the optional observation processor service."""
+  enabled: bool = False
+  image: str = ""
+  mode: str = DEFAULT_OBSERVATION_PROCESSOR_MODE
+  timeout_ms: int = DEFAULT_OBSERVATION_PROCESSOR_TIMEOUT_MS
+  ready_timeout_s: float = DEFAULT_OBSERVATION_PROCESSOR_READY_TIMEOUT_S
+
+
+def _parse_observation_processor(cfg: Optional[Dict[str, Any]]) -> _ObservationProcessorSettings:
+  """Validate the ``observation_processor`` custom config block.
+
+  A missing block or ``enabled: false`` disables the service; the other keys
+  are then ignored.  Validation mirrors the clients' own limits.
+  """
+  if cfg is None:
+    return _ObservationProcessorSettings()
+  if not isinstance(cfg, dict):
+    raise ValueError("observation_processor must be a dictionary")
+  if not cfg.get("enabled", False):
+    return _ObservationProcessorSettings()
+  if not cfg.get("image"):
+    raise ValueError("observation_processor must contain 'image' when enabled")
+  mode = str(cfg.get("mode", DEFAULT_OBSERVATION_PROCESSOR_MODE))
+  if mode not in _OBSERVATION_PROCESSOR_MODES:
+    raise ValueError(
+        f"observation_processor.mode must be one of {_OBSERVATION_PROCESSOR_MODES}, got: {mode!r}"
+    )
+  timeout_ms = int(cfg.get("timeout_ms", DEFAULT_OBSERVATION_PROCESSOR_TIMEOUT_MS))
+  if not _OBSERVATION_PROCESSOR_MIN_TIMEOUT_MS <= timeout_ms <= _OBSERVATION_PROCESSOR_MAX_TIMEOUT_MS:
+    raise ValueError(
+        "observation_processor.timeout_ms must be in "
+        f"[{_OBSERVATION_PROCESSOR_MIN_TIMEOUT_MS}, {_OBSERVATION_PROCESSOR_MAX_TIMEOUT_MS}], "
+        f"got: {timeout_ms}"
+    )
+  return _ObservationProcessorSettings(
+      enabled=True,
+      image=str(cfg["image"]),
+      mode=mode,
+      timeout_ms=timeout_ms,
+      ready_timeout_s=float(cfg.get("ready_timeout_s", DEFAULT_OBSERVATION_PROCESSOR_READY_TIMEOUT_S)),
+  )
+
+
+def _observation_processor_envs(
+    prefix: str, host: str, settings: _ObservationProcessorSettings
+) -> Dict[str, str]:
+  """Env vars that switch a client to the observation processor service.
+
+  Controller (``CONTROLLER_``) and Tracker service (``TRACKER_``) use the same
+  names apart from the prefix.  The service is plaintext, hence ``INSECURE``.
+  """
+  base = f"{prefix}_OBSERVATION_PROCESSOR"
+  return {
+      f"{prefix}_EXPERIMENTAL_OBSERVATION_PROCESSOR": "true",
+      f"{base}_HOST":       host,
+      f"{base}_PORT":       str(_OBSERVATION_PROCESSOR_PORT),
+      f"{base}_INSECURE":   "true",
+      f"{base}_MODE":       settings.mode,
+      f"{base}_TIMEOUT_MS": str(settings.timeout_ms),
+  }
+
+
+def _manager_base_url(manager_name: str, manager_port: int) -> str:
+  """Base URL of the mock Manager inside the Docker network."""
+  return f"http://{manager_name}:{manager_port}"
+
 
 def _build_tracker_service_config(
     broker_name: str,
@@ -186,7 +291,7 @@ def _build_tracker_service_config(
               "insecure": True,
           },
           "manager": {
-              "url": f"http://{manager_name}:{manager_port}",
+              "url": _manager_base_url(manager_name, manager_port),
               "auth_path": _TRACKER_SVC_AUTH,
           },
       },
@@ -247,6 +352,21 @@ def _free_port() -> int:
     return s.getsockname()[1]
 
 
+def _wait_until(
+    predicate: Callable[[], bool], timeout: float, interval: float, failure: str
+) -> None:
+  """Poll *predicate* until it returns true or *timeout* expires.
+
+  Raises:
+      RuntimeError: With message *failure* when the timeout expires.
+  """
+  deadline = time.monotonic() + timeout
+  while not predicate():
+    if time.monotonic() >= deadline:
+      raise RuntimeError(failure)
+    time.sleep(interval)
+
+
 def _wait_for_port(host: str, port: int, timeout: float = 30.0, interval: float = 0.25) -> None:
   """Block until a TCP connection to *host*:*port* succeeds or *timeout* expires.
 
@@ -259,17 +379,17 @@ def _wait_for_port(host: str, port: int, timeout: float = 30.0, interval: float 
   Raises:
       RuntimeError: If the port is not reachable within *timeout* seconds.
   """
-  deadline = time.monotonic() + timeout
-  while True:
+  def _is_open() -> bool:
     try:
       with socket.create_connection((host, port), timeout=interval):
-        return  # port is open
+        return True
     except OSError:
-      if time.monotonic() >= deadline:
-        raise RuntimeError(
-            f"MQTT broker on {host}:{port} not reachable after {timeout:.0f}s"
-        )
-      time.sleep(interval)
+      return False
+
+  _wait_until(
+      _is_open, timeout, interval,
+      f"MQTT broker on {host}:{port} not reachable after {timeout:.0f}s",
+  )
 
 
 def _parse_ts(ts_str: str) -> float:
@@ -385,6 +505,9 @@ class BlackBoxHarness(TrackerHarness):
     self._metrics_otlp_port: int            = DEFAULT_METRICS_OTLP_PORT
     self._collector_ctr                     = None
     self._metrics_out_dir: Optional[Path]   = None
+    # Observation processor service (optional, experimental)
+    self._observation_processor             = _ObservationProcessorSettings()
+    self._observation_processor_ctr         = None
 
   # ------------------------------------------------------------------
   # TrackerHarness interface
@@ -465,6 +588,7 @@ class BlackBoxHarness(TrackerHarness):
           1, int(config.get("metrics_export_interval_s", DEFAULT_METRICS_EXPORT_INTERVAL_S))
       )
       self._metrics_otlp_port = int(config.get("metrics_otlp_port", DEFAULT_METRICS_OTLP_PORT))
+    self._observation_processor = _parse_observation_processor(config.get("observation_processor"))
     return self
 
   def set_output_folder(self, path: Path) -> "BlackBoxHarness":
@@ -519,9 +643,16 @@ class BlackBoxHarness(TrackerHarness):
       broker_ctr, tracker_ctr = self._start_containers(
           tmp_dir, net_name, host_port, run_id
       )
-      log_file = self._output_folder / "tracker_logs.txt" if self._output_folder else tmp_dir / "tracker_logs.txt"
-      log_thread = self._start_log_streaming(tracker_ctr, log_file=log_file)
+      log_dir = self._output_folder if self._output_folder else tmp_dir
+      log_file = log_dir / "tracker_logs.txt"
+      log_threads = [self._start_log_streaming(tracker_ctr, log_file=log_file)]
       print(f"[BlackBoxHarness] Container logs → {log_file}")
+      if self._observation_processor_ctr is not None:
+        processor_log = log_dir / "observation_processor_logs.txt"
+        log_threads.append(
+            self._start_log_streaming(self._observation_processor_ctr, log_file=processor_log)
+        )
+        print(f"[BlackBoxHarness] Observation processor logs → {processor_log}")
       try:
         outputs = self._run_session(input_frames, host_port)
       finally:
@@ -530,14 +661,16 @@ class BlackBoxHarness(TrackerHarness):
           # no flush-on-shutdown), so wait for at least one more export cycle
           # to land before the container is stopped.
           time.sleep(self._metrics_export_interval_s + 0.5)
-        self._stop_containers(broker_ctr, tracker_ctr)
+        self._stop_containers(tracker_ctr, self._observation_processor_ctr, broker_ctr)
+        self._observation_processor_ctr = None
         if self._enable_metrics:
           # The collector stays up until after the tracker has flushed so the
           # final cumulative export is captured, then is stopped last.
           time.sleep(1.0)
           self._stop_collector()
-        if log_thread is not None:
-          log_thread.join(timeout=5.0)
+        for log_thread in log_threads:
+          if log_thread is not None:
+            log_thread.join(timeout=5.0)
         docker.network.remove(net_name)
 
       self._persist_outputs(outputs, tmp_dir)
@@ -571,6 +704,8 @@ class BlackBoxHarness(TrackerHarness):
     self._metrics_otlp_port   = DEFAULT_METRICS_OTLP_PORT
     self._collector_ctr       = None
     self._metrics_out_dir     = None
+    self._observation_processor     = _ObservationProcessorSettings()
+    self._observation_processor_ctr = None
     return self
 
   # ------------------------------------------------------------------
@@ -676,24 +811,38 @@ class BlackBoxHarness(TrackerHarness):
     host_gateway = self._get_docker_host_gateway(net_name)
     print(f"[BlackBoxHarness] Mock Manager hostname '{manager_name}' → {host_gateway}:{manager_port}")
 
+    processor_name: Optional[str] = None
+
     container_type = self._container_type
     print(f"[BlackBoxHarness] Container type: {container_type}")
 
     tracker_name = f"black_box_harness_tracker_{run_id}"
 
     try:
+      if self._observation_processor.enabled:
+        # Clients connect at startup, so the service must be SERVING first.
+        processor_name = f"black_box_harness_observation_processor_{run_id}"
+        self._observation_processor_ctr = self._start_observation_processor_container(
+            tmp_dir, net_name, processor_name, broker_name,
+            manager_name, host_gateway, manager_port,
+        )
+        self._wait_for_observation_processor(self._observation_processor_ctr)
       if container_type == CONTAINER_TYPE_CONTROLLER:
         tracker_ctr = self._start_controller_container(
             tmp_dir, net_name, broker_name, tracker_name,
             manager_name, host_gateway, manager_port, collector_name,
+            processor_name,
         )
       else:
         tracker_ctr = self._start_tracker_service_container(
             tmp_dir, net_name, broker_name, tracker_name,
             manager_name, host_gateway, manager_port, collector_name,
+            processor_name,
         )
     except Exception:
       try:
+        self._stop_containers(self._observation_processor_ctr)
+        self._observation_processor_ctr = None
         broker_ctr.stop(time=5)
         broker_ctr.remove()
         self._stop_collector()
@@ -726,6 +875,7 @@ class BlackBoxHarness(TrackerHarness):
       host_gateway: str,
       manager_port: int,
       collector_name: Optional[str] = None,
+      processor_name: Optional[str] = None,
   ):
     """Start a Controller container using the mock Manager REST API.
 
@@ -738,7 +888,7 @@ class BlackBoxHarness(TrackerHarness):
     Returns:
         Running controller container.
     """
-    manager_url = f"http://{manager_name}:{manager_port}/api/v1"
+    manager_url = _manager_base_url(manager_name, manager_port) + "/api/v1"
     rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}"
 
     envs: Dict[str, str] = dict(_NO_PROXY_ENVS)
@@ -748,6 +898,8 @@ class BlackBoxHarness(TrackerHarness):
           "CONTROLLER_METRICS_ENDPOINT": f"{collector_name}:{self._metrics_otlp_port}",
           "CONTROLLER_METRICS_EXPORT_INTERVAL_S": str(self._metrics_export_interval_s),
       })
+    if processor_name:
+      envs.update(_observation_processor_envs("CONTROLLER", processor_name, self._observation_processor))
 
     return docker.run(
         self._container_image,
@@ -781,6 +933,7 @@ class BlackBoxHarness(TrackerHarness):
       host_gateway: str,
       manager_port: int,
       collector_name: Optional[str] = None,
+      processor_name: Optional[str] = None,
   ):
     """Start a Tracker service container using the mock Manager REST API.
 
@@ -793,11 +946,7 @@ class BlackBoxHarness(TrackerHarness):
     """
     with open(self._tracker_config_path) as f:
       tracker_cfg = json.load(f)
-    auth_file = tmp_dir / "manager_auth.json"
-    auth_file.write_text(json.dumps({
-        "user": _MOCK_MANAGER_USER,
-        "password": _MOCK_MANAGER_PASSWORD,
-    }))
+    auth_file = self._write_manager_auth(tmp_dir)
 
     svc_config = _build_tracker_service_config(
         broker_name, manager_name, manager_port, tracker_cfg,
@@ -807,6 +956,10 @@ class BlackBoxHarness(TrackerHarness):
     svc_config_file = tmp_dir / "tracker_svc_config.json"
     with open(svc_config_file, "w") as f:
       json.dump(svc_config, f, indent=2)
+
+    envs: Dict[str, str] = dict(_NO_PROXY_ENVS)
+    if processor_name:
+      envs.update(_observation_processor_envs("TRACKER", processor_name, self._observation_processor))
 
     return docker.run(
         self._container_image,
@@ -818,7 +971,7 @@ class BlackBoxHarness(TrackerHarness):
         name=tracker_name,
         networks=[net_name],
         add_hosts=[(manager_name, host_gateway)],
-        envs=dict(_NO_PROXY_ENVS),
+        envs=envs,
         volumes=[
             (str(svc_config_file), _TRACKER_SVC_CONFIG, "ro"),
             (str(auth_file),       _TRACKER_SVC_AUTH,   "ro"),
@@ -826,6 +979,92 @@ class BlackBoxHarness(TrackerHarness):
         detach=True,
         remove=False,
     )
+
+  def _write_manager_auth(self, tmp_dir: Path) -> Path:
+    """Write the mock Manager credentials file (``{"user", "password"}``).
+
+    Shared by the Tracker service (``api_scene_loader.cpp``) and the
+    observation processor service, which read the same format.
+    """
+    auth_file = tmp_dir / "manager_auth.json"
+    write_json(
+        {"user": _MOCK_MANAGER_USER, "password": _MOCK_MANAGER_PASSWORD},
+        str(auth_file),
+    )
+    return auth_file
+
+  def _start_observation_processor_container(
+      self,
+      tmp_dir: Path,
+      net_name: str,
+      processor_name: str,
+      broker_name: str,
+      manager_name: str,
+      host_gateway: str,
+      manager_port: int,
+  ):
+    """Start the observation processor service on the run network.
+
+    REST (mock Manager) and MQTT (anonymous broker) are plaintext, so the root
+    certificate is cleared.  Readiness polling is short so the first client
+    call does not wait for a refresh.
+
+    Returns:
+        Running observation processor container.
+    """
+    auth_file = self._write_manager_auth(tmp_dir)
+    envs: Dict[str, str] = {
+        **_NO_PROXY_ENVS,
+        "OBSERVATION_PROCESSOR_REST_URL": _manager_base_url(manager_name, manager_port) + "/api/v1",
+        "OBSERVATION_PROCESSOR_AUTH": _MANAGER_AUTH,
+        "OBSERVATION_PROCESSOR_ROOTCERT": "",
+        "OBSERVATION_PROCESSOR_BROKER": broker_name,
+        "OBSERVATION_PROCESSOR_SERVICE_PORT": str(_OBSERVATION_PROCESSOR_PORT),
+        "OBSERVATION_PROCESSOR_READY_INTERVAL_SECONDS": "1",
+    }
+    ctr = docker.run(
+        self._observation_processor.image,
+        name=processor_name,
+        networks=[net_name],
+        add_hosts=[(manager_name, host_gateway)],
+        envs=envs,
+        volumes=[(str(auth_file), _MANAGER_AUTH, "ro")],
+        detach=True,
+        remove=False,
+    )
+    print(f"[BlackBoxHarness] Observation processor started ({processor_name})")
+    return ctr
+
+  def _wait_for_observation_processor(self, ctr) -> None:
+    """Block until the service reports SERVING (first warm-up succeeded).
+
+    The probe runs inside the container: ``healthcheck.py`` of the image only
+    checks liveness, not the readiness service.
+
+    Raises:
+        RuntimeError: If the service is not SERVING within ``ready_timeout_s``;
+                      the container logs are printed first.
+    """
+    def _is_serving() -> bool:
+      try:
+        docker.execute(ctr, ["python3", "-c", _OBSERVATION_PROCESSOR_HEALTH_PROBE])
+        return True
+      except Exception:
+        return False
+
+    timeout = self._observation_processor.ready_timeout_s
+    try:
+      _wait_until(
+          _is_serving, timeout, 0.5,
+          f"Observation processor not SERVING after {timeout:.0f}s",
+      )
+    except RuntimeError:
+      try:
+        print(f"[BlackBoxHarness] Observation processor logs:\n{ctr.logs()}")
+      except Exception:
+        pass
+      raise
+    print("[BlackBoxHarness] Observation processor is SERVING")
 
   def _start_log_streaming(
       self, tracker_ctr, log_file: Path
@@ -863,16 +1102,21 @@ class BlackBoxHarness(TrackerHarness):
     t.start()
     return t
 
-  def _stop_containers(self, broker_ctr, tracker_ctr) -> None:
-    """Stop and remove broker and tracker containers."""
-    for ctr in (tracker_ctr, broker_ctr):
-      if ctr is None:
-        continue
-      try:
-        ctr.stop(time=5)
-        ctr.remove()
-      except Exception as exc:
-        print(f"[BlackBoxHarness] Warning: container cleanup failed: {exc}")
+  @staticmethod
+  def _stop_container(ctr, label: str = "container") -> None:
+    """Stop and remove one container; failures are reported, not raised."""
+    if ctr is None:
+      return
+    try:
+      ctr.stop(time=5)
+      ctr.remove()
+    except Exception as exc:
+      print(f"[BlackBoxHarness] Warning: {label} cleanup failed: {exc}")
+
+  def _stop_containers(self, *ctrs) -> None:
+    """Stop and remove the given containers in order (``None`` entries skipped)."""
+    for ctr in ctrs:
+      self._stop_container(ctr)
 
   def _build_collector_config(self, tmp_dir: Path) -> Path:
     """Write the OTEL Collector config (OTLP receiver → file exporter)."""
@@ -931,16 +1175,8 @@ class BlackBoxHarness(TrackerHarness):
 
   def _stop_collector(self) -> None:
     """Stop and remove the OTEL Collector container, if running."""
-    ctr = self._collector_ctr
-    if ctr is None:
-      return
-    try:
-      ctr.stop(time=5)
-      ctr.remove()
-    except Exception as exc:
-      print(f"[BlackBoxHarness] Warning: collector cleanup failed: {exc}")
-    finally:
-      self._collector_ctr = None
+    self._stop_container(self._collector_ctr, "collector")
+    self._collector_ctr = None
 
   def _record_metrics(self) -> None:
     """Parse the collector output and write metrics_summary.txt.
@@ -1114,3 +1350,8 @@ class BlackBoxHarness(TrackerHarness):
     dest = config_dir / Path(self._tracker_config_path).name
     shutil.copy(self._tracker_config_path, dest)
     print(f"[BlackBoxHarness] Config → {dest}")
+    if self._observation_processor.enabled:
+      write_json(
+          asdict(self._observation_processor),
+          str(config_dir / _OBSERVATION_PROCESSOR_SETTINGS_FILE),
+      )

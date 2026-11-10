@@ -23,7 +23,10 @@ from harnesses.black_box_harness.black_box_harness import (
     _build_tracker_service_config,
     _free_port,
     _merge_outputs_by_timestamp,
+    _observation_processor_envs,
+    _parse_observation_processor,
     _parse_ts,
+    _wait_until,
 )
 
 REF_CAMERA_FPS = 30  # Reference camera frame rate used in tracker configuration
@@ -1041,3 +1044,229 @@ class TestTrackerServiceAuthFile:
     assert "password" in written_auth, "Auth file missing 'password' field"
     assert "token" not in written_auth, \
         "Auth file must not use 'token' (api_scene_loader.cpp requires 'password')"
+
+
+# ---------------------------------------------------------------------------
+# _wait_until
+# ---------------------------------------------------------------------------
+
+class TestWaitUntil:
+  def test_returns_when_predicate_true(self):
+    _wait_until(lambda: True, timeout=1.0, interval=0.01, failure="x")
+
+  def test_polls_until_true(self):
+    results = iter([False, False, True])
+    _wait_until(lambda: next(results), timeout=1.0, interval=0.001, failure="x")
+
+  def test_raises_with_message_on_timeout(self):
+    with pytest.raises(RuntimeError, match="never ready"):
+      _wait_until(lambda: False, timeout=0.02, interval=0.005, failure="never ready")
+
+
+# ---------------------------------------------------------------------------
+# Observation processor (experimental, disabled by default)
+# ---------------------------------------------------------------------------
+
+OP_IMAGE = "intel/scenescape-observation-processor:test"
+
+
+def _op_config(tracker_config_file, container_type, enabled=True, **op):
+  cfg = {
+      "tracker_config_path": tracker_config_file,
+      "broker_image": "eclipse-mosquitto:2.1-alpine",
+      "container_type": container_type,
+      "drain_timeout": 0.0,
+  }
+  cfg["observation_processor"] = {"enabled": enabled, "image": OP_IMAGE, **op}
+  return cfg
+
+
+class TestObservationProcessorConfig:
+  def test_disabled_by_default(self, harness, tracker_config_file):
+    config = _op_config(tracker_config_file, "controller")
+    del config["observation_processor"]
+    harness.set_custom_config(config)
+    assert harness._observation_processor.enabled is False
+
+  def test_enabled_false_block_is_disabled(self, harness, tracker_config_file):
+    harness.set_custom_config(_op_config(tracker_config_file, "controller", enabled=False))
+    assert harness._observation_processor.enabled is False
+
+  def test_absent_block_means_disabled(self):
+    assert _parse_observation_processor(None).enabled is False
+
+  def test_disabled_block_ignores_other_keys(self):
+    assert _parse_observation_processor({"enabled": False, "mode": "bogus"}).enabled is False
+
+  def test_enabled_defaults(self):
+    settings = _parse_observation_processor({"enabled": True, "image": OP_IMAGE})
+    assert settings.enabled and settings.image == OP_IMAGE
+    assert settings.mode == "auto"
+    assert settings.timeout_ms == 50
+
+  def test_enabled_overrides(self):
+    settings = _parse_observation_processor({
+        "enabled": True, "image": OP_IMAGE, "mode": "frustum_only",
+        "timeout_ms": 80, "ready_timeout_s": 5,
+    })
+    assert (settings.mode, settings.timeout_ms, settings.ready_timeout_s) == ("frustum_only", 80, 5.0)
+
+  def test_enabled_requires_image(self):
+    with pytest.raises(ValueError, match="image"):
+      _parse_observation_processor({"enabled": True})
+
+  def test_rejects_unknown_mode(self):
+    with pytest.raises(ValueError, match="mode"):
+      _parse_observation_processor({"enabled": True, "image": OP_IMAGE, "mode": "bogus"})
+
+  @pytest.mark.parametrize("timeout_ms", [0, 101])
+  def test_rejects_timeout_out_of_range(self, timeout_ms):
+    with pytest.raises(ValueError, match="timeout_ms"):
+      _parse_observation_processor({"enabled": True, "image": OP_IMAGE, "timeout_ms": timeout_ms})
+
+  def test_rejects_non_dict(self):
+    with pytest.raises(ValueError):
+      _parse_observation_processor("yes")
+
+  def test_set_custom_config_stores_settings(self, harness, tracker_config_file):
+    harness.set_custom_config(_op_config(tracker_config_file, "tracker", mode="full"))
+    assert harness._observation_processor.enabled
+    assert harness._observation_processor.mode == "full"
+
+  def test_reset_clears_settings(self, harness, tracker_config_file):
+    harness.set_custom_config(_op_config(tracker_config_file, "tracker"))
+    harness.reset()
+    assert harness._observation_processor.enabled is False
+
+
+class TestObservationProcessorEnvs:
+  @pytest.mark.parametrize("prefix", ["CONTROLLER", "TRACKER"])
+  def test_env_set_per_client(self, prefix):
+    settings = _parse_observation_processor(
+        {"enabled": True, "image": OP_IMAGE, "mode": "full", "timeout_ms": 70})
+    assert _observation_processor_envs(prefix, "op-host", settings) == {
+        f"{prefix}_EXPERIMENTAL_OBSERVATION_PROCESSOR": "true",
+        f"{prefix}_OBSERVATION_PROCESSOR_HOST": "op-host",
+        f"{prefix}_OBSERVATION_PROCESSOR_PORT": "50052",
+        f"{prefix}_OBSERVATION_PROCESSOR_INSECURE": "true",
+        f"{prefix}_OBSERVATION_PROCESSOR_MODE": "full",
+        f"{prefix}_OBSERVATION_PROCESSOR_TIMEOUT_MS": "70",
+    }
+
+
+class TestObservationProcessorFlow:
+  """Container orchestration with the observation processor, Docker mocked."""
+
+  @pytest.fixture(autouse=True)
+  def mock_network_probes(self):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"), \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client"), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep"):
+      yield
+
+  @staticmethod
+  def _run(harness, scene_config, config, frames, mock_docker):
+    """Run process_inputs; return (docker.run calls, mounted auth contents)."""
+    calls = []
+    auth_files = []
+
+    def fake_run(image, *args, **kwargs):
+      calls.append((image, kwargs))
+      for src, dst, *_ in kwargs.get("volumes", []):
+        if "manager_auth" in str(src):
+          auth_files.append(json.loads(Path(src).read_text()))
+      return MagicMock()
+
+    mock_docker.run = MagicMock(side_effect=fake_run)
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config(config)
+    list(harness.process_inputs(iter(frames)))
+    return calls, auth_files
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  @pytest.mark.parametrize("container_type", ["controller", "tracker"])
+  def test_disabled_starts_no_processor_and_sets_no_env(
+      self, mock_docker, container_type, harness, scene_config, tracker_config_file, sample_frames
+  ):
+    config = _op_config(tracker_config_file, container_type, enabled=False)
+    calls, _ = self._run(harness, scene_config, config, sample_frames, mock_docker)
+
+    assert len(calls) == 2
+    assert not any("OBSERVATION_PROCESSOR" in key for _, kw in calls for key in kw.get("envs", {}))
+    mock_docker.execute.assert_not_called()
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  @pytest.mark.parametrize("container_type,prefix", [("controller", "CONTROLLER"), ("tracker", "TRACKER")])
+  def test_enabled_starts_processor_before_client(
+      self, mock_docker, container_type, prefix, harness, scene_config, tracker_config_file, sample_frames
+  ):
+    config = _op_config(tracker_config_file, container_type, mode="frustum_only", timeout_ms=60)
+    calls, _ = self._run(harness, scene_config, config, sample_frames, mock_docker)
+
+    assert [image for image, _ in calls] == [
+        "eclipse-mosquitto:2.1-alpine", OP_IMAGE, "intel/scenescape-controller:test"]
+    mock_docker.execute.assert_called()
+    processor_name = calls[1][1]["name"]
+    client_envs = calls[2][1]["envs"]
+    assert client_envs[f"{prefix}_EXPERIMENTAL_OBSERVATION_PROCESSOR"] == "true"
+    assert client_envs[f"{prefix}_OBSERVATION_PROCESSOR_HOST"] == processor_name
+    assert client_envs[f"{prefix}_OBSERVATION_PROCESSOR_MODE"] == "frustum_only"
+    assert client_envs[f"{prefix}_OBSERVATION_PROCESSOR_TIMEOUT_MS"] == "60"
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  def test_processor_env_and_auth_file(
+      self, mock_docker, harness, scene_config, tracker_config_file, sample_frames
+  ):
+    config = _op_config(tracker_config_file, "controller")
+    calls, auth_files = self._run(harness, scene_config, config, sample_frames, mock_docker)
+
+    envs = calls[1][1]["envs"]
+    broker_name = calls[0][1]["name"]
+    assert envs["OBSERVATION_PROCESSOR_REST_URL"].endswith("/api/v1")
+    assert envs["OBSERVATION_PROCESSOR_BROKER"] == broker_name
+    assert envs["OBSERVATION_PROCESSOR_ROOTCERT"] == ""
+    assert {"user": "harness", "password": "harness"} in auth_files
+    mounted = [dst for _, dst, *_ in calls[1][1]["volumes"]]
+    assert envs["OBSERVATION_PROCESSOR_AUTH"] in mounted
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  def test_processor_stopped_after_run(
+      self, mock_docker, harness, scene_config, tracker_config_file, sample_frames
+  ):
+    containers = []
+    mock_docker.run = MagicMock(side_effect=lambda *a, **k: containers.append(MagicMock()) or containers[-1])
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config(_op_config(tracker_config_file, "controller"))
+    list(harness.process_inputs(iter(sample_frames)))
+
+    assert len(containers) == 3
+    assert all(ctr.stop.called and ctr.remove.called for ctr in containers)
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  def test_readiness_timeout_raises_and_cleans_up(
+      self, mock_docker, harness, scene_config, tracker_config_file, sample_frames
+  ):
+    containers = []
+    mock_docker.run = MagicMock(side_effect=lambda *a, **k: containers.append(MagicMock()) or containers[-1])
+    mock_docker.execute.side_effect = RuntimeError("not serving")
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config(_op_config(tracker_config_file, "controller", ready_timeout_s=0.05))
+
+    with pytest.raises(RuntimeError, match="not SERVING"):
+      list(harness.process_inputs(iter(sample_frames)))
+
+    assert len(containers) == 2  # broker + processor; the client never starts
+    assert all(ctr.stop.called for ctr in containers)
+    mock_docker.network.remove.assert_called()
+
+  @patch("harnesses.black_box_harness.black_box_harness.docker")
+  def test_settings_persisted_in_output_config(
+      self, mock_docker, harness, scene_config, tracker_config_file, sample_frames, tmp_path
+  ):
+    harness.set_output_folder(tmp_path / "out")
+    config = _op_config(tracker_config_file, "controller", mode="full")
+    self._run(harness, scene_config, config, sample_frames, mock_docker)
+
+    saved = json.loads((tmp_path / "out" / "config" / "observation_processor.json").read_text())
+    assert saved["enabled"] is True and saved["mode"] == "full" and saved["image"] == OP_IMAGE
