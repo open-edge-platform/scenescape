@@ -856,15 +856,10 @@ def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
 
 
 @pytest.fixture(scope="session")
-def _k8s_manager(repo_root, supass, tmp_path_factory, request, loopback_hosts):
-  """Session-scoped KinD cluster + Helm deployment manager."""
-  backend = request.config.getoption("--backend")
-  if backend not in ("kubernetes", "all"):
-    yield None
-    return
+def _k8s_manager(repo_root, supass, tmp_path_factory, loopback_hosts):
+  """Session-scoped KinD cluster + Helm deployment manager, created on first use."""
   if not _K8S_AVAILABLE:
-    yield None
-    return
+    pytest.skip("pytest-kubernetes not installed; install with: pip install pytest-kubernetes")
   manager = K8sManager(repo_root, supass, tmp_path_factory)
   manager.setup()
   yield manager
@@ -1033,6 +1028,8 @@ def pytest_generate_tests(metafunc):
     return
 
   backend = metafunc.config.getoption("--backend")
+  if metafunc.definition.get_closest_marker("kubernetes_only"):
+    backend = "kubernetes"
   if backend == "all":
     if "_backend_type" not in metafunc.fixturenames:
       metafunc.fixturenames.append("_backend_type")
@@ -1062,14 +1059,6 @@ def pytest_collection_modifyitems(config, items):
       marker_name = _derive_marker(item)
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
-
-  # Skip kubernetes_only tests when backend is docker-only.
-  backend = config.getoption("--backend")
-  if backend == "docker":
-    skip_k8s = pytest.mark.skip(reason="kubernetes-only test (--backend=docker)")
-    for item in items:
-      if item.get_closest_marker("kubernetes_only"):
-        item.add_marker(skip_k8s)
 
   # Always sort by profile so _ComposeManager only restarts the stack on profile
   # transitions.  Use PROFILE_REGISTRY order when available so --env-profiles
@@ -1174,7 +1163,7 @@ def pytest_runtest_logreport(report):
 
 def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
-  config.addinivalue_line("markers", "kubernetes_only: test only runs with --backend=kubernetes or --backend=all")
+  config.addinivalue_line("markers", "kubernetes_only: test always runs against the Kubernetes backend, regardless of --backend")
   config.addinivalue_line("markers", "fresh_stack: start a brand-new compose stack for this test instead of reusing the shared one")
 
 
