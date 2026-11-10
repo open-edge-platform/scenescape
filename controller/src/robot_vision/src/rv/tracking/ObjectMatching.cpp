@@ -34,14 +34,9 @@ double calculateMulticlassScaledDistance(const TrackedObject &measurement, const
   return distance * (1.0 + conflict);
 }
 
+/// XY when either side is planar (no measured Z): a ground point and a box centre differ in z by the reference, not by
+/// the motion. Full XYZ when both are, so measured stacked floors stay apart.
 double calculateEuclideanDistance(const TrackedObject &measurement, const TrackedObject &track)
-{
-  return std::sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2)
-                   + pow(measurement.z - track.z, 2));
-}
-
-/// Birth clustering: XY when either detection is planar (no measured Z); full XYZ when both are.
-double calculateEuclideanBirthDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   const double dx = measurement.x - track.x;
   const double dy = measurement.y - track.y;
@@ -170,7 +165,8 @@ double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurem
 
 namespace {
 
-/// Per-track constants for PositionMahalanobis cost fill (S^{-1} is fixed for the frame).
+/// Per-track constants for PositionMahalanobis cost fill (S^{-1} is fixed for the frame): the inverse of the x/y/z
+/// block for pairs that both measured z, and of the x/y block for the others.
 struct PositionMahalanobisTrackCache
 {
   double pred_x = 0.0;
@@ -183,6 +179,11 @@ struct PositionMahalanobisTrackCache
   double inv12 = 0.0;
   double inv22 = 0.0;
   bool valid = false;
+  double invXy00 = 0.0;
+  double invXy01 = 0.0;
+  double invXy11 = 0.0;
+  bool validXy = false;
+  bool zMeasured = false;
 };
 
 PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
@@ -191,8 +192,20 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   cache.pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
   cache.pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
   cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
+  cache.zMeasured = track.zMeasured;
 
   const cv::Matx33d S = positionCovariance(track);
+
+  // x/y block: SPD with det S_xy above the floor, as the 2x2 gate before z tracking.
+  const double detXy = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
+  if (std::isfinite(S(0, 0)) && std::isfinite(S(0, 1)) && std::isfinite(S(1, 1)) && S(0, 0) > 0.0
+      && detXy > kMinPositionCovarianceDeterminant)
+  {
+    cache.invXy00 = S(1, 1) / detXy;
+    cache.invXy01 = -S(0, 1) / detXy;
+    cache.invXy11 = S(0, 0) / detXy;
+    cache.validXy = true;
+  }
 
   cv::Mat Sinv;
   if (!invertPositionCovariance(S, Sinv))
@@ -209,12 +222,23 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   return cache;
 }
 
-double positionMahalanobisCostFromCache(double measurement_x, double measurement_y, double measurement_z,
-                                        const PositionMahalanobisTrackCache &cache, double max_radius_m)
+/// A pair gates z only when the detection and the track both measured it (chi2 with 3 DOF); otherwise x and y only
+/// (2 DOF). match() takes one threshold, chi2(p, 3), so the 2-DOF d^2 is scaled by xy_scale = chi2(p, 3) / chi2(p, 2):
+/// both gates then pass at the same probability p.
+double positionMahalanobisCostFromCache(const TrackedObject &measurement, const PositionMahalanobisTrackCache &cache,
+                                        double max_radius_m, double xy_scale)
 {
-  const double dx = measurement_x - cache.pred_x;
-  const double dy = measurement_y - cache.pred_y;
-  const double dz = measurement_z - cache.pred_z;
+  const double dx = measurement.x - cache.pred_x;
+  const double dy = measurement.y - cache.pred_y;
+  if (!(measurement.zMeasured && cache.zMeasured))
+  {
+    if (std::hypot(dx, dy) > max_radius_m || !cache.validXy)
+    {
+      return kDefaultClassBoundValue;
+    }
+    return xy_scale * (cache.invXy00 * dx * dx + 2.0 * cache.invXy01 * dx * dy + cache.invXy11 * dy * dy);
+  }
+  const double dz = measurement.z - cache.pred_z;
   if (std::sqrt(dx * dx + dy * dy + dz * dz) > max_radius_m)
   {
     return kDefaultClassBoundValue;
@@ -264,6 +288,10 @@ void match(const std::vector<TrackedObject> &tracks,
 
   if (distanceType == DistanceType::PositionMahalanobis)
   {
+    // threshold is chi2(p, 3); the x/y-only pairs are scaled to the same p (see positionMahalanobisCostFromCache).
+    const double gateProbability = std::clamp(rv::chi2Cdf3(threshold), 1e-9, 1.0 - 1e-9);
+    const double xy_scale = threshold / rv::chi2Threshold(gateProbability, 2);
+
     // Invert the 3x3 position covariance once per track, not once per (track, detection).
     std::vector<PositionMahalanobisTrackCache> track_caches(tracks.size());
     for (size_t i = 0; i < tracks.size(); ++i)
@@ -276,8 +304,8 @@ void match(const std::vector<TrackedObject> &tracks,
     {
       for (size_t j = 0; j < measurements.size(); ++j)
       {
-        (*costMatrix)(i, j) = positionMahalanobisCostFromCache(
-          measurements[j].x, measurements[j].y, measurements[j].z, track_caches[i], max_radius_m);
+        (*costMatrix)(i, j)
+          = positionMahalanobisCostFromCache(measurements[j], track_caches[i], max_radius_m, xy_scale);
       }
     }
   }
@@ -311,15 +339,6 @@ void match(const std::vector<TrackedObject> &tracks,
         distanceFunction = std::bind(&calculateMulticlassScaledDistance, std::placeholders::_1, std::placeholders::_2);
         break;
       case DistanceType::EuclideanBirth:
-        distanceFunction = [max_radius_m](const TrackedObject &measurement, const TrackedObject &track) {
-          const double distance = calculateEuclideanBirthDistance(measurement, track);
-          if (distance > max_radius_m)
-          {
-            return kDefaultClassBoundValue;
-          }
-          return distance;
-        };
-        break;
       case DistanceType::Euclidean:
       default:
         distanceFunction = [max_radius_m](const TrackedObject &measurement, const TrackedObject &track) {

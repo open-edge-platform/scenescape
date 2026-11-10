@@ -188,13 +188,13 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
      "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
-     "Standard euclidean distance that considers x and y coordinates.")
+     "Euclidean distance on x and y, on x, y and z when both sides have zMeasured.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
      "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
      "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
-     "Squared Mahalanobis distance on the (x, y, z) position block using predicted measurement covariance.")
+     "Squared Mahalanobis distance on the (x, y, z) block of the predicted measurement covariance when both sides have zMeasured, else on the (x, y) block at the same gate probability; the threshold is chi2(p, 3).")
     .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
      "Detection birth clustering: XY if either side lacks zMeasured; XYZ when both measured.")
     .export_values();

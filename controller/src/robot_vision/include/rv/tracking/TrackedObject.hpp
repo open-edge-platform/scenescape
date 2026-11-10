@@ -91,7 +91,8 @@ public:
   bool corrected{false};
 
   /// True when Z came from a measured 3D pose (translation / 3D OD), not ground-plane projection.
-  /// Used by EuclideanBirth: XY-only if either side lacks measured Z; XYZ when both have it.
+  /// Association and birth clustering gate z only when both sides have it.
+  /// On a track it is sticky: set by the first update with measured Z, kept through planar updates and coasts.
   bool zMeasured{false};
 
   std::string toString() const;
