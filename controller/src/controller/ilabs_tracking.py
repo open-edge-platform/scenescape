@@ -161,13 +161,15 @@ def _circle_window(method, max_radius_m):
 
 
 def build_association_window(association_config, measurement_covariance=None,
-                             tracking_radius_m=DEFAULT_TRACKING_RADIUS):
+                             tracking_radius_m=DEFAULT_TRACKING_RADIUS, z_measured=False):
   """Build MQTT ``association_window`` geometry for UI visualization.
 
   Euclidean association is a circle of radius ``max_radius_m``, or
-  ``tracking_radius_m`` without it. Position Mahalanobis association gates in
-  3D (χ² df=3); the published window is the XY projection of that gate, the
-  ellipse of the 2×2 XY block of ``S_pred`` (χ² df=3), with each semi-axis clipped to
+  ``tracking_radius_m`` without it. Position Mahalanobis association gates x, y
+  and z (χ² df=3) when the track and the detection both measured z, x and y
+  (df=2) otherwise; the published window is the XY shadow of the track's gate,
+  the ellipse of the 2×2 XY block of ``S_pred`` at df=3 for a track with
+  measured z (``z_measured``) and df=2 without, with each semi-axis clipped to
   ``max_radius_m`` so the drawn region stays inside the hard association
   ceiling; without a usable covariance it falls back to the ``max_radius_m``
   circle.
@@ -194,8 +196,8 @@ def build_association_window(association_config, measurement_covariance=None,
   # published object every frame; numpy.linalg.eigh made this call 5x slower.
   mean = 0.5 * (s00 + s11)
   spread = math.hypot(0.5 * (s00 - s11), s01)
-  # The XY shadow of the 3-DOF (x,y,z) gate: the S_xy ellipse at the same chi² as matching.
-  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"], 3))
+  # The XY shadow of the track's gate: the S_xy ellipse at the chi² df its pairs are gated with.
+  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"], 3 if z_measured else 2))
 
   return {
     "method": method,
@@ -440,6 +442,7 @@ class IntelLabsTracking(Tracking):
             self.association_config,
             getattr(tracked_object, "measurement_covariance", None),
             self.tracking_radius_m,
+            z_measured=bool(getattr(tracked_object, "zMeasured", False)),
           )
           return obj
 
@@ -489,6 +492,7 @@ class IntelLabsTracking(Tracking):
       self.association_config,
       getattr(tracked_object, "measurement_covariance", None),
       self.tracking_radius_m,
+      z_measured=bool(getattr(tracked_object, "zMeasured", False)),
     )
 
     return sscape_object
