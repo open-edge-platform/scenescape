@@ -1,0 +1,109 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Update] Model Download"
+run-name: "[Update] Model Download"
+
+on:
+  schedule:
+    - cron: "0 10 * * 4"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-update:
+    name: "Check and Update Model Download Version"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: "Get latest model-download version from DockerHub"
+        id: dockerhub
+        run: |
+          set -euo pipefail
+          TAGS=$(curl -fsSL --retry 3 "https://registry.hub.docker.com/v2/repositories/intel/model-download/tags?page_size=100")
+          LATEST=$(echo "$TAGS" | jq -er '
+            .results | map(select(.name | test(
+              "^[0-9]{4}\\.[0-9]+\\.[0-9]+(-ww[0-9]+|-[0-9]{8}-weekly|-rc[0-9]+(-ww[0-9]+r[0-9]+)?)$"
+            ))) | sort_by(.last_updated) | last | .name // empty
+          ')
+          echo "latest_version=${LATEST}" >> "$GITHUB_OUTPUT"
+          echo "Latest model-download version: ${LATEST}"
+
+      - name: "Get current version from repository"
+        id: current
+        run: |
+          CURRENT=$(sed -n '/^modelDownload:/,/^ntpserv:/ { s/^    tag: //p; }' kubernetes/scenescape-chart/values.yaml)
+          if [[ -z "$CURRENT" ]]; then
+            echo "Could not find modelDownload.image.tag in Helm values" >&2
+            exit 1
+          fi
+          echo "current_version=${CURRENT}" >> "$GITHUB_OUTPUT"
+
+      - name: "Update model-download references"
+        id: update
+        env:
+          NEW_VERSION: ${{ steps.dockerhub.outputs.latest_version }}
+        run: |
+          set -euo pipefail
+          sed -i -E "/^modelDownload:/,/^ntpserv:/ s|^(    tag: )[^[:space:]]+|\1${NEW_VERSION}|" kubernetes/scenescape-chart/values.yaml
+          for file in model_download/Makefile \
+            .github/skills/scenescape-setup/scripts/download_model.py; do
+            sed -i -E "s|(intel/model-download:)[A-Za-z0-9._-]+|\1${NEW_VERSION}|g" "$file"
+          done
+
+          CHANGED_FILES=$(git diff --name-only -- \
+            kubernetes/scenescape-chart/values.yaml \
+            model_download/Makefile \
+            .github/skills/scenescape-setup/scripts/download_model.py)
+          if [[ -z "$CHANGED_FILES" ]]; then
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+            echo "All model-download references already use ${NEW_VERSION}"
+          else
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "changed_files_list<<EOF"
+              while IFS= read -r file; do
+                printf -- '- \x60%s\x60\n' "$file"
+              done <<< "$CHANGED_FILES"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Create Pull Request"
+        if: steps.update.outputs.update_needed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GH_PAT }}
+          commit-message: "Model Download: Update intel/model-download to ${{ steps.dockerhub.outputs.latest_version }}"
+          title: "[Model Download] Update to ${{ steps.dockerhub.outputs.latest_version }}"
+          body: |
+            ## Model Download Update
+
+            This PR updates `intel/model-download` from `${{ steps.current.outputs.current_version }}` to `${{ steps.dockerhub.outputs.latest_version }}` (newest published release, weekly, or RC).
+
+            ### Files Updated
+            ${{ steps.update.outputs.changed_files_list }}
+
+            ### DockerHub Reference
+            - [Image: intel/model-download:${{ steps.dockerhub.outputs.latest_version }}](https://hub.docker.com/r/intel/model-download/tags)
+
+            ---
+            *This PR was automatically created by the Model Download update workflow.*
+          base: ${{ github.ref_name }}
+          branch: model-download-update-${{ steps.dockerhub.outputs.latest_version }}
+          delete-branch: true
+          add-paths: |
+            kubernetes/scenescape-chart/values.yaml
+            model_download/Makefile
+            .github/skills/scenescape-setup/scripts/download_model.py
+          labels: |
+            dependencies
+          reviewers: |
+            saratpoluri
+            dmytroye
+            tdorauintc
