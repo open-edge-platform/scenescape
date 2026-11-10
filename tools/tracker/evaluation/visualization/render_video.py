@@ -53,6 +53,7 @@ from visualization.scenario_data import (  # noqa: E402
   EstimatorTrace,
   Scenario,
   frame_rate,
+  ground_truth_frame_rate,
   load_scenario,
 )
 # pylint: enable=wrong-import-position
@@ -126,6 +127,8 @@ def video_timing(start: float, end: float, data_fps: float,
 def confidence_ellipse(covariance: np.ndarray,
                        probability: float = CONFIDENCE_PROBABILITY) -> Tuple[float, float, float]:
   """Width, height and angle [deg] of the χ² confidence ellipse of a 2x2 covariance (2 DOF)."""
+  # Clamped as rv::chi2Threshold does, so a gate probability of 1.0 draws the gate the tracker uses.
+  probability = min(max(probability, 1e-9), 1.0 - 1e-9)
   threshold = -2.0 * math.log(1.0 - probability)
   eigenvalues, eigenvectors = np.linalg.eigh(covariance)
   eigenvalues = np.clip(eigenvalues, 0.0, None)
@@ -363,7 +366,7 @@ class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-
     self.tracks = {track_id: Series.from_table(table)
                    for track_id, table in scenario.tracks.groupby("track_id")}
     times = np.concatenate([series.t for series in [*self.truth.values(), *self.tracks.values()]])
-    data_fps = frame_rate(scenario.ground_truth) or frame_rate(scenario.tracks) or 10.0
+    data_fps = ground_truth_frame_rate(scenario) or frame_rate(scenario.tracks) or 10.0
     self.hold = 1.5 / data_fps
     self.video_fps, self.times = video_timing(times.min(), times.max(), data_fps, speed)
 

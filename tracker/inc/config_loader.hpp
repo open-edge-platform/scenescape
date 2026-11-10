@@ -146,7 +146,7 @@ struct TrackingConfig {
     double non_measurement_time_static_s =
         kDefaultNonMeasurementTimeStaticS; ///< Time before static track dropped
 
-    AssociationConfig association; ///< Data association method and gating (ADR-0017)
+    AssociationConfig association; ///< Data association method and gating (ADR-0019)
 
     /// Experimental: process detections with the observation processor service when its endpoint is
     /// configured (infrastructure.observation_processor).

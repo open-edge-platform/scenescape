@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import deepcopy
 from typing import Optional
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import robot_vision as rv
 from scene_common import log
-from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
@@ -22,6 +23,7 @@ from controller.pose_adjustment import (PoseAdjustment,
                                         POSE_CACHE_TTL_MULTIPLIER)
 from controller import observation_processor
 from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
+from controller.ptz import provider as ptz_provider
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
@@ -63,6 +65,8 @@ class Scene(SceneModel):
     'intel_labs': IntelLabsTracking,
     'time_chunked_intel_labs': TimeChunkedIntelLabsTracking,
   }
+  # Remove a key here as soon as the Controller starts reading it.
+  UNUSED_SCENE_KEYS = ('regions', 'tripwires', 'sensors')
 
   def __init__(self, name, map_file, scale=None,
                max_unreliable_time = MAX_UNRELIABLE_TIME,
@@ -96,6 +100,7 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     self.use_tracker = True
 
     self.pose_adjustment = PoseAdjustment.from_env(
@@ -227,14 +232,25 @@ class Scene(SceneModel):
     scene_map_rotation = self.mesh_rotation
 
     for info in detections:
-      mobj = self.tracker.createObject(detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
+      try:
+        mobj = self.tracker.createObject(
+          detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
+      except (TypeError, ValueError) as exc:
+        log.warning("Skipping invalid", detectionType, "detection:", exc)
+        continue
       mobj.map_triangle_mesh = scene_map_triangle_mesh
       mobj.map_translation = scene_map_translation
       mobj.map_rotation = scene_map_rotation
       objects.append(mobj)
     return objects
 
-  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False, pose_context=None):
+    """Process one camera message.
+
+    @param pose_context  optional PTZProjectionContext; projection uses its per-frame
+                         camera (static intrinsics, PoseContext transform) instead of
+                         the stored camera pose, which is never modified
+    """
     camera_id = jdata['id']
     camera = None
 
@@ -244,8 +260,15 @@ class Scene(SceneModel):
       else:
         when = get_epoch_time(jdata['timestamp'])
 
-    if camera_id in self.cameras:
-      camera = self.cameras[camera_id]
+    observation = self.cameraSnapshot(
+      camera_id,
+      extrinsics=jdata.get('extrinsics'),
+      intrinsics=jdata.get('intrinsics'),
+      distortion=jdata.get('distortion'),
+      resolution=jdata.get('resolution'),
+    )
+    if camera_id in observation.cameras:
+      camera = observation.cameras[camera_id]
     else:
       log.error("Unknown camera", camera_id, self.cameras)
       return False
@@ -254,18 +277,27 @@ class Scene(SceneModel):
       log.info("DISCARDING: camera has no pose")
       return True
 
+    # PTZ per-frame pose takes precedence over the live-extrinsics snapshot.
+    message_camera = pose_context.camera if pose_context is not None else camera
+
     for detection_type, detections in jdata['objects'].items():
       stripReidProvenance(detections)
       self.pose_adjustment.adjust_detections(
         detection_type,
         detections,
         self.name,
-        camera,
+        message_camera,
         when,
       )
-      if "intrinsics" not in jdata:
-        self.convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
-      objects = self.createMovingObjectsForDetection(detection_type, detections, when, camera)
+      # Always unproject pixel boxes with the effective (snapshot/PTZ) optics.
+      # MQTT intrinsics update message_camera first; do not skip conversion when
+      # the frame also carries intrinsics (handheld/detector optics payloads).
+      self.convertPixelBoundingBoxesToMeters(
+        detections,
+        message_camera.pose.intrinsics.intrinsics,
+        message_camera.pose.intrinsics.distortion,
+      )
+      objects = self.createMovingObjectsForDetection(detection_type, detections, when, message_camera)
       self.finishProcessing(detection_type, when, objects)
     return True
 
@@ -286,7 +318,7 @@ class Scene(SceneModel):
 
     for obj_idx, obj in enumerate(objects):
       # Check main object bounding box
-      if 'bounding_box' not in obj and 'bounding_box_px' in obj:
+      if 'bounding_box' not in obj and 'bounding_box_px' in obj and obj.get('distance') is None:
         bbox_px = obj['bounding_box_px']
         bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
         bbox_mappings.append(('main', obj_idx, None, None))
@@ -294,7 +326,7 @@ class Scene(SceneModel):
       # Check sub_detections bounding boxes
       for key in obj.get('sub_detections', []):
         for sub_idx, sub_obj in enumerate(obj[key]):
-          if 'bounding_box' not in sub_obj and 'bounding_box_px' in sub_obj:
+          if 'bounding_box' not in sub_obj and 'bounding_box_px' in sub_obj and sub_obj.get('distance') is None:
             bbox_px = sub_obj['bounding_box_px']
             bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
             bbox_mappings.append(('sub', obj_idx, key, sub_idx))
@@ -334,29 +366,21 @@ class Scene(SceneModel):
 
     objects = []
     child_objects = []
-    for info in new:
-      if 'lat_long_alt' in info:
-        if 'translation' in info:
-          log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
-          return None, None
-        info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
-      translation = Point(info['translation'])
-      translation = np.hstack([translation.asNumpyCartesian, [1]])
-      translation = np.matmul(cameraPose.pose_mat, translation)
-      info['translation'] = translation[:3]
+    for observation in new:
+      info = self._sceneObservationToWorld(observation, cameraPose)
+      if info is None:
+        return None, None
 
       # Embeddings travel nested under metadata (see detections_builder.prepareObjDict);
       # a top-level 'reid' key is never produced by a child scene and would bypass the
       # provenance the receiving scope relies on, so drop it.
       info.pop('reid', None)
 
-      if not child.retrack:
+      if not child.retrack and isinstance(info.get('metadata'), dict):
         # retrack=False: the child's own gid/identity resolution is trusted as-is and carried
         # forward via setGID/setPrevious in mergeAlreadyTrackedObjects. These objects never
         # reach uuid_manager.assignID, so a forwarded embedding would be dead weight here.
-        metadata = info.get('metadata')
-        if isinstance(metadata, dict):
-          metadata.pop('reid', None)
+        info['metadata'].pop('reid', None)
       # retrack=True: leave metadata.reid intact. The parent re-runs its own tracker and
       # UUIDManager over these detections so that observations of one person arriving from
       # several children (and from the parent's own cameras) collapse into a single track.
@@ -365,6 +389,8 @@ class Scene(SceneModel):
       # originating scene already owns that crop's contribution to the shared database.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
+      if 'rotation' in info:
+        mobj.rotation = info['rotation']
       log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
@@ -373,6 +399,22 @@ class Scene(SceneModel):
         child_objects.append(mobj)
 
     return objects, child_objects
+
+  @staticmethod
+  def _sceneObservationToWorld(observation: dict, pose: CameraPose) -> Optional[dict]:
+    """Transform an independent observation copy once, including its local orientation."""
+    info = deepcopy(observation)
+    if 'lat_long_alt' in info:
+      if 'translation' in info:
+        log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
+        return None
+      info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
+    point = Point(info['translation'])
+    info['translation'] = (pose.pose_mat @ np.hstack([point.asNumpyCartesian, [1]]))[:3]
+    if 'rotation' in info:
+      rotation = Rotation.from_matrix(pose.pose_mat[:3, :3]) * Rotation.from_quat(info['rotation'])
+      info['rotation'] = rotation.as_quat().tolist()
+    return info
 
   def finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     # Compute camera visibility for both retracked objects (fed into this
@@ -390,17 +432,37 @@ class Scene(SceneModel):
                               self.use_tracker)
     return
 
+  def _visibilityCameras(self):
+    """Cameras with a view region, using the current per-frame pose for PTZ cameras."""
+    cameras = []
+    for static_camera in self.cameras.values():
+      if not hasattr(static_camera, 'pose'):
+        continue
+      camera = ptz_provider.visibility_camera(static_camera)
+      if camera is not None and hasattr(camera.pose, 'regionOfView'):
+        cameras.append(camera)
+    return cameras
+
+  def visibilityCameraWithID(self, anID):
+    """Camera used to project bounds into an image; None when a PTZ camera sees nothing."""
+    camera = self.cameraWithID(anID)
+    if camera is None or not hasattr(camera, 'pose'):
+      return camera
+    return ptz_provider.visibility_camera(camera)
+
   def _updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
+    cameras = self._visibilityCameras()
     for obj in curObjects:
       vis = []
-
-      for sname in self.cameras:
-        camera = self.cameras[sname]
-        if hasattr(camera, 'pose') and hasattr(camera.pose, 'regionOfView') \
-           and camera.pose.regionOfView.isPointWithin(obj.sceneLoc):
+      observation_camera = getattr(obj, 'camera', None)
+      for camera in cameras:
+        view_camera = camera
+        if getattr(observation_camera, 'cameraID', None) == camera.cameraID:
+          view_camera = observation_camera
+        if hasattr(view_camera, 'pose') and hasattr(view_camera.pose, 'regionOfView') \
+           and view_camera.pose.regionOfView.isPointWithin(obj.sceneLoc):
           vis.append(camera.cameraID)
-
       obj.visibility = vis
     return
 
@@ -426,14 +488,7 @@ class Scene(SceneModel):
     return
 
   def updateCameras(self, newCameras):
-    old = set(self.cameras.keys())
-    new = set([x['uid'] for x in newCameras])
-    for cameraData in newCameras:
-      camID = cameraData['uid']
-      self.cameras[camID] = Camera(camID, cameraData, resolution=cameraData['resolution'])
-    deleted = old - new
-    for camID in deleted:
-      self.cameras.pop(camID)
+    super().updateCameras(newCameras)
     CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 
@@ -443,10 +498,18 @@ class Scene(SceneModel):
     Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
 
     The matrix is calculated lazily on first access and cached for subsequent calls.
+    Returns None when the geospatial inputs are incomplete or invalid. A computation
+    failure is logged once and remembered until the cache is invalidated.
     """
-    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
+        and self.output_lla and self.map_corners_lla is not None):
+      try:
+        mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+      except (TypeError, ValueError, IndexError) as exc:
+        self._trs_xyz_to_lla_failed = True
+        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
+                  self.map_file, "error:", exc)
     return self._trs_xyz_to_lla
 
   def _invalidate_trs_xyz_to_lla(self):
@@ -455,4 +518,5 @@ class Scene(SceneModel):
     This method should be called when the scene geospatial mapping parameters change.
     """
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     return

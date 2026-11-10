@@ -4,7 +4,6 @@
 """Tests for rendering robot-vision scenario recordings as videos."""
 
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,10 +11,7 @@ import pytest
 from matplotlib import animation
 from PIL import Image
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-# pylint: disable-next=wrong-import-position
-from visualization.render_video import (  # noqa: E402
+from visualization.render_video import (
   RenderError,
   association_gate,
   box_corners,
@@ -98,6 +94,18 @@ def test_association_gate_follows_method():
   assert gate_label(mahalanobis) == "association gate (χ² 0.95)"
   assert gate_label(euclidean) == "association gate (2 m)"
   assert gate_label(None) == "99% position ellipse"
+
+
+def test_association_gate_clamps_probability_as_robot_vision():
+  """gate_probability 1.0 is valid in both services; rv::chi2Threshold clamps it to 1 - 1e-9."""
+  covariance = np.diag([4.0, 1.0])
+  threshold = -2.0 * math.log(1e-9)
+
+  width, height, _ = association_gate(
+    {"method": "position_mahalanobis", "gate_probability": 1.0}, covariance)
+
+  assert width == pytest.approx(2 * math.sqrt(threshold * 4.0))
+  assert height == pytest.approx(2 * math.sqrt(threshold * 1.0))
 
 
 def test_box_corners_follow_yaw():

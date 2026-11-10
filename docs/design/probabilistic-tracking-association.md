@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
 - **Date**: 2026-06-06
 - **Status**: `Accepted` (Phase 1); Phases 2–3 `Proposed`
-- **Related ADRs**: [ADR-0017](../adr/0017-probabilistic-tracking-association.md), [ADR-0009](../adr/0009-tracking-evaluation.md)
+- **Related ADRs**: [ADR-0019](../adr/0019-probabilistic-tracking-association.md), [ADR-0009](../adr/0009-tracking-evaluation.md)
 - **Implementation plan**: [.github/plans/plan-probabilistic-tracking.md](../../.github/plans/plan-probabilistic-tracking.md)
 - **Evaluation baseline**: [Tracker Evaluation Pipeline](./tracker-evaluation-pipeline.md)
 
@@ -16,7 +16,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## 1. Overview
 
-This document specifies how [ADR-0017](../adr/0017-probabilistic-tracking-association.md) is realized in `robot_vision`, the tracker service, and the Scene Controller: association distance types, measurement covariance, configuration, stopgaps, and validation expectations. Task checklists and exit criteria live in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
+This document specifies how [ADR-0019](../adr/0019-probabilistic-tracking-association.md) is realized in `robot_vision`, the tracker service, and the Scene Controller: association distance types, measurement covariance, configuration, stopgaps, and validation expectations. Task checklists and exit criteria live in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
 
 ## 2. Goals
 
@@ -102,24 +102,25 @@ d² = (z_xy − ŷ_xy)ᵀ S_pred[0:2,0:2]⁻¹ (z_xy − ŷ_xy)
 valid if d² ≤ χ²(p, 2) and ||z_xy − ŷ_xy|| ≤ max_radius_m
 ```
 
-| Element                | Design choice                                                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Distance type          | `DistanceType::PositionMahalanobis` — 2×2 on (x, y); exclude size and yaw                                              |
-| Gate                   | `chi2_inv(gate_probability, df=2)`; default `gate_probability=0.99` → χ² ≈ 9.21                                        |
-| Safety ceiling         | `max_radius_m` (production default **10**); rejects pairs regardless of Mahalanobis; **not** a multi-cam tolerance     |
-| Process noise shaping  | Velocity-aligned kinematic Q (Δt-scaled along-track ≫ cross-track); no direct position Q                               |
-| Association covariance | Top IMM model `S_pred`; correct UKF/IMM Sxy handling so coast ellipses elongate along velocity                         |
-| Birth clustering       | Detection↔detection remains Euclidean at fixed **`kDefaultBirthClusterRadiusM` ≈ 2 m** (independent of `max_radius_m`) |
-| Multi-cam geometry     | Equal-weight average of matched cameras' world geometry (stopgap until Phase 2 R)                                      |
-| Config                 | `association.method`, `gate_probability`, `max_radius_m` on tracker + controller                                       |
+| Element                | Design choice                                                                                                                                                                                                                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Distance type          | `DistanceType::PositionMahalanobis` — 2×2 on (x, y); exclude size and yaw                                                                                                                                                                                                                           |
+| Gate                   | `chi2_inv(gate_probability, df=2)`; default `gate_probability=0.99` → χ² ≈ 9.21                                                                                                                                                                                                                     |
+| Safety ceiling         | `max_radius_m` (production default **10**); rejects pairs regardless of Mahalanobis; **not** a multi-cam tolerance                                                                                                                                                                                  |
+| Process noise shaping  | Velocity-aligned kinematic Q (Δt-scaled along-track ≫ cross-track); no direct position Q                                                                                                                                                                                                            |
+| Association covariance | Top IMM model `S_pred`; correct UKF/IMM Sxy handling so coast ellipses elongate along velocity                                                                                                                                                                                                      |
+| Birth clustering       | Detection↔detection remains Euclidean at **`kDefaultBirthClusterRadiusM` ≈ 2 m** (independent of `max_radius_m`); the Controller's `euclidean` rollback without `max_radius_m` uses the frame's average `tracking_radius`, as before Phase 1                                                        |
+| Multi-cam geometry     | Equal-weight average of matched cameras' world geometry (stopgap until Phase 2 R)                                                                                                                                                                                                                   |
+| Config                 | `association.method`, `gate_probability`, `max_radius_m` on tracker + controller                                                                                                                                                                                                                    |
+| UI visualization       | Each published track carries `association_window` ([data formats](../user-guide/microservices/controller/data_formats.md)): the `euclidean` circle or the χ² ellipse of `S_pred` xy, drawn by the Manager 2D/3D views at the corrected `translation`, not the predicted mean the gate is centred on |
 
 **Methods:**
 
-| Method                          | Meaning                                            |
-| ------------------------------- | -------------------------------------------------- |
-| `euclidean`                     | Legacy meter gate (rollback)                       |
-| `position_mahalanobis`          | Phase 1 — track-side `S_pred` (production default) |
-| `position_mahalanobis_combined` | Phase 2+ — `S_pred + R_meas`                       |
+| Method                          | Meaning                                                                |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| `euclidean`                     | Legacy meter gate (rollback)                                           |
+| `position_mahalanobis`          | Phase 1 — track-side `S_pred` (default without an `association` block) |
+| `position_mahalanobis_combined` | Phase 2+ — `S_pred + R_meas`                                           |
 
 ### 5.3 Phase 2 — Geometry-derived measurement covariance
 
@@ -175,7 +176,7 @@ Calibrate **α** offline from evaluation datasets (grid search maximizing AssA s
 }
 ```
 
-Phase 1 production default: `method: position_mahalanobis`, `max_radius_m: 10.0` (no `measurement_uncertainty` block required). Environment overrides follow tracker service `TRACKER_*` conventions.
+Phase 1 default without an `association` block: `method: position_mahalanobis`, `max_radius_m: 10.0` (no `measurement_uncertainty` block required). The shipped configs keep `euclidean` until the Phase 1 evaluation; `tracker-config-mahalanobis.json` (Controller) and `tracker-mahalanobis.json` (Tracker service) select Phase 1. Environment overrides follow tracker service `TRACKER_*` conventions.
 
 ### 5.6 Chi-squared gate reference
 
@@ -190,7 +191,7 @@ Default recommendation: **0.99**.
 
 ## 6. Alternatives Considered
 
-See [ADR-0017 §Alternatives](../adr/0017-probabilistic-tracking-association.md#alternatives-considered). Design-level notes:
+See [ADR-0019 §Alternatives](../adr/0019-probabilistic-tracking-association.md#alternatives-considered). Design-level notes:
 
 - Full 7D Mahalanobis rejected for association because size/yaw innovation is poorly conditioned for SceneScape projections.
 - Widening Euclidean radius to “absorb” multi-cam bias rejected; that conflates motion gating with measurement noise and belongs in Phase 2 `R`.
@@ -239,7 +240,7 @@ Phase-specific unit tests and sign-off notes are tracked in the [implementation 
 
 ## 11. References
 
-- [ADR-0017: Probabilistic Tracking Association](../adr/0017-probabilistic-tracking-association.md)
+- [ADR-0019: Probabilistic Tracking Association](../adr/0019-probabilistic-tracking-association.md)
 - [Implementation plan](../../.github/plans/plan-probabilistic-tracking.md)
 - [ADR-0009: Tracking Evaluation](../adr/0009-tracking-evaluation.md)
 - [Tracker Evaluation Pipeline](./tracker-evaluation-pipeline.md)

@@ -4,6 +4,7 @@
 """Unit tests for experimental observation processor in the scene controller."""
 
 import math
+import threading
 import time
 from concurrent import futures
 from types import SimpleNamespace
@@ -59,6 +60,7 @@ def make_object(camera, box=(10.0, 20.0, 30.0, 60.0), category="person", measure
     category=category,
     first_seen=WHEN,
     has_measured_z=measured_z,
+    metric_distance=None,
   )
 
 
@@ -196,12 +198,15 @@ class TestRemoteObservationProcessor:
     no_box = make_object(camera)
     no_box.boundingBoxPixels = None
     external_source = make_object(SimpleNamespace(cameraID="drone-1"))
+    depth_box = make_object(camera)
+    depth_box.metric_distance = 2.0  # sensor-measured depth: keeps the local depth placement
     objects = [
       make_object(camera, measured_z=True),
       external_source,
       no_box,
       make_object(camera, box=(math.nan, 0.0, 1.0, 1.0)),
       make_object(camera, box=(0.0, 0.0, -1.0, 1.0)),
+      depth_box,
       make_object(camera),
     ]
 
@@ -209,9 +214,9 @@ class TestRemoteObservationProcessor:
 
     assert len(client.requests) == 1
     assert len(client.requests[0].detections) == 1
-    for rv_object in rv_objects[0][:5]:
+    for rv_object in rv_objects[0][:6]:
       assert_local(rv_object)
-    assert_remote(rv_objects[0][5], 0)
+    assert_remote(rv_objects[0][6], 0)
 
   def test_makes_no_call_without_sendable_detections(self):
     client = FakeClient()
@@ -725,6 +730,8 @@ class TestTrackerIntegration:
     parent.reid_config_data = {}
     parent.association_config = normalize_association_config()
     parent.trackers = {}
+    parent._joined = False
+    parent._lifecycle_lock = threading.Lock()
     parent.uuid_manager = SimpleNamespace(scene_id="scene")
     parent.observation_processor = SceneObservationProcessor(Mock(), "scene-uid")
 

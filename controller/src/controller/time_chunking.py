@@ -111,7 +111,7 @@ class TimeChunkProcessor(threading.Thread):
                 "category": category,
                 "reason": "tracker_busy"
             }
-            metrics.inc_dropped(metrics_attributes)
+            metrics.inc_dropped(metrics_attributes, len(camera_dict))
             continue
 
           # Create aggregated lists: list of lists where each inner list contains objects from one camera
@@ -154,11 +154,6 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
     log.info(f"Initialized TimeChunkedIntelLabsTracking {self.__str__()} with chunking rate: {self.time_chunking_rate_fps} fps")
 
-  def applyAssociationConfig(self, association_config):
-    """Update association on this manager and any already-created category trackers."""
-    super().applyAssociationConfig(association_config)
-    return
-
   def trackObjects(self, objects, already_tracked_objects, when, categories,
                    ref_camera_frame_rate, max_unreliable_time,
                    non_measurement_time_dynamic, non_measurement_time_static,
@@ -171,9 +166,11 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
     # Create IntelLabs trackers if not already created
     self._createIlabsTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static)
+    if self._joined:
+      return
 
     if not categories:
-      categories = self.trackers.keys()
+      categories = list(self.trackers.keys())
 
     # Extract source id for time-chunk buckets. Detections may arrive as:
     # - camera frames in ``objects`` (Camera.cameraID)
@@ -210,35 +207,41 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
   def _createIlabsTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
     """Create IntelLabs tracker object for each category"""
 
-    # create time chunk processor for frames buffering
-    if not hasattr(self, 'time_chunk_processor'):
-      self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_rate_fps)
-      self.time_chunk_processor.start()
+    with self._lifecycle_lock:
+      if self._joined:
+        return
 
-    # delegate tracking to IntelLabsTracking
-    for category in categories:
-      if category not in self.trackers:
-        tracker = IntelLabsTracking(
-          max_unreliable_time,
-          non_measurement_time_dynamic,
-          non_measurement_time_static,
-          self.time_chunking_rate_fps,
-          self.suspended_track_timeout_secs,
-          self.reid_config_data,
-          association_config=self.association_config,
-        )
-        tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
-        tracker.observation_processor = getattr(self, 'observation_processor', None)
-        self.trackers[category] = tracker
-        tracker.start()
-        log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")
+      # create time chunk processor for frames buffering
+      if not hasattr(self, 'time_chunk_processor'):
+        self.time_chunk_processor = TimeChunkProcessor(self, self.time_chunking_rate_fps)
+        self.time_chunk_processor.start()
+
+      # delegate tracking to IntelLabsTracking
+      for category in categories:
+        if category not in self.trackers:
+          tracker = IntelLabsTracking(
+            max_unreliable_time,
+            non_measurement_time_dynamic,
+            non_measurement_time_static,
+            self.time_chunking_rate_fps,
+            self.suspended_track_timeout_secs,
+            self.reid_config_data,
+            association_config=self.association_config,
+          )
+          tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
+          tracker.observation_processor = getattr(self, 'observation_processor', None)
+          self.trackers[category] = tracker
+          tracker.start()
+          log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")
     return
 
-  def join(self):
-    # First, stop the time chunk processor and wait for it to process all pending messages
-    if hasattr(self, 'time_chunk_processor'):
-      self.time_chunk_processor.shutdown()
-      self.time_chunk_processor.join()
-
-    super().join()
+  def _stopFeeders(self, timeout):
+    # Stop the processor first so nothing is enqueued behind the shutdown sentinels.
+    processor = getattr(self, 'time_chunk_processor', None)
+    if processor is None:
+      return
+    processor.shutdown()
+    processor.join(timeout)
+    if processor.is_alive():
+      log.warning(f"TimeChunkProcessor did not stop within {timeout}s")
     return

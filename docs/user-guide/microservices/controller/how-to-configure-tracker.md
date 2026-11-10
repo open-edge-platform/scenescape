@@ -249,11 +249,16 @@ The tracker may accumulate suspended tracks for some time for re-tracking purpos
 
 ## Detection-to-Track Association
 
-Association decides which detections update which tracks. The default is covariance-aware
-Mahalanobis gating (`position_mahalanobis`). Euclidean meter gating remains available for
-rollback.
+Association decides which detections update which tracks, with one of two methods:
 
-Add an `association` block to `controller/config/tracker-config.json` (Controller-proper) or
+- `euclidean`: a meter gate. The shipped configs use it, as association worked before the
+  `association` block: `controller/config/tracker-config.json` (also `-immediate` and
+  `-persist-attr`) and the Tracker service's `tracker/config/tracker.json`.
+- `position_mahalanobis`: covariance-aware Mahalanobis gating, and the default when a config has
+  no `association` block. The alternative configs `controller/config/tracker-config-mahalanobis.json`
+  and `tracker/config/tracker-mahalanobis.json` select it.
+
+Set the `association` block in `controller/config/tracker-config.json` (Controller-proper) or
 under `tracking.association` in the Tracker service `tracker.json`:
 
 ```json
@@ -266,20 +271,33 @@ under `tracking.association` in the Tracker service `tracker.json`:
 }
 ```
 
-| Field              | Meaning                                                                                                                                                                                                                                                                                                                                                                                              | Default                                                  |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `method`           | `position_mahalanobis` (UKF predicted covariance + χ² gate) or `euclidean` (legacy meter gate)                                                                                                                                                                                                                                                                                                       | `position_mahalanobis`                                   |
-| `gate_probability` | χ² gate probability for Mahalanobis (2 DOF). Ignored for Euclidean.                                                                                                                                                                                                                                                                                                                                  | `0.99`                                                   |
-| `max_radius_m`     | Euclidean: track↔detection association distance (m). Mahalanobis: hard Euclidean **safety ceiling** (m) so a bad track covariance cannot associate arbitrarily far (also keeps the χ² gate from being clipped under long coast). Does **not** set cross-camera birth clustering radius (fixed ~2 m). Does **not** model multi-camera pose disagreement—that is Phase 2 measurement R (see ADR-0017). | `10.0` for `position_mahalanobis`, `2.0` for `euclidean` |
+To use Mahalanobis gating in a deployment, point the Scene Controller's `tracker-config` (the
+`configs` section of `docker-compose.yml`) at `tracker-config-mahalanobis.json`, and set
+`TRACKER_ASSOCIATION_METHOD=position_mahalanobis` for the Tracker service, which then uses the
+same values as its `tracker-mahalanobis.json`.
 
-**Rollback to Euclidean:** set `"method": "euclidean"`, then restart the Scene Controller or
-Tracker service. Without `max_radius_m` it uses the legacy 2 m gate.
+| Field              | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                        | Default                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `method`           | `position_mahalanobis` (UKF predicted covariance + χ² gate) or `euclidean` (meter gate; the shipped configs)                                                                                                                                                                                                                                                                                                                   | `position_mahalanobis`                                                                                                          |
+| `gate_probability` | χ² gate probability for Mahalanobis (2 DOF). Ignored for Euclidean.                                                                                                                                                                                                                                                                                                                                                            | `0.99`                                                                                                                          |
+| `max_radius_m`     | Euclidean: track↔detection association distance (m); without it, see Euclidean below. Mahalanobis: hard Euclidean **safety ceiling** (m) so a bad track covariance cannot associate arbitrarily far (also keeps the χ² gate from being clipped under long coast). Does **not** set cross-camera birth clustering radius (2 m). Does **not** model multi-camera pose disagreement—that is Phase 2 measurement R (see ADR-0019). | `10.0` for `position_mahalanobis`; for `euclidean` the objects' `tracking_radius` (Scene Controller) or `2.0` (Tracker service) |
+
+**Euclidean:** with `"method": "euclidean"` and no `max_radius_m`, as in the shipped configs,
+association works as before the `association` block: the
+Scene Controller gates and clusters cross-camera births on the average `tracking_radius` of the
+frame's objects (set per object class in the [Object Library](../../other-topics/how-to-define-object-properties.md#tracking-behavior-settings));
+the Tracker service on 2 m. With `max_radius_m`, every class uses that gate, births cluster at 2 m,
+and the Scene Controller logs a warning for objects whose `tracking_radius` it ignores.
 
 **Tracker service env overrides** (optional): `TRACKER_ASSOCIATION_METHOD`,
 `TRACKER_ASSOCIATION_GATE_PROBABILITY`, `TRACKER_ASSOCIATION_MAX_RADIUS_M`.
 
-Invalid `method` values fail startup (Controller raises; Tracker throws). Omitting the
-`association` block uses the defaults above.
+A `gate_probability` outside (0, 1] or a negative or non-finite (`nan`, `inf`) `max_radius_m`
+fails Tracker service startup; the Controller logs an error and uses the default.
+
+An invalid `method` fails Tracker service startup. The Scene Controller logs an error and uses
+the default `association` block, ignoring the block's other fields, as it does for a block that
+is not a JSON object. Omitting the `association` block uses the defaults above.
 
 ## Experimental Observation Processor
 

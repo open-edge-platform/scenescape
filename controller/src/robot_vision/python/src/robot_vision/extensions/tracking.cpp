@@ -163,7 +163,9 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     py::arg("beta") = 1.0)
     .def("initialize",
         &rv::tracking::MultiModelKalmanEstimator::initialize,
-         "Initialize the MultiModelKalmanEstimator with the given tracked object.",
+         "Initialize the MultiModelKalmanEstimator with the given tracked object. process_noise, measurement_noise and "
+         "init_state_covariance mean the same as default_process_noise, default_measurement_noise and "
+         "init_state_covariance of TrackManagerConfig.",
          py::arg("tracked_object"),
          py::arg("timestamp"),
          py::arg("process_noise") = 1e-6,
@@ -221,16 +223,17 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
   tracking.attr("PRODUCTION_MEASUREMENT_NOISE") = rv::tracking::kProductionMeasurementNoise;
   tracking.attr("PRODUCTION_INIT_STATE_COVARIANCE") = rv::tracking::kProductionInitStateCovariance;
   tracking.attr("PRODUCTION_MOTION_MODELS") = py::tuple(py::cast(rv::tracking::kProductionMotionModels));
+  tracking.attr("DEFAULT_BIRTH_CLUSTER_RADIUS_M") = rv::tracking::kDefaultBirthClusterRadiusM;
 
   py::enum_<rv::tracking::DistanceType>(tracking, "DistanceType", "DistanceType enum class.")
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
-     "Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
+     "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
      "Standard euclidean distance that considers x and y coordinates.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
-     "Mahalanobis distance that considers the objects measurement vector.")
+     "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
-     "Combination of MultiClassEuclidean and Mahalanobis distances.")
+     "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
      "Squared Mahalanobis distance on the (x, y, z) position block using predicted measurement covariance.")
     .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
@@ -254,11 +257,16 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("max_unreliable_time", &rv::tracking::TrackManagerConfig::mMaxUnreliableTime,
      "Amount of time (seconds) to measure an object before considering it a reliable object.")
     .def_readwrite("default_process_noise", &rv::tracking::TrackManagerConfig::mDefaultProcessNoise,
-     "Default process noise passed to the KalmanEstimator init function.")
+     "Process noise scale q (production: PRODUCTION_PROCESS_NOISE). Sets the velocity noise along and across the motion, "
+     "the CA acceleration and CTRV turn-rate noise, scaled by the time step; no direct position or size noise. Every q up "
+     "to 1e-6 gives the same velocity and turn-rate noise, and 0 does not turn it off. See 'Kalman filter settings' in the "
+     "robot_vision README.")
     .def_readwrite("default_measurement_noise", &rv::tracking::TrackManagerConfig::mDefaultMeasurementNoise,
-     "Default measurement noise passed to the KalmanEstimator init function.")
+     "Measurement noise r (production: PRODUCTION_MEASUREMENT_NOISE): r * I on x, y, z, length, width, height and yaw, "
+     "and the initial variance of position and size.")
     .def_readwrite("init_state_covariance", &rv::tracking::TrackManagerConfig::mInitStateCovariance,
-     "Default init state covariance passed to the KalmanEstimator init function.")
+     "Initial velocity variance; also the upper bound on the initial variance of acceleration (0.1), yaw (0.05) and yaw "
+     "rate (0.01) (production: PRODUCTION_INIT_STATE_COVARIANCE).")
     .def_readwrite("motion_models", &rv::tracking::TrackManagerConfig::mMotionModels,
      "List of motion models to use. It defaults to [CV, CA, CTRV]")
      .def_readwrite("suspended_track_timeout_secs", &rv::tracking::TrackManagerConfig::mSuspendedTrackMaxAgeSecs,
@@ -344,14 +352,16 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def(py::init<const rv::tracking::TrackManagerConfig &>(),
       "Use the given config parameters for the track manager.",
       py::arg("track_manager_config"))
-    .def(py::init<const rv::tracking::TrackManagerConfig &, const rv::tracking::DistanceType &, double>(),
-     "Use the given config parameters for the track manager. Initialize with the given distance type and threshold.",
+    .def(py::init<const rv::tracking::TrackManagerConfig &, const rv::tracking::DistanceType &, double, double>(),
+     "Use the given config parameters for the track manager. Initialize with the given distance type, threshold and "
+     "max_radius_m (Euclidean ceiling, m), used by the track() overloads without them.",
       py::arg("track_manager_config"),
       py::arg("distance_type"),
-      py::arg("distance_threshold"))
+      py::arg("distance_threshold"),
+      py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<rv::tracking::TrackedObject>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp. Use the default distance type and threshold.",
+         "Trigger the track step for the next timestamp. Use the constructor's distance type, threshold and max_radius_m.",
          py::arg("objects"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
@@ -375,7 +385,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp with objects per camera. Use the default distance type and threshold.",
+         "Trigger the track step for the next timestamp with objects per camera. Use the constructor's distance type, threshold and max_radius_m.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
@@ -386,17 +396,20 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
             const rv::tracking::DistanceType &distance_type,
             double distance_threshold,
             double probability_threshold,
-            double max_radius_m) {
+            double max_radius_m,
+            double birth_cluster_radius_m) {
            self.track(std::move(objects_per_camera), timestamp, distance_type, distance_threshold,
-                      probability_threshold, max_radius_m);
+                      probability_threshold, max_radius_m, birth_cluster_radius_m);
          },
-         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold.",
+         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold; "
+         "unmatched detections of different cameras within birth_cluster_radius_m (Euclidean, m) start one track.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("distance_type"),
          py::arg("distance_threshold"),
          py::arg("probability_threshold") = 0.5,
-         py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
+         py::arg("max_radius_m") = std::numeric_limits<double>::infinity(),
+         py::arg("birth_cluster_radius_m") = rv::tracking::kDefaultBirthClusterRadiusM)
     .def("timestamp", &rv::tracking::MultipleObjectTracker::getTimestamp, "Read current timestamp.")
     .def("get_tracks", &rv::tracking::MultipleObjectTracker::getTracks, "Returns a list of all active tracks")
     .def("get_reliable_tracks",

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -18,7 +20,10 @@ namespace rv {
 namespace tracking {
 
 constexpr double kDefaultClassBoundValue = 1000.;
+// A track whose position covariance S has det S at or below this is never assigned.
+constexpr double kMinPositionCovarianceDeterminant = 1e-12;
 
+// Legacy (DistanceType::MultiClassEuclidean, MCEMahalanobis); the services do not use it.
 double calculateMulticlassScaledDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   auto conflict = rv::tracking::classification::distance(measurement.classification, track.classification);
@@ -48,27 +53,69 @@ double calculateEuclideanBirthDistance(const TrackedObject &measurement, const T
   return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
+// Legacy Mahalanobis cost (DistanceType::Mahalanobis, MCEMahalanobis); the services do not use it. It returns
+// 0.5 * sqrt(d^2), so its threshold is no chi-squared confidence.
+namespace {
+
+constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+constexpr int kYaw = TrackedObject::MeasurementSize - 1;
+
+/// Per-track inverses (S is fixed for the frame): S^-1, and the inverse of S without the yaw row and column for pairs
+/// without yaw.
+struct MahalanobisTrackCache
 {
-  TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
+  TrackedObject::MeasurementMatrix covarianceInv;
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> covarianceWithoutYawInv;
+  bool orientationObserved = false;
+};
 
-  // Use yaw in the gate only when both sides have orientation. Camera detections
-  // and tracks that have never seen an orienting sensor leave yaw out.
-  if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
+MahalanobisTrackCache buildMahalanobisCache(const TrackedObject::MeasurementMatrix &covariance, bool orientationObserved)
+{
+  MahalanobisTrackCache cache;
+  cache.orientationObserved = orientationObserved;
+  if (cache.orientationObserved)
   {
-    innovation(MeasurementIndex::YAW) = 0.;
+    cv::invert(covariance, cache.covarianceInv, cv::DECOMP_SVD);
   }
-
-  // innovation' * S^-1 * innovation; S = H P H^T + R when the detection carries its own R
-  const TrackedObject::MeasurementMatrix covarianceInv = measurement.measurementNoiseCov
-    ? (track.predictedStateMeasurementCov + *measurement.measurementNoiseCov).inv(cv::DECOMP_SVD)
-    : track.predictedMeasurementCovInv;
-  const double squaredDistance = innovation.dot(covarianceInv * innovation);
-
-  return 0.5 * std::sqrt(squaredDistance);
+  cv::invert(covariance.get_minor<kWithoutYaw, kWithoutYaw>(0, 0), cache.covarianceWithoutYawInv, cv::DECOMP_SVD);
+  return cache;
 }
 
-namespace {
+MahalanobisTrackCache buildMahalanobisTrackCache(const TrackedObject &track)
+{
+  return buildMahalanobisCache(track.predictedMeasurementCov, orientation::orientationObserved(track));
+}
+
+double mahalanobisCostFromCache(const TrackedObject &measurement,
+                                const TrackedObject &track,
+                                const MahalanobisTrackCache &trackCache)
+{
+  // S = H P H^T + R is per pair when the detection carries its own R, so the track's cached inverses do not apply.
+  std::optional<MahalanobisTrackCache> pairCache;
+  if (measurement.measurementNoiseCov)
+  {
+    pairCache = buildMahalanobisCache(track.predictedStateMeasurementCov + *measurement.measurementNoiseCov,
+                                      trackCache.orientationObserved);
+  }
+  const MahalanobisTrackCache &cache = pairCache ? *pairCache : trackCache;
+
+  TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
+
+  // Use yaw only when both sides have orientation and the update keeps it (the speed gate). Camera detections
+  // and tracks that have never seen an orienting sensor leave yaw out — same
+  // observed-row subset as the partial UKF update (inv of S without yaw), not
+  // zeroing ν_yaw inside ν' S^-1 ν which still couples through off-diagonal S^-1.
+  if (cache.orientationObserved && orientation::hasOrientation(measurement)
+      && orientation::yawPassesSpeedGate(track, measurement.yaw))
+  {
+    // The detection yaw is in (-π, π] and the predicted yaw unwrapped; a box reads the same at yaw + π.
+    innovation(kYaw) = -rv::deltaTheta(measurement.yaw, track.predictedMeasurementMean(kYaw));
+    return 0.5 * std::sqrt(innovation.dot(cache.covarianceInv * innovation));
+  }
+
+  const auto reducedInnovation = innovation.get_minor<kWithoutYaw, 1>(0, 0);
+  return 0.5 * std::sqrt(reducedInnovation.dot(cache.covarianceWithoutYawInv * reducedInnovation));
+}
 
 /// XYZ block of a measurement-space covariance.
 cv::Matx33d positionBlock(const TrackedObject::MeasurementMatrix &covariance)
@@ -88,8 +135,32 @@ cv::Matx33d positionCovariance(const TrackedObject &measurement, const TrackedOb
   return positionBlock(track.predictedStateMeasurementCov) + positionBlock(*measurement.measurementNoiseCov);
 }
 
+/// S^-1 of the position block when S is symmetric positive definite. A singular or indefinite S could give a negative
+/// d^2 that passes any gate and wins the assignment; LU alone would still invert a near-singular one.
+bool invertPositionCovariance(const cv::Matx33d &S, cv::Mat &Sinv)
+{
+  if (!cv::checkRange(S))
+  {
+    return false;
+  }
+  // Sylvester: SPD iff the leading principal minors are positive; the last one keeps the near-singular floor.
+  const double minor2 = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
+  if (S(0, 0) <= 0.0 || minor2 <= 0.0 || cv::determinant(S) <= kMinPositionCovarianceDeterminant)
+  {
+    return false;
+  }
+  return cv::invert(S, Sinv, cv::DECOMP_LU) != 0;
+}
+
 } // namespace
 
+// One pair, for tests; match() builds the cache once per track.
+double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
+{
+  return mahalanobisCostFromCache(measurement, track, buildMahalanobisTrackCache(track));
+}
+
+// Pairs whose detection carries R (per-pair S); match() costs the others with the per-track cache below.
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   const double pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
@@ -102,7 +173,7 @@ double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurem
   const cv::Matx33d S = positionCovariance(measurement, track);
 
   cv::Mat Sinv;
-  if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)
+  if (!invertPositionCovariance(S, Sinv))
   {
     return kDefaultClassBoundValue;
   }
@@ -146,7 +217,7 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   const cv::Matx33d S = positionBlock(track.predictedMeasurementCov);
 
   cv::Mat Sinv;
-  if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)
+  if (!invertPositionCovariance(S, Sinv))
   {
     return cache;
   }
@@ -197,14 +268,6 @@ double positionMahalanobisCostWithMeasurementNoise(const TrackedObject &measurem
 
 } // namespace
 
-double calculateCompundDistance(const TrackedObject &measurement, const TrackedObject &track)
-{
-  double euclideanDist = calculateMulticlassScaledDistance(measurement, track);
-  double mahalanobisDist = calculateMahalanobisDistance(measurement, track);
-
-  return 0.5 * euclideanDist + 0.5 * mahalanobisDist;
-}
-
 void match(const std::vector<TrackedObject> &tracks,
                           const std::vector<TrackedObject> &measurements,
                           std::vector<std::pair<size_t, size_t>> &assignments,
@@ -230,7 +293,8 @@ void match(const std::vector<TrackedObject> &tracks,
   }
 
   apollo::perception::lidar::BipartiteGraphMatcherOptions matcherOptions;
-  matcherOptions.cost_thresh = threshold;
+  // Rejected pairs cost kDefaultClassBoundValue; a threshold above it would make them valid matches.
+  matcherOptions.cost_thresh = std::min(threshold, kDefaultClassBoundValue);
   matcherOptions.bound_value = kDefaultClassBoundValue;
 
   apollo::perception::common::SecureMat<double> *costMatrix = matcher.cost_matrix();
@@ -257,17 +321,32 @@ void match(const std::vector<TrackedObject> &tracks,
       }
     }
   }
+  else if (distanceType == DistanceType::Mahalanobis || distanceType == DistanceType::MCEMahalanobis)
+  {
+    std::vector<MahalanobisTrackCache> track_caches(tracks.size());
+    for (size_t i = 0; i < tracks.size(); ++i)
+    {
+      track_caches[i] = buildMahalanobisTrackCache(tracks[i]);
+    }
+
+    const bool compound = distanceType == DistanceType::MCEMahalanobis;
+    #pragma omp parallel for collapse(2)
+    for (size_t i = 0; i < tracks.size(); ++i)
+    {
+      for (size_t j = 0; j < measurements.size(); ++j)
+      {
+        const double mahalanobis = mahalanobisCostFromCache(measurements[j], tracks[i], track_caches[i]);
+        (*costMatrix)(i, j) = compound
+          ? 0.5 * calculateMulticlassScaledDistance(measurements[j], tracks[i]) + 0.5 * mahalanobis
+          : mahalanobis;
+      }
+    }
+  }
   else
   {
     std::function<double(const TrackedObject &, const TrackedObject &)> distanceFunction;
     switch (distanceType)
     {
-      case DistanceType::MCEMahalanobis:
-        distanceFunction = std::bind(&calculateCompundDistance, std::placeholders::_1, std::placeholders::_2);
-        break;
-      case DistanceType::Mahalanobis:
-        distanceFunction = std::bind(&calculateMahalanobisDistance, std::placeholders::_1, std::placeholders::_2);
-        break;
       case DistanceType::MultiClassEuclidean:
         distanceFunction = std::bind(&calculateMulticlassScaledDistance, std::placeholders::_1, std::placeholders::_2);
         break;

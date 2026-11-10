@@ -32,6 +32,7 @@ struct TrackManagerConfig
   double mNonMeasurementTimeStatic{0.5333};
   double mMaxUnreliableTime{0.3333};
 
+  // Kalman filter settings passed to MultiModelKalmanEstimator::initialize(); see "Kalman filter settings" in README.md.
   double mDefaultProcessNoise{1e-3};
   double mDefaultMeasurementNoise{1e-2};
   double mInitStateCovariance{1.};

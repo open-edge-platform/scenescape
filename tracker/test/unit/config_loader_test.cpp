@@ -814,6 +814,66 @@ TEST(ConfigLoaderTest, AssociationMahalanobisCostThresholdUsesChi2) {
     EXPECT_EQ(association.distanceType(), rv::tracking::DistanceType::PositionMahalanobis);
 }
 
+TEST(ConfigLoaderTest, AssociationGateProbabilityJson_OutOfRange) {
+    // RapidJSON validates draft-04, which ignores the schema's numeric exclusiveMinimum, so the
+    // loader checks the range itself.
+    for (const char* value : {"0", "-0.5", "1.5"}) {
+        SCOPED_TRACE(value);
+        const std::string json = R"({
+          "infrastructure": {
+            "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+          },
+          "tracking": {
+            "association": {"gate_probability": )" +
+                                 std::string(value) + R"(}
+          },
+          "scenes": {
+            "source": "file",
+            "file_path": ")" + empty_scenes_path() +
+                                 R"("
+          }
+        })";
+        TempFile config_file(json);
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, AssociationMaxRadiusJson_OutOfRange) {
+    // Schema minimum:0 would also reject negatives; use a permissive schema so the loader check
+    // is what fails (defense in depth when schema validation is skipped or weakened).
+    const char* permissive_schema = R"({
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object"
+    })";
+    TempFile schema_file(permissive_schema);
+
+    for (const char* value : {"-1", "-0.01"}) {
+        SCOPED_TRACE(value);
+        const std::string json = R"({
+          "infrastructure": {
+            "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+          },
+          "tracking": {
+            "association": {"max_radius_m": )" +
+                                 std::string(value) + R"(}
+          },
+          "scenes": {
+            "source": "file",
+            "file_path": ")" + empty_scenes_path() +
+                                 R"("
+          }
+        })";
+        TempFile config_file(json);
+        EXPECT_THROW(load_config(config_file.path(), schema_file.path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, AssociationMaxRadiusEnvOverride_Negative) {
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv env(tracker::env::ASSOCIATION_MAX_RADIUS_M, "-1");
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
 TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_OutOfRange) {
     TempFile config_file(MINIMAL_CONFIG());
 
@@ -836,6 +896,22 @@ TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_InvalidAndDomain) {
     {
         ScopedEnv env(tracker::env::ASSOCIATION_GATE_PROBABILITY, "1.5");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, AssociationEnvOverrides_RejectNonFinite) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    for (const char* value : {"nan", "inf", "-nan", "infinity"}) {
+        SCOPED_TRACE(value);
+        {
+            ScopedEnv env(tracker::env::ASSOCIATION_GATE_PROBABILITY, value);
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        }
+        {
+            ScopedEnv env(tracker::env::ASSOCIATION_MAX_RADIUS_M, value);
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        }
     }
 }
 
