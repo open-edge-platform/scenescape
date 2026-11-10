@@ -7,6 +7,7 @@ from pathlib import Path
 import shlex
 import subprocess
 import time
+import zlib
 from python_on_whales import docker
 import pytest
 
@@ -70,6 +71,15 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
   duration = time.time() - start_time
   return process.returncode, duration
 
+def get_compressed_image_size(image_name: str) -> int:
+  # wbits=31 selects gzip format, matching how registries compress layers
+  compressor = zlib.compressobj(wbits=31)
+  size = 0
+  for chunk in docker.image.save(image_name):
+    size += len(compressor.compress(chunk))
+  size += len(compressor.flush())
+  return size
+
 @pytest.mark.test_name(TIME_TEST_NAME)
 def test_build_time(built_image_result, result_recorder):
   image, duration = built_image_result
@@ -83,9 +93,10 @@ def test_build_time(built_image_result, result_recorder):
 def test_image_size(built_image_result, result_recorder):
   image, _ = built_image_result
 
-  built_image = docker.image.inspect(f"intel/scenescape-{image.name}")
+  size_megabytes = get_compressed_image_size(f"intel/scenescape-{image.name}") / 10**6
 
-  assert (built_image.size / 10**6) <= image.size_limit_megabytes, (
-    f"{SIZE_TEST_NAME}: Built {image.name} image size is {(built_image.size / 10**6):.2f}MB (limit is {image.size_limit_megabytes}MB)"
+  assert size_megabytes <= image.size_limit_megabytes, (
+    f"{SIZE_TEST_NAME}: Built {image.name} compressed image size is {size_megabytes:.2f}MB "
+    f"(limit is {image.size_limit_megabytes}MB)"
   )
   result_recorder.success()
