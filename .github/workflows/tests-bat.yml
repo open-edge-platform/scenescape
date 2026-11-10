@@ -154,10 +154,9 @@ jobs:
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
-          source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR \
-            --cov --cov-config=tests/config.coveragerc --cov-report=
+          make run_sscape_unit_suite \
+            UNIT_TEST_EXTRA_ARGS="--junitxml=reports/unit_results.xml --log-level=ERROR --cov --cov-config=tests/config.coveragerc --cov-report="
 
       - name: "Check per-service unit coverage"
         if: always() && steps.setup-test-env.outcome == 'success'
