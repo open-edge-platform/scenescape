@@ -318,7 +318,7 @@ class VDMSDatabase(ReIDDatabase):
     """
     Ask VDMS to delete descriptors whose native expiration timestamp is past.
 
-    Invoked by the shared controller purge timer (REID_PURGE_INTERVAL_SECS).
+    Invoked by the reid-service purge scheduler (REID_PURGE_INTERVAL_SECS).
     Descriptors remain matchable until this reclaim runs.
     """
     if not self.retentionEnabled():

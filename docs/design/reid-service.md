@@ -16,19 +16,23 @@
 
 Extract today's in-process ReID library into a standalone `reid-service` (Section 5), and define
 the external API and capabilities that service exposes (Section 6). This is the next Controller-
-retirement step after Tracker (ADR 7 / ADR 13): ReID gets a durable home outside the Controller
-so that responsibility can leave the monolith.
+retirement step after Tracker (ADR 7 / ADR 13): ReID gets a durable home outside the Controller.
+During the transition, `CONTROLLER_REID_MODE=service` delegates matching and enrollment to the
+service while retaining Controller hierarchy-message publishing.
 
-**Live loop:** `reid-service` consumes the Tracker MQTT track stream and matches/stores
-internally — no cross-service round trip for live tracking. Analytics consumes the same track
-stream independently and applies asynchronous ReID identity decisions before computing spatial
-analytics and publishing regulated output (Section 5.1.1). **External surface:** Section 6 is an
-HTTP/gRPC API (query, POI, gallery, trajectory). MQTT request/reply for that external surface
-remains open (Section 5.1 / Section 11); it does not reopen the live-loop model.
+**Live loop:** `reid-service` consumes the scene-track MQTT stream from Tracker or Controller
+tracking and matches/stores internally — no synchronous cross-service query round trip. Analytics
+consumes scene tracks and asynchronous ReID identity decisions before computing spatial analytics
+and publishing regulated output (Section 5.1.1). In Controller service mode, the Controller also
+consumes ReID ownership reports to publish hierarchy messages without making ReID decisions.
+**External surface:** Section 6 is an HTTP/gRPC API (query, POI, gallery, trajectory). MQTT
+request/reply for that external surface remains open (Section 5.1 / Section 11); it does not
+reopen the live-loop model.
 
 **Home:** ReID's home is `reid-service`, even if ADR 13's diagram later co-locates it with scene-
-state persistence. Packaging/co-deployment can follow; Controllers stop owning ReID when this
-extraction lands.
+state persistence. Packaging/co-deployment can follow. In service mode, Controller keeps hierarchy
+transport but does not own matching, enrollment, or the ReID backend connection. Retire the legacy
+Controller mode after the Section 9 parity and sign-off gates pass.
 
 **Inherits (does not reopen):** ADR-10 storage/query semantics, ADR-11 match/output contract,
 ADR 14 reclaim-only TTL (schedule moves into `reid-service`; Section 6.8 adds per-collection /
@@ -106,19 +110,33 @@ Section 5.1 is the target mapping. Today's `_PURGE_OWNER` lock only dedupes purg
 
 Move the library in 4.2 into `reid-service`. ADR 13: gRPC for synchronous query/response (including Re-ID match/store); MQTT for asynchronous fan-out (including scene tracks).
 
-- **Live `findMatches` / `addEntry` are internal.** Tracker (ADR 7) publishes tracks on MQTT. `reid-service` matches and stores while consuming that stream. Feature gating, TIER 1 extraction, and ADR 15 enroll/query plus write-health/epoch rules move with that orchestration. There is no Controller round trip and no live-loop write endpoint.
+- **Live `findMatches` / `addEntry` are internal.** Tracker (ADR 7), or Controller tracking in the `controller` profile, publishes tracks on MQTT. `reid-service` matches and stores while consuming that stream. Feature gating, TIER 1 extraction, and ADR 15 enroll/query plus write-health/epoch rules move with that orchestration. There is no synchronous Controller round trip and no live-loop write endpoint.
 - **Identity state and counting retain Controller semantics.** Publish `pending_collection`, `matched`, `query_no_match`, and `reid_disabled` through Analytics output. Pending includes queries in flight; no additional lifecycle states are introduced. The scene/category matcher owns the cumulative unique-ID counter, including initial registration without embeddings or with ReID disabled, no-match decisions, and late no-match results after track exit. Consumers receive the existing `unique_detection_count`; they must not reconstruct it by counting terminal states. See the [service guide](../user-guide/microservices/reid-service/reid-service.md#identity-state-and-counting) for the wire fields and counting rules.
 - **External match/store is HTTP/gRPC (Section 6).** MQTT request/reply (correlation ID + reply-to) remains an open alternative for this surface only (Section 11): one bus versus a simpler call/return that matches ADR 13.
 - **`purgeExpired` is internal.** Delete the Controller timer and `_PURGE_OWNER`. `reid-service` runs `purgeExpired()` on `REID_PURGE_INTERVAL_SECS`. `REID_DESCRIPTOR_TTL_SECS` moves with it. Adapter expiration fields and reclaim-only semantics stay as ADR 14 defined them.
 
+During the hierarchy transition, `CONTROLLER_REID_MODE=service` disables the
+Controller UUIDManager's ReID adapter and matching while retaining its stable
+provisional track IDs and hierarchy publisher. The Controller consumes the
+service's retained `DATA_REID_OWNERSHIP` snapshots to apply service gids,
+decisions, and enrollment provenance only to hierarchy output; its normal
+`DATA_SCENE` feed remains the input to `reid-service`. The default `controller`
+mode preserves the legacy path. Run both Compose profiles when using the
+service-owned mode.
+
 ```mermaid
 flowchart LR
-  subgraph Live["Live loop (MQTT)"]
-    TRK[Tracker] --> TRACKS["Scene-track topic<br/>scenescape/data/scene/..."]
+  subgraph Live["Service-owned ReID mode (MQTT)"]
+    TRK[Tracker profile] --> TRACKS["Scene-track topic<br/>scenescape/data/scene/..."]
+    CTRL["Controller tracking<br/>(controller profile)"] --> TRACKS
+    CTRL --> HIER["Controller hierarchy publisher<br/>(controller profile)"]
     TRACKS -->|tracks + available embeddings| REID[reid-service]
     TRACKS -->|tracks: positions / motion / local IDs| AN[Analytics service]
     REID --> IDS["Identity-update topic<br/>scenescape/data/reid/..."]
     IDS -->|ID mapping / state / count ONLY; no scene tracks| AN
+    REID --> OWN["Retained ownership topic<br/>scenescape/data/reid/ownership/..."]
+    OWN -->|CONTROLLER_REID_MODE=service| HIER
+    HIER -->|child scene data + service-owned identity / provenance| PARENT[Parent Controller]
     SEN[Sensor readings] --> SENSORS["Sensor topic<br/>scenescape/data/sensor/..."]
     SENSORS --> AN
     AN -->|regulated / region detections / events| OUT[Manager UI / subscribers]
@@ -148,12 +166,14 @@ flowchart LR
   OPS -.->|no write path| GEN
 ```
 
-**Live loop:** Tracker publishes scene tracks to both `reid-service` and Analytics through MQTT.
-The topic boxes above are separate streams on the MQTT broker. **Tracker is the scene-track
-producer; `reid-service` does not republish scene tracks.** ReID matches and stores into the
-general gallery, then publishes identity updates on a different topic. Analytics combines
-Tracker's positions and motion with ReID's ID mappings and states, and owns spatial analytics
-and downstream output. Neither Tracker nor Analytics waits for a synchronous ReID response.
+**Live loop:** Tracker or Controller tracking publishes scene tracks to `reid-service` and
+Analytics through MQTT. The topic boxes above are separate streams on the MQTT broker.
+`reid-service` does not republish scene tracks. ReID matches and stores into the general gallery,
+then publishes identity updates on a different topic. In the Controller profile, the Controller
+hierarchy publisher additionally consumes retained ownership reports and forwards hierarchy data;
+it does not query or write the ReID database in service mode. Analytics combines scene positions
+and motion with ReID's ID mappings and states, and owns spatial analytics and downstream output.
+Neither Tracker nor Analytics waits for a synchronous ReID response.
 **External API:** investigator clients query only (6.12); POI operators write only the POI gallery and enrollment audit; the correlation daemon queries like any client and publishes `poi_match` events (6.5). There is no general-gallery write endpoint. The POI gallery, enrollment audit, and external capabilities shown above include proposed follow-on work; see the [service guide](../user-guide/microservices/reid-service/reid-service.md#current-scope) for current scope.
 
 The Controller circuit breaker is not ported: live matching is inside `reid-service`. Degradation signaling (stop using matches; recommend purge/compaction when volume is the cause) is a follow-on and does not block extraction (Section 11).
@@ -395,7 +415,10 @@ Policy for the external API (Section 6). The authN/authZ _mechanism_ (tokens, mT
 
 ## 9. Rollout / Migration Plan
 
-Ship `reid-service` behind a flag, dual-run against in-Controller ReID until parity gates pass, then delete the in-Controller path (ADR 13, same shape as Tracker). Env for TTL and purge interval, hierarchy write-health handoff, and metrics cutover are implementation details of that phase.
+Ship `reid-service` behind a flag, dual-run against in-Controller ReID until
+parity gates pass, then delete the in-Controller path (ADR 13, same shape as
+Tracker). Env for TTL and purge interval, hierarchy write-health handoff, and
+metrics cutover are implementation details of that phase.
 
 Section 6 sequencing:
 

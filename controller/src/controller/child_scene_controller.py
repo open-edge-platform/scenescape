@@ -33,6 +33,11 @@ class ChildSceneController():
       self.client.onDisconnect = self.onChildDisconnect
       self.child_scene_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL,
                                                   scene_id=self.child_id, thing_type="+")
+      self.child_ownership_topic = PubSub.formatTopic(
+        PubSub.DATA_REID_OWNERSHIP,
+        scene_id=self.child_id,
+        thing_type="+",
+      )
       self.child_event_topic = PubSub.formatTopic(PubSub.EVENT,
                                                   region_type="+", event_type="+",
                                                   scene_id=self.child_id, region_id="+")
@@ -68,6 +73,14 @@ class ChildSceneController():
     )
     log.info("Subscribed to", self.child_scene_topic)
 
+    self.client.removeCallback(self.child_ownership_topic)
+    self.client.addCallback(
+      self.child_ownership_topic,
+      self.enqueueRemoteOwnershipSnapshot,
+      qos=1,
+    )
+    log.info("Subscribed to", self.child_ownership_topic)
+
     for catalog_type, pubsub_enum in [
       ('tripwires', PubSub.DATA_CHILD_TRIPWIRES),
       ('rois', PubSub.DATA_CHILD_ROIS),
@@ -88,6 +101,14 @@ class ChildSceneController():
   def enqueueRemoteEvent(self, client, userdata, message):
     self.parent_controller.enqueueRemoteCallback(
       self.parent_controller.republishEvents, message)
+    return
+
+  def enqueueRemoteOwnershipSnapshot(self, client, userdata, message):
+    """Relay the child service's retained ownership state through parent work queue."""
+    self.parent_controller.enqueueRemoteCallback(
+      self.parent_controller.handleReidOwnershipMessage,
+      message,
+    )
     return
 
   def handleCatalog(self, client, userdata, message, catalog_type):

@@ -136,7 +136,7 @@ Result: "Find strong age-gender matches, refined by vector similarity"
 
 **Environment variables**:
 
-Shared `REID_*` settings configure any vector backend. Only `REID_DATABASE` selects which adapter runs. Hostname, port, TLS, and certificate paths are backend-agnostic (`reid.scenescape.intel.com:55555`, TLS on, `scenescape-reid*` / CA paths).
+Shared `REID_*` settings configure any vector backend. Only `REID_DATABASE` selects which adapter runs. Hostname, port, TLS, and certificate paths are backend-agnostic (`reid.scenescape.intel.com:55555`, TLS on, `scenescape-reid*` / CA paths). These settings describe the legacy Controller-owned path. For service-owned matching and enrollment while retaining Controller hierarchy publishing, set `CONTROLLER_REID_MODE=service` and run the `controller` and `reid-service` Compose profiles; the service owns backend writes and purge, while Controller consumes its identity/ownership reports for hierarchy output.
 
 | Variable                                                | Purpose                              | Default                                                             |
 | ------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
