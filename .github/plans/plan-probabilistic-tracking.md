@@ -174,8 +174,8 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 |------|--------|----------------|
 | State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | |
 | Process noise | Independent `Q[vz,vz]` | |
-| 3D association | Euclidean + `PositionMahalanobis` on `(x,y,z)`; birth cluster Euclidean is 3D | |
-| χ² gate | Matching uses `df=3` (~11.34 @ p=0.99); the UI XY ellipse uses the same `df=3` | |
+| 3D association | Euclidean + `PositionMahalanobis` on `(x,y,z)` when the track and the detection both have measured z, `(x,y)` otherwise; birth clustering by the same rule | |
+| χ² gate | `df=3` (~11.34 @ p=0.99) for XYZ pairs, `df=2` (~9.21) for XY pairs; the UI XY ellipse uses the track's df | |
 | Named indices | `StateIndex` / `MeasurementIndex` | |
 | `isDynamic` | `vx²+vy²+vz² > 1` (vertical counts toward coast aging) | |
 | Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association | |
@@ -185,7 +185,7 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 | Item | Location |
 |------|----------|
 | Association params use `chi2_threshold(p, 3)` | `ilabs_tracking.association_match_params` |
-| Association window viz uses `chi2_threshold(p, 3)` | `ilabs_tracking.build_association_window` |
+| Association window viz uses `chi2_threshold(p, 3)` for tracks with measured z, `(p, 2)` without | `ilabs_tracking.build_association_window` |
 | Publish `velocity[2]` from UKF `vz` | `ilabs_tracking` |
 | Prefer detection `translation` / 3D bbox Z when present | `moving_object.mapObjectDetectionToWorld` (already) |
 | Functional climb via external-source MQTT | `tests/functional/test_z_tracking.py` |
@@ -196,7 +196,7 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 
 | # | Task | Location | Status |
 |---|------|----------|--------|
-| T1 | χ² `df=3` for match cost; `df=3` for the association-window ellipse too | `association_config.hpp`, `association_window.hpp` | Done |
+| T1 | χ² `df=3` match threshold (XY pairs scaled to `df=2`); association-window ellipse at the track's df | `association_config.hpp`, `association_window.hpp` | Done |
 | T2 | Detection `translation` / `size` / `rotation` input, translation path preserves Z | #2050 (through main) | Done |
 | T3 | Set `zMeasured = true` on the translation path | `coordinate_transformer.cpp` | Done |
 | T5 | Assert published `velocity[2]` / `translation[2]` | `track_publisher_test.cpp` | Done |
@@ -207,12 +207,12 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 | # | Item | Notes |
 |---|------|-------|
 | F1 | 3D detection input (`translation` / `size` / `rotation`, bbox-less detections) | **Done:** #2050. |
-| F2 | Wildtrack (planar) eval after χ² `df=3` | Gate loosened ~9.21→11.34 at p=0.99 for planar scenes. **Run Wildtrack eval; mitigate from results** (do not pre-mitigate). |
+| F2 | Wildtrack (planar) eval after Z tracking | Planar pairs keep the `df=2` gate (9.21 at p=0.99). **Run Wildtrack eval.** |
 | F3 | Ingest 3D detection `rotation` into tracker / UKF yaw | **Done:** #2050. |
 | F4 | Size for 3D detections | **Done:** #2050 requires `size` with `translation`. |
 | F5 | Mesh / DEM foot-ray for bbox-only cameras | Separate PR. |
 | F6 | Schema `distance` alone without `translation` | Deferred. |
-| F8 | One z reference for pixel (ground point) and 3D (box centre) detections | **TODO:** a mixed track publishes a midpoint height, splits on a camera → 3D handover at ≥ ~2 m centre height, and gets spurious `vz` when sensors alternate. |
+| F8 | One z reference for pixel (ground point) and 3D (box centre) detections | **TODO:** a mixed track publishes a midpoint height and gets spurious `vz` when sensors alternate. Handovers no longer split: z is gated only when both sides measured it. |
 | F7 | Hybrid birth: `EuclideanBirth` + `zMeasured` | **Done:** XY if either planar; XYZ when both measured. Revisit after metrics. Tracker sets `zMeasured` on translation detections (T3). |
 
 **Birth clustering note (not association default):** Unmatched detection→detection fusion uses `DistanceType::EuclideanBirth` ~`kDefaultBirthClusterRadiusM` (2 m), even when track→detection association is `position_mahalanobis`. Raw detections lack `predictedMeasurementCov`, so Mahalanobis cannot birth-cluster. `EuclideanBirth` is XY when either side lacks `zMeasured` (planar + 3D OD still fuse); XYZ when both have measured Z (stacked floors stay separate). Revisit after metrics / multi-floor datasets.
