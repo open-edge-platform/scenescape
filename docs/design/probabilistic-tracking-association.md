@@ -99,7 +99,7 @@ Phase 1 omits `R_meas` (association uses `S_pred` only; correct still uses fixed
 
 ```text
 d² = (z_xyz − ŷ_xyz)ᵀ S_pred[0:3,0:3]⁻¹ (z_xyz − ŷ_xyz)
-valid if d² ≤ χ²(p, 3) and ||z_xy − ŷ_xy|| ≤ max_radius_m
+valid if d² ≤ χ²(p, 3) and ||z_xyz − ŷ_xyz|| ≤ max_radius_m
 ```
 
 | Element                | Design choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
