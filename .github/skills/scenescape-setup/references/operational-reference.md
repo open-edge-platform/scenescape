@@ -88,3 +88,10 @@ calibration, scene-and-verification, and total wall-clock times. Direct the user
 `https://localhost`, explain that the self-signed certificate must be accepted, use username
 `admin`, and point them to `<deploy_dir>/secrets/supass` instead of exposing its value. Ask what
 they want to do with the tracked-object data, then load the matching output-integration reference.
+
+On the scene detail page, the **MQTT Settings** panel (WSS Connection / Scene Data Topic /
+Connect / Disconnect) is easy to mistake for a gate on the main live tracking view. Live
+tracking connects automatically on page load (`showTrackedObjects` defaults to on); you do not
+need to click Connect for objects to appear. Changing the topic or clicking Disconnect does
+affect that same subscription — use the panel only when intentionally overriding broker/topic,
+not as a prerequisite for "turning tracking on."

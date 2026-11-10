@@ -8,11 +8,15 @@ Evaluates tracker output quality by measuring positional and rotational jitter.
 
 from typing import Iterator, List, Dict, Any, Optional, Union
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
 from base.tracker_evaluator import TrackerEvaluator
+from utils.timeline import (
+  deduplicate_frames_by_timestamp,
+  parse_timestamp,
+  resolve_ground_truth_path,
+)
 
 
 class JitterEvaluator(TrackerEvaluator):
@@ -70,10 +74,8 @@ class JitterEvaluator(TrackerEvaluator):
     self._track_histories: Dict[str, List[tuple]] = {}
     # Per-track rotation history: {track_uuid: [(timestamp, [x, y, z, w]), ...]}
     self._rotation_histories: Dict[str, List[tuple]] = {}
-    # Ground-truth per-track histories (populated when GT CSV is provided)
+    # Ground-truth per-track histories (populated when GT JSONL is provided)
     self._gt_track_histories: Dict[str, List[tuple]] = {}
-    # FPS derived from tracker output timestamps (used to convert GT frame → time)
-    self._camera_fps: float = 30.0
     self._base_fps: Optional[float] = None
 
   # ------------------------------------------------------------------
@@ -120,10 +122,14 @@ class JitterEvaluator(TrackerEvaluator):
     return self
 
   def set_base_fps(self, fps=None) -> 'JitterEvaluator':
-    """Set base frame rate for timestamp-to-frame-number conversion.
+    """Accept a base frame rate for interface compatibility.
+
+    Jitter is computed directly from the preserved wall-clock timestamps, so
+    the frame rate is not used; the setter exists only so the pipeline engine
+    can call it uniformly on every evaluator.
 
     Args:
-      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+      fps: Frames per second (> 0), or None.
 
     Returns:
       Self for method chaining.
@@ -149,8 +155,8 @@ class JitterEvaluator(TrackerEvaluator):
     Args:
       tracker_outputs: Iterator of tracker output dicts in canonical
         Tracker Output Format (see tools/tracker/evaluation/README.md).
-      ground_truth: Path to a MOTChallenge 3D CSV file
-        (frame,id,x,y,z,conf,class,visibility), or an iterator whose first
+      ground_truth: Path to a canonical JSONL ground-truth file (absolute ISO
+        timestamps, flattened ``objects`` array), or an iterator whose first
         element is such a path string, or None to skip GT metrics.
         NOTE: The base class signature requires Iterator, but in practice
         this is a file path string returned by dataset.get_ground_truth().
@@ -171,14 +177,7 @@ class JitterEvaluator(TrackerEvaluator):
         raise RuntimeError("No tracker outputs provided")
 
       # Deduplicate by timestamp
-      seen_timestamps: set = set()
-      deduplicated = []
-      for frame in outputs:
-        ts = frame.get("timestamp")
-        if ts in seen_timestamps:
-          continue
-        seen_timestamps.add(ts)
-        deduplicated.append(frame)
+      deduplicated = deduplicate_frames_by_timestamp(outputs)
 
       # Build per-track histories
       track_histories: Dict[str, List[tuple]] = {}
@@ -186,7 +185,7 @@ class JitterEvaluator(TrackerEvaluator):
       for frame in deduplicated:
         ts_str = frame.get("timestamp", "")
         try:
-          ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+          ts = parse_timestamp(ts_str)
         except (ValueError, AttributeError) as exc:
           raise RuntimeError(
             f"Cannot parse timestamp '{ts_str}': {exc}"
@@ -213,48 +212,16 @@ class JitterEvaluator(TrackerEvaluator):
       for track_id in rotation_histories:
         rotation_histories[track_id].sort(key=lambda entry: entry[0])
 
-      # When a fixed fps is configured, replace wall-clock timestamps with
-      # synthetic frame-index-based ones (epoch + frame_idx / fps). This
-      # mirrors _parse_gt_csv and ensures kinematic derivatives are
-      # independent of system processing speed.
-      if self._base_fps is not None:
-        epoch_dt = datetime(1970, 1, 1, tzinfo=timezone.utc)
-        sorted_ts = sorted(
-          datetime.fromisoformat(f.get('timestamp', '').replace('Z', '+00:00'))
-          for f in deduplicated
+      # Parse ground-truth JSONL if provided
+      gt_track_histories: Dict[str, List[tuple]] = {}
+      if ground_truth is not None:
+        gt_track_histories = self._parse_gt_jsonl(
+          resolve_ground_truth_path(ground_truth)
         )
-        ts_to_idx = {ts: i for i, ts in enumerate(sorted_ts)}
-        for track_id in track_histories:
-          track_histories[track_id] = [
-            (epoch_dt + timedelta(seconds=ts_to_idx[ts] / self._base_fps), pos)
-            for ts, pos in track_histories[track_id]
-          ]
 
       self._track_histories = track_histories
       self._rotation_histories = rotation_histories
-
-      # Derive FPS from tracker output timestamps
-      all_timestamps = sorted(
-        datetime.fromisoformat(f.get('timestamp', '').replace('Z', '+00:00'))
-        for f in deduplicated
-      )
-      if self._base_fps is not None:
-        self._camera_fps = self._base_fps
-      elif len(all_timestamps) > 1:
-        span = (all_timestamps[-1] - all_timestamps[0]).total_seconds()
-        self._camera_fps = (len(all_timestamps) - 1) / span if span > 0 else 30.0
-      else:
-        self._camera_fps = 30.0
-
-      # Parse ground-truth CSV if provided
-      self._gt_track_histories = {}
-      if ground_truth is not None:
-        gt_path = ground_truth if isinstance(ground_truth, str) else None
-        if gt_path is None:
-          gt_items = list(ground_truth)
-          gt_path = gt_items[0] if gt_items and isinstance(gt_items[0], str) else None
-        if gt_path is not None:
-          self._gt_track_histories = self._parse_gt_csv(gt_path, self._camera_fps)
+      self._gt_track_histories = gt_track_histories
 
       self._processed = True
       return self
@@ -332,7 +299,6 @@ class JitterEvaluator(TrackerEvaluator):
     self._track_histories = {}
     self._rotation_histories = {}
     self._gt_track_histories = {}
-    self._camera_fps = 30.0
     self._base_fps = None
     return self
 
@@ -416,16 +382,15 @@ class JitterEvaluator(TrackerEvaluator):
 
     return result
 
-  def _parse_gt_csv(self, gt_path: str, fps: float) -> Dict[str, List[tuple]]:
-    """Parse a MOTChallenge 3D CSV ground-truth file into per-track histories.
+  def _parse_gt_jsonl(self, gt_path: str) -> Dict[str, List[tuple]]:
+    """Parse a canonical JSONL ground-truth file into per-track histories.
 
-    CSV columns (no header): frame, id, x, y, z, conf, class, visibility
-    Frame numbers are 1-indexed integers; they are converted to relative
-    timestamps using ``fps`` so that the same kinematic calculations apply.
+    Each JSONL line is a frame ``{"timestamp": ISO, "objects": [...]}`` with
+    absolute ISO timestamps. The real timestamps are preserved so that the
+    same kinematic calculations apply as for tracker output.
 
     Args:
-      gt_path: Path to the ground-truth CSV file.
-      fps:     Frames per second used to map frame number → time in seconds.
+      gt_path: Path to the ground-truth JSONL file.
 
     Returns:
       Per-track position histories in the same format as ``_track_histories``.
@@ -433,31 +398,25 @@ class JitterEvaluator(TrackerEvaluator):
     Raises:
       RuntimeError: If the file cannot be read or is malformed.
     """
-    try:
-      data = np.loadtxt(gt_path, delimiter=',')
-      if data.ndim == 1:
-        data = data[np.newaxis, :]  # single-row file
-    except Exception as exc:
-      raise RuntimeError(f"Cannot read ground-truth CSV '{gt_path}': {exc}") from exc
+    from utils.format_converters import stream_jsonl
 
-    if data.shape[1] < 5:
-      raise RuntimeError(
-        f"Ground-truth CSV '{gt_path}' has fewer than 5 columns; "
-        "expected frame,id,x,y,z,..."
-      )
+    try:
+      gt_frames = list(stream_jsonl(gt_path))
+    except Exception as exc:
+      raise RuntimeError(f"Cannot read ground-truth JSONL '{gt_path}': {exc}") from exc
 
     histories: Dict[str, List[tuple]] = {}
-    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-    for row in data:
-      frame = int(row[0])
-      track_id = str(int(row[1]))
-      x, y, z = float(row[2]), float(row[3]), float(row[4])
-      ts = epoch + timedelta(seconds=(frame - 1) / fps)
-      if track_id not in histories:
-        histories[track_id] = []
-      histories[track_id].append((ts, [x, y, z]))
+    for frame in gt_frames:
+      ts = parse_timestamp(frame["timestamp"])
+      for obj in frame.get("objects", []):
+        track_id = str(obj["id"])
+        translation = obj["translation"]
+        x, y, z = float(translation[0]), float(translation[1]), float(translation[2])
+        if track_id not in histories:
+          histories[track_id] = []
+        histories[track_id].append((ts, [x, y, z]))
 
-    # Sort by timestamp (frame order)
+    # Sort by timestamp
     for track_id in histories:
       histories[track_id].sort(key=lambda e: e[0])
 

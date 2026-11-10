@@ -4,14 +4,19 @@
 # Fields shared between the form, serializer, and scene import
 CAM_COMMON_FIELDS = (
     "name",
+    "pose_locked",
+    "calibration_origin",
     "scale",
     "intrinsics",
+    "distortion",
+    "resolution",
     "command",
     "cv_subsystem",
     "camerachain",
     "undistort",
     "modelconfig",
     "use_camera_pipeline",
+    "ptz_calibration",
 )
 
 # Additional fields only needed by the Django form (UI/legacy)
@@ -32,7 +37,7 @@ CAM_ADVANCED_FIELDS = ['cv_subsystem', 'undistort', 'modelconfig',
 
 # Full form field list
 CAM_FORM_FIELDS = [
-    'name', 'sensor_id', 'scene', 'transforms', 'transform_type',
+    'name', 'sensor_id', 'scene', 'pose_locked', 'transforms', 'transform_type',
     'width', 'height',
     'intrinsics_fx', 'intrinsics_fy', 'intrinsics_cx', 'intrinsics_cy',
     'distortion_k1', 'distortion_k2', 'distortion_p1', 'distortion_p2', 'distortion_k3',
@@ -40,7 +45,8 @@ CAM_FORM_FIELDS = [
 
 # Serializer API fields
 CAM_SERIALIZER_FIELDS = [
-    'uid', 'name', 'sensor_id', 'intrinsics', 'transform_type', 'transforms',
-    'distortion', 'translation', 'rotation', 'scale', 'resolution', 'scene',
+    'uid', 'name', 'sensor_id', 'pose_locked', 'calibration_origin', 'pose_provenance',
+    'intrinsics', 'transform_type', 'transforms',
+    'distortion', 'translation', 'rotation', 'pose_matrix', 'scale', 'resolution', 'scene',
     'threshold', 'aspect',
-] + CAM_ADVANCED_FIELDS + CAM_KUBERNETES_FIELDS
+] + CAM_ADVANCED_FIELDS + CAM_KUBERNETES_FIELDS + ['ptz_calibration']

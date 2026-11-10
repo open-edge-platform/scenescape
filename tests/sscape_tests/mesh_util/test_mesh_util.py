@@ -11,12 +11,13 @@ import numpy as np
 import open3d as o3d
 import pytest
 import trimesh
+from PIL import Image
 from plyfile import PlyData, PlyElement
 import tempfile
 
 from scene_common.geometry import Region, Point
 from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh, extractMeshFromPointCloud, extractMeshFromGLB
-from scene_common.mesh_util import checkMeshConnectivity
+from scene_common.mesh_util import checkMeshConnectivity, getMeshAxisAlignedProjectionToXY
 
 from manager.mesh_generator import MeshGenerator
 from manager.models import Cam, Scene
@@ -65,6 +66,116 @@ def test_merge_mesh(input, expected):
   assert len(mesh.meshes) == expected
   return
 
+@pytest.mark.parametrize("instance_count", [1, 2, 46])
+def test_merge_mesh_preserves_instances_and_source(instance_count):
+  """Every placement is merged without modifying the shared source mesh."""
+  scene = trimesh.Scene()
+  source = trimesh.creation.box()
+  source.visual = trimesh.visual.texture.TextureVisuals(
+      uv=np.zeros((len(source.vertices), 2)))
+  source.metadata['materials'] = [{'baseColorTexture': 'test-texture'}]
+  scene.geometry['shared'] = source
+  original_vertices = source.vertices.copy()
+  original_faces = source.faces.copy()
+  original_uv = source.visual.uv.copy()
+  original_metadata = source.metadata.copy()
+  expected_vertices = []
+  for index in range(instance_count):
+    transform = trimesh.transformations.translation_matrix([index * 2, 0, 0])
+    scene.graph.update(frame_to=f'instance_{index}', geometry='shared', matrix=transform)
+    expected_vertices.append(trimesh.transform_points(original_vertices, transform))
+
+  merged = mergeMesh(scene)
+
+  np.testing.assert_allclose(merged.vertices, np.vstack(expected_vertices))
+  assert len(merged.faces) == instance_count * len(original_faces)
+  np.testing.assert_array_equal(merged.visual.uv, np.tile(original_uv, (instance_count, 1)))
+  np.testing.assert_array_equal(source.vertices, original_vertices)
+  np.testing.assert_array_equal(source.faces, original_faces)
+  np.testing.assert_array_equal(source.visual.uv, original_uv)
+  assert source.metadata == original_metadata
+  assert merged.metadata['name'] == 'mesh_0'
+
+def test_merge_mesh_resolves_nested_transforms():
+  """Parent rotation and child translation are composed into the base frame."""
+  scene = trimesh.Scene()
+  source = trimesh.creation.box()
+  scene.geometry['shared'] = source
+  parent = trimesh.transformations.rotation_matrix(np.pi / 2, [0, 0, 1])
+  parent[:3, 3] = [10, 20, 30]
+  child = trimesh.transformations.translation_matrix([2, 0, 0])
+  scene.graph.update(frame_to='group', matrix=parent)
+  scene.graph.update(frame_to='instance', frame_from='group', geometry='shared', matrix=child)
+
+  merged = mergeMesh(scene)
+
+  expected = trimesh.transform_points(source.vertices, parent @ child)
+  np.testing.assert_allclose(merged.vertices, expected)
+  assert len(merged.faces) == len(source.faces)
+
+def test_merge_mesh_missing_geometry_raises():
+  """An invalid geometry reference fails visibly rather than dropping the instance."""
+  scene = MagicMock()
+  scene.geometry = {}
+  scene.graph.nodes = ['instance']
+  scene.graph.nodes_geometry = ['instance']
+  scene.graph.__getitem__.return_value = (np.eye(4), 'missing')
+
+  with pytest.raises(KeyError, match='missing'):
+    mergeMesh(scene)
+
+@pytest.mark.parametrize("cutoff", [None, 0.0, 0.7])
+@pytest.mark.parametrize("factor, expected_colors", [
+  ([1.0, 1.0, 1.0, 1.0], [(255, 255, 0, 255), (0, 0, 255, 255)]),
+  ([0.5, 0.5, 0.5, 1.0], [(188, 188, 0, 255), (0, 0, 188, 255)]),
+])
+def test_merge_mesh_preserves_masked_material_colors(tmp_path, cutoff, factor, expected_colors):
+  """Masked textures retain colors through merging and GLB export/reload."""
+  scene = trimesh.Scene()
+  colors = [(255, 255, 0, 255), (0, 0, 255, 255)]
+  materials = []
+  for index, color in enumerate(colors):
+    material = trimesh.visual.material.PBRMaterial(
+        baseColorTexture=Image.new('RGBA', (2, 2), color),
+        baseColorFactor=factor,
+        alphaMode='MASK', alphaCutoff=cutoff)
+    materials.append(material)
+    mesh = trimesh.creation.box()
+    mesh.visual = trimesh.visual.texture.TextureVisuals(
+        uv=np.full((len(mesh.vertices), 2), 0.5), material=material)
+    scene.add_geometry(mesh, transform=trimesh.transformations.translation_matrix([index * 3, 0, 0]))
+
+  merged = mergeMesh(scene)
+
+  assert merged.visual.kind == 'texture'
+  expected = np.repeat(np.array(expected_colors), 8, axis=0)
+  np.testing.assert_array_equal(merged.visual.to_color().vertex_colors, expected)
+  assert all(material.alphaCutoff == cutoff for material in materials)
+  for material, color in zip(materials, colors):
+    np.testing.assert_array_equal(np.array(material.baseColorTexture)[0, 0], color)
+    np.testing.assert_allclose(material.baseColorFactor / 255.0, factor, atol=1 / 255.0)
+  output = tmp_path / 'merged.glb'
+  merged.export(output)
+  reloaded = trimesh.load(output)
+  assert len(reloaded.geometry) == 1
+  mesh = next(iter(reloaded.geometry.values()))
+  assert mesh.visual.kind == 'texture'
+  np.testing.assert_array_equal(mesh.visual.to_color().vertex_colors, expected)
+
+def test_merge_mesh_rejects_lost_textures():
+  """A Trimesh visual merge failure must not silently export an untextured mesh."""
+  scene = trimesh.Scene()
+  for index in range(2):
+    mesh = trimesh.creation.box()
+    mesh.visual = trimesh.visual.texture.TextureVisuals(
+        uv=np.full((len(mesh.vertices), 2), 0.5))
+    scene.add_geometry(mesh, geom_name=f'mesh_{index}')
+
+  with patch.object(trimesh.visual.texture.TextureVisuals, 'concatenate',
+                    side_effect=ValueError('synthetic material failure')):
+    with pytest.raises(ValueError, match='lost materials or textures'):
+      mergeMesh(scene)
+
 class TestObject:
   def __init__(self, loc, size, rotation):
     self.sceneLoc = loc
@@ -105,6 +216,25 @@ def test_create_region_mesh():
   expected_length = 1.0 + 2 * region.buffer_size  # 1 unit length + buffer on each side
   assert np.max(x_values) - np.min(x_values) == pytest.approx(expected_width)
   assert np.max(y_values) - np.min(y_values) == pytest.approx(expected_length)
+
+def test_get_mesh_axis_aligned_projection_to_xy_corner_order():
+  # Regression: corners must stay counterclockwise from the origin corner [SW, SE, NE, NW],
+  # the order documented for Scene.map_corners_lla.
+  legacy_mesh = o3d.geometry.TriangleMesh()
+  legacy_mesh.vertices = o3d.utility.Vector3dVector(
+    np.array([[0, 0, 0], [2, 0, 0], [2, 3, 0], [0, 3, 0]], dtype=np.float64))
+  legacy_mesh.triangles = o3d.utility.Vector3iVector(np.array([[0, 1, 2], [0, 2, 3]]))
+  mesh = o3d.t.geometry.TriangleMesh.from_legacy(legacy_mesh)
+
+  corners = getMeshAxisAlignedProjectionToXY(mesh)
+
+  expected = np.array([
+    [0, 0, 0],  # SW
+    [2, 0, 0],  # SE
+    [2, 3, 0],  # NE
+    [0, 3, 0],  # NW
+  ])
+  np.testing.assert_array_equal(corners, expected)
 
 def test_create_object_mesh():
   # Create test object
@@ -212,27 +342,31 @@ def test_check_mesh_connectivity_empty_mesh_returns_none():
   assert checkMeshConnectivity(empty) is None
 
 
-# ITEP-94846: Unanchored camera merge scenarios
+# Generate Mesh write-back + connectivity scenarios
 _PATCH_EXTENTS = (4, 4, 0.1)
 _CLOSE_OFFSET = (0.02, 0.0, 0.0)
 _FAR_OFFSET = (100.0, 0.0, 0.0)
+_IDENTITY_MESH_TRANSFORM = {
+  "rotation_matrix": np.eye(3),
+  "translation": np.zeros(3),
+  "center_offset": np.zeros(3),
+}
 
 
 def _build_merged_glb_base64(qcam_offset):
-  """Simulate the mapping service's merged GLB: the anchored cameras' shared
-  surface plus the free camera's own reconstructed patch, offset by
-  qcam_offset from the anchored surface."""
-  anchored_patch = trimesh.creation.box(extents=_PATCH_EXTENTS)
+  """Simulate the mapping service's merged GLB: a shared surface plus a second
+  camera patch offset by qcam_offset."""
+  primary_patch = trimesh.creation.box(extents=_PATCH_EXTENTS)
   qcam_patch = trimesh.creation.box(extents=_PATCH_EXTENTS)
   qcam_patch.apply_translation(qcam_offset)
-  merged = trimesh.util.concatenate([anchored_patch, qcam_patch])
+  merged = trimesh.util.concatenate([primary_patch, qcam_patch])
   glb_bytes = merged.export(file_type="glb")
   return base64.b64encode(glb_bytes).decode("utf-8")
 
 
 @pytest.fixture
 def test_scene_with_cameras():
-  """Create a test scene with 3 cameras: 2 anchored, 1 unanchored."""
+  """Create a test scene with 3 cameras (mix of prior transforms and empty)."""
   media_tempdir = tempfile.TemporaryDirectory()
   with patch("django.test.utils.override_settings"):
     scene = Scene.objects.create(name="test_scene", map="test_map")
@@ -246,6 +380,7 @@ def test_scene_with_cameras():
     qcam = Cam.objects.create(
       sensor_id="atag-qcam1", name="atag-qcam1", scene=scene, type="camera")
 
+    # Prior DB poses must not be preserved across Generate Mesh.
     camera1.transforms = [0.0] * 16
     camera1.save()
     camera2.transforms = [0.0] * 16
@@ -256,16 +391,6 @@ def test_scene_with_cameras():
     yield {"scene": scene, "camera1": camera1, "camera2": camera2, "qcam": qcam}
 
     media_tempdir.cleanup()
-
-
-def _mock_serializer_for_test(mock_serializer_cls):
-  """Configure mocked CamSerializer with preset translation/rotation values."""
-  translations = {"camera1": [0.0, 0.0, 0.0], "camera2": [2.0, 0.0, 0.0]}
-  serializer = mock_serializer_cls.return_value
-  serializer.get_translation.side_effect = lambda cam: translations.get(cam.sensor_id)
-  serializer.get_rotation.side_effect = lambda cam: [0.0, 0.0, 0.0]
-  serializer.get_scale.side_effect = lambda cam: [1.0, 1.0, 1.0]
-  return serializer
 
 
 def _mapping_result(qcam_offset, qcam_translation):
@@ -282,59 +407,85 @@ def _mapping_result(qcam_offset, qcam_translation):
         {"camera_id": "atag-qcam1", "translation": qcam_translation, "rotation": [0.0, 0.0, 0.0, 1.0]},
       ],
       "intrinsics": [
-        {"camera_id": "atag-qcam1", "K": [[500.0, 0.0, 320.0], [0.0, 500.0, 240.0], [0.0, 0.0, 1.0]]},
+        {
+          "camera_id": "camera1",
+          "K": [[900.0, 0.0, 640.0], [0.0, 900.0, 360.0], [0.0, 0.0, 1.0]],
+          "width": 1280,
+          "height": 720,
+        },
+        {
+          "camera_id": "camera2",
+          "K": [[910.0, 0.0, 640.0], [0.0, 910.0, 360.0], [0.0, 0.0, 1.0]],
+          "width": 1280,
+          "height": 720,
+        },
+        {
+          "camera_id": "atag-qcam1",
+          "K": [[500.0, 0.0, 320.0], [0.0, 500.0, 240.0], [0.0, 0.0, 1.0]],
+          "width": 640,
+          "height": 480,
+        },
       ],
     },
   }
 
 
+def _identity_align(mesh):
+  """Skip floor-fit so write-back tests can assert raw mapping poses."""
+  return mesh, _IDENTITY_MESH_TRANSFORM
+
+
 @pytest.mark.django_db
-@patch("manager.mesh_generator.CamSerializer")
-def test_mesh_generator_succeeds_with_warning_when_unanchored_camera_merges_close_to_anchors(
-    mock_serializer_cls, test_scene_with_cameras):
-  """Positive case: atag-qcam1's solved surface lands close enough to the
-  anchored cameras' surface to read as one connected mesh. Generation must
-  succeed, report atag-qcam1 as unanchored, and leave its pose untouched."""
+def test_mesh_generator_applies_mapping_poses_to_all_cameras(test_scene_with_cameras):
+  """Generate Mesh installs mapping poses/intrinsics for every camera, including
+  ones that already had transforms in the DB."""
   scene = test_scene_with_cameras["scene"]
   camera1 = test_scene_with_cameras["camera1"]
   camera2 = test_scene_with_cameras["camera2"]
   qcam = test_scene_with_cameras["qcam"]
 
-  _mock_serializer_for_test(mock_serializer_cls)
   mesh_generator = MeshGenerator()
   mesh_generator.mapping_client.getReconstructionStatus = MagicMock(
     return_value=_mapping_result(_CLOSE_OFFSET, [2.02, 0.0, 0.0]))
+  mesh_generator.alignMeshToXYPlane = MagicMock(side_effect=_identity_align)
 
   result = mesh_generator.finalizeMeshFromStatus(scene, "req-close")
 
   assert result["success"], result.get("error")
-  assert result.get("unanchored_cameras") == ["atag-qcam1"]
+  assert "unanchored_cameras" not in result
 
   camera1.refresh_from_db()
   camera2.refresh_from_db()
   qcam.refresh_from_db()
-  # Anchored cameras' calibration must be preserved exactly (skipped write-back).
-  assert camera1.transforms == [0.0] * 16
-  assert camera2.transforms == [0.0] * 16
-  # Unanchored camera stays at its default pose; only intrinsics are updated.
-  assert qcam.transforms == []
+  assert camera1.transforms[:3] == pytest.approx([0.0, 0.0, 0.0])
+  assert camera1.transforms[3:7] == pytest.approx([0.0, 0.0, 0.0, 1.0])
+  assert camera2.transforms[:3] == pytest.approx([2.0, 0.0, 0.0])
+  assert camera2.transforms[3:7] == pytest.approx([0.0, 0.0, 0.0, 1.0])
+  assert qcam.transforms[:3] == pytest.approx([2.02, 0.0, 0.0])
+  assert qcam.transforms[3:7] == pytest.approx([0.0, 0.0, 0.0, 1.0])
   assert qcam.intrinsics_fx == 500.0
+  assert qcam.width == 640 and qcam.height == 480
+  # Cam resolution is Manager's source of truth: mapping K for 1280x720 must be
+  # scaled into the registered 640x480 frame, not overwrite width/height.
+  assert camera1.width == 640 and camera1.height == 480
+  assert camera2.width == 640 and camera2.height == 480
+  # 1280x720 -> 640x480 is sx=0.5, sy=2/3
+  assert camera1.intrinsics_fx == pytest.approx(450.0)
+  assert camera1.intrinsics_fy == pytest.approx(600.0)
+  assert camera1.intrinsics_cx == pytest.approx(320.0)
+  assert camera1.intrinsics_cy == pytest.approx(240.0)
+  assert camera2.intrinsics_fx == pytest.approx(455.0)
 
 
 @pytest.mark.django_db
-@patch("manager.mesh_generator.CamSerializer")
-def test_mesh_generator_rejected_when_unanchored_camera_lands_far_from_anchors(
-    mock_serializer_cls, test_scene_with_cameras):
-  """Negative/control case: same setup, but atag-qcam1's solved surface is
-  far from the anchored surface (the "different room" failure). This must
-  still be rejected by the connectivity check, and no camera should be
-  mutated, proving the positive case above genuinely depends on proximity."""
+def test_mesh_generator_rejected_when_camera_patch_lands_far_away(test_scene_with_cameras):
+  """Disconnected reconstruction (different-room failure) is rejected before
+  any camera pose is mutated."""
   scene = test_scene_with_cameras["scene"]
   camera1 = test_scene_with_cameras["camera1"]
   camera2 = test_scene_with_cameras["camera2"]
   qcam = test_scene_with_cameras["qcam"]
 
-  _mock_serializer_for_test(mock_serializer_cls)
   mesh_generator = MeshGenerator()
   mesh_generator.mapping_client.getReconstructionStatus = MagicMock(
     return_value=_mapping_result(_FAR_OFFSET, [100.0, 0.0, 0.0]))
@@ -350,8 +501,44 @@ def test_mesh_generator_rejected_when_unanchored_camera_lands_far_from_anchors(
   assert camera1.transforms == [0.0] * 16
   assert camera2.transforms == [0.0] * 16
   assert qcam.transforms == []
-  # Never reached the write-back, so intrinsics stay at Cam's own default
-  # (set on first save), not the mocked mapping-service K matrix (500.0).
   assert qcam.intrinsics_fx == Cam.DEFAULT_INTRINSICS["fx"]
 
 
+@pytest.mark.django_db
+def test_mesh_generator_rejects_far_patches_even_when_all_cameras_have_poses(
+    test_scene_with_cameras):
+  """Having prior transforms in the DB does not skip connectivity validation."""
+  scene = test_scene_with_cameras["scene"]
+  qcam = test_scene_with_cameras["qcam"]
+  qcam.transforms = [0.0] * 16
+  qcam.save()
+
+  mesh_generator = MeshGenerator()
+  mesh_generator.mapping_client.getReconstructionStatus = MagicMock(
+    return_value=_mapping_result(_FAR_OFFSET, [100.0, 0.0, 0.0]))
+
+  result = mesh_generator.finalizeMeshFromStatus(scene, "req-all-posed")
+
+  assert not result["success"]
+  assert "spatially separate" in result["error"]
+
+
+@pytest.mark.django_db
+@patch("manager.mesh_generator.PubSub")
+def test_start_mesh_generation_does_not_send_db_poses_as_priors(
+    mock_pubsub_cls, test_scene_with_cameras):
+  """UI Generate Mesh must not feed scene-DB poses into mapping as priors."""
+  scene = test_scene_with_cameras["scene"]
+
+  mesh_generator = MeshGenerator()
+  mesh_generator.image_collector.collectImagesForScene = MagicMock(return_value=[])
+  mesh_generator.mapping_client.startReconstructMesh = MagicMock(
+    return_value={"request_id": "req-no-priors"})
+
+  result = mesh_generator.startMeshGeneration(scene)
+
+  assert result["success"], result.get("error")
+  camera_order = mesh_generator.mapping_client.startReconstructMesh.call_args[0][1]
+  camera_location_order = mesh_generator.mapping_client.startReconstructMesh.call_args[0][2]
+  assert camera_order == ["camera1", "camera2", "atag-qcam1"]
+  assert camera_location_order == [None, None, None]

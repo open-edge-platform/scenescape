@@ -8,11 +8,21 @@ import { TransformControls } from "/static/examples/jsm/controls/TransformContro
 
 const axes = Array("X", "Y", "Z");
 let thingTransformControls = {
-  addDragControls(camera, orbitControls, dragChangedCallback = () => {}) {
-    const controllers = this.controlsFolder.controllersRecursive();
-
+  /**
+   * Rebuild the property → lil-gui controller map from the live controls folder.
+   * Must be called after the panel is destroyed/recreated (e.g. sensor type flip).
+   */
+  refreshControllersDict() {
     this.controllersDict = {};
-    controllers.forEach((item) => (this.controllersDict[item.property] = item));
+    if (!this.controlsFolder) {
+      return;
+    }
+    this.controlsFolder.controllersRecursive().forEach((item) => {
+      this.controllersDict[item.property] = item;
+    });
+  },
+  addDragControls(camera, orbitControls, dragChangedCallback = () => {}) {
+    this.refreshControllersDict();
     const control = new TransformControls(camera, this.renderer.domElement);
     control.name = this.name + "-transform-controls";
     control.size = 0.6;
@@ -119,6 +129,9 @@ let thingTransformControls = {
     if (this.transformObject === undefined) {
       return;
     }
+    if (!this.controllersDict) {
+      this.refreshControllersDict();
+    }
 
     let copyObj = this.transformObject.clone();
     if (this.flipCoordSystem) this.togglePoseYupYdown(copyObj); //convert yup to ydown
@@ -129,16 +142,20 @@ let thingTransformControls = {
       prefix = "pos ";
       for (const axis of axes) {
         const name = prefix + axis;
-        this.controllersDict[name].setValue(vec[axis.toLowerCase()]);
+        const controller = this.controllersDict[name];
+        if (controller) controller.setValue(vec[axis.toLowerCase()]);
       }
     } else if (mode === "rotate") {
       vec = copyObj.rotation;
       prefix = "rot ";
       for (const axis of axes) {
         const name = prefix + axis;
-        this.controllersDict[name].setValue(
-          THREE.MathUtils.radToDeg(vec[axis.toLowerCase()]),
-        );
+        const controller = this.controllersDict[name];
+        if (controller) {
+          controller.setValue(
+            THREE.MathUtils.radToDeg(vec[axis.toLowerCase()]),
+          );
+        }
       }
     }
 
@@ -150,8 +167,10 @@ let thingTransformControls = {
     if (mode === "rotate") {
       let rotation = new THREE.Vector3();
       for (const axis of axes) {
+        const controller = this.controllersDict["rot " + axis];
+        if (!controller) return;
         rotation[axis.toLowerCase()] = THREE.MathUtils.degToRad(
-          this.controllersDict["rot " + axis].getValue(),
+          controller.getValue(),
         );
       }
       rotation[id.toLowerCase()] = THREE.MathUtils.degToRad(value);

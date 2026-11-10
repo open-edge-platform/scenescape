@@ -10,6 +10,7 @@ from tests.functional import FunctionalTest
 from tests.functional.rest_test_cases import testCases
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -56,6 +57,7 @@ class OrphanedSensorTest(FunctionalTest):
     log.info("Make sure that the Scenescape is up and running")
     assert self.sceneScapeReady(MAX_ATTEMPTS, MAX_CONTROLLER_WAIT)
 
+    newSensor = None
     try:
       log.info(f"Generating a new scene: {self.newSceneName}")
       newScene = self.rest.createScene({'name': self.newSceneName})
@@ -87,12 +89,17 @@ class OrphanedSensorTest(FunctionalTest):
       self.exitCode = 0
 
     finally:
+      if newSensor:
+        self.rest.deleteSensor(newSensor['uid'])
       self.recordTestResult()
 
     return
 
+@pytest.mark.test_name("NEX-T10398")
 def test_orphaned_sensors(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedSensorTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
+  test.existingSceneUID = demo_scene
   test.verifyOrphanedSensors()
   assert test.exitCode == 0
   return

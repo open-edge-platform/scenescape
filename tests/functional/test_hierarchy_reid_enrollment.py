@@ -40,8 +40,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 # Feature accumulation needs >=12 frames; leave headroom, then prune + flush.
 ENROLL_FRAMES = 40
 PRUNE_EMPTY_FRAMES = 15
@@ -69,15 +67,12 @@ def _prepare_reid_backend():
   ensure_reid_schema(dimensions=256, similarity_metric="IP")
 
 
-def test_hierarchy_child_enrolls_local_crop(
-    objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T28653")
+def test_hierarchy_child_enrolls_local_crop(demo_scene,
+    objData, result_recorder, params):
   """! Positive: child scene owning the camera enrolls the vetted local crop
   into the shared ReID database (at least one near-exact UUID for the embedding).
   """
-  TEST_NAME = "NEX-T28653"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
-  exit_code = 1
   client = None
   rest_client = None
   h = RetrackTest(params)
@@ -152,27 +147,22 @@ def test_hierarchy_child_enrolls_local_crop(
 
     log.info(f"PASS: child enrolled {uuid_count} unique uuid(s) for local crop "
              "and stamped will_enroll on DATA_EXTERNAL")
-    exit_code = 0
+    result_recorder.success()
 
   finally:
     if client is not None:
       client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
-  assert exit_code == 0
-  return
 
-def test_hierarchy_retrack_true_parent_does_not_double_enroll(
-    objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T28651")
+def test_hierarchy_retrack_true_parent_does_not_double_enroll(demo_scene,
+    objData, result_recorder, params):
   """! Positive: with retrack=True the parent queries using the forwarded
   embedding but must not enroll a second UUID for the same child crop.
   """
-  TEST_NAME = "NEX-T28651"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
-  exit_code = 1
+
   client = None
   ext_client = None
   rest_client = None
@@ -260,7 +250,7 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
       f"expected 1 unique uuid, found {uuid_count}, matches={matched}")
 
     log.info("PASS: parent queried without creating a second enrolled UUID")
-    exit_code = 0
+    result_recorder.success()
 
   finally:
     if client is not None:
@@ -269,20 +259,15 @@ def test_hierarchy_retrack_true_parent_does_not_double_enroll(
       ext_client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
 
-  assert exit_code == 0
-  return
 
-def test_hierarchy_retrack_false_parent_still_single_enrollment(
-    objData, record_xml_attribute, params):
+@pytest.mark.test_name("NEX-T28652")
+def test_hierarchy_retrack_false_parent_still_single_enrollment(demo_scene,
+    objData, result_recorder, params):
   """! Boundary: with retrack=False the parent strips reid entirely; only the
   child camera owner enrolls, so the unique UUID count for the crop remains 1.
   """
-  TEST_NAME = "NEX-T28652"
-  record_xml_attribute("name", TEST_NAME)
-  log.info("Executing: " + TEST_NAME)
-  exit_code = 1
+
   client = None
   rest_client = None
   h = RetrackTest(params)
@@ -320,14 +305,10 @@ def test_hierarchy_retrack_false_parent_still_single_enrollment(
       f"got {uuid_count}, matches={matched}")
 
     log.info("PASS: retrack=False keeps single child-owned enrollment")
-    exit_code = 0
+    result_recorder.success()
 
   finally:
     if client is not None:
       client.loopStop()
     if rest_client is not None:
       h.teardown_scenes(rest_client)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
-  return

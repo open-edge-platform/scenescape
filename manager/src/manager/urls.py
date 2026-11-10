@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 '''
@@ -56,6 +56,8 @@ urlpatterns = [
   path('account_locked/', views.account_locked, name="account_locked"),
   path('media/list/<str:folder_name>/', views.list_resources, name='list_resources'),
   path('api/v1/save-geospatial-snapshot/', views.SaveGeospatialSnapshot.as_view(), name='save_geospatial_snapshot'),
+  path('api/v1/scene/<uuid:scene_uid>/osm-roi-previews', views.OsmRoiPreviews.as_view(), name='osm_roi_previews'),
+  path('api/v1/scene/<uuid:scene_uid>/osm-rois', views.OsmRois.as_view(), name='osm_rois'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],
           views.protected_media,
           {'media_root': settings.MEDIA_ROOT}),
@@ -87,6 +89,26 @@ urlpatterns += [
   re_path(r'api/v1/(scenes)$', api.ListThings.as_view()),
   re_path(r'api/v1/(scene)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(scene)/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$', api.ManageThing.as_view()),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'mapping-artifacts$',
+      api.SceneMappingArtifactListView.as_view(), name='scene_mapping_artifacts'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'mapping-artifacts/(?P<method>[a-z][a-z0-9_-]{0,31})$',
+      api.SceneMappingArtifactView.as_view(), name='scene_mapping_artifact'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'maps$',
+      api.SceneSourceMapListView.as_view(), name='scene_source_maps'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'maps/(?P<method>[a-z][a-z0-9_-]{0,31})$',
+      api.SceneSourceMapView.as_view(), name='scene_source_map'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'maps/(?P<method>[a-z][a-z0-9_-]{0,31})/activate$',
+      api.SceneSourceMapActivateView.as_view(), name='scene_source_map_activate'),
   re_path(r'api/v1/(cameras)$', api.ListThings.as_view()),
   re_path(r'api/v1/(camera)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(camera)/([^/]+)$', api.ManageThing.as_view()),
@@ -122,7 +144,8 @@ urlpatterns += [
   path('api/v1/database-ready', api.DatabaseReady.as_view()),
   path('api/v1/calculateintrinsics', CalculateCameraIntrinsics.as_view()),
   path('api/v1/aclcheck', api.ACLCheck.as_view()),
-  path("api/v1/import-scene/", api.SceneImportAPIView.as_view())
+  path("api/v1/import-scene/", api.SceneImportAPIView.as_view()),
+  path("api/v1/scene/<uuid:uid>/export", api.SceneExportAPIView.as_view())
 
 ]
 

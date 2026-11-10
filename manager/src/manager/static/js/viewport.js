@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -211,6 +211,7 @@ class Viewport extends THREE.Scene {
       if (intersect.object.name.startsWith("calibrationPoint_")) {
         const objectHit = intersect.object;
         this.remove(objectHit);
+        this.calibrationUpdated = true;
         this.calibrationPointNames.push(objectHit.name.split("_")[1]);
         this.calibrationPointNames.sort((a, b) => {
           const numA = parseInt(a.replace(/\D/g, ""));
@@ -303,7 +304,50 @@ class Viewport extends THREE.Scene {
       }, {});
   }
 
+  setCalibrationPointDiagnostics(rejectedNames, highErrorNames) {
+    const rejected = new Set(rejectedNames);
+    const highError = new Set(highErrorNames);
+    this.children
+      .filter((child) => child.name.startsWith("calibrationPoint_"))
+      .forEach((point) => {
+        const pointName = point.name.replace("calibrationPoint_", "");
+        const outline = point.children.find(
+          (child) => child.name === "calibrationHaloOutline",
+        );
+        const halo = point.children.find(
+          (child) => child.name === "calibrationHalo",
+        );
+        const rejectMark = point.children.find(
+          (child) => child.name === "calibrationRejectMark",
+        );
+        const isRejected = rejected.has(pointName);
+        const isHighError = highError.has(pointName);
+        const showRing = isRejected || isHighError;
+        if (outline) {
+          outline.visible = showRing;
+        }
+        if (halo) {
+          halo.visible = showRing;
+        }
+        if (rejectMark) {
+          rejectMark.visible = isRejected;
+        }
+      });
+  }
+
   // Camera image projection functions
+
+  setCameraPoseFromEuler(translation, rotation) {
+    const camera = new THREE.Object3D();
+    camera.position.fromArray(translation);
+    camera.rotation.fromArray(
+      rotation.map((angle) => THREE.MathUtils.degToRad(angle)),
+    );
+    camera.rotateY(Math.PI);
+    camera.rotateZ(Math.PI);
+    camera.updateMatrix();
+    this.setCameraPose(camera.matrix);
+  }
 
   setCameraPose(matrix) {
     const euler = new THREE.Euler();
@@ -315,13 +359,27 @@ class Viewport extends THREE.Scene {
     // Re-enable the projection if it has been disabled by clearing calibration points
   }
 
-  projectImage(image, cameraMtx) {
+  projectImage(image, cameraMtx, canProject = () => true) {
     if (this.sceneMesh !== null) {
       this.textureLoader.load(image, (texture) => {
-        this.projectionCamera.aspect =
-          texture.image.width / texture.image.height;
+        if (!canProject()) return;
+        const { width, height } = texture.image;
+        if (typeof this.projectionCamera.setViewOffset === "function") {
+          this.projectionCamera.setViewOffset(
+            width,
+            height,
+            width / 2 - cameraMtx[0][2],
+            height / 2 - cameraMtx[1][2],
+            width,
+            height,
+          );
+          this.projectionCamera.aspect =
+            (width * cameraMtx[1][1]) / (height * cameraMtx[0][0]);
+        } else {
+          this.projectionCamera.aspect = width / height;
+        }
         this.projectionCamera.fov = THREE.MathUtils.radToDeg(
-          2 * Math.atan(texture.image.height / (2 * cameraMtx[1][1])),
+          2 * Math.atan(height / (2 * cameraMtx[1][1])),
         );
         this.projectionCamera.updateProjectionMatrix();
         if (this.projectedMaterial === null) {

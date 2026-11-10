@@ -8,9 +8,11 @@
 *~
 *oxx
 *so
+.coverage
 .coverage_*
 .env
 .scenescape-profile
+.scenescape-demo
 .pytest_cache
 .vscode
 __pycache__
@@ -39,6 +41,9 @@ media
 **/workspace/migrations
 pvd-mqtt/detect
 sample_data/xREF_*
+# Manually-downloaded raw LiDAR-demo dataset - see docs/user-guide/how-to-guides/run-lidar-intersection-demo.md Prerequisites
+V2X-Seq-SPD-Example.zip
+sample_data/lidar_intersection/V2X-Seq-SPD-Example/
 .test_logs
 test_data
 test_reports/
@@ -50,6 +55,9 @@ tests/perf_tests/input/*.json
 # mapping/Makefile vendor-deps targets)
 autocalibration/.vendor/
 mapping/.vendor/
+
+# Local Positioning lab configs: camera endpoints and ONVIF credentials must never be committed
+positioning/.local/
 
 model_installer/models
 package.json
@@ -65,3 +73,6 @@ kubernetes/scenescape-chart/files/*
 .venv
 test_db.sqlite3
 tests/ui/test_media/Empty.zip
+
+# PTZ shadow-validation artifacts collected by the acceptance harness
+tests/artifacts/

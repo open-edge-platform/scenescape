@@ -245,6 +245,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | `metrics_collector_image` | When `enable_metrics` | — | OTEL Collector image (e.g. `"otel/opentelemetry-collector-contrib:0.155.0"`) |
 | `metrics_export_interval_s` | No | `2` | Metrics export interval in seconds |
 | `metrics_otlp_port` | No | `4317` | OTLP/gRPC port the collector listens on |
+| `object_classes` | No | `[]` | Asset definitions served from mock Manager `/api/v1/assets` so the tracker applies per-category `shift_type` / footprint. Each entry: `{name, shift_type, x_size, y_size, ...}` |
 
 **Observability (optional)**:
 
@@ -258,9 +259,16 @@ folder with, per metric:
 - **Counters** (e.g. `tracker.mqtt.messages`): cumulative `total` plus the per-export delta `avg` / `min` / `max` / `median`.
 - **Gauges** (e.g. `tracker.tracks.active`): `avg` / `min` / `max` / `median` over all observed values.
 
-After writing the summary, the harness verifies how many frames were dropped (summing the
+After writing the summary, the harness verifies how many messages were dropped (summing the
 `scenescape_controller_mqtt_messages_dropped` and `tracker.mqtt.dropped` counters), prints the
-count and ratio, and emits a `WARNING` when the dropped-to-output-frame ratio exceeds 1%.
+count and ratio, and emits a `WARNING` when the dropped-to-received-message ratio exceeds 1%.
+The denominator is the total of the `scenescape_controller_mqtt_messages` and
+`tracker.mqtt.messages` counters, plus the messages the Tracker rejected before accepting them
+(`tracker.mqtt.dropped` with a `rejected_*` reason), which `tracker.mqtt.messages` does not count.
+A run that dropped messages but received none is reported as 100%. Dropped messages are counted
+per camera, so the ratio does not depend on the number of cameras in the dataset. Drops after the
+split by category (busy tracker, full queue) count once per category, so with several categories
+the ratio errs high and can exceed 100%.
 The aggregated values are also available programmatically via
 `metrics_recorder.collect_metric_values()` and `metrics_recorder.check_dropped_frames()`.
 
@@ -281,14 +289,14 @@ The harness starts `mock_manager.py` as a thread on the Docker host and register
 
 Endpoints served:
 
-| Method | Path                   | Description                                                  |
-| ------ | ---------------------- | ------------------------------------------------------------ |
-| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials        |
-| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics  |
-| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                  |
-| GET    | `/api/v1/assets`       | Returns `{"results": []}` (no assets)                        |
-| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics |
-| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)          |
+| Method | Path                   | Description                                                                          |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
+| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials                                |
+| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics                          |
+| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                                          |
+| GET    | `/api/v1/assets`       | Returns the `object_classes` entries from `set_custom_config()` (empty when omitted) |
+| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics                         |
+| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)                                  |
 
 Camera extrinsics (`translation`, `rotation`, `scale`) are computed from the dataset's
 `camera points` / `map points` using the same logic as production:

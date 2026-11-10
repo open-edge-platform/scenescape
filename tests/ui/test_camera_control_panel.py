@@ -122,9 +122,10 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10475")
 @pytest.mark.fresh_stack
 @common.mock_display
-def test_switch_3d_camera_scene_camera(scenescape_env, request, record_xml_attribute):
+def test_switch_3d_camera_scene_camera(demo_scene, scenescape_env, request, record_xml_attribute):
   """! Test toggle scene camera under 3D camera control.
   @param    request                 List of test parameters.
   @param    record_xml_attribute    Function for recording test name.

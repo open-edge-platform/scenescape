@@ -1,0 +1,7 @@
+{
+  "name": "sample-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@flowfuse/node-red-dashboard": "1.33.0"
+  }
+}

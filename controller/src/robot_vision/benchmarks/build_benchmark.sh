@@ -20,7 +20,7 @@ mkdir build
 
 echo "Configuring project..."
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON -DBUILD_PYTHON_BINDINGS=OFF
 
 echo "Building benchmarks..."
 cmake --build . --target RobotVisionBenchmarks -- -j$(nproc)

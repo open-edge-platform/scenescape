@@ -126,25 +126,39 @@ class CameraCalibrationModel():
     return response
 
   def delete_calibration_markers_for_scene(self, scene_id):
-    response = self.rest.getCalibrationMarkers({'scene':scene_id})
+    """Delete all calibration markers for a scene.
+
+    @return  True on success, False if listing or any delete fails.
+    """
+    response = self.rest.getCalibrationMarkers({'scene': scene_id})
     if not response:
-      log.error(f"Failed to delete calibration markers for scene {scene_id}, error code: ", response.statusCode)
-      return
-    found = []
-    if 'results' in response:
-      found = response['results']
+      log.error(
+          f"Failed to delete calibration markers for scene {scene_id}, error code: ",
+          getattr(response, 'statusCode', None))
+      return False
+    found = response.get('results', []) if isinstance(response, dict) else []
     for marker in found:
-      self.rest.deleteCalibrationMarker(marker['marker_id'])
-    return
+      deleted = self.rest.deleteCalibrationMarker(marker['marker_id'])
+      if not deleted:
+        log.error(
+            f"Failed to delete calibration marker {marker.get('marker_id')} "
+            f"for scene {scene_id}, error code: ",
+            getattr(deleted, 'statusCode', None))
+        return False
+    return True
 
   def update_or_create_calibration_marker(self, scene_id, data):
-    response = self.rest.getCalibrationMarkers({'scene':scene_id})
+    """Create or update a calibration marker.
+
+    @return  REST result on success, None/falsy on failure.
+    """
+    response = self.rest.getCalibrationMarkers({'scene': scene_id})
     if not response:
-      log.error(f"Failed to get responses for calibration markers with scene {scene_id}, error code: ", response.statusCode)
-      return
-    found = []
-    if 'results' in response:
-      found = response['results']
+      log.error(
+          f"Failed to get responses for calibration markers with scene {scene_id}, error code: ",
+          getattr(response, 'statusCode', None))
+      return None
+    found = response.get('results', []) if isinstance(response, dict) else []
     marker_id = data['marker_id']
     for marker in found:
       if marker['marker_id'] == marker_id:

@@ -52,6 +52,25 @@ def test_validate3DDetectionMessage(schemaObject, data, expected, format, reques
   assert result == expected
   return
 
+
+@pytest.mark.parametrize("extrinsics, expected", [
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 90.0]}, True),
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0]}, True),
+  # Scale is not part of camera extrinsics (rigid TR only).
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0],
+    "scale": [1.0, 1.0, 1.0]}, False),
+  ({"translation": [1.0, 2.0], "rotation": [0.0, 0.0, 0.0]}, False),
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0]}, False),
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0],
+    "scale": [1.0, 0.0, 1.0]}, False),
+  ({"rotation": [0.0, 0.0, 0.0]}, False),
+  ("not-an-object", False),
+])
+def test_validateDetectorExtrinsics(schemaObject, objData, extrinsics, expected):
+  objData["extrinsics"] = extrinsics
+  assert schemaObject.validateMessage("detector", objData, False) is expected
+
+
 @pytest.mark.parametrize("data, expected, format", [("singletonData", True, False),
                                             ("singletonData", False, False),
                                             ("singletonData", True, True),
@@ -134,13 +153,181 @@ def test_validateExternalSourceMessage_objectWithoutSizeIsValid(schemaObject):
   assert result == True
   return
 
-def test_validateExternalSourceMessage_objectWithoutIdIsInvalid(schemaObject):
-  """An object observation missing the required 'id' field must fail validation."""
+@pytest.mark.parametrize("track", [None, True])
+def test_validateExternalSourceMessage_trackedObjectWithoutIdIsValid(schemaObject, track):
+  """Tracked observations may omit source-local ids."""
   jdata = {
     "timestamp": "1970-01-01T00:00:00.000Z",
     "source_id": "drone-1",
     "objects": [
       {"category": "person", "translation": [1.0, 2.0, 0.0]},
+    ],
+  }
+  if track is not None:
+    jdata["track"] = track
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_untrackedObjectWithoutIdIsInvalid(schemaObject):
+  """Untracked observations require a source-local id to preserve."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "track": False,
+    "objects": [
+      {"category": "person", "translation": [1.0, 2.0, 0.0]},
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == False
+  return
+
+def test_validateExternalSourceMessage_pixelDetectionWithoutTranslationIsValid(schemaObject):
+  """Pixel external detections may omit translation when pose and intrinsics are present."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_rejectsBothTranslationAndBoundingBoxPx(schemaObject):
+  """translation and bounding_box_px are mutually exclusive on one object."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "translation": [0.0, 0.0, 0.0],
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == False
+  return
+
+def test_validateExternalSourceMessage_pixelDetectionMayOmitIntrinsicsForCacheReuse(schemaObject):
+  """Schema allows omitting intrinsics; runtime reuses the live pose-cache entry."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_pixelDetectionMayOmitPoseForCacheReuse(schemaObject):
+  """Schema allows omitting pose; runtime reuses the live pose-cache entry."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_pixelDetectionRejectsTopLeftShape(schemaObject):
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "top": 157,
+          "left": 221,
+          "width": 108,
+          "height": 259,
+        },
+      },
     ],
   }
 

@@ -80,8 +80,9 @@ def getTripwireUid(rest, tw_name):
   # Get the uid of the first result
   return res["results"][0]['uid']
 
+@pytest.mark.test_name("NEX-T10431")
 @pytest.mark.fresh_stack
-def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
+def test_create_and_delete_tripwire_mqtt(demo_scene, params, record_xml_attribute):
   """! This function creates Trip wire horizontally and the data is published
   such that the object (category ["custom_person"]) moves vertically across the
   tripwrire triggerring event data. The tripwire is deleted and the object data
@@ -91,7 +92,6 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
   @returns exit_code 0 on success, non-zero on failure
   """
   TEST_NAME = "NEX-T10431"
-  record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
 
   exit_code = 2
@@ -99,6 +99,7 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert rest.authenticate(params['user'], params['password'])
 
+  browser = None
   try:
     browser = Browser()
     client = PubSub(params['auth'], None, params['rootcert'],
@@ -155,9 +156,10 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
     assert client.isConnected()
     if exit_code != 0:
       print("Received unexpected message from the tripwire!")
-    browser.close()
 
   finally:
+    if browser is not None:
+      browser.quit()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

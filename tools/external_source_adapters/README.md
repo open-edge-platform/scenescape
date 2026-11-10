@@ -34,24 +34,28 @@ publishes the vehicle as a tracked object at the source local origin
 pip install -r tools/external_source_adapters/requirements.txt
 ```
 
+Installs `pymavlink` and `paho-mqtt` (required by `scene_common.mqtt.PubSub`).
+The PX4 demo script (`tools/px4_sih_demo/run_demo.sh adapter`) uses an isolated
+venv and installs these automatically.
+
 ### Configuration (environment)
 
-| Variable                     | Required | Description                                                                |
-| ---------------------------- | :------: | -------------------------------------------------------------------------- |
-| `SCENESCAPE_SOURCE_ID`       |   Yes    | Persistent publisher id (topic path + payload `source_id`)                 |
-| `SCENESCAPE_MQTT_AUTH`       |   Yes    | `user:password` or path to PubSub JSON auth file                           |
-| `SCENESCAPE_ROOT_CERT`       |   Yes    | Path to Scenescape CA certificate                                          |
-| `SCENESCAPE_SCENE_ID`        |    No    | Optional scene hint for ops / manual `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` |
-| `SCENESCAPE_THING_TYPE`      |    No    | MQTT `{thing_type}` segment (default `vehicle`)                            |
-| `SCENESCAPE_OBJECT_CATEGORY` |    No    | Object `category` when publishing self (default = thing type)              |
-| `SCENESCAPE_BROKER`          |    No    | Broker host (default `localhost`)                                          |
-| `SCENESCAPE_BROKER_PORT`     |    No    | Broker port (default `1883`)                                               |
-| `MAVLINK_CONNECTION`         |    No    | pymavlink connection string (default `udp:0.0.0.0:14550`)                  |
-| `MAVLINK_BAUD`               |    No    | Serial baud when using a device path (default `57600`)                     |
-| `PUBLISH_HZ`                 |    No    | Publish rate (default `5`)                                                 |
-| `PUBLISH_SELF`               |    No    | `true`/`false` — include vehicle object at origin (default `true`)         |
-| `POSE_EVERY_N`               |    No    | Include pose every N publishes for cache reuse (default `1`)               |
-| `LOG_LEVEL`                  |    No    | Logging level (default `INFO`)                                             |
+| Variable                     | Required | Description                                                                               |
+| ---------------------------- | :------: | ----------------------------------------------------------------------------------------- |
+| `SCENESCAPE_SOURCE_ID`       |   Yes    | Persistent publisher id (topic path + payload `source_id`)                                |
+| `SCENESCAPE_MQTT_AUTH`       |   Yes    | `user:password` or path to PubSub JSON auth file (e.g. `manager/secrets/controller.auth`) |
+| `SCENESCAPE_ROOT_CERT`       |   Yes    | Path to Scenescape CA certificate                                                         |
+| `SCENESCAPE_SCENE_ID`        |    No    | Optional scene hint for ops / manual `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`                |
+| `SCENESCAPE_THING_TYPE`      |    No    | MQTT `{thing_type}` segment (default `vehicle`)                                           |
+| `SCENESCAPE_OBJECT_CATEGORY` |    No    | Object `category` when publishing self (default = thing type)                             |
+| `SCENESCAPE_BROKER`          |    No    | Broker host (default `localhost`)                                                         |
+| `SCENESCAPE_BROKER_PORT`     |    No    | Broker port (default `1883`)                                                              |
+| `MAVLINK_CONNECTION`         |    No    | pymavlink connection string (default `udp:0.0.0.0:14550`)                                 |
+| `MAVLINK_BAUD`               |    No    | Serial baud when using a device path (default `57600`)                                    |
+| `PUBLISH_HZ`                 |    No    | Publish rate (default `5`)                                                                |
+| `PUBLISH_SELF`               |    No    | `true`/`false` — include vehicle object at origin (default `true`)                        |
+| `POSE_EVERY_N`               |    No    | Include pose every N publishes for cache reuse (default `1`)                              |
+| `LOG_LEVEL`                  |    No    | Logging level (default `INFO`)                                                            |
 
 ### Usage
 
@@ -80,6 +84,11 @@ Examples of `--connection` / `MAVLINK_CONNECTION` values:
    object whose `id` matches `SCENESCAPE_SOURCE_ID`.
 4. Check Scene Controller logs for pose rejection reasons if nothing appears
    (see Pose Caching in `data_formats.md`).
+
+### PX4 SIH end-to-end demo
+
+For a full walkthrough (Mapbox geospatial scene, ROI, PX4 SIH Docker, and this
+adapter), see [`tools/px4_sih_demo/README.md`](../px4_sih_demo/README.md).
 
 ### Out of scope
 

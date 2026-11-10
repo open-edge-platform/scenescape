@@ -8,11 +8,24 @@ Common utilities for model loading in Scenescape 3D mapping service.
 """
 
 import os
+import time
 from pathlib import Path
+from typing import Callable, TypeVar
 
 from scene_common import log
 
+T = TypeVar('T')
+
 MODEL_DIR = os.getenv("MODEL_DIR", "/workspace/model_weights")
+
+# Retry configuration defaults - can be overridden when calling retry_with_exponential_backoff
+DEFAULT_MAX_RETRY_ATTEMPTS = 3
+DEFAULT_RETRY_INITIAL_WAIT_SECONDS = 2
+
+# Exceptions treated as transient and worth retrying. KeyError is included because
+# torch.hub's rate-limit handler raises KeyError('Authorization') instead of the
+# underlying HTTP 403 when no GitHub token is configured (see repo memory notes).
+RETRYABLE_EXCEPTIONS = (OSError, KeyError, RuntimeError)
 
 def get_model_weights_dir() -> Path:
   """Get the model weights directory."""
@@ -71,3 +84,48 @@ def create_success_marker(model_name: str, message: str) -> bool:
   except Exception as e:
     log.error(f"Failed to create success marker for {model_name}: {e}")
     return False
+
+def retry_with_exponential_backoff(
+    func: Callable[..., T],
+    max_attempts: int = DEFAULT_MAX_RETRY_ATTEMPTS,
+    initial_wait_seconds: int = DEFAULT_RETRY_INITIAL_WAIT_SECONDS
+) -> T:
+  """
+  Retry a function with exponential backoff for transient failures.
+
+  Args:
+    func: Function to retry
+    max_attempts: Maximum number of attempts
+    initial_wait_seconds: Initial wait time before first retry
+
+  Returns:
+    Result of the function if successful
+
+  Raises:
+    ValueError: If max_attempts is less than 1 or initial_wait_seconds is negative
+    Exception: Re-raises the last exception if all retry attempts fail, or
+      immediately re-raises any non-retryable exception without retrying
+  """
+  if max_attempts < 1:
+    raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
+  if initial_wait_seconds < 0:
+    raise ValueError(f"initial_wait_seconds must be >= 0, got {initial_wait_seconds}")
+
+  last_exception = None
+  wait_seconds = initial_wait_seconds
+
+  for attempt in range(1, max_attempts + 1):
+    try:
+      log.info(f"Attempt {attempt}/{max_attempts}...")
+      return func()
+    except RETRYABLE_EXCEPTIONS as e:
+      last_exception = e
+      if attempt < max_attempts:
+        log.warning(f"Attempt {attempt} failed: {e}. Retrying in {wait_seconds}s...")
+        time.sleep(wait_seconds)
+        wait_seconds *= 2  # Exponential backoff
+      else:
+        log.error(f"All {max_attempts} attempts failed. Last error: {e}")
+
+  if last_exception is not None:
+    raise last_exception

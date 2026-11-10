@@ -12,15 +12,21 @@ import logging
 import os
 import time
 import zipfile
+from contextlib import ExitStack
 
 import requests
 
 DEFAULT_WAIT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 60
-RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
-# Each scene lives in its own directory: <scene>/<scene>.zip, plus optional
-# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
+RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors", "calibration_markers")
+# Each scene lives in its own directory: <scene>/<scene>.zip. The archived
+# JSON carries the scene's calibration_markers directly, plus each camera's
+# "command"/"camerachain" fields; on Kubernetes, kubeclient builds each
+# camera's DL Streamer pipeline from those two DB fields, while Compose's
+# dlsps containers use static pipeline JSON and simply ignore them.
+# Object library (Asset3D) entries have no scene FK, so they aren't part of
+# any scene archive; see read_object_library()/upload_object_library().
 
 log = logging.getLogger("upload-scenes")
 
@@ -28,15 +34,23 @@ log = logging.getLogger("upload-scenes")
 class SceneScapeClient:
   """The handful of REST calls needed to import a scene and its dependencies."""
 
-  def __init__(self, url, verify):
+  def __init__(self, url, verify, restore_ids=False, remote_credentials=None, reuse_existing=False,
+               import_timeout=REQUEST_TIMEOUT_SECONDS):
+    if not isinstance(import_timeout, int) or isinstance(import_timeout, bool) or import_timeout <= 0:
+      raise ValueError("import_timeout must be a positive integer number of seconds")
     self.url = url.rstrip("/")
     self.session = requests.Session()
     self.session.verify = verify
+    self.restore_ids = restore_ids
+    self.reuse_existing = reuse_existing
+    self.remote_credentials = remote_credentials
+    self.import_timeout = import_timeout
     return
 
   def _request(self, method, path, **kwargs):
+    timeout = kwargs.pop("timeout", REQUEST_TIMEOUT_SECONDS)
     reply = self.session.request(method, f"{self.url}{path}",
-                                 timeout=REQUEST_TIMEOUT_SECONDS, **kwargs)
+                                 timeout=timeout, **kwargs)
     reply.raise_for_status()
     return reply.json()
 
@@ -44,10 +58,6 @@ class SceneScapeClient:
     reply = self._request("POST", "/auth", data={"username": user, "password": password})
     self.session.headers["Authorization"] = f"Token {reply['token']}"
     return
-
-  def is_database_ready(self):
-    reply = self.session.get(f"{self.url}/database-ready", timeout=REQUEST_TIMEOUT_SECONDS)
-    return reply.ok and reply.json().get("databaseReady", False)
 
   def scene_uid(self, name):
     """Returns the uid of the scene called `name`, or None when it does not exist."""
@@ -73,10 +83,43 @@ class SceneScapeClient:
       raise
 
   def import_scene(self, zip_path):
-    """Posts a scene archive and returns the server's import summary."""
-    with open(zip_path, "rb") as archive:
+    """Posts a scene archive and returns the server's import summary.
+
+    HTTP 400 responses that carry an import summary (scene/resource error
+    fields) are returned for the caller to inspect, matching the Manager API.
+    Other non-success statuses still raise.
+    """
+    summary_keys = ("scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")
+    with ExitStack() as stack:
+      archive = stack.enter_context(open(zip_path, "rb"))
       files = {"zipFile": (os.path.basename(zip_path), archive, "application/zip")}
-      return self._request("POST", "/import-scene/", files=files)
+      data = {}
+      if self.restore_ids:
+        data["restore_ids"] = "true"
+      if self.reuse_existing:
+        data["reuse_existing"] = "true"
+      if self.remote_credentials:
+        credentials = stack.enter_context(open(self.remote_credentials, "rb"))
+        files["remote_credentials"] = ("credentials.json", credentials, "application/json")
+      try:
+        reply = self.session.request(
+          "POST", f"{self.url}/import-scene/", files=files, data=data,
+          timeout=self.import_timeout)
+      except requests.Timeout:
+        log.error("Scene import timed out; the server may still be processing it. "
+                  "Check Manager logs and scene resources before retrying. "
+                  "Use --import-timeout to allow more time.")
+        raise
+      try:
+        payload = reply.json()
+      except ValueError:
+        reply.raise_for_status()
+        raise
+      if reply.status_code == 201 or (
+          reply.status_code == 400 and any(key in payload for key in summary_keys)):
+        return payload
+      reply.raise_for_status()
+      return payload
 
 
 def parse_auth(auth):
@@ -92,13 +135,13 @@ def parse_auth(auth):
   return user, password
 
 
-def wait_for_database(client, timeout):
-  """Polls the deployment until it reports its database ready, or the timeout expires."""
+def is_application_ready(client, timeout, user, password):
+  """Polls until the deployment accepts auth, or the timeout expires."""
   deadline = time.monotonic() + timeout
   while True:
     try:
-      if client.is_database_ready():
-        return True
+      client.authenticate(user, password)
+      return True
     except requests.RequestException as e:
       log.debug(f"Deployment not reachable yet: {e}")
     if time.monotonic() >= deadline:
@@ -126,22 +169,39 @@ def read_scene_from_zip(zip_path):
   return scene
 
 
-def upload_assets(client, scene):
-  """Creates the object library entries a scene relies on, unless they exist already."""
-  assets = scene.get("assets", [])
-  if assets is None:
-    return True
-  if not isinstance(assets, (list, tuple)):
-    log.error("Scene '%s' has invalid 'assets' entry (expected list)", scene.get('name'))
-    return False
+def read_object_library(path):
+  """Reads a standalone object-library.json (a plain list of asset dicts).
 
-  for asset in assets:
+  Returns [] when the file is absent (the library is optional), or None when
+  present but unreadable/malformed.
+  """
+  if not os.path.isfile(path):
+    return []
+  try:
+    with open(path, encoding="utf-8") as library_file:
+      library = json.load(library_file)
+  except (OSError, json.JSONDecodeError) as e:
+    log.error(f"Failed to read {path}: {e}")
+    return None
+  if not isinstance(library, list):
+    log.error(f"{path} must contain a JSON list of asset objects")
+    return None
+  return library
+
+
+def upload_object_library(client, library):
+  """Creates object library (Asset3D) entries, unless they already exist by name.
+
+  Assets have no scene FK: they're a global library shared by every scene, so
+  they're provisioned once from a standalone file instead of per-scene archives.
+  """
+  for asset in library:
     if not isinstance(asset, dict):
-      log.error("Ignoring malformed asset in scene '%s': not an object", scene.get('name'))
+      log.error("Ignoring malformed object library entry: not an object")
       return False
     name = asset.get("name")
     if not name or not isinstance(name, str):
-      log.error("Ignoring an asset without a valid name in scene '%s'", scene.get('name'))
+      log.error("Ignoring an object library entry without a valid name")
       return False
     if client.asset_exists(name):
       continue
@@ -204,7 +264,7 @@ def upload_scene(client, scene, zip_path):
 
 
 def upload_one(client, zip_path):
-  """Imports a single scene archive plus its assets/markers.
+  """Imports a single scene archive plus its calibration markers.
 
   Returns the scene's uid on success (including when it already exists), or
   None on failure.
@@ -213,50 +273,20 @@ def upload_one(client, zip_path):
   if scene is None:
     return None
 
-  # A scene's assets/calibration_markers, if any, live as sidecar JSON files
-  # next to its zip: <scene_dir>/assets.json, <scene_dir>/calibration_markers.json
-  scene_dir = os.path.dirname(zip_path)
-  assets_sidecar = os.path.join(scene_dir, "assets.json")
-  calib_sidecar = os.path.join(scene_dir, "calibration_markers.json")
-  # Load and merge sidecar assets
-  if os.path.exists(assets_sidecar):
-    try:
-      with open(assets_sidecar, encoding="utf-8") as f:
-        extra_assets = json.load(f)
-      if isinstance(extra_assets, list):
-        scene.setdefault("assets", [])
-        scene["assets"].extend(extra_assets)
-      else:
-        log.error("Sidecar %s must contain a JSON list", assets_sidecar)
-        return None
-    except Exception as e:
-      log.error("Failed to read assets sidecar %s: %s", assets_sidecar, e)
-      return None
-  if os.path.exists(calib_sidecar):
-    try:
-      with open(calib_sidecar, encoding="utf-8") as f:
-        extra_markers = json.load(f)
-      if isinstance(extra_markers, list):
-        scene.setdefault("calibration_markers", [])
-        scene["calibration_markers"].extend(extra_markers)
-      else:
-        log.error("Sidecar %s must contain a JSON list", calib_sidecar)
-        return None
-    except Exception as e:
-      log.error("Failed to read calibration markers sidecar %s: %s", calib_sidecar, e)
-      return None
-
   name = scene["name"]
   existing_uid = client.scene_uid(name)
-  if existing_uid:
-    log.info(f"Scene '{name}' already exists, reconciling assets/markers for {zip_path}")
-    if not upload_assets(client, scene) or not upload_calibration_markers(client, scene):
+  if existing_uid and not client.reuse_existing:
+    if client.restore_ids or scene.get("remote_children") or scene.get("children"):
+      log.error(f"Scene '{name}' already exists; hierarchy import requires a fresh destination")
+      return None
+    log.info(f"Scene '{name}' already exists, reconciling markers for {zip_path}")
+    if not upload_calibration_markers(client, scene):
       return None
     return existing_uid
 
-  if not upload_assets(client, scene) \
-      or not upload_scene(client, scene, zip_path) \
-      or not upload_calibration_markers(client, scene):
+  if not upload_scene(client, scene, zip_path):
+    return None
+  if not client.reuse_existing and not upload_calibration_markers(client, scene):
     return None
 
   log.info(f"Uploaded scene '{name}' from {zip_path}")

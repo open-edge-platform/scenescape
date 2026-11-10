@@ -17,6 +17,106 @@ from controller.vdms_adapter import VDMSDatabase, SCHEMA_NAME, DIMENSIONS, K_NEI
 from controller.reid import ReIDDatabase, ReidNoValidVectorsError
 from scene_common.reid_constants import VDMS_EXPIRATION_KEY
 
+
+class TestQueryRecovery:
+  """Query failures must discard the connection before another request can use it."""
+
+  @pytest.mark.parametrize("with_blob", [False, True])
+  @pytest.mark.parametrize("strict", [False, True])
+  def test_timeout_discards_late_reply_and_normal_query_reconnects(self, monkeypatch,
+                                                                 with_blob, strict):
+    """Controller callers recover without readiness probes or replaying timed-out writes."""
+    now = [0.0]
+    monkeypatch.setattr("reid.vdms_adapter.time.monotonic", lambda: now[0])
+    with patch("controller.vdms_adapter.vdms.vdms") as factory:
+      db = VDMSDatabase()
+    client = factory.return_value
+    client.connected = True
+    db.raise_on_backend_error = strict
+    db._last_connect_attempt = now[0]
+    pending = []
+
+    def disconnect():
+      client.connected = False
+      pending.clear()
+
+    def connect(*args, **kwargs):
+      client.connected = True
+
+    def query(commands, *args):
+      if commands[0]["FindEntity"]["class"] == "A":
+        pending.append(([{"FindEntity": {"status": 0, "reply": "A"}}], []))
+        # vdms leaves connected=True, with A's late response still pending.
+        raise TimeoutError("query A timed out")
+      if pending:
+        return pending.pop(0)
+      return ([{"FindEntity": {"status": 0, "reply": "B"}}], [])
+
+    client.disconnect.side_effect = disconnect
+    client.connect.side_effect = connect
+    client.query.side_effect = query
+    blob = [b"descriptor"] if with_blob else None
+    with pytest.raises(TimeoutError, match="query A"):
+      db.sendQuery([{"FindEntity": {"class": "A"}}], blob)
+    assert client.connected is False
+    assert pending == []
+    assert client.query.call_count == 1
+    client.disconnect.assert_called_once()
+
+    # The existing retry budget also applies to ordinary Controller queries.
+    now[0] = 4.99
+    if strict:
+      with pytest.raises(ConnectionError):
+        db.sendQuery([{"FindEntity": {"class": "B"}}])
+    else:
+      assert db.sendQuery([{"FindEntity": {"class": "B"}}]) == ([], [])
+    client.connect.assert_not_called()
+    assert client.query.call_count == 1
+
+    now[0] = 5.0
+    responses, _ = db.sendQuery([{"FindEntity": {"class": "B"}}])
+    assert responses == [{"status": 0, "reply": "B"}]
+    client.connect.assert_called_once_with(db.hostname, port=db.port)
+    client.conn.settimeout.assert_called_once_with(5.0)
+    assert client.query.call_count == 2
+    assert db.sendQuery([{"FindEntity": {"class": "B"}}])[0] == responses
+    assert client.connect.call_count == 1
+
+  @pytest.mark.parametrize("error", [ConnectionResetError("reset"), ValueError("decode")])
+  def test_any_query_exception_disconnects_and_propagates(self, error):
+    """Non-timeout failures also invalidate the framed response stream."""
+    with patch("controller.vdms_adapter.vdms.vdms"):
+      db = VDMSDatabase()
+    db.db.connected = True
+    db.db.query.side_effect = error
+    with pytest.raises(type(error), match=str(error)):
+      db.sendQuery([{"FindEntity": {"class": "test"}}])
+    db.db.disconnect.assert_called_once()
+
+  @pytest.mark.parametrize("response", [None, "NOT CONNECTED"])
+  def test_incomplete_response_discards_connection(self, response):
+    """An incomplete packet is not a reusable connection either."""
+    with patch("controller.vdms_adapter.vdms.vdms"):
+      db = VDMSDatabase()
+    db.db.query.return_value = response
+    assert db.sendQuery([{"FindEntity": {"class": "test"}}]) == ([], [])
+    db.db.disconnect.assert_called_once()
+
+  def test_failed_normal_reconnect_is_rate_limited(self, monkeypatch):
+    """Repeated requests cannot turn an outage into a reconnect storm."""
+    now = [0.0]
+    monkeypatch.setattr("reid.vdms_adapter.time.monotonic", lambda: now[0])
+    with patch("controller.vdms_adapter.vdms.vdms"):
+      db = VDMSDatabase()
+    db.db.connected = False
+    db.db.connect.side_effect = OSError("offline")
+    for when in (0.0, 4.99, 5.0):
+      now[0] = when
+      assert db.sendQuery([{"FindEntity": {"class": "test"}}]) == ([], [])
+    assert db.db.connect.call_count == 2
+    db.db.query.assert_not_called()
+
+
 class TestVDMSDatabaseInterface:
   """Test that VDMSDatabase implements ReIDDatabase interface."""
 
@@ -690,9 +790,10 @@ class TestFindMatches:
     assert result is None
     db.sendQuery.assert_not_called()
 
+  @pytest.mark.parametrize("neighbors", [None, 1, 2])
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_find_matches_returns_matched_entities(self, mock_vdms_class):
-    """Verify findMatches returns matched entities from VDMS."""
+  def test_find_matches_returns_matched_entities(self, mock_vdms_class, neighbors):
+    """Verify matches respect both the default and explicit neighbor limits."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -709,11 +810,15 @@ class TestFindMatches:
     }], []))
 
     test_vectors = [np.random.randn(256).astype(np.float32)]
-    result = db.findMatches("Person", test_vectors)
+    options = {} if neighbors is None else {"k_neighbors": neighbors}
+    result = db.findMatches("Person", test_vectors, **options)
+    expected_neighbors = K_NEIGHBORS if neighbors is None else neighbors
 
     assert result is not None, "findMatches should return results when matches found"
     assert len(result) == 1
-    assert result[0] == expected_entities
+    assert result[0] == expected_entities[:expected_neighbors]
+    db.sendQuery.assert_called_once()
+    assert db.sendQuery.call_args.args[0][0]["FindDescriptor"]["k_neighbors"] == expected_neighbors
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_filters_invalid_ip_similarity_scores(self, mock_vdms_class):
@@ -1809,6 +1914,7 @@ class TestGetPersistedAttributes:
     assert 'persist' in results_list
     assert 'persist_timestamp' in results_list
 
+@pytest.mark.usefixtures("shutdown_uuid_managers")
 class TestUpdateActiveDictPersistMerge:
   """Test persist attribute merging in updateActiveDict on REID match."""
 
@@ -2405,4 +2511,3 @@ class TestDescriptorRetention:
 
     assert db.purgeExpired() == 0
     db.sendQuery.assert_not_called()
-

@@ -6,35 +6,45 @@
 #include <array>
 #include <cmath>
 #include <numbers>
+#include <optional>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <opencv2/core.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
+#include "object_class.hpp"
+#include "reid_sighting.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
 namespace tracker {
 
 /**
- * @brief Batch-oriented transformer from pixel detections to world-space TrackedObjects.
+ * @brief Transformer from image or sensor-frame detections to world-space TrackedObjects.
  *
  * Converts 2D pixel bounding boxes into 3D world positions and sizes using
- * camera intrinsics/extrinsics. The foot point (bottom-center of each bbox)
- * determines the world position via ground-plane intersection; three additional
- * corner points (BL, BR, TL) determine the object's world-space dimensions.
+ * camera intrinsics/extrinsics. Two opposite bbox corners are undistorted to
+ * define a normalized rectangle. Its bottom-center determines world position;
+ * the bottom-left, bottom-right, and top-left determine world-space dimensions.
  *
  * Designed for high-throughput (1000+ detections per batch):
  * - Single cv::undistortPoints call for all pixels in the batch
  * - Data-oriented layout: contiguous pixel arrays for cache efficiency
  * - OpenMP parallelization of pose-transform and ray-plane intersection
  *
- * Transformation pipeline per detection (4 pixels each):
- * 1. Collect pixels: foot (bottom-center), bottom-left, bottom-right, top-left
- * 2. Batch undistort all 4*N pixels via cv::undistortPoints()
- * 3. Pose-transform + ray-plane intersection (z=0) with OpenMP
- * 4. Assemble TrackedObjects: position from foot, size from corners
+ * Transformation pipeline per detection:
+ * 1. Collect top-left and bottom-right pixels
+ * 2. Batch undistort 2*N corners and derive normalized foot, BL, BR, TL
+ * 3. Pose-transform + ray-plane intersection (z=0) for 4*N points with OpenMP
+ * 4. Optional TYPE_2 foot re-projection (wide/short objects)
+ * 5. Assemble TrackedObjects: position from foot, size from corners
+ *
+ * Projection modes (shift_type):
+ * - ObjectClassConfig::kShiftType1 (default): bottom-center of the bbox
+ * - ObjectClassConfig::kShiftType2:  shift foot upward by (height/2)*(baseAngle/90)
  *
  * Euler angle convention:
  * - XYZ INTRINSIC rotation order, angles in DEGREES
@@ -48,26 +58,49 @@ public:
      *
      * @param intrinsics Camera intrinsic parameters (fx, fy, cx, cy, distortion)
      * @param extrinsics Camera extrinsic parameters (translation, rotation, scale)
+     * @param shift_type Projection mode: ObjectClassConfig::kShiftType1 (default) or
+     *        ObjectClassConfig::kShiftType2
+     * @param footprint_half Optional camloc size offset in metres. When set,
+     *        uses this instead of half the projected bbox width — matching
+     *        Controller MovingObject.mapObjectDetectionToWorld asset sizes.
      */
-    CoordinateTransformer(const CameraIntrinsics& intrinsics, const CameraExtrinsics& extrinsics);
+    CoordinateTransformer(const CameraIntrinsics& intrinsics, const CameraExtrinsics& extrinsics,
+                          int shift_type = ObjectClassConfig::kShiftType1,
+                          std::optional<double> footprint_half = std::nullopt);
+
+    /**
+     * @brief Projection mode used for the detection foot point.
+     */
+    [[nodiscard]] int shiftType() const { return shift_type_; }
+
+    /**
+     * @brief Optional fixed half-footprint (metres) used for the camloc bearing offset.
+     */
+    [[nodiscard]] const std::optional<double>& footprintHalf() const { return footprint_half_; }
 
     /**
      * @brief Batch-transform detections from pixel space to world-space TrackedObjects.
      *
-     * For each detection, projects 4 bbox pixels (foot, BL, BR, TL) through the full
-     * undistort → pose → ray-plane pipeline in a single batched operation. Computes
+     * For each detection, undistorts two opposite bbox corners and derives the
+     * normalized foot, BL, BR, TL before batched world projection. Computes
      * world position (from foot point) and world size (from corner distances).
      *
      * Detections where any projection fails are silently skipped.
+     * When present, rotation must be a finite sensor-frame [x, y, z, w]
+     * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
+     * @param sightings Optional chunk-local context for tagging ReID observations
+     * @throws std::invalid_argument if the context does not reference the exact detection span.
      * @return TrackedObjects with world-space position and size fields populated.
-     *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
-     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
+     *         id, x, y, z, length, width, height are set. Velocity is zero.
+     *         Supplied rotation sets world yaw and attributes["has_orientation"].
+     *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections) const;
+    transformDetections(std::span<const Detection> detections,
+                        std::optional<ReidSightingContext> sightings = std::nullopt) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].
@@ -102,17 +135,16 @@ public:
 
 private:
     /**
-     * @brief Batch project pixels to world coordinates on the ground plane.
+     * @brief Batch project normalized points to world coordinates on the ground plane.
      *
-     * Single cv::undistortPoints call for all pixels, then parallel
-     * pose-transform + ray-plane intersection.
+     * Parallel pose-transform + ray-plane intersection.
      *
-     * @param pixels Input pixel coordinates
-     * @param[out] world Output world coordinates (pre-allocated, same size as pixels)
-     * @param[out] valid Output validity flags (pre-allocated, same size as pixels)
+     * @param normalized Undistorted normalized image-plane coordinates
+     * @param[out] world Output world coordinates (same size as normalized)
+     * @param[out] valid Output validity flags (same size as normalized)
      */
-    void batchPixelToWorld(const std::vector<cv::Point2f>& pixels, std::vector<cv::Point2d>& world,
-                           std::vector<uint8_t>& valid) const;
+    void batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
+                                std::vector<cv::Point2d>& world, std::vector<uint8_t>& valid) const;
 
     /**
      * @brief Compute 3x3 rotation matrix from Euler angles (XYZ intrinsic, degrees).
@@ -131,16 +163,19 @@ private:
 
     cv::Matx33d intrinsics_matrix_;
     cv::Vec4d distortion_coeffs_;
+    cv::Matx33d camera_rotation_;
     cv::Matx44d pose_matrix_;
     cv::Point3d camera_origin_;
+    int shift_type_;
+    std::optional<double> footprint_half_; // metres
 
     static constexpr double kFallbackHorizonDistance = 100.0;
     static constexpr double kEarthRadius = 6371000.0;
     static constexpr double kMinHeightForHorizon = 0.1;
     static constexpr double kRayEpsilon = 1e-6;
 
-    /// Number of pixels projected per detection (foot, BL, BR, TL)
-    static constexpr size_t kPixelsPerDetection = 4;
+    static constexpr size_t kCornersPerDetection = 2;
+    static constexpr size_t kPointsPerDetection = 4;
 };
 
 } // namespace tracker

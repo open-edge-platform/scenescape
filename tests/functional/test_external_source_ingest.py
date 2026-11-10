@@ -20,8 +20,10 @@ Publishes at a fixed 10 Hz. Variable-rate coverage is deferred.
 import json
 import os
 import time
+import uuid
 
 import numpy as np
+import pytest
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -30,6 +32,7 @@ from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
+import pytest
 
 log = get_logger(__name__)
 
@@ -44,6 +47,7 @@ THING_TYPE = "person"
 FRAMES_PER_SECOND = 10
 MAX_WAIT_TIMEOUT_S = 30
 CONTROLLER_SETTLE_S = 2.0
+GEO_CALIBRATION_TIMEOUT_S = 60.0
 AGENT_SOURCE_ID = "drone-1"
 UNTRUSTED_POSITIONING_SOURCE_ID = "positioning-service-untrusted"
 OBJECT_ID = "agent-track-1"
@@ -62,8 +66,8 @@ IDENTITY_ROTATION = [0, 0, 0, 1]
 
 
 class ExternalSourceIngest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request, None)
     self.repoRoot = repo_root
 
     self.exitCode = 1
@@ -103,8 +107,8 @@ class ExternalSourceIngest(FunctionalTest):
   def prepareScene(self):
     """Enable geospatial calibration on the demo scene.
 
-    After inter-test DB restore, the controller may compute TRS locally while
-    REST briefly omits ``trs_matrix`` (same flake class as
+    When the demo scene has just been created, the controller may compute TRS
+    locally while REST briefly omits ``trs_matrix`` (same flake class as
     test_geospatial_ingest_publish / test_external_source_analytics). Prefer
     corners on the existing demo map; fall back to map re-upload. Readiness
     is confirmed by a successful external-source publish on DATA_SCENE when
@@ -125,8 +129,7 @@ class ExternalSourceIngest(FunctionalTest):
     for attempt, update in enumerate(updates, start=1):
       res = self.rest.updateScene(self.sceneUID, update)
       assert res, (res.statusCode, res.errors)
-      time.sleep(CONTROLLER_SETTLE_S)
-      scene = self.rest.getScene(self.sceneUID)
+      scene = self._waitForTRSMatrix()
       if scene.get('trs_matrix'):
         log.info("trs_matrix visible via REST after geo-update attempt %s", attempt)
         return
@@ -143,6 +146,16 @@ class ExternalSourceIngest(FunctionalTest):
       f"map_corners={bool(scene.get('map_corners_lla'))} "
       f"trs_matrix={scene.get('trs_matrix') is not None}")
     return
+
+  def _waitForTRSMatrix(self, timeout=GEO_CALIBRATION_TIMEOUT_S):
+    """Poll REST until the scene exposes trs_matrix or *timeout* expires."""
+    deadline = time.time() + timeout
+    scene = None
+    while True:
+      scene = self.rest.getScene(self.sceneUID)
+      if scene.get('trs_matrix') or time.time() >= deadline:
+        return scene
+      time.sleep(CONTROLLER_SETTLE_S)
 
   def _probeExternalIngest(self):
     """Return True if a wgs84 external-source publish yields DATA_SCENE objects."""
@@ -161,7 +174,7 @@ class ExternalSourceIngest(FunctionalTest):
         "size": [0.5, 0.5, 1.8],
       }],
     }
-    return self.publishAndWait(jdata, timeout=10.0) is not None
+    return self.publishAndWait(jdata, timeout=MAX_WAIT_TIMEOUT_S) is not None
 
   def externalSourceTopic(self, publisher_id=AGENT_SOURCE_ID):
     # Publisher-centric: topic path id is the agent source_id, not the scene.
@@ -180,6 +193,28 @@ class ExternalSourceIngest(FunctionalTest):
       time.sleep(1 / FRAMES_PER_SECOND)
       count += 1
     return count if self.outputReceived else None
+
+  def publishAndWaitForIds(self, jdata, expected_ids, timeout=MAX_WAIT_TIMEOUT_S):
+    """Publish until one scene snapshot contains all expected object ids."""
+    return self.publishAndWaitForObjects(
+      jdata,
+      lambda objects: set(expected_ids).issubset(
+        {obj.get('id') for obj in objects}),
+      timeout,
+    )
+
+  def publishAndWaitForObjects(self, jdata, predicate, timeout=MAX_WAIT_TIMEOUT_S):
+    """Publish until one scene snapshot satisfies predicate."""
+    self.lastObjects = None
+    topic = self.externalSourceTopic(jdata.get('source_id', AGENT_SOURCE_ID))
+    start = time.time()
+    while time.time() - start < timeout:
+      jdata['timestamp'] = get_iso_time()
+      self.pubsub.publish(topic, json.dumps(jdata))
+      time.sleep(1 / FRAMES_PER_SECOND)
+      if predicate(self.lastObjects or []):
+        return True
+    return False
 
   def publishAndCheckIdAbsent(self, jdata, forbidden_id, timeout):
     """Publish for the full duration of timeout (unlike publishAndWait, this
@@ -208,6 +243,31 @@ class ExternalSourceIngest(FunctionalTest):
       f"Object id={object_id} not found in scene output: "
       f"{[o.get('id') for o in self.lastObjects]}")
 
+  def _findNonSourceObjectId(self, forbidden_ids):
+    assert self.lastObjects, "No scene objects received"
+    for obj in self.lastObjects:
+      obj_id = obj.get('id')
+      if obj_id not in forbidden_ids:
+        return obj_id, obj
+    raise AssertionError(
+      f"No tracked object id outside forbidden ids {sorted(forbidden_ids)} found in "
+      f"{[o.get('id') for o in self.lastObjects]}")
+
+  def _verifyUUIDFormat(self, assigned_id):
+    """Verify that a controller-assigned ID has valid UUID format.
+
+    UUID format example: 74d6cf68-c714-4d7f-a6b2-1c2b0aa65c0b
+
+    @param assigned_id  The ID assigned by the controller
+    """
+    try:
+      uuid.UUID(assigned_id)
+      log.info("✓ Controller-assigned ID has valid UUID format: %s", assigned_id)
+      return
+    except ValueError as e:
+      raise AssertionError(
+        f"Invalid UUID format in ID: '{assigned_id}' - {str(e)}")
+
   def verifyWgs84PoseIngestAndLocationAccuracy(self):
     """A wgs84-frame agent pose plus an object at the source origin is
     transformed into the geo-calibrated scene at the expected XYZ (and LLA
@@ -230,7 +290,8 @@ class ExternalSourceIngest(FunctionalTest):
     }
     count = self.publishAndWait(jdata)
     assert count, "External source (wgs84 pose) message did not produce tracked output"
-    obj = self._findObject(OBJECT_ID)
+    published_id, obj = self._findNonSourceObjectId({OBJECT_ID})
+    assert published_id != OBJECT_ID
     assert "translation" in obj, f"Scene object missing translation: {obj}"
     np.testing.assert_allclose(
       obj["translation"], EXPECTED_SCENE_XYZ, atol=SCENE_XYZ_ATOL_M,
@@ -263,6 +324,265 @@ class ExternalSourceIngest(FunctionalTest):
     }
     count = self.publishAndWait(jdata)
     assert count, "External source message without pose (cache reuse) did not produce output"
+    return
+
+  def verifyTrackedObjectWithoutIdGetsControllerAssignedId(self):
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [
+        {
+          "category": THING_TYPE,
+          "translation": [0.0, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+      ],
+    }
+    count = self.publishAndWait(jdata)
+    assert count, "Tracked external source object without id did not produce output"
+    published_id, obj = self._findNonSourceObjectId({OBJECT_ID})
+    assert published_id is not None
+    assert published_id != OBJECT_ID
+    np.testing.assert_allclose(
+      obj["translation"], EXPECTED_SCENE_XYZ, atol=SCENE_XYZ_ATOL_M,
+      err_msg="Tracked external object without id was not localized correctly")
+    return
+
+  def verifyUntrackedObjectPreservesId(self):
+    untracked_id = "agent-untracked-1"
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [
+        {
+          "id": untracked_id,
+          "category": THING_TYPE,
+          "translation": [0.1, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+      ],
+      "track": False,
+    }
+    assert self.publishAndWaitForIds(jdata, {untracked_id}), (
+      "Untracked external source object did not produce output")
+    obj = self._findObject(untracked_id)
+    assert obj["id"] == untracked_id
+    return
+
+  def verifySourceTrackFalseAppliesToAllObjects(self):
+    source_ids = ["agent-source-track-false-1", "agent-source-track-false-2"]
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "track": False,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [
+        {
+          "id": source_ids[0],
+          "category": THING_TYPE,
+          "translation": [0.2, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+        {
+          "id": source_ids[1],
+          "category": THING_TYPE,
+          "translation": [-0.2, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+      ],
+    }
+    assert self.publishAndWaitForIds(jdata, source_ids), (
+      "Source-level track=false objects did not produce output")
+    for source_id in source_ids:
+      assert self._findObject(source_id)["id"] == source_id
+    return
+
+  def verifyPixelBoundingBoxPreservesIdWhenTrackFalse(self):
+    source_object_id = "pixel-source-1"
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "track": False,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "intrinsics": {
+        "fx": 905.0,
+        "fy": 905.0,
+        "cx": 640.0,
+        "cy": 360.0,
+      },
+      "objects": [
+        {
+          "id": source_object_id,
+          "category": THING_TYPE,
+          "bounding_box_px": {
+            "x": 221,
+            "y": 157,
+            "width": 108,
+            "height": 259,
+          },
+        },
+      ],
+    }
+    assert self.publishAndWaitForIds(jdata, {source_object_id}), (
+      "External source pixel detection with track=false did not produce output")
+    obj = self._findObject(source_object_id)
+    assert obj["id"] == source_object_id
+    assert "translation" in obj
+    return
+
+  def verifyPixelBoundingBoxWithRotationDerivedFromPose(self):
+    source_object_id = "pixel-rotation-check"
+    pixel_marker = {
+      "label": "pixel-rotation-check",
+      "model_name": "external-source-functional-test",
+    }
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": [
+          AGENT_LAT_LONG_ALT[0],
+          AGENT_LAT_LONG_ALT[1],
+          AGENT_LAT_LONG_ALT[2] + 2.0,
+        ],
+        "rotation": [-0.7071068, 0.0, 0.0, 0.7071068],
+        "provider": "robot",
+      },
+      "intrinsics": {
+        "fx": 905.0,
+        "fy": 905.0,
+        "cx": 640.0,
+        "cy": 360.0,
+      },
+      "objects": [
+        {
+          "id": source_object_id,
+          "category": THING_TYPE,
+          "metadata": {"test_marker": pixel_marker},
+          "bounding_box_px": {
+            "x": 600,
+            "y": 520,
+            "width": 80,
+            "height": 160,
+          },
+        },
+      ],
+    }
+    def _containsRotatedPixel(objects):
+      return any(
+        obj.get("metadata", {}).get("test_marker") == pixel_marker
+        and "translation" in obj
+        for obj in objects
+      )
+
+    assert self.publishAndWaitForObjects(jdata, _containsRotatedPixel), (
+      "Pixel detection with rotated source pose did not produce tracked output")
+    return
+
+  def verifyPixelBoundingBoxWithoutIntrinsicsRejected(self):
+    pixel_object_id = "pixel-missing-intrinsics"
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [
+        {
+          "id": pixel_object_id,
+          "category": THING_TYPE,
+          "bounding_box_px": {
+            "x": 221,
+            "y": 157,
+            "width": 108,
+            "height": 259,
+          },
+        },
+      ],
+    }
+    is_absent = self.publishAndCheckIdAbsent(jdata, pixel_object_id, timeout=5)
+    assert is_absent, (
+      "External source pixel detection without intrinsics unexpectedly produced output "
+      f"for id={pixel_object_id}"
+    )
+    return
+
+  def verifyMixedTranslationAndPixelObjects(self):
+    translation_source_id = "mixed-untracked-1"
+    pixel_source_id = "mixed-pixel-1"
+    pixel_marker = {
+      "label": "mixed-pixel",
+      "model_name": "external-source-functional-test",
+    }
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "track": False,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "intrinsics": {
+        "fx": 905.0,
+        "fy": 905.0,
+        "cx": 640.0,
+        "cy": 360.0,
+      },
+      "objects": [
+        {
+          "id": translation_source_id,
+          "category": THING_TYPE,
+          "translation": [0.15, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+        {
+          "id": pixel_source_id,
+          "category": THING_TYPE,
+          "metadata": {"test_marker": pixel_marker},
+          "bounding_box_px": {
+            "x": 221,
+            "y": 157,
+            "width": 108,
+            "height": 259,
+          },
+        },
+      ],
+    }
+    def _containsMixedObjects(objects):
+      ids = {obj.get("id") for obj in objects}
+      has_pixel_marker = any(
+        obj.get("metadata", {}).get("test_marker") == pixel_marker
+        for obj in objects
+      )
+      return translation_source_id in ids and has_pixel_marker
+
+    assert self.publishAndWaitForObjects(jdata, _containsMixedObjects), (
+      "Mixed translation and pixel objects did not appear in one scene snapshot")
+    published_ids = {obj.get("id") for obj in (self.lastObjects or [])}
+    assert translation_source_id in published_ids
+    assert pixel_source_id in published_ids
+    pixel_objects = [
+      obj for obj in (self.lastObjects or [])
+      if obj.get("metadata", {}).get("test_marker") == pixel_marker
+    ]
+    assert pixel_objects, "Pixel object missing from mixed scene output"
+    assert pixel_objects[0]["id"] == pixel_source_id
+    assert "translation" in pixel_objects[0]
     return
 
   def verifyUntrustedScenePoseRejected(self):
@@ -330,11 +650,26 @@ class ExternalSourceIngest(FunctionalTest):
     the tracker queue, so the first DATA_SCENE after drone-2 publishes may
     still only contain the earlier drone-1 track.
     """
-    colliding_id = OBJECT_ID  # still claimed by AGENT_SOURCE_ID from earlier steps
+    colliding_id = "collision-track"
     unique_id = "drone-2-unique-track"
     other_source = "drone-2"
+    first_source_data = {
+      "source_id": AGENT_SOURCE_ID,
+      "track": False,
+      "objects": [
+        {
+          "id": colliding_id,
+          "category": THING_TYPE,
+          "translation": [0.0, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+      ],
+    }
+    assert self.publishAndWaitForIds(first_source_data, {colliding_id}), (
+      "First untracked source did not establish an identity claim")
     jdata = {
       "source_id": other_source,
+      "track": False,
       "pose": {
         "reference_frame": "wgs84",
         "lat_long_alt": AGENT_LAT_LONG_ALT,
@@ -372,26 +707,28 @@ class ExternalSourceIngest(FunctionalTest):
       f"Non-colliding id missing from scene output after {MAX_WAIT_TIMEOUT_S}s: {ids}")
 
   def verifyFunction(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
-    try:
-      self.prepareScene()
-      self.verifyWgs84PoseIngestAndLocationAccuracy()
-      self.verifyPoseReuseFromCache()
-      self.verifySourceIdTopicMismatchRejected()
-      self.verifyIdentityCollisionDropsSecondSource()
-      self.verifyUntrustedScenePoseRejected()
-      self.exitCode = 0
-    finally:
-      self.recordTestResult()
+    self.prepareScene()
+    self.verifyWgs84PoseIngestAndLocationAccuracy()
+    self.verifyTrackedObjectWithoutIdGetsControllerAssignedId()
+    self.verifyPoseReuseFromCache()
+    self.verifyUntrackedObjectPreservesId()
+    self.verifySourceTrackFalseAppliesToAllObjects()
+    self.verifyPixelBoundingBoxPreservesIdWhenTrackFalse()
+    self.verifyPixelBoundingBoxWithRotationDerivedFromPose()
+    self.verifyPixelBoundingBoxWithoutIntrinsicsRejected()
+    self.verifyMixedTranslationAndPixelObjects()
+    self.verifySourceIdTopicMismatchRejected()
+    self.verifyIdentityCollisionDropsSecondSource()
+    self.verifyUntrustedScenePoseRejected()
+    self.exitCode = 0
     return
 
 
-def test_external_source_ingest(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
-  test = ExternalSourceIngest(TEST_NAME, request, record_xml_attribute, repo_root)
+@pytest.mark.test_name("NEX-T29229")
+def test_external_source_ingest(scenescape_env, demo_scene, request, repo_root, result_recorder):
+  test = ExternalSourceIngest(TEST_NAME, request, repo_root)
   test.verifyFunction()
-  assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

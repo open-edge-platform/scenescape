@@ -27,12 +27,11 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 _TEST_USER = "general_user"
 _TEST_PASS = "general_pass"
 
 POST_ENTITIES_SINGULAR = [
+  "/aclcheck",
   "/asset",
   "/auth",
   "/calibrationmarker",
@@ -155,8 +154,42 @@ def test_authz_non_superuser_cannot_create_via_plural_endpoints(non_superuser_cl
   result_recorder.success()
 
 
+@pytest.mark.test_name("NEX-T26179")
+def test_authz_non_superuser_cannot_check_acl(non_superuser_client, params, result_recorder):
+  """Verify that POST /aclcheck is restricted to administrators."""
+  response = requests.post(
+    f"{params['resturl']}/aclcheck",
+    headers={"Authorization": f"Token {non_superuser_client.token}"},
+    json={"username": _TEST_USER, "topic": "any/topic", "acc": 1},
+    verify=params["rootcert"],
+  )
+
+  assert response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Expected 403 Forbidden for non-superuser /aclcheck, got {response.status_code}"
+
+  result_recorder.success()
+
+
+@pytest.mark.test_name("NEX-T26180")
+def test_authz_superuser_can_check_acl(rest, params, result_recorder):
+  """Verify that an administrator can use POST /aclcheck."""
+  response = requests.post(
+    f"{params['resturl']}/aclcheck",
+    headers={"Authorization": f"Token {rest.token}"},
+    json={"username": "admin", "topic": "any/topic", "acc": 1},
+    verify=params["rootcert"],
+  )
+
+  assert response.status_code == HTTPStatus.OK, \
+    f"Expected 200 OK for administrator /aclcheck, got {response.status_code}: {response.text}"
+  assert response.json()["result"] == "allow"
+
+  result_recorder.success()
+
+
 @pytest.mark.test_name("NEX-T23090")
-def test_authz_non_superuser_cannot_update_scene(rest, non_superuser_client, params, result_recorder):
+def test_authz_non_superuser_cannot_update_scene(rest, non_superuser_client, params,
+                                                demo_scene, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to update a scene via PUT /scene/{uid}."""
 
@@ -179,7 +212,8 @@ def test_authz_non_superuser_cannot_update_scene(rest, non_superuser_client, par
 
 
 @pytest.mark.test_name("NEX-T23091")
-def test_authz_non_superuser_cannot_delete_scene(rest, non_superuser_client, params, result_recorder):
+def test_authz_non_superuser_cannot_delete_scene(rest, non_superuser_client, params,
+                                                demo_scene, result_recorder):
   """Verify that an authenticated non-superuser receives HTTP 403 when attempting
   to delete a scene via DELETE /scene/{uid}."""
 

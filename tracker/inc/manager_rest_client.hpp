@@ -6,6 +6,7 @@
 #include <chrono>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace tracker {
 
@@ -35,6 +36,16 @@ public:
      * @throws std::runtime_error if not authenticated, connection fails, or HTTP error
      */
     virtual std::string fetchScenes() = 0;
+
+    /**
+     * @brief Fetch object-class assets from the Manager API.
+     *
+     * Used for per-category projection settings (`shift_type`, sizes).
+     *
+     * @return Raw JSON response body string
+     * @throws std::runtime_error if not authenticated, connection fails, or HTTP error
+     */
+    virtual std::string fetchAssets() = 0;
 };
 
 /**
@@ -59,8 +70,11 @@ public:
 
     void authenticate(const std::string& username, const std::string& password) override;
     std::string fetchScenes() override;
+    std::string fetchAssets() override;
 
 private:
+    std::string fetch(std::string_view resource);
+
     std::string url_;
     std::optional<std::string> ca_cert_path_;
     std::string token_;

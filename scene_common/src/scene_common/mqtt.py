@@ -3,6 +3,7 @@
 
 import json
 import os
+import ssl
 import paho.mqtt.client as mqtt
 import re
 import struct
@@ -28,17 +29,22 @@ class _Topic(Enum):
   DATA_CAMERA = auto()
   DATA_EXTERNAL = auto()
   DATA_REGION = auto()
+  DATA_REID = auto()
   DATA_REGULATED = auto()
   DATA_SCENE = auto()
   DATA_SENSOR = auto()
   EVENT = auto()
   IMAGE_CALIBRATE = auto()
   IMAGE_CAMERA = auto()
+  POINTCLOUD_CAMERA = auto()
   SYS_CHILDSCENE_STATUS = auto()
   ANALYTICS_CLUSTERS = auto()
   DATA_CHILD_TRIPWIRES = auto()
   DATA_CHILD_ROIS = auto()
   DATA_CHILD_SENSORS = auto()
+  CMD_CAMERA_CONFIG = auto()
+  POSITIONING_POSE = auto()
+  POSITIONING_STATUS = auto()
 
 # Really gross way to put above constants directly into PubSub class
 class _PubSubTopicBase:
@@ -58,17 +64,22 @@ class PubSub(_PubSubTopicBase):
     _Topic.DATA_CAMERA: Template(TOPIC_BASE + "/data/camera/${camera_id}"),
     _Topic.DATA_EXTERNAL: Template(TOPIC_BASE + "/external/${scene_id}/${thing_type}"),
     _Topic.DATA_REGION: Template(TOPIC_BASE + "/data/region/${scene_id}/${region_id}/${thing_type}"),
+    _Topic.DATA_REID: Template(TOPIC_BASE + "/data/reid/${scene_id}/${thing_type}"),
     _Topic.DATA_REGULATED: Template(TOPIC_BASE + "/regulated/scene/${scene_id}"),
     _Topic.DATA_SCENE: Template(TOPIC_BASE + "/data/scene/${scene_id}/${thing_type}"),
     _Topic.DATA_SENSOR: Template(TOPIC_BASE + "/data/sensor/${sensor_id}"),
     _Topic.EVENT: Template(TOPIC_BASE + "/event/${region_type}/${scene_id}/${region_id}/${event_type}"),
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
+    _Topic.POINTCLOUD_CAMERA: Template(TOPIC_BASE + "/pointcloud/camera/${camera_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
     _Topic.DATA_CHILD_ROIS: Template(TOPIC_BASE + "/data/child/rois/${scene_id}"),
     _Topic.DATA_CHILD_SENSORS: Template(TOPIC_BASE + "/data/child/sensors/${scene_id}"),
+    _Topic.CMD_CAMERA_CONFIG: Template(TOPIC_BASE + "/cmd/camera/config/${camera_id}"),
+    _Topic.POSITIONING_POSE: Template(TOPIC_BASE + "/positioning/pose/${source_id}"),
+    _Topic.POSITIONING_STATUS: Template(TOPIC_BASE + "/positioning/status/${resolver_id}"),
   }
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,
@@ -98,8 +109,15 @@ class PubSub(_PubSubTopicBase):
         certs = {}
 
     self.client = initializeMqttClient(transport=transport, userdata=userdata)
-    if not self.checkTlsConnection(certs, transport, userdata):
-      return
+    if insecure and certs is not None:
+      certs['cert_reqs'] = ssl.CERT_NONE
+    if certs is not None:
+      try:
+        self.client.tls_set(**certs)
+      except Exception as e:
+        raise RuntimeError(
+          f"Failed to configure TLS for MQTT broker {self.broker}:{self.port}"
+        ) from e
 
     if auth is not None:
       user = pw = None
@@ -135,11 +153,14 @@ class PubSub(_PubSubTopicBase):
     regex = re.escape(template)
     regex = regex.replace(r'\$\{thing_type\}', r'([^/]+)')
     regex = regex.replace(r'\$\{camera_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{source_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{resolver_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{scene_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{channel\}', r'([^/]+)')
     regex = regex.replace(r'\$\{scene_name\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{sensor_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{source_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_type\}', r'([^/]+)')
     regex = regex.replace(r'\$\{event_type\}', r'([^/]+)')
     pattern = re.compile(f'^{regex}$', re.IGNORECASE)
@@ -148,24 +169,6 @@ class PubSub(_PubSubTopicBase):
     if match:
       return match.groups()
     return None
-
-  def onTlsConnect(self, client, userdata, flags, rc):
-    if rc == mqtt.CONNACK_ACCEPTED:
-      log.info("connection accepted")
-    else:
-      log.info("connection failed")
-    return
-
-  def checkTlsConnection(self, certs, transport, userdata):
-    self.client.on_connect = self.onTlsConnect
-    try:
-      self.client.tls_set(**certs)
-      self.client.connect(self.broker, self.port, 60)
-      return True
-
-    except Exception as e:
-      self.client = initializeMqttClient(transport=transport, userdata=userdata)
-      return False
 
   def connect(self):
     return self.client.connect(self.broker, self.port, self.keepalive)

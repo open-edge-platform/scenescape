@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -15,6 +15,8 @@ import { TextGeometry } from "/static/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "/static/examples/jsm/loaders/FontLoader.js";
 import { mergeGeometries } from "/static/examples/jsm/utils/BufferGeometryUtils.js";
 import {
+  CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR,
+  CALIBRATION_DIAGNOSTIC_RING_COLOR,
   SPHERE_NUM_SEGMENTS,
   SPHERE_RADIUS,
   TEXT_FONT,
@@ -25,6 +27,17 @@ import {
   CSS2DObject,
 } from "/static/examples/jsm/renderers/CSS2DRenderer.js";
 
+// Torus rings (not filled spheres) so the identity point color stays visible,
+// matching the stroked rings used in the camera canvas view.
+const HALO_RING_RADIUS = SPHERE_RADIUS * 1.35;
+const HALO_RING_TUBE = SPHERE_RADIUS * 0.14;
+const HALO_OUTLINE_RING_RADIUS = SPHERE_RADIUS * 1.4;
+const HALO_OUTLINE_RING_TUBE = SPHERE_RADIUS * 0.24;
+// Flat XY bars (wide in Y) so the X reads from the top-down map camera;
+// length extends past the sphere into the diagnostic ring.
+const REJECT_MARK_LENGTH = SPHERE_RADIUS * 2.9;
+const REJECT_MARK_WIDTH = SPHERE_RADIUS * 0.42;
+const REJECT_MARK_HEIGHT = SPHERE_RADIUS * 0.2;
 const TEXT_MATERIAL = new THREE.MeshStandardMaterial({
   color: new THREE.Color("black"),
   transparent: false,
@@ -35,6 +48,75 @@ const POINT_GEOMETRY = new THREE.SphereGeometry(
   SPHERE_NUM_SEGMENTS,
   SPHERE_NUM_SEGMENTS,
 );
+const HALO_GEOMETRY = new THREE.TorusGeometry(
+  HALO_RING_RADIUS,
+  HALO_RING_TUBE,
+  10,
+  36,
+);
+const HALO_OUTLINE_GEOMETRY = new THREE.TorusGeometry(
+  HALO_OUTLINE_RING_RADIUS,
+  HALO_OUTLINE_RING_TUBE,
+  10,
+  36,
+);
+const REJECT_BAR_GEOMETRY = new THREE.BoxGeometry(
+  REJECT_MARK_LENGTH,
+  REJECT_MARK_WIDTH,
+  REJECT_MARK_HEIGHT,
+);
+
+function createDiagnosticMesh(geometry, color, opacity, name) {
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: opacity,
+      depthTest: false,
+      depthWrite: false,
+    }),
+  );
+  mesh.name = name;
+  mesh.visible = false;
+  mesh.renderOrder = 2;
+  // Keep picking on the identity sphere; markers are visual-only.
+  mesh.raycast = () => {};
+  return mesh;
+}
+
+function createRejectMark() {
+  const group = new THREE.Group();
+  group.name = "calibrationRejectMark";
+  group.visible = false;
+  // Lift toward the map camera so the X is not buried in the point sphere.
+  group.position.z = SPHERE_RADIUS * 0.35;
+  const makeBar = (color, scale, renderOrder) => {
+    const mesh = new THREE.Mesh(
+      REJECT_BAR_GEOMETRY,
+      new THREE.MeshBasicMaterial({
+        color: color,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    );
+    mesh.scale.set(scale, scale, scale);
+    mesh.renderOrder = renderOrder;
+    mesh.raycast = () => {};
+    return mesh;
+  };
+  // White under-stroke, black X on top (same as the camera-view / legend icon).
+  const whiteA = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1.25, 3);
+  whiteA.rotation.z = Math.PI / 4;
+  const whiteB = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1.25, 3);
+  whiteB.rotation.z = -Math.PI / 4;
+  const blackA = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1, 4);
+  blackA.rotation.z = Math.PI / 4;
+  const blackB = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1, 4);
+  blackB.rotation.z = -Math.PI / 4;
+  group.add(whiteA, whiteB, blackA, blackB);
+  return group;
+}
 
 /**
  * Extracts the geometry from the given glTF object.
@@ -43,9 +125,14 @@ const POINT_GEOMETRY = new THREE.SphereGeometry(
  */
 function extractGeometry(gltf) {
   const geometries = [];
+  gltf.updateWorldMatrix(true, true);
+  const rootInverse = gltf.matrixWorld.clone().invert();
   gltf.traverse((child) => {
     if (child.isMesh) {
-      geometries.push(child.geometry);
+      const geometry = child.geometry.clone();
+      const localToRoot = rootInverse.clone().multiply(child.matrixWorld);
+      geometry.applyMatrix4(localToRoot);
+      geometries.push(geometry);
     }
   });
 
@@ -87,6 +174,49 @@ function createLabelElement(objectId, category) {
   div.appendChild(header);
   div.appendChild(row);
   return div;
+}
+
+// Derive a stable color from an arbitrary string key (name/uid).
+function colorFromKey(key) {
+  const str = String(key);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return `hsl(${hue}, 70%, 55%)`;
+}
+
+// Billboarded HTML label for static scene things (cameras, regions, tripwires).
+function createThingLabel(name, position, colorKey = name) {
+  const div = document.createElement("div");
+  div.className = "thing-label";
+  div.style.setProperty("--thing-label-accent", colorFromKey(colorKey));
+
+  const swatch = document.createElement("span");
+  swatch.className = "thing-label-swatch";
+
+  const text = document.createElement("span");
+  text.className = "thing-label-text";
+  text.textContent = name;
+
+  div.appendChild(swatch);
+  div.appendChild(text);
+
+  const labelObj = new CSS2DObject(div);
+  labelObj.name = "thingLabel_" + name;
+  if (position) {
+    labelObj.position.set(position.x, position.y, position.z);
+  }
+  return labelObj;
+}
+
+// Remove a thing label's DOM node before it is detached from the scene graph.
+function disposeThingLabel(labelObj) {
+  if (labelObj && labelObj.element && labelObj.element.parentNode) {
+    labelObj.element.parentNode.removeChild(labelObj.element);
+  }
 }
 
 function colorFromId(id) {
@@ -209,6 +339,25 @@ class Draw {
   }
 
   /**
+   * Creates a billboarded HTML label for a static scene thing.
+   * @param {string} name - The label text.
+   * @param {{x:number,y:number,z:number}} position - The label position.
+   * @param {string} colorKey - Stable key used to derive the accent color.
+   * @returns {CSS2DObject} The label object.
+   */
+  createThingLabel(name, position, colorKey = name) {
+    return createThingLabel(name, position, colorKey);
+  }
+
+  /**
+   * Removes a thing label's DOM node before detaching it from the scene.
+   * @param {CSS2DObject} labelObj - The label object to dispose.
+   */
+  disposeThingLabel(labelObj) {
+    disposeThingLabel(labelObj);
+  }
+
+  /**
    * Creates a calibration point with the given name, position, and color.
    * @param {string} name - The name of the calibration point.
    * @param {THREE.Vector3} position - The position of the calibration point.
@@ -225,6 +374,26 @@ class Draw {
     const sphere = new THREE.Mesh(POINT_GEOMETRY, material);
     sphere.position.copy(position);
     sphere.name = "calibrationPoint_" + name;
+
+    // High-contrast torus rings around the identity sphere (not filled
+    // overlays), plus an X for RANSAC rejects — matches the camera view.
+    sphere.add(
+      createDiagnosticMesh(
+        HALO_OUTLINE_GEOMETRY,
+        CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR,
+        0.95,
+        "calibrationHaloOutline",
+      ),
+    );
+    sphere.add(
+      createDiagnosticMesh(
+        HALO_GEOMETRY,
+        CALIBRATION_DIAGNOSTIC_RING_COLOR,
+        1.0,
+        "calibrationHalo",
+      ),
+    );
+    sphere.add(createRejectMark());
     return sphere;
   }
 
@@ -258,6 +427,7 @@ class Draw {
     const mesh = new THREE.Mesh(geometry, physicalMaterial);
     mesh.position.copy(floorMesh.position);
     mesh.rotation.copy(floorMesh.rotation);
+    mesh.scale.copy(floorMesh.scale);
 
     const materials = [physicalMaterial, projectedMaterial];
     // allows multiple materials to be used with the geometry.
@@ -278,4 +448,6 @@ export {
   createMarkObject,
   createLabelElement,
   updateLabelFields,
+  createThingLabel,
+  disposeThingLabel,
 };

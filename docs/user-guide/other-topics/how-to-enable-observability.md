@@ -38,10 +38,10 @@ By completing this guide, you will:
 
 Before you begin, ensure the following:
 
-- Scenescape is deployed and running (see the
-  [Installation Guide](../get-started/installation.md)).
+- Scenescape is deployed and running (see
+  [Deploy Scenescape](../how-to-guides/deployment/index.md)).
 - You are able to edit the Compose file used by your deployment (for example
-  `sample_data/compose/docker-compose-dl-streamer-example.yml`) and set environment
+  `sample_data/compose/compose.dl-streamer-example.yml`) and set environment
   variables for the affected containers.
 - You have an OpenTelemetry Collector reachable from the service containers.
   A minimal collector configuration used by the tracker load tests is
@@ -83,7 +83,7 @@ startup to fail with a `ValueError`.
 
 The provided Compose files already wire these variables through to the
 `scene` service. For example, in
-[`sample_data/compose/docker-compose-dl-streamer-example.yml`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/compose/docker-compose-dl-streamer-example.yml)
+[`sample_data/compose/compose.dl-streamer-example.yml`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/compose/compose.dl-streamer-example.yml)
 the controller declares:
 
 ```yaml
@@ -108,7 +108,7 @@ export CONTROLLER_ENABLE_TRACING=true
 export CONTROLLER_TRACING_ENDPOINT=otel-collector:4317
 export CONTROLLER_TRACING_SAMPLE_RATIO=1.0
 
-docker compose --project-directory . -f sample_data/compose/docker-compose-dl-streamer-example.yml up
+docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml up
 ```
 
 Make sure your OpenTelemetry Collector container is on the same network as
@@ -124,13 +124,25 @@ The Scene Controller emits the following OpenTelemetry instruments under the
 - `scenescape_controller_mqtt_messages` (counter) — MQTT messages received
   and processed.
 - `scenescape_controller_mqtt_messages_dropped` (counter) — MQTT messages
-  dropped.
+  dropped: once per message dropped before tracking (e.g. lag), and once per
+  message and category when that category's tracker is busy, also when a time
+  chunk is skipped.
 - `scenescape_controller_mqtt_handler_duration` (histogram, ms) — MQTT
   handler processing time.
 - `scenescape_controller_tracking_duration` (histogram, ms) — Tracking
   thread processing time.
 - `scenescape_controller_objects_in_mqtt_message` (histogram) — Object
   count per MQTT message.
+
+**PTZ pose consumption counters** (emitted only when a PTZ mode is on — see
+[PTZ Pose Consumption](../microservices/controller/ptz-pose-consumption.md#metrics)):
+
+- `scenescape_controller_ptz_detections_admitted` — PTZ camera messages
+  admitted, by `mode`.
+- `scenescape_controller_ptz_detections_rejected` — PTZ camera messages
+  rejected, by `mode` and `reason_detail`.
+- `scenescape_controller_ptz_pose_messages_rejected` — pose or status
+  messages dropped before use, by `stage`.
 
 **Time-chunking counters** (emitted only when `time_chunking_enabled: true`
 in the tracker configuration — see
@@ -244,10 +256,13 @@ scope with the following instruments (see
 
 - `tracker.mqtt.latency` (histogram, ms) — end-to-end processing latency,
   attributed by `scene` and `category`.
-- `tracker.mqtt.messages` (counter) — messages received, attributed by
-  `scene`, `camera_id`, and `reason` (accepted / rejected).
-- `tracker.mqtt.dropped` (counter) — messages dropped, attributed by
-  `scene`, `camera_id`, and `reason`.
+- `tracker.mqtt.messages` (counter) — messages accepted, attributed by
+  `scene`, `camera_id`, and `reason` (`accepted`). Rejected messages are
+  counted in `tracker.mqtt.dropped`.
+- `tracker.mqtt.dropped` (counter) — messages rejected on arrival (`reason`
+  `rejected_*`, with `camera_id`, once per message) or dropped later
+  (`dropped_*`, with `category`, once per message and active category of the
+  scene), attributed by `scene` and `reason`.
 - `tracker.tracks.active` (gauge) — currently active tracks, attributed by
   `scene` and `category`.
 

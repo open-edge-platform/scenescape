@@ -1,3 +1,5 @@
+# Scene Controller Service
+
 <!--hide_directive
 <div class="component_card_widget">
   <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/controller">
@@ -8,8 +10,6 @@
   </a>
 </div>
 hide_directive-->
-
-# Scene Controller Service
 
 Scene Controller Microservice fuses multimodal sensor data to enable spatial analytics at the
 edge for multiple use cases.
@@ -68,6 +68,14 @@ Example `pose-adjustment-route.json`:
 ```
 
 Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
+
+`--ptz` / `--ptz-shadow`: Consume the Positioning service's resolved PTZ poses. `--ptz` drops PTZ camera detections the dwell contract rejects and projects the rest with the camera's pose; `--ptz-shadow` only observes and records. Both are disabled by default, can also be set with `CONTROLLER_PTZ_ENABLED` / `CONTROLLER_PTZ_SHADOW_MODE`, and are mutually exclusive. They cannot be combined with `--rewriteAllTime` or `--rewriteBadTime`, and they require `--ntp`.
+
+`--ptz_config_file`: JSON file with the required PTZ consumer bounds. The default file is `ptz-consumer-config.json` next to the controller executable. It is read only when a PTZ mode is on.
+
+`--positioning_assignments_file`: JSON manifest that maps each PTZ `source_id` to the Positioning resolver that owns it. The default file is `positioning-assignments.json` next to the controller executable.
+
+See [PTZ Pose Consumption](./ptz-pose-consumption.md) for the configuration keys, behavior, and rollback.
 
 `CONTROLLER_TRUSTED_POSITIONING_SOURCES`: Comma-separated list of external `source_id`s (see
 [External Source Input Message Format](./data_formats.md#external-source-input-message-format))
@@ -133,7 +141,7 @@ _Figure 2: Scene Controller Sequence diagram_
 
 - [Get Started Guide](./get-started.md)
 - [How to Configure the Tracker](./how-to-configure-tracker.md)
-- [Extended Re-ID](./Extended-ReID.md)
+- [2-Tier Hybrid Search Implementation](./Extended-ReID.md)
 - [Data Formats](./data_formats.md)
 - [Publish Observations from an External Source Adapter](../../how-to-guides/publish-external-source-adapter.md)
 - [API Reference](./api-reference.md)
@@ -144,12 +152,13 @@ _Figure 2: Scene Controller Sequence diagram_
 :::{toctree}
 :hidden:
 
-get-started.md
-how-to-configure-tracker.md
+Get Started <./get-started.md>
+Configure the Tracker <./how-to-configure-tracker.md>
 Extended-ReID.md
-API Reference <api-reference.md>
-data_formats.md
-pose_adjustment.md
+Pose Adjustment <./pose_adjustment.md>
+PTZ Pose Consumption <./ptz-pose-consumption.md>
+Data Formats <./data_formats.md>
+API Reference <./api-reference.md>
 
 :::
 hide_directive-->

@@ -1136,9 +1136,9 @@
     },
     "frame": 818,
     "files": [
-      "sample_data/videos/apriltag-cam1.mp4",
-      "sample_data/videos/apriltag-cam2.mp4",
-      "sample_data/videos/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   },
   {
@@ -2226,9 +2226,9 @@
     },
     "frame": 832,
     "files": [
-      "sample_data/videos/apriltag-cam1.mp4",
-      "sample_data/videos/apriltag-cam2.mp4",
-      "sample_data/videos/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   },
   {
@@ -2492,9 +2492,9 @@
     },
     "frame": 32,
     "files": [
-      "sample_data/videos/apriltag-cam1.mp4",
-      "sample_data/videos/apriltag-cam2.mp4",
-      "sample_data/videos/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   },
   {
@@ -3513,9 +3513,9 @@
     },
     "frame": 72,
     "files": [
-      "sample_data/videos/apriltag-cam1.mp4",
-      "sample_data/videos/apriltag-cam2.mp4",
-      "sample_data/videos/apriltag-cam3.mp4"
+      "sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam2.mp4",
+      "sample_data/demo_scenes/Retail/video/apriltag-cam3.mp4"
     ]
   }
 ]

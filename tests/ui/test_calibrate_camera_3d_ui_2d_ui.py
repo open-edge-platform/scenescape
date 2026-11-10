@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+
+from selenium.webdriver.support.ui import WebDriverWait
+
 import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -52,12 +56,39 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.error(f"Error checking calibration points: {e}")
       return False
 
+  def verify_camera_projection_visible(self):
+    """Check that a saved 3D pose initializes the map projection."""
+    def projection_visible(browser):
+      return browser.execute_script("""
+        const calibration = window.camera_calibration;
+        const material = calibration?.viewport?.projectedMaterial;
+        return Boolean(calibration?.projectionEnabled && material?.visible);
+      """)
+
+    return WebDriverWait(self.browser, WAIT_SEC).until(projection_visible)
+
+  def clickAutoCalibrate(self, camera_id):
+    """Wait for the camera's auto-calibrate button to be enabled, then click it."""
+
+    button_id = f"{camera_id}-auto-calibrate"
+    is_enabled = (
+      "const el = document.getElementById(arguments[0]);"
+      "const ctrl = el && el.closest('.controller');"
+      "return Boolean(ctrl) && !ctrl.hidden && !ctrl.classList.contains('disabled');"
+    )
+    WebDriverWait(self.browser, WAIT_SEC).until(
+      lambda browser: browser.execute_script(is_enabled, button_id))
+    common.click_when_clickable(self.browser, (By.ID, button_id), WAIT_SEC)
+    self.browser.actionChains().pause(1).perform()
+
   def checkCalibration3d2dAprilTag(self):
     try:
       assert self.login()
 
-      cam_url_1 = "/cam/calibrate/4"
-      cam_url_2 = "/cam/calibrate/5"
+      common.navigate_directly_to_page(self.browser, f"/{common.TEST_SCENE_ID}/")
+      cam_url_1 = common.camera_calibrate_url(self.browser, "atag-qcam1")
+      cam_url_2 = common.camera_calibrate_url(self.browser, "atag-qcam2")
+      log.info(f"Camera calibration pages: {cam_url_1}, {cam_url_2}")
 
       # Open 3D UI
       log.info("Navigate to the 3D Scene detail page.")
@@ -69,7 +100,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.clickOnElement("atag-qcam1-control-panel", delay=WAIT_SEC)
 
       log.info("Press auto calibrate button of atag-qcam1.")
-      self.clickOnElement("atag-qcam1-auto-calibrate", delay=WAIT_SEC)
+      self.clickAutoCalibrate("atag-qcam1")
 
       log.info("Press save button of atag-qcam1.")
       self.clickOnElement("atag-qcam1-save-camera", delay=WAIT_SEC)
@@ -79,7 +110,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.clickOnElement("atag-qcam2-control-panel", delay=WAIT_SEC)
 
       log.info("Press auto calibrate button of atag-qcam2.")
-      self.clickOnElement("atag-qcam2-auto-calibrate", delay=WAIT_SEC)
+      self.clickAutoCalibrate("atag-qcam2")
 
       log.info("Press save button of atag-qcam2.")
       self.clickOnElement("atag-qcam2-save-camera", delay=WAIT_SEC)
@@ -96,6 +127,8 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
       has_points = self.verify_calibration_points_exist(min_values=9)
       assert has_points, "No camera pose found after 3D calibration"
+      assert self.verify_camera_projection_visible(), \
+        "Camera projection was not visible after loading the saved 3D pose"
 
       log.info("Press Auto Calibrate of atag-qcam1.")
       self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
@@ -115,6 +148,8 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
       has_points = self.verify_calibration_points_exist(min_values=9)
       assert has_points, "No camera pose found after 3D calibration"
+      assert self.verify_camera_projection_visible(), \
+        "Camera projection was not visible after loading the saved 3D pose"
 
       log.info("Press Auto Calibrate of atag-qcam2.")
       self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
@@ -132,6 +167,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10562")
 @common.mock_display
 def test_calibrate_camera_3d_ui_2d_ui(scenescape_env, request, record_xml_attribute):
   """! Test to calibrate camera in 3D first and calibrate again camera in 2D using April Tag.
@@ -143,7 +179,12 @@ def test_calibrate_camera_3d_ui_2d_ui(scenescape_env, request, record_xml_attrib
   log.info("Test to calibrate camera in 3D first and calibrate again camera in 2D using April Tag.")
 
   test = Scene3dUserInterfaceTest(TEST_NAME, request, record_xml_attribute)
-  test.checkCalibration3d2dAprilTag()
+  try:
+    test.checkCalibration3d2dAprilTag()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   assert test.exitCode == 0
   return test.exitCode

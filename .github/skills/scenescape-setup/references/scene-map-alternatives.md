@@ -11,6 +11,15 @@ estimates each camera's pose automatically. Use this reference when the user alr
 floor blueprint image, a 3D `.glb`/`.ply` mesh, or wants to build the scene from a geospatial
 (GPS-based) map instead of auto-reconstruction.
 
+## Scene coordinate convention
+
+When placing cameras or interpreting tracked positions on a blueprint/mesh/geospatial map, world
+`(0, 0)` is the scene's **bottom-left corner** (not the center). Ground-plane coordinates are in
+meters over `[0, floorWidth] × [0, floorHeight]` (`floorWidth = image_px_width / scale`, similarly
+for height). **Z is up**, ground at `z = 0`. Poses outside that positive range still publish on
+MQTT but fall outside SceneScape's web-UI viewport. Full detail (including OpenCV camera-frame
+axes): [scene-and-cameras.md](./scene-and-cameras.md#scene-coordinate-convention).
+
 ## Caveat: manual calibration is required
 
 Auto-reconstruction estimates camera pose (position + orientation) as a side effect of building

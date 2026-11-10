@@ -17,6 +17,8 @@ import os
 import time
 from http import HTTPStatus
 
+import pytest
+
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
@@ -25,6 +27,7 @@ from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+import pytest
 
 log = get_logger(__name__)
 
@@ -39,6 +42,7 @@ FRAMES_PER_SECOND = 10
 MAX_WAIT_TIMEOUT_S = 30
 GEO_SETUP_TIMEOUT_S = 60
 CONTROLLER_SETTLE_S = 2.0
+GEO_CALIBRATION_TIMEOUT_S = 60.0
 AGENT_SOURCE_ID = "drone-analytics-1"
 OBJECT_ID = "ext-analytics-track-1"
 ROI_NAME = "ExternalSource_ROI"
@@ -76,8 +80,8 @@ LEFT = -1
 
 
 class ExternalSourceAnalytics(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request, None)
     self.repoRoot = repo_root
     self.exitCode = 1
     self.sceneUID = self.params['scene_id']
@@ -104,8 +108,8 @@ class ExternalSourceAnalytics(FunctionalTest):
   def prepareGeoScene(self):
     """Enable geospatial calibration on the demo scene.
 
-    After inter-test DB restore, the controller may compute TRS locally while
-    REST briefly omits ``trs_matrix`` (same flake class as
+    When the demo scene has just been created, the controller may compute TRS
+    locally while REST briefly omits ``trs_matrix`` (same flake class as
     test_geospatial_ingest_publish). Prefer corners on the existing demo map;
     fall back to map re-upload. Readiness is confirmed by a successful
     external-source publish that appears on DATA_SCENE, not solely by REST.
@@ -126,8 +130,7 @@ class ExternalSourceAnalytics(FunctionalTest):
     for attempt, update in enumerate(updates, start=1):
       res = self.rest.updateScene(self.sceneUID, update)
       assert res, (res.statusCode, res.errors)
-      time.sleep(CONTROLLER_SETTLE_S)
-      scene = self.rest.getScene(self.sceneUID)
+      scene = self._waitForTRSMatrix()
       if scene.get('trs_matrix'):
         log.info("trs_matrix visible via REST after geo-update attempt %s", attempt)
         return scene
@@ -145,6 +148,15 @@ class ExternalSourceAnalytics(FunctionalTest):
       f"trs_matrix={scene.get('trs_matrix') is not None}")
     return scene
 
+  def _waitForTRSMatrix(self, timeout=GEO_CALIBRATION_TIMEOUT_S):
+    """Poll REST until the scene exposes trs_matrix or *timeout* expires."""
+    deadline = time.time() + timeout
+    while True:
+      scene = self.rest.getScene(self.sceneUID)
+      if scene.get('trs_matrix') or time.time() >= deadline:
+        return scene
+      time.sleep(CONTROLLER_SETTLE_S)
+
   def _probeExternalIngest(self):
     """Return True if a wgs84 external-source publish yields DATA_SCENE objects."""
     self.scene_objects_seen = False
@@ -152,7 +164,7 @@ class ExternalSourceAnalytics(FunctionalTest):
       PubSub.DATA_SCENE, scene_id=self.sceneUID, thing_type=THING_TYPE)
     self.pubsub.addCallback(scene_topic, self._onSceneData)
     topic = self.externalTopic()
-    deadline = time.time() + 10.0
+    deadline = time.time() + MAX_WAIT_TIMEOUT_S
     while time.time() < deadline:
       payload = self.buildPayload(INSIDE_ROI_OFFSET, include_pose=True)
       self.pubsub.publish(topic, json.dumps(payload))
@@ -175,6 +187,7 @@ class ExternalSourceAnalytics(FunctionalTest):
     payload = {
       "timestamp": get_iso_time(),
       "source_id": AGENT_SOURCE_ID,
+      "track": False,
       "objects": [{
         "id": OBJECT_ID,
         "category": THING_TYPE,
@@ -328,8 +341,6 @@ class ExternalSourceAnalytics(FunctionalTest):
     return
 
   def verifyFunction(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
     try:
       self.prepareGeoScene()
       self.setupRoi()
@@ -339,16 +350,16 @@ class ExternalSourceAnalytics(FunctionalTest):
       self.exitCode = 0
     finally:
       self.cleanup()
-      self.recordTestResult()
     return
 
 
+@pytest.mark.test_name("NEX-T29228")
 def test_external_source_analytics(
-    scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
+    scenescape_env, demo_scene, request, repo_root, result_recorder):
   test = ExternalSourceAnalytics(
-    TEST_NAME, request, record_xml_attribute, repo_root)
+    TEST_NAME, request, repo_root)
   test.verifyFunction()
-  assert test.exitCode == 0
+  result_recorder.success()
   return
 
 

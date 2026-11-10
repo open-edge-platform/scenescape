@@ -15,6 +15,12 @@
 namespace rv {
 namespace tracking {
 
+// Kalman filter settings of the Scene Controller and the Tracker service.
+constexpr double kProductionProcessNoise = 1e-4;
+constexpr double kProductionMeasurementNoise = 0.2;
+constexpr double kProductionInitStateCovariance = 1.0;
+inline const std::vector<MotionModel> kProductionMotionModels{MotionModel::CV, MotionModel::CA, MotionModel::CTRV};
+
 struct TrackManagerConfig
 {
   uint32_t mNonMeasurementFramesDynamic{15};
@@ -26,6 +32,7 @@ struct TrackManagerConfig
   double mNonMeasurementTimeStatic{0.5333};
   double mMaxUnreliableTime{0.3333};
 
+  // Kalman filter settings passed to MultiModelKalmanEstimator::initialize(); see "Kalman filter settings" in README.md.
   double mDefaultProcessNoise{1e-3};
   double mDefaultMeasurementNoise{1e-2};
   double mInitStateCovariance{1.};
@@ -37,7 +44,7 @@ struct TrackManagerConfig
   std::string toString() const
   {
     std::string motionModelsText = " motion_models:";
-    for (auto const &motionModel: mMotionModels)
+    for (auto const &motionModel : mMotionModels)
     {
       motionModelsText += " ";
 
@@ -134,18 +141,6 @@ public:
    *
    */
   void correct();
-
-  /**
-   * @brief Access a specific track
-   *
-   */
-  TrackedObject getTrack(const Id &id);
-
-  /**
-   * @brief Access a specific kalman estimator
-   *
-   */
-  MultiModelKalmanEstimator getKalmanEstimator(const Id &id);
 
   /**
    * @brief Returns a list of tracked objects states

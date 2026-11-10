@@ -32,6 +32,8 @@ DOWNLOADER_IMAGE = "intel/model-download:2026.2.0-ww32"
 CONTAINER_PORT = 8000
 API_READY_TIMEOUT_S = 120
 JOB_POLL_INTERVAL_S = 5.0
+DOWNLOAD_ATTEMPTS = 2
+DOWNLOAD_RETRY_BACKOFF_S = 10.0
 PROXY_ENV_VARS = ("http_proxy", "https_proxy", "no_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY")
 
 
@@ -199,15 +201,35 @@ def main() -> int:
     return 0
 
   ensure_volume(models_volume)
-  print(f"Starting model-download service ({DOWNLOADER_IMAGE})...")
-  start_downloader(container_name, models_volume, args.host_port)
-  try:
-    wait_for_api(api_url)
-    print(f"Requesting {MODEL_NAME} ({MODEL_HUB}) download...")
-    job_ids = request_download(api_url)
-    wait_for_jobs(api_url, job_ids, args.wait_timeout)
-  finally:
-    stop_downloader(container_name)
+  last_error: Exception | None = None
+  for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+    print(f"Starting model-download service ({DOWNLOADER_IMAGE}) "
+          f"(attempt {attempt}/{DOWNLOAD_ATTEMPTS})...")
+    try:
+      start_downloader(container_name, models_volume, args.host_port)
+      wait_for_api(api_url)
+      print(f"Requesting {MODEL_NAME} ({MODEL_HUB}) download...")
+      job_ids = request_download(api_url)
+      wait_for_jobs(api_url, job_ids, args.wait_timeout)
+      last_error = None
+      break
+    except (TimeoutError, RuntimeError, error.URLError, ConnectionResetError,
+            OSError, subprocess.CalledProcessError) as exc:
+      last_error = exc
+      print(
+        f"WARN: model download attempt {attempt}/{DOWNLOAD_ATTEMPTS} failed: {exc}",
+        file=sys.stderr,
+      )
+      if attempt < DOWNLOAD_ATTEMPTS:
+        print(f"Retrying after {DOWNLOAD_RETRY_BACKOFF_S:.0f}s backoff...", file=sys.stderr)
+        time.sleep(DOWNLOAD_RETRY_BACKOFF_S)
+    finally:
+      stop_downloader(container_name)
+
+  if last_error is not None:
+    print(f"FAIL: model download failed after {DOWNLOAD_ATTEMPTS} attempts: {last_error}",
+          file=sys.stderr)
+    return 1
 
   if not model_present(models_volume):
     print(f"FAIL: {MODEL_XML} missing after model-download job completed", file=sys.stderr)

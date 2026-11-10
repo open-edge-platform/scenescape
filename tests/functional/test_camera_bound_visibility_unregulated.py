@@ -45,13 +45,11 @@ class CameraBoundVisibilityUnregulated(CameraBounds):
           "Expected camera_bounds in BOTH regulated and unregulated topics")
 
 
-@pytest.mark.parametrize("test_name", ["NEX-T19788"])
+@pytest.mark.test_name("NEX-T19788")
 def test_camera_bound_visibility(
-        params, pytestconfig, record_xml_attribute, test_name):
-  record_xml_attribute("name", test_name)
-
+        params, pytestconfig, result_recorder):
   visibility_topic = pytestconfig.getoption("visibility_topic")
   test = CameraBoundVisibilityUnregulated()
-  exit_code = test.run(params, visibility_topic, test_name)
+  test.run(params, visibility_topic)
 
-  assert exit_code == 0
+  result_recorder.success()

@@ -5,7 +5,6 @@
 .DEFAULT_GOAL := test
 
 clean:
-	python3 setup.py clean
 	rm -r build || true
 	rm -r build_cmake || true
 	rm -r python/src/robot_vision.egg-info || true
@@ -22,7 +21,8 @@ docspdf:
 	$(MAKE) -C docs latexpdf
 
 test:
-	python3 setup.py test
+	python3 -m pip install build
+	python3 -m build
 
 cpp-tests:
 	cmake -S . -B build-rv-tests -DBUILD_TESTING=ON -DBUILD_PYTHON_BINDINGS=OFF

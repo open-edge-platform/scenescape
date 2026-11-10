@@ -6,7 +6,7 @@
 let validateInputControls = {
   addFieldWarning(fieldName) {
     this.executeOnControl("save", function (control) {
-      control[0].domElement.classList.add("disabled");
+      control[0].disable(true);
     });
     this.executeOnControl(fieldName, function (control) {
       control[0].domElement.classList.add("text-danger");
@@ -27,7 +27,7 @@ let validateInputControls = {
   },
   removeFieldWarning(fieldName) {
     this.executeOnControl("save", function (control) {
-      control[0].domElement.classList.remove("disabled");
+      control[0].disable(false);
     });
     this.executeOnControl(fieldName, function (control) {
       control[0].domElement.classList.remove("text-danger");
@@ -47,12 +47,12 @@ let validateInputControls = {
   executeOnControl(controlName, lambda) {
     const controllers = this.controlsFolder.controllersRecursive();
     const control = controllers.filter((item) => item.property === controlName);
-    if (control) lambda(control);
+    if (control.length > 0) lambda(control);
   },
   disableFields(fields) {
     for (const field of fields) {
       this.executeOnControl(field, (control) => {
-        control[0].domElement.classList.add("disabled");
+        control[0].disable(true);
       });
     }
   },

@@ -10,6 +10,7 @@ import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -36,32 +37,33 @@ def reset_perspective(browser):
     return False
 
 
-def test_cam_perspective_main(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10410")
+def test_cam_perspective_main(demo_scene, params, record_xml_attribute):
   """! Checks that the camera calibration can be reset.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10410"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   logged_in = False
   changed_perspective = False
   verified_perspective_change = False
   perspective_reset = False
   postreset_saved_perspective = False
+  browser = None
   try:
     log.info("Executing: " + TEST_NAME)
     browser = Browser()
     logged_in = common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
 
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
+    common.camera_calibrate_link(browser).click()
     log.info("Resetting Perspective...")
     perspective_reset = reset_perspective(browser)
 
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
+    common.camera_calibrate_link(browser).click()
     time.sleep(TEST_WAIT_TIME)
 
     log.info('Get temporary calibration coorinates after reset.')
@@ -77,6 +79,8 @@ def test_cam_perspective_main(params, record_xml_attribute):
                                   (map_values_reset_temp == map_values_reset_saved)
     log.info('Validate if postreset saved perspective match inintial perspective.')
   finally:
+    if browser is not None:
+      browser.quit()
     # Split the condition into two parts to avoid having more than 5 boolean expressions in one if statement
     validation = logged_in and perspective_reset and postreset_saved_perspective
     if validation:

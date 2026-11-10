@@ -25,18 +25,26 @@ from scene_common.cam_fields import (
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
 )
 
-class CamCalibrateForm(forms.ModelForm):
+class CamCalibrateForm(ModelForm):
   class Meta:
     model = Cam
     fields = CAM_FORM_FIELDS
 
-  def __init__(self, *args, **kwargs):
-    self.advanced_fields = CAM_ADVANCED_FIELDS
-    self.unsupported_fields = CAM_FORM_ONLY_FIELDS
-    self.kubernetes_fields = CAM_KUBERNETES_FIELDS + CAM_ADVANCED_FIELDS
-    super().__init__(*args, **kwargs)
+  def _configurePoseLockedField(self):
+    if 'pose_locked' not in self.fields:
+      return
+    self.fields['pose_locked'].label = 'Pose locked'
+    self.fields['pose_locked'].help_text = (
+      'When locked, live MQTT extrinsics and optics are ignored and stored '
+      'calibration is used.'
+    )
+    # Calibrate UI recommends locked; existing rows keep their stored value.
+    if not self.instance.pk:
+      self.fields['pose_locked'].initial = True
+    elif self.instance.transforms and not self.is_bound:
+      self.fields['pose_locked'].initial = True
 
-    # Set defaults
+  def _configureCreateDefaults(self):
     if 'cv_subsystem' in self.fields:
       self.fields['cv_subsystem'].empty_label = None
       if not self.instance.pk or not self.instance.cv_subsystem:
@@ -49,38 +57,47 @@ class CamCalibrateForm(forms.ModelForm):
     if not self.instance.pk:
       self.fields['undistort'].initial = False
 
-    # Configure use_camera_pipeline as a checkbox
     if 'use_camera_pipeline' in self.fields:
       self.fields['use_camera_pipeline'].widget = forms.CheckboxInput()
       if not self.instance.pk:
         self.fields['use_camera_pipeline'].initial = False
+
+  def _configureKubernetesWidgets(self):
+    if not settings.KUBERNETES_SERVICE_HOST:
+      return
+    self.fields['camera_pipeline'].widget = forms.Textarea(attrs={
+        'rows': 6,
+        'cols': 80,
+        'style': 'resize: vertical; white-space: pre-wrap; word-wrap: break-word;',
+        'placeholder': 'Camera pipeline will be generated automatically when you click "Generate Pipeline Preview" button or save the form.'
+    })
+    self.fields['detection_labels'].widget = forms.Textarea(attrs={
+        'rows': 6,
+        'cols': 50,
+        'placeholder': 'car\npedestrian\ntrolley'
+    })
+
+  def __init__(self, *args, **kwargs):
+    self.advanced_fields = CAM_ADVANCED_FIELDS
+    self.unsupported_fields = CAM_FORM_ONLY_FIELDS
+    self.kubernetes_fields = CAM_KUBERNETES_FIELDS + CAM_ADVANCED_FIELDS
+    super().__init__(*args, **kwargs)
+
+    self._configurePoseLockedField()
+    self._configureCreateDefaults()
 
     for field in self.unsupported_fields:
       del self.fields[field]
     if not settings.KUBERNETES_SERVICE_HOST:
       for field in self.kubernetes_fields:
         del self.fields[field]
-      self.fields['distortion_k1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-      self.fields['distortion_k2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-      self.fields['distortion_p1'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-      self.fields['distortion_p2'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
-      self.fields['distortion_k3'].widget = forms.TextInput(attrs={'readonly': 'readonly'})
     self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
+    self.fields['width'].widget = forms.HiddenInput()
+    self.fields['height'].widget = forms.HiddenInput()
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
-    if settings.KUBERNETES_SERVICE_HOST:
-      self.fields['camera_pipeline'].widget = forms.Textarea(attrs={
-          'rows': 6,
-          'cols': 80,
-          'style': 'resize: vertical; white-space: pre-wrap; word-wrap: break-word;',
-          'placeholder': 'Camera pipeline will be generated automatically when you click "Generate Pipeline Preview" button or save the form.'
-      })
-      self.fields['detection_labels'].widget = forms.Textarea(attrs={
-          'rows': 6,
-          'cols': 50,
-          'placeholder': 'car\npedestrian\ntrolley'
-      })
+    self._configureKubernetesWidgets()
 
 class ROIForm(forms.Form):
   rois = forms.CharField()
@@ -97,6 +114,13 @@ class SingletonCreateForm(forms.ModelForm):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
+    if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].label = 'Pose locked'
+      self.fields['pose_locked'].help_text = (
+        'When locked, live MQTT extrinsics and optics are ignored and stored '
+        'calibration is used.'
+      )
+      self.fields['pose_locked'].initial = False
 
 
 class SingletonDetailsForm(ModelForm):
@@ -105,6 +129,12 @@ class SingletonDetailsForm(ModelForm):
     fields = ('__all__')
 
 class SceneImportForm(ModelForm):
+  reuse_existing = forms.BooleanField(required=False, label="Reuse existing scenes",
+                                     help_text="Keep existing resources and restore missing hierarchy links.")
+  restore_ids = forms.BooleanField(required=False, label="Restore original scene IDs",
+                                  help_text="Rejects UUID collisions; leave unchecked to create new IDs.")
+  remote_credentials = forms.FileField(required=False, label="Remote MQTT credentials (JSON)",
+                                      help_text="Required for remote children; keyed by remote scene UUID.")
   class Meta:
     model = SceneImport
     fields = ('__all__')
@@ -173,10 +203,10 @@ class SingletonForm(forms.Form):
           raise ValidationError("The polygon vertex coordinates must be floating point numbers.")
     return cleaned_data
 
-class CamCreateForm(forms.ModelForm):
+class CamCreateForm(ModelForm):
   class Meta:
     model = Cam
-    fields = ['sensor_id', 'name', 'scene']
+    fields = ['sensor_id', 'name', 'scene', 'pose_locked']
     labels = {
       'sensor_id': 'Camera ID',
     }
@@ -187,6 +217,13 @@ class CamCreateForm(forms.ModelForm):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
+    if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].label = 'Pose locked'
+      self.fields['pose_locked'].help_text = (
+        'When locked, live MQTT extrinsics and optics are ignored and stored '
+        'calibration is used.'
+      )
+      self.fields['pose_locked'].initial = False
 
   def clean_camerachain(self):
     """Reject camerachain values that reference models missing from model-config."""

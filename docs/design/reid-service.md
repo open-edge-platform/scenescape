@@ -1,0 +1,438 @@
+# Design Document: ReID Service — Extraction, API & Capabilities
+
+- **Author(s)**: Derrick Addo, Sarat Poluri
+- **Date**: 2026-09-14
+- **Status**: `Proposed`
+- **Related ADRs**: [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md),
+  [ADR 7 — Tracker Service](../adr/0007-tracker-service.md),
+  [ADR-10 — ReID Metadata Storage Architecture](../adr/0010-reid-metadata-storage-architecture.md),
+  [ADR-11 — Inner-Product ReID State and ID Lineage](../adr/0011-inner-product-reid-state-and-id-lineage.md),
+  [ADR 14 — Unified TTL Retention for ReID Descriptor Store Growth](../adr/0014-reid-descriptor-ttl-retention.md),
+  [ADR 15 — Hierarchy ReID Provenance and Enrollment Scope](../adr/0015-hierarchy-reid-provenance.md)
+
+---
+
+## 1. Overview
+
+Extract today's in-process ReID library into a standalone `reid-service` (Section 5), and define
+the external API and capabilities that service exposes (Section 6). This is the next Controller-
+retirement step after Tracker (ADR 7 / ADR 13): ReID gets a durable home outside the Controller
+so that responsibility can leave the monolith.
+
+**Live loop:** `reid-service` consumes the Tracker MQTT track stream and matches/stores
+internally — no cross-service round trip for live tracking. Analytics consumes the same track
+stream independently and applies asynchronous ReID identity decisions before computing spatial
+analytics and publishing regulated output (Section 5.1.1). **External surface:** Section 6 is an
+HTTP/gRPC API (query, POI, gallery, trajectory). MQTT request/reply for that external surface
+remains open (Section 5.1 / Section 11); it does not reopen the live-loop model.
+
+**Home:** ReID's home is `reid-service`, even if ADR 13's diagram later co-locates it with scene-
+state persistence. Packaging/co-deployment can follow; Controllers stop owning ReID when this
+extraction lands.
+
+**Inherits (does not reopen):** ADR-10 storage/query semantics, ADR-11 match/output contract,
+ADR 14 reclaim-only TTL (schedule moves into `reid-service`; Section 6.8 adds per-collection /
+pressure controls), ADR 15 hierarchy enroll/query and provenance (orchestration moves with
+extraction; Section 6.5 still chooses the POI correlation feed).
+
+**Adds:** the deployable boundary, Tracker-stream ingest ownership, centralized purge/metrics,
+and the external API — baseline `ReIDDatabase` over the network (6.1) plus POI / gallery / TTL /
+trajectory capability for the SLP epics (6.2–6.12). Scheduling is Section 9; the contracts are
+specified here. Live tracking gallery writes are stream-driven only — no general-gallery write
+endpoint in Section 6.
+
+## 2. Goals
+
+- One `reid-service` owns ReID lifecycle, purge, and ReID metrics — not a copy per Controller.
+- One external contract, independent of VDMS, Qdrant, or a later adapter.
+- External callers can query. POI insert, update, and delete apply only to the POI gallery.
+- POI enrollment is all-or-nothing (6.4). POI storage survives container restart via a volume (6.10).
+- Trajectory reads return `camera_id` and timestamp within the general-gallery TTL (6.11).
+
+## 3. Non-Goals
+
+- Co-deploying or merging `reid-service` with Scene State Persistence. Home is `reid-service`; packaging can follow.
+- A general-gallery write or delete API. Live writes are Tracker-stream ingest only (6.2).
+- Image-to-embedding inference inside `reid-service`.
+- Stream Manager's video/clip API. It only bounds trajectory retrieval (6.11). Draft: [docs/design/stream-manager](https://github.com/open-edge-platform/scenescape/tree/tdorau/stream-manager-api-draft/docs/design/stream-manager).
+- UI, including 2D-track click-through.
+- Wire-level OpenAPI/proto. This document specifies behavior; schemas are implementation detail.
+- authN/authZ mechanism, and whether POI correlation reuses ADR 15 `DATA_EXTERNAL` (Section 11). Security / trust decisions for POI and query callers are in 6.12.
+
+## 4. Background / Context
+
+### 4.1 Today: ReID is a library, not a service
+
+ReID is a library (`controller.reid`, `controller.reid_registry`, `controller.reid_env`, `controller.reid_constraints`, `controller.vdms_adapter`, `controller.qdrant_adapter`) imported by every controller. `UUIDManager.__init__` calls `create_reid_database` once per tracked category, so one scene process holds several adapters, each with its own TCP connection to VDMS or Qdrant (`REID_HOSTNAME` / `REID_PORT`).
+
+VDMS and Qdrant are already separate containers. The `ReIDDatabase` abstraction, adapters, schema/retention lifecycle, and TIER 1 constraints are not — they run in-process. There is no network boundary between tracking logic and the code that decides how to query or write.
+
+Three call sites, all in `uuid_manager.py`:
+
+| Method         | Call site                    | Trigger                                                             |
+| -------------- | ---------------------------- | ------------------------------------------------------------------- |
+| `findMatches`  | `sendSimilarityQuery()`      | Enough quality visual features (`assignID()` → `querySimilarity`)   |
+| `addEntry`     | `_writeReidEntry()`          | Track goes inactive; features flush (`_addNewFeaturesToDatabase()`) |
+| `purgeExpired` | `_purgeExpiredDescriptors()` | Per-process timer; one `UUIDManager` holds `_PURGE_OWNER`           |
+
+Section 5.1 is the target mapping. Today's `_PURGE_OWNER` lock only dedupes purge inside one process, and `DEFAULT_MAX_QUERY_TIME` (4s) disables ReID when in-process query latency drifts. Both retire with extraction.
+
+### 4.2 What's coupled to what
+
+- **Stays with detector ingest:** embedding wire-format decoding is shared through `scene_common.reid_embedding`. `moving_object.py` retains the `decodeReIDEmbeddingVector` compatibility import and `serializeReIDPayload`; `reid.embedding` handles the scene-track payload wrapper. These are wire-format responsibilities, not storage.
+- **Moves into `reid-service` (5.1):** when to query/write — quality-feature gating, TIER 1 extraction, hierarchy write-health/epoch (`reid_write_healthy`, `reid_write_confirmed`, `reid_write_epoch`, `ReidWriteSupersededError`). The query-latency circuit breaker is not ported.
+- **Extracted library:** `reid.py`, `vdms_adapter.py`, `qdrant_adapter.py`, `reid_registry.py`, `reid_env.py`, `reid_constraints.py`.
+
+### 4.3 Problems this creates
+
+1. **No shared lifecycle.** Parent and child controllers each run this layer against one store (ADR 15). Schema creation, purge, and TIER 1 logic are duplicated per process.
+2. **No external caller.** Investigator tooling, VLM-recall ([Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120)), and POI ([Epic #221](https://github.com/intel-retail/loss-prevention/issues/221)) cannot reach `findMatches` or POI writes without importing `controller.reid`.
+3. **No place to add capability.** POI, deletion, stats, TTL, schema negotiation, and trajectory export have nowhere to live except inside the controller.
+
+### 4.4 What `ReIDDatabase` already provides
+
+`connect()`, `addEntry()`, `getPersistedAttributes()`, `findMatches()`, `findSchemaMetadata()`, `ensureSchema()`, `purgeExpired()`, `retentionEnabled()` — the shared contract both adapters implement. Section 6 exposes it and adds POI, deletion, and per-sighting history. `addEntry` is a tracking side effect (`rvid` on an observed track); it is not a POI API.
+
+### 4.5 Motivating epics
+
+- [Epic #221](https://github.com/intel-retail/loss-prevention/issues/221) — POI enrollment, matching, and alerting. Gallery management and alert routing are left open.
+- [Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120) — query API for investigator/VLM-recall tooling; names `Gallery_Size_Active_Persons` and `ReID_Match_Latency_ms` with no source today.
+
+---
+
+## 5. Proposed Design — Part A: Service extraction
+
+### 5.1 Service boundary and transport model
+
+Move the library in 4.2 into `reid-service`. ADR 13: gRPC for synchronous query/response (including Re-ID match/store); MQTT for asynchronous fan-out (including scene tracks).
+
+- **Live `findMatches` / `addEntry` are internal.** Tracker (ADR 7) publishes tracks on MQTT. `reid-service` matches and stores while consuming that stream. Feature gating, TIER 1 extraction, and ADR 15 enroll/query plus write-health/epoch rules move with that orchestration. There is no Controller round trip and no live-loop write endpoint.
+- **Identity state and counting retain Controller semantics.** Publish `pending_collection`, `matched`, `query_no_match`, and `reid_disabled` through Analytics output. Pending includes queries in flight; no additional lifecycle states are introduced. The scene/category matcher owns the cumulative unique-ID counter, including initial registration without embeddings or with ReID disabled, no-match decisions, and late no-match results after track exit. Consumers receive the existing `unique_detection_count`; they must not reconstruct it by counting terminal states. See the [service guide](../user-guide/microservices/reid-service/reid-service.md#identity-state-and-counting) for the wire fields and counting rules.
+- **External match/store is HTTP/gRPC (Section 6).** MQTT request/reply (correlation ID + reply-to) remains an open alternative for this surface only (Section 11): one bus versus a simpler call/return that matches ADR 13.
+- **`purgeExpired` is internal.** Delete the Controller timer and `_PURGE_OWNER`. `reid-service` runs `purgeExpired()` on `REID_PURGE_INTERVAL_SECS`. `REID_DESCRIPTOR_TTL_SECS` moves with it. Adapter expiration fields and reclaim-only semantics stay as ADR 14 defined them.
+
+```mermaid
+flowchart LR
+  subgraph Live["Live loop (MQTT)"]
+    TRK[Tracker] --> TRACKS["Scene-track topic<br/>scenescape/data/scene/..."]
+    TRACKS -->|tracks + available embeddings| REID[reid-service]
+    TRACKS -->|tracks: positions / motion / local IDs| AN[Analytics service]
+    REID --> IDS["Identity-update topic<br/>scenescape/data/reid/..."]
+    IDS -->|ID mapping / state / count ONLY; no scene tracks| AN
+    SEN[Sensor readings] --> SENSORS["Sensor topic<br/>scenescape/data/sensor/..."]
+    SENSORS --> AN
+    AN -->|regulated / region detections / events| OUT[Manager UI / subscribers]
+  end
+
+  subgraph Store["Descriptor store"]
+    GEN[General gallery]
+    POI[POI gallery]
+    AUD[Enrollment audit]
+  end
+
+  REID -->|match / addEntry / purge| GEN
+  REID --> POI
+  REID --> AUD
+
+  subgraph Ext["External API HTTP/gRPC"]
+    INV[Investigator / VLM-recall<br/>query only]
+    OPS[POI operators<br/>enroll / update / delete]
+    COR[POI correlation daemon]
+  end
+
+  INV -->|findMatches / trajectories / stats| REID
+  OPS -->|POI write path| REID
+  COR -->|query POI set| REID
+  COR -->|poi_match| EVT[PubSub.EVENT]
+
+  OPS -.->|no write path| GEN
+```
+
+**Live loop:** Tracker publishes scene tracks to both `reid-service` and Analytics through MQTT.
+The topic boxes above are separate streams on the MQTT broker. **Tracker is the scene-track
+producer; `reid-service` does not republish scene tracks.** ReID matches and stores into the
+general gallery, then publishes identity updates on a different topic. Analytics combines
+Tracker's positions and motion with ReID's ID mappings and states, and owns spatial analytics
+and downstream output. Neither Tracker nor Analytics waits for a synchronous ReID response.
+**External API:** investigator clients query only (6.12); POI operators write only the POI gallery and enrollment audit; the correlation daemon queries like any client and publishes `poi_match` events (6.5). There is no general-gallery write endpoint. The POI gallery, enrollment audit, and external capabilities shown above include proposed follow-on work; see the [service guide](../user-guide/microservices/reid-service/reid-service.md#current-scope) for current scope.
+
+The Controller circuit breaker is not ported: live matching is inside `reid-service`. Degradation signaling (stop using matches; recommend purge/compaction when volume is the cause) is a follow-on and does not block extraction (Section 11).
+
+#### 5.1.1 Analytics integration and identity continuity
+
+**Analytics receives two different kinds of messages, not two copies of the scene tracks:**
+
+| Producer       | MQTT topic                                      | What Analytics receives                                                                    |
+| -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Tracker        | `scenescape/data/scene/{scene_id}/{thing_type}` | Scene frames: tracked objects with local IDs, positions, motion, and other track fields.   |
+| `reid-service` | `scenescape/data/reid/{scene_id}/{category}`    | Identity updates: which `gid` belongs to a `track_id`, ReID state, similarity, and counts. |
+
+Tracker answers **"where is this tracked object now?"** ReID answers **"which identity does
+this track belong to?"** Analytics combines those answers; ReID updates do not supply a new
+position or trigger a replacement scene frame.
+
+The services have separate responsibilities: `reid-service` owns embedding collection,
+matching, descriptor storage, identity decisions, and cumulative unique-ID counts. Analytics
+owns camera visibility, region entry/exit and dwell, tripwire crossings, sensor correlation,
+and regulated/event publishing. Analytics does not query the descriptor store or perform
+embedding matching.
+
+The MQTT integration is asynchronous:
+
+1. **Parallel track ingestion.** Both services subscribe to
+   `scenescape/data/scene/{scene_id}/{thing_type}`. ReID uses the available embeddings and
+   sighting metadata; Analytics uses the tracked objects and scene configuration.
+2. **Identity updates.** ReID publishes on
+   `scenescape/data/reid/{scene_id}/{category}`. Analytics caches the latest decision by
+   `(scene_id, category, track_id)`, including the assigned `gid`, identity state, similarity,
+   and decision time. It also caches the matcher-owned `unique_id_count` per scene/category.
+   The [service guide](../user-guide/microservices/reid-service/reid-service.md#identity-state-and-counting)
+   defines the states and counting semantics.
+3. **Apply before spatial analytics.** For each subsequent scene message, Analytics applies
+   cached identity updates before updating tracked objects, visibility, and events. An object
+   without a decision keeps its track ID and defaults to `pending_collection` unless its
+   producer already supplied a state. Processing continues while ReID gathers features or
+   queries the store; a decision arriving after a frame affects subsequent frames, not
+   previously published output.
+4. **Preserve continuity on delayed matches.** When a decision changes an object's ID,
+   Analytics migrates the existing tracked object and its region, dwell, tripwire, and
+   location-history state to the assigned gid rather than creating a new object. A rename
+   that would overwrite another live identity is deferred and logged. Matched renames
+   include the prior track ID in `previous_ids_chain`.
+5. **Publish enriched output.** Regulated and per-region detections carry the applied
+   identities and ReID states, and spatial events use those identities. When a matcher
+   count is available, Analytics forwards it as `unique_detection_count`; it does not
+   recompute it from active tracks or terminal states. Outputs include
+   `scenescape/regulated/scene/{scene_id}`, per-region detections, and region/tripwire/sensor
+   event topics.
+
+**Example:** Tracker publishes `track-7` at position `[1, 2, 0]`. Analytics processes that
+position using `track-7` while its identity is pending. ReID later publishes a match mapping
+`track-7` to `person-42`; this message contains an identity decision, not a new position.
+When Tracker next publishes `track-7` at `[2, 2, 0]`, Analytics uses that new position but
+publishes the object as `person-42`, preserving its existing dwell and crossing history.
+Tracker continues to publish its local ID; Analytics applies the mapping to downstream output.
+
+Analytics also consumes `scenescape/data/sensor/{sensor_id}` and loads scene configuration
+from Manager REST or local JSON files. See the [Analytics overview](../user-guide/microservices/analytics/analytics.md)
+and [data formats](../user-guide/microservices/analytics/data_formats.md) for those inputs and
+the downstream output contracts. The legacy Scene Controller may also produce scene tracks
+with identities already applied; Analytics preserves producer-supplied ReID state when no
+standalone-service decision is available.
+
+### 5.2 What doesn't change
+
+Detector-to-Tracker wire format and the inherited ADR-10 / ADR-11 / ADR 14 / ADR 15 contracts (Overview).
+
+### 5.3 ReID metrics separation
+
+Match-latency instruments (`scenescape_controller_reid_*match_latency*`, fed by `MatchLatencyTracker`) move to `reid-service` under its own OTel `SERVICE_NAME`. Timing is internal (stream receipt to decision). Add a separate backend query/write duration so a slow VDMS/Qdrant call is distinguishable from upstream delay.
+
+`record_reid_current_camera_count` and the tracked-object counts come from `CameraRegistry` / `TrackedObjectRegistry`. They leave the Controller before Phase 7; the service that owns those registries owns the metrics. They are not a Controller exception through retirement.
+
+### 5.4 Tracker stream contract (live ingest + trajectory fields)
+
+`GET /trajectories/{gid}` (6.11) reads what this ingest persists. It does not define a write API.
+
+Against current Tracker code:
+
+- **Embeddings remain best-effort.** If a detection has `metadata.reid`, Tracker publishes `reid_sighting` with that detection's `camera_id`, frame `timestamp`, pixel `bounding_box_px`, and original `reid` payload. The embedding is published only in `reid_sighting.reid`; Tracker omits `metadata.reid` to avoid duplicate vectors. The sighting is omitted when no current-chunk ReID detection contributed to the track. Legacy Scene Controller messages may carry `metadata.reid` without `reid_sighting`, but the two representations must not coexist. Multi-camera fusion selects the metadata.reid winner's corresponding sighting; other metadata fields retain their fusion semantics.
+- **Per-sighting camera and timestamp are available for live ingest**, but are not yet stored with every descriptor. The scene envelope timestamp remains the track computation time. Schema allows optional `visibility` / `camera_bounds`; `TrackPublisher` does not emit them. Pixel bbox is not required for Stream Manager (6.11).
+- **Today's ReID write never stores them.** `UUIDManager` persists `_extractSemanticMetadata()` only. `self.location` (`Chronoloc`: point, timestamp, bbox) is unused on that path. `_extractCameraId()` feeds a metrics counter, not the gallery write.
+
+**Remaining:** `reid-service` must store camera ID and per-sighting timestamp on each descriptor write for trajectories (Section 11). It currently consumes these fields for observation/quality gating but does not persist them. How far back a query can see is the general-gallery TTL (6.11).
+
+---
+
+## 6. Proposed Design — Part B: External API & capability surface
+
+Section 5 is the service. This section is the first network API on `ReIDDatabase`, for callers other than the live loop. Transport is HTTP/gRPC unless Section 11 picks MQTT request/reply.
+
+### 6.1 Baseline service API surface
+
+Thin wrappers over today's methods. No behavior change.
+
+- **`findMatches`** — external query (6.3).
+- **`findSchemaMetadata`** — collection existence, dimensions, metric.
+- **`purgeExpired`** — optional manual trigger. Scheduled purge is internal (5.1).
+- **Health/readiness** — new; the in-process library had none.
+
+The implemented baseline gRPC contract also declares `IngestStats` for local
+live-loop observability. `Health.ready` reflects a fresh, read-only backend
+availability probe rather than a cached connection flag. The proto, request and
+response shapes, client usage, status codes, and test scope are documented in the
+[Re-ID service contract](../user-guide/microservices/reid-service/reid-service.md#baseline-grpc-contract).
+`CreateCollection` is an authorized schema-only operation for POI collections;
+it does not enroll descriptors. This baseline does not add a general-gallery
+descriptor write RPC.
+
+### 6.2 Design principles
+
+- **One contract per backend.** Same endpoints, shapes, and success rules. If an adapter lacks a primitive (for example count), the service implements it. Callers do not branch on VDMS vs Qdrant.
+- **Writes are POI-gallery only.** Insert, update, and delete are 6.4 and 6.7. Query (6.3) may read both galleries and never writes. General-gallery aging is the 24h TTL (6.7).
+- **POI records are persisted, not long-TTL.** See 6.10. `poi_id` is server-generated.
+- **Security / trust.** Privilege split, deployment scope, gallery isolation, enrollment audit, and write rate limits are 6.12.
+
+### 6.3 Query API
+
+Expose `findMatches` to investigator tools, VLM-recall (Epic #120), and POI matching (Epic #221), with the same TIER 1 constraints (`reid_constraints.py`) as query parameters. No new adapter logic.
+
+### 6.4 POI enrollment (insert and update)
+
+`EnrollPoi` accepts a declared POI collection, object type, 1-5 precomputed embeddings, `severity`, `notes`, and `enrolled_by`. It does not take raw images or a client `poi_id`; the service generates the POI id. `AppendPoiEmbeddings` accepts a POI id, 1-5 additional reference embeddings, and `enrolled_by`. Both use `addEntry` without inventing an `rvid`, and write an audit record containing writer, timestamp, operation, and SHA-256 hashes for the vectors in that operation. They require `REID_POI_WRITE_TOKEN` and cannot target the live gallery. Who runs image → embedding for a one-off enrollment (ephemeral DL Streamer pipeline vs a synchronous extract API) is open (Section 11).
+
+`enrolled_by` is required on every enroll and embedding append. Each descriptor written by an operation contains that operation's immutable audit metadata; the service exposes no operation to edit or erase it. Rate limits remain a deployment requirement (6.12). Metadata PATCH and deactivate do not rewrite or remove prior records. Hard delete (6.7) removes the POI from the matchable gallery but must not erase the audit trail.
+
+Updates:
+
+- `POST /poi/{poi_id}/embeddings` — append a reference embedding (Epic #221: 1–5 per POI).
+- `PATCH /poi/{poi_id}` — metadata only, including active/inactive. Hard delete is 6.7.
+
+**Write contract.** `EnrollPoi` and `AppendPoiEmbeddings` return success only when every vector in the request is accepted. Otherwise the RPC fails and an enrollment returns no `poi_id`. This does not promise rollback of descriptors accepted before a backend partial failure, and it is not fsync, quorum, or durability. Persistence is 6.10. Adapter confirmation (Qdrant `wait=True`, VDMS per-descriptor status) stays internal; callers see one outcome.
+
+POI embeddings use their own collection/`set_name`, not the general gallery: different retention (6.8), and queries name the POI set vs the general set instead of inferring it from `object_type`. Validate with `prepareReidDict` / `prepareReidVector`; reject with `ReidNoValidVectorsError`.
+
+### 6.5 POI correlation and alert delivery
+
+Correlation is a daemon that calls `reid-service` like any other API client. Checking the POI set inside `UUIDManager` is rejected (Section 7): it would put POI logic back in the Controller.
+
+**Feed.** `publishExternalDetections` already puts `embedding_vector` and `reid_provenance` on `PubSub.DATA_EXTERNAL` (ADR 15). That topic is rate-limited and gated by `_hierarchyReidPublishPolicy` (write ownership, not "should POI see this"). `DATA_SCENE` does not carry embeddings. Reuse vs a dedicated publish path is open (Section 11). Once `{gid: poi_id}` is set, it sticks for the life of the `gid`.
+
+**Event vs delivery.** The daemon publishes `poi_match` on `PubSub.EVENT` (Epic #221 payload: `poi_id`, `camera_id`, confidence, bbox, timestamp). Hierarchy `republishEvents` forwards it. Delivery stays on that daemon, off the match path — not a second service. Epic #221's 3s target and multi-destination fan-out must not block correlation, and the 5-minute dedup window is notification policy, not match history.
+
+**Transports.** MQTT subscribe plus a configurable REST webhook. Message-queue delivery when an integration needs it.
+
+The daemon owns `POI_Match_Latency_ms`. `reid-service` reports generic query latency only.
+
+### 6.6 Gallery and collection management
+
+Neither adapter exposes count or list today. `findSchemaMetadata` does not return size. VDMS has no `count` comparable to Qdrant; both adapters must grow that capability so the external stats API stays the same.
+
+- `GET /collections` — name, dimensions, metric, retention. Not which backend is deployed.
+- `GET /collections/{name}/stats` — `vector_count` and `distinct_object_count` (1–5 embeddings per POI; general gallery also stores more than one vector per UUID). `Gallery_Size_Active_Persons` is the distinct count.
+- **Collection and POI gRPC writes** — `CreateCollection` declares an explicit POI collection schema; `EnrollPoi` and `AppendPoiEmbeddings` write POI descriptors only after declaration. Compatible schema repeats are idempotent; mismatches fail with `FAILED_PRECONDITION`. The configured live-gallery, default live-gallery, and schema-marker names are reserved from these operations. The general gallery keeps lazy `ensureSchema` and has no external descriptor-write RPC.
+
+Whether stats accept `scene_id` / `camera_id` is open (Section 11). Export size as an OTel gauge for `GalleryExtractor`, not only as a REST body (Section 10).
+
+### 6.7 Deletion (POI gallery only)
+
+New `deleteEntry`. Delete by `poi_id` and by filter (`severity`, enrollment date), reusing `reid_constraints.py`. Removes the POI from the matchable gallery. Enrollment audit retention is 6.12.
+
+The general gallery is not deletable through this API. It ages out on the ADR 14 TTL (default 24h). Further purge, compaction, or an explicit erasure path can be added later and does not block this endpoint.
+
+### 6.8 TTL and eviction
+
+General-gallery contract stays ADR 14: `REID_DESCRIPTOR_TTL_SECS` (default 24h; `0` disables), reclaim-only `purgeExpired`, adapter-private expiration. The schedule moves in 5.1.
+
+Once POI collections exist (6.4, 6.6):
+
+- **Per-collection TTL.** POI retention is per collection, not one TTL per process. Reclaim-only semantics for the general gallery stay.
+- **Pressure eviction.** Oldest-first once a collection crosses a size cap, in addition to TTL. ADR 14 deferred capacity eviction; this is that follow-on.
+
+### 6.9 Schema declaration
+
+Dimensions are inferred from the first write (`_ensureReIDDimensions` → `ensureSchema`) for the lazy general gallery. External callers may query before any write. `CreateCollection` declares an explicitly named POI collection's dimensions and metric before enrollment and verifies schema markers on repeat declarations.
+
+### 6.10 POI persistence
+
+The general gallery is repopulated by live tracking. POI is not: a lost record is a silent gap until someone re-enrolls.
+
+**Shipping bar:** a Docker volume or Kubernetes `PersistentVolumeClaim` on the POI collection's backend data. Container restart, image update, or pod recreate must not wipe it. No adapter change. Host or disk loss, replication, and multi-AZ durability are out of scope.
+
+Enrollment success is the 6.4 write contract, not a durability guarantee.
+
+No export or live-migration API. Volume loss or a VDMS↔Qdrant swap means manual re-enrollment. A later dump could serve backup and offline migration; it is not required here.
+
+### 6.11 Trajectory export
+
+`reid-service` returns an ordered sighting list. Video is Stream Manager. UI click-through is out of scope (Section 3).
+
+Ingest of `camera_id` and per-sighting `timestamp` is 5.4. No write endpoint.
+
+`GET /trajectories/{gid}` returns one entry per descriptor write: `camera_id` and `timestamp`, chronological. This is not `getPersistedAttributes` (latest-only).
+
+| Concern                                                               | Owner               | Contract                                                                                                  |
+| --------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------- |
+| Sighting diary (`camera_id`, `timestamp`)                             | `reid-service`      | `GET /trajectories/{gid}`                                                                                 |
+| Attach, buffer, record, list                                          | Stream Manager      | `/v1/streams`, `/v1/records/start\|stop`, `GET /v1/records`                                               |
+| Frame or clip                                                         | Stream Manager      | `GET /v1/records/{id}/frame?stream-id&timestamp`; `GET /v1/records/{id}/clip?stream-id&timestamp-start&…` |
+| Map `camera_id` to `stream_id` / `sensor_id`; record vs query; stitch | Business logic / UI | Outside both APIs                                                                                         |
+
+Stream Manager seeks by `stream-id` plus RFC 3339 time on NTP-synced streams. It does not take frame number or bbox, and it returns per-stream media, not a stitched multi-camera video. Those two facts fix the ReID sighting contract: camera + timestamp only.
+
+Retention is the general-gallery TTL (default 24h). The API cannot return purged sightings. There is no longer-lived trajectory store.
+
+Size the `reid-service` piece (5.4 fields plus this endpoint) separately from Stream Manager integration (id mapping, record lifecycle, multi-clip UI).
+
+### 6.12 Security / trust model
+
+Policy for the external API (Section 6). The authN/authZ _mechanism_ (tokens, mTLS, gateway policy, etc.) remains open (Section 11) and must land before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is a separate open (Section 11).
+
+- **Query principals cannot write.** Investigator / VLM-recall clients (Epic #120) get query, trajectory, and stats only. They must not be authorized for POI enroll, embedding append, metadata PATCH, or delete. POI write verbs are a separate privilege for operators / enrollment automation that drive safety alerts (Epic #221).
+- **Same service, separate privileges.** One `reid-service` instance may serve both Epic #120 and Epic #221. Privilege separation is the trust boundary, not a second deployment.
+- **POI scope is the deployment, not a scene.** Insert, update, and delete apply to that deployment's POI gallery. There is no per-scene POI write key; an enrolled POI is visible / matchable wherever that deployment's correlation and query clients run. Isolation across customers or sites is a separate deployment (or equivalent hard partition), not a `scene_id` on the write API.
+- **POI writers cannot poison regular track entries.** A principal with POI write permission has no API path to insert, update, or delete general-gallery (live track) descriptors — those writes are Tracker-stream ingest only (6.2). POI and general galleries must not share a writable collection or set.
+- **Immutable enrollment audit.** Every enroll and embedding append records `enrolled_by`, timestamp, and vector id or hash (6.4). PATCH and deactivate do not rewrite history. Hard delete removes the matchable POI but keeps the audit trail (6.7). That is the v1 control for authorized-writer POI misuse. No inactive-by-default gate, dual-control activate, or elevated-delete role in this design. `enrolled_by` is attribution, not content integrity: an authorized writer can still enroll a misleading embedding. Semantic proof that an embedding is the intended person is out of scope for `reid-service`.
+- **Write-path rate limits.** Apply to POI insert, embedding append, PATCH, and delete so a compromised client that holds write credentials cannot flood enrollments or deletes (DoS / resource exhaustion). Rate limits do not decide whether a given vector is a truthful enrollment.
+
+---
+
+## 7. Alternatives Considered
+
+| Alternative                                                                   | Why it does not fit                                                                                     |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Keep ReID in-process and add a Controller HTTP facade                         | Does not fix cross-hierarchy lifecycle (4.3). Every ReID change stays a Controller release.             |
+| Extract only the VDMS/Qdrant adapters                                         | Splits one contract across the network. TIER 1 and validation belong with the adapters.                 |
+| Controller holds a synchronous RPC client to `reid-service` for the live loop | Live matching has no cross-service caller (5.1). Couples the Controller to `reid-service` availability. |
+| POI check inside `UUIDManager`'s per-frame loop                               | Lowest latency, and it puts POI logic back in the Controller (6.5).                                     |
+| Reuse ADR 15 `DATA_EXTERNAL` as-is for the correlation feed                   | Open (Section 11). The alternative is a dedicated publish path not gated by write-ownership policy.     |
+
+## 8. Consequences
+
+- The Controller circuit breaker is not ported. Degradation signaling is a follow-on (Section 11) and does not keep ReID in the Controller.
+- Trajectory persistence still needs per-descriptor storage of the camera ID and per-sighting timestamp supplied by Tracker (5.4).
+- POI data survives container restart only via a volume. Enrollment success is the 6.4 contract. There is no export or automated backend migration.
+
+## 9. Rollout / Migration Plan
+
+Ship `reid-service` behind a flag, dual-run against in-Controller ReID until parity gates pass, then delete the in-Controller path (ADR 13, same shape as Tracker). Env for TTL and purge interval, hierarchy write-health handoff, and metrics cutover are implementation details of that phase.
+
+Section 6 sequencing:
+
+- 6.1 before any other API.
+- `REID_COLLECTION_CREATE_TOKEN` and `REID_POI_WRITE_TOKEN` gate the baseline collection/POI write RPCs. Fine-grained operator roles, write-rate limits, and authorization for future delete APIs remain security follow-up (6.12). Tracker-subscription trust stays a separate open.
+- 6.8 after 6.4 and 6.6 (a collection must exist before it has a TTL).
+- 6.11 after `reid-service` persists the Tracker's per-sighting camera ID and timestamp (5.4). Stream Manager integration follows that, not the other way around.
+
+Other Section 6 subsections can be scheduled independently against Epic #221 or Epic #120.
+
+## 10. Testing & Monitoring
+
+Test new adapter behavior (per-collection TTL, count/list, trajectory query, 5.4 fields) through `ReIDDatabase` on both backends, plus transport-level tests for 6.1.
+
+OTel, not REST-only: match latency and backend duration (5.3), `Gallery_Size_Active_Persons` / `POI_Gallery_Size` (6.6), `POI_Match_Latency_ms` on the correlation daemon (6.5).
+
+## 11. Open Questions
+
+**Extraction**
+
+- **External transport.** Section 6 is specified as HTTP/gRPC, matching ADR 13. MQTT request/reply for that surface only is still open (5.1).
+- **Degradation signaling.** Detect degraded query performance so consumers stop using matches; when the cause is gallery volume, recommend purge or compaction. Signals, thresholds, and the consumer contract are not designed yet. Does not block extraction.
+- **Tracker stream gaps (5.4).** Embeddings are best-effort; a detection without `metadata.reid` has no fresh sighting. Tracker publishes camera ID, pixel bbox and per-sighting timestamp on fresh ReID detections, but `reid-service` still needs per-descriptor persistence for trajectory queries.
+- **MQTT trust for the Tracker subscription.** Broker ACL, topic auth, network policy, or a combination. Distinct from endpoint authN/authZ below.
+
+**API**
+
+- **Enrollment embedding extraction.** Ephemeral DL Streamer pipeline vs a synchronous extract API (6.4).
+- **Correlation feed.** ADR 15 `DATA_EXTERNAL` as-is vs a dedicated path (6.5).
+- **Stats scope.** Whole-collection `GET /collections/{name}/stats` vs `scene_id` / `camera_id` filters for v1 (6.6).
+
+**Security**
+
+- **authN/authZ mechanism.** Baseline collection creation and POI enrollment/append are gated by separate bearer tokens (`REID_COLLECTION_CREATE_TOKEN`, `REID_POI_WRITE_TOKEN`), but these are not fine-grained principals or roles. Fine-grained query-vs-operator authorization and write-path rate limits remain required before broad deployment. The listener is plaintext, so deployment still requires a trusted private network or TLS proxy. MQTT trust for the Tracker subscription is listed under Extraction above.
+
+## 12. References
+
+- [ADR 13 — Controller breakdown](../adr/0013-controller-breakdown-microservices.md), [ADR 7 — Tracker](../adr/0007-tracker-service.md), [ADR-10](../adr/0010-reid-metadata-storage-architecture.md), [ADR-11](../adr/0011-inner-product-reid-state-and-id-lineage.md), [ADR 14](../adr/0014-reid-descriptor-ttl-retention.md), [ADR 15](../adr/0015-hierarchy-reid-provenance.md)
+- [Epic #221](https://github.com/intel-retail/loss-prevention/issues/221), [Epic #120](https://github.com/intel-retail/storewide-loss-prevention/issues/120)
+- [Stream Manager design draft](https://github.com/open-edge-platform/scenescape/tree/tdorau/stream-manager-api-draft/docs/design/stream-manager)

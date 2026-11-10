@@ -18,6 +18,7 @@ import time
 from scene_common.mqtt import PubSub
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
@@ -32,7 +33,7 @@ NO_FPS_STATUS = "--"
 class WillOurShipGo(UserInterfaceTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
-    self.sceneName = self.params['scene']
+    self.sceneName = "Retail"
     self.sceneUID = self.params['scene_id']
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
@@ -80,9 +81,16 @@ class WillOurShipGo(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10435")
 def test_telemetry_button(scenescape_env, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
-  test.checkForMalfunctions()
+  try:
+    test.checkForMalfunctions()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
+
   assert test.exitCode == 0
   return
 

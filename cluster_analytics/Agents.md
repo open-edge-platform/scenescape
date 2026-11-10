@@ -357,7 +357,7 @@ cluster_analytics/
 │   └── service/                       # Component tests (Docker)
 │       ├── conftest.py
 │       ├── test_clustering_pipeline.py
-│       └── docker-compose.yaml
+│       └── compose.yml
 └── tools/
     └── webui/                         # Optional Flask+SocketIO WebUI
         ├── web_ui.py
@@ -417,6 +417,7 @@ docker stats cluster-analytics
 When modifying the service, verify:
 
 - [ ] Unit tests pass: `make run_unit_tests`
+- [ ] Cognitive complexity passes: `make complexity-check SERVICE=cluster_analytics`
 - [ ] DBSCAN produces expected clusters with test data
 - [ ] Cluster tracking maintains IDs across frames
 - [ ] State transitions (new → active → inactive) work correctly

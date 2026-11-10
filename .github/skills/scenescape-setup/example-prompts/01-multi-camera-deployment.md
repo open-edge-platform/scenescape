@@ -10,8 +10,8 @@ SPDX-License-Identifier: Apache-2.0
 ```text
 Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have
 live RTSP cameras — use these two recorded videos as the camera feeds instead:
-- cam1: https://github.com/open-edge-platform/scenescape/blob/main/sample_data/videos/qcam1.mp4
-- cam2: https://github.com/open-edge-platform/scenescape/blob/main/sample_data/videos/qcam2.mp4
+- cam1: https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam1.mp4
+- cam2: https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam2.mp4
 ```
 
 ## Expected agent behavior
@@ -19,7 +19,7 @@ live RTSP cameras — use these two recorded videos as the camera feeds instead:
 1. All Step 1 fields (`deploy_dir`, `scene_name`, and the two video sources mapped to
    `camera_ids`) are explicit in the prompt — no clarifying questions needed.
 2. Converts each GitHub blob URL to its raw download URL (e.g.
-   `https://raw.githubusercontent.com/open-edge-platform/scenescape/main/sample_data/videos/qcam1.mp4`)
+   `https://raw.githubusercontent.com/open-edge-platform/scenescape/main/sample_data/demo_scenes/Queuing/video/qcam1.mp4`)
    and downloads both videos autonomously (e.g. via `curl`/`wget`) into a local directory —
    never asks the user to supply the files or a live RTSP address.
 3. Recognizes there are no live RTSP cameras and calls `deploy_inputs.py write` with

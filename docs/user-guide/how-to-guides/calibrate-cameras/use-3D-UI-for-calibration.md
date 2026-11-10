@@ -40,12 +40,13 @@ Before you begin:
 
    ![camera-controls](../../_assets/ui/camera-controls.png "camera controls")
    **Camera Settings (all cameras)**:
-   - **project all frames**: Turn projections on or off for every camera at once.
+   - **project all sensors**: Turn projections on or off for every camera and LiDAR/radar sensor at once.
    - **all cameras opacity**: Set projection transparency for every camera at once (default 80%).
 
    **Camera Control Panel Options**:
    - **name**: Assign a custom name.
-   - **scene camera**: Set view to camera's perspective.
+   - **show sensor**: Toggle visibility of the camera or LiDAR frustum/mesh in the 3D scene.
+   - **scene camera**: Set view to this camera's perspective (cameras only; not shown for LiDAR/radar).
    - **toggle rotate/translate**: Switch between rotation and translation tools.
    - **project frame**: Display camera frame projected into the 3D scene.
    - **pause video**: Pause live camera feed.
@@ -67,6 +68,10 @@ Before you begin:
    ![camera-calibrated](../../_assets/ui/camera-calibrated.png "camera calibrated")
 
 5. Click save to persist the calibration.
+6. On the camera create or calibrate form, leave **Pose locked** checked for
+   fixed cameras so MQTT messages cannot override stored calibration. Uncheck
+   it for handheld or other cameras that publish live extrinsics and optics.
+   See [Camera Pose Lock](../../api-reference.md#camera-pose-lock).
 
    **Tips**:
    - Choose distinct, identifiable image features.
@@ -74,19 +79,43 @@ Before you begin:
 
 ## Configuration Options
 
-| Parameter           | Purpose                                | Expected Values                               |
-| ------------------- | -------------------------------------- | --------------------------------------------- |
-| camera_name         | Custom label for the camera            | String                                        |
-| extrinsics          | Camera position and orientation        | Matrix or 3D transform values                 |
-| intrinsics          | Lens configuration                     | fx, fy, cx, cy, etc.                          |
-| distortion          | Lens distortion coefficients           | k1, k2, p1, p2, etc.                          |
-| opacity             | Transparency of projected image        | 0.0 (transparent) to 1.0 (solid); default 0.8 |
-| project all frames  | Toggle projections for all cameras     | On / Off                                      |
-| all cameras opacity | Set projection opacity for all cameras | 0–100 (percent); default 80                   |
+| Parameter           | Purpose                                                                  | Expected Values                                              |
+| ------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| camera_name         | Custom label for the camera                                              | String                                                       |
+| Pose locked         | Camera form setting; ignore live MQTT extrinsics and optics when checked | Checked (locked) or unchecked (unlocked)                     |
+| extrinsics          | Camera position and orientation                                          | Matrix or 3D transform values                                |
+| intrinsics          | Lens configuration                                                       | fx, fy, cx, cy, etc.                                         |
+| distortion          | Lens distortion coefficients                                             | k1, k2, p1, p2, etc.                                         |
+| opacity             | Transparency of projected image                                          | 0.0 (transparent) to 1.0 (solid); default 0.8                |
+| project all sensors | Toggle projections for all cameras and LiDAR/radar sensors               | On / Off                                                     |
+| all cameras opacity | Set projection opacity for all cameras                                   | 0–100 (percent); default 80                                  |
+| project point cloud | Show live sensor point cloud in the 3D scene                             | On / Off (requires a publisher that answers `getpointcloud`) |
+| point size          | Rendered size of each cloud point                                        | metres (default 0.12)                                        |
+| point cloud opacity | Transparency of the point cloud                                          | 0–100 (percent); default 85                                  |
 
 ## Troubleshooting
 
 1. **Issue: If you use 3D UI Camera Calibration, the 8-points in 2D UI Camera Calibration will no longer be consistent with the current pose.**
+
+2. **Issue: A point-correspondence camera appears far above or below the scene.**
+
+   Check the saved point matches, lens intrinsics, and distortion coefficients.
+   The shared pose solver rejects outliers with RANSAC and initializes iterative
+   refinement from that estimated pose. This preserves the useful starting
+   solution when removing a point makes the remaining geometry poorly
+   conditioned. It applies to both manual and AprilTag-generated point matches.
+   Inspect reprojection error and the physical camera location before saving;
+   a finite pose alone does not establish a correct calibration.
+   The 2D calibration page uses a separate fitting endpoint. With all lens
+   parameters locked (including locks imposed by the point count), it uses
+   SQPNP to initialize a pose-only iterative reprojection refinement rather
+   than recalibrating the lens with `calibrateCamera`, avoiding its unstable
+   pose initialization.
+   A low fit RMS with no visible projection can also indicate a preview
+   handoff error: the 2D page must convert the fitted translation from scaled
+   map coordinates to viewport metres and retain that fit across video frames.
+   When the image resolution changes, the updated principal point is retained
+   for Save even after the preview fit completes.
 
 ## Supporting Resources
 

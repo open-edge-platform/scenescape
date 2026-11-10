@@ -12,11 +12,12 @@ from tests.utils.profiles import _host_has_dri, resolve_compose_files
 
 TEST_NAME = "NEX-T22100"
 
-_RETAIL = "tests/compose/dlstreamer/compose-retail_video.yml"
-_QUEUING = "tests/compose/dlstreamer/compose-queuing_video.yml"
-_OTHER = "tests/compose/compose-scene.yml"
-_RETAIL_DRI = "tests/compose/dlstreamer/compose-gpu-dri-retail.yml"
-_QUEUING_DRI = "tests/compose/dlstreamer/compose-gpu-dri-queuing.yml"
+_RETAIL = "tests/compose/dlstreamer/compose.retail-video.yml"
+_QUEUING = "tests/compose/dlstreamer/compose.queuing-video.yml"
+_OTHER = "tests/compose/compose.scene.yml"
+_POSITIONING = "tests/compose/compose.positioning.yml"
+_RETAIL_DRI = "tests/compose/dlstreamer/compose.gpu-dri-retail.yml"
+_QUEUING_DRI = "tests/compose/dlstreamer/compose.gpu-dri-queuing.yml"
 
 # S_IFMT / S_IFCHR as mode bits (stat.S_IFMT is a function in Python 3).
 _S_IFMT = 0o170000
@@ -45,7 +46,7 @@ def test_resolve_compose_files_skips_missing_dri(tmp_path):
   """No DRI overrides when the DRM path does not exist."""
   missing = tmp_path / "missing-dri"
   files = resolve_compose_files((_RETAIL, _QUEUING, _OTHER), dri_path=str(missing))
-  assert files == (_RETAIL, _QUEUING, _OTHER)
+  assert files == (_RETAIL, _QUEUING, _OTHER, _POSITIONING)
 
 
 def test_resolve_compose_files_skips_empty_dri_directory(tmp_path):
@@ -80,4 +81,30 @@ def test_resolve_compose_files_appends_overrides_for_char_devices(tmp_path):
 
   assert _RETAIL_DRI in files
   assert _QUEUING_DRI in files
+  assert _POSITIONING in files
   assert files.index(_RETAIL) < files.index(_RETAIL_DRI)
+
+
+def test_resolve_compose_files_adds_positioning_for_tracker(tmp_path):
+  """Tracker test profiles include the Positioning broker identity service."""
+  tracker = "tests/compose/compose.tracker.yml"
+  files = resolve_compose_files((tracker,), dri_path=str(tmp_path / "missing-dri"))
+  assert files == (tracker, _POSITIONING)
+
+
+def test_ptz_profiles_layer_the_controller_override_after_the_scene_service(tmp_path):
+  """PTZ Controller profiles override compose.scene.yml and still get the Positioning service."""
+  from tests.utils.profiles import PROFILE_REGISTRY, PTZ_ENFORCE, PTZ_SHADOW
+  expected = {
+    PTZ_ENFORCE.name: (PTZ_ENFORCE, "tests/compose/compose.scene-ptz.yml",
+                       "CONTROLLER_PTZ_ENABLED"),
+    PTZ_SHADOW.name: (PTZ_SHADOW, "tests/compose/compose.scene-ptz-shadow.yml",
+                      "CONTROLLER_PTZ_SHADOW_MODE"),
+  }
+  for name, (profile, override, flag) in expected.items():
+    assert PROFILE_REGISTRY[name] is profile
+    files = resolve_compose_files(profile.compose_files, dri_path=str(tmp_path / "missing-dri"))
+    assert files.index(_OTHER) < files.index(override)
+    assert _POSITIONING in files
+    with open(override, encoding="utf-8") as compose_file:
+      assert flag in compose_file.read()

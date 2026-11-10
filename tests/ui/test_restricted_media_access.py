@@ -8,6 +8,7 @@ from tests.ui import UserInterfaceTest
 from selenium.common.exceptions import WebDriverException
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -65,6 +66,7 @@ class WillOurShipGo(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10494")
 def test_restricted_media_access(scenescape_env, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
   test.checkForMalfunctions()

@@ -8,6 +8,22 @@ For high-level design, goals, SLIs, and observability details, see [Design Docum
 
 ---
 
+## Bounding Box Projection
+
+For each pixel bounding box, the tracker undistorts its top-left and bottom-right
+corners in one batch across detections. These two points define a rectangle in
+normalized image coordinates. The tracker projects that rectangle's bottom-center
+to the ground plane for the foot position; its bottom-left, bottom-right,
+and top-left determine object width and height. The foot is then shifted away
+from the camera by half the estimated object width to approximate the center
+of the object's footprint.
+
+For TYPE_2 objects, the tracker uses the projected bottom corners to calculate
+the base angle, then shifts the foot up within the normalized (undistorted)
+bounding box and projects that shifted point, matching Controller `camLoc`.
+
+---
+
 ## Time-Chunk Processing Pipeline
 
 The tracker aggregates detections into fixed time intervals (chunks) before processing. This enables multi-camera fusion, improves tracker efficiency, and decouples camera FPS from output rate.
@@ -238,6 +254,9 @@ struct BoundingBoxPx { double x, y, width, height; };
 struct Detection {
     std::optional<int64_t> id;  // Frame-local detection ID (optional)
     BoundingBoxPx bounding_box_px;
+    std::string metadata_json;  // Semantic metadata only
+    std::string reid_json;      // Normalized ReID object, separate from semantic metadata
+    std::optional<double> reid_confidence;
 };
 ```
 
@@ -263,6 +282,21 @@ When detections from multiple camera batches match one track, RobotVision merges
 
 RobotVision retains the selected metadata for the lifetime of the track. A value from a later chunk replaces the stored value only when it has strictly higher confidence. Missing fields, lower or equal confidence, and values without confidence do not replace stored metadata. If the stored value has no confidence, a new value with confidence replaces it.
 
+Transient fields are the exception: historical values never replace fresh
+measurements, and old ReID tokens cannot resolve into a later chunk's sighting.
+The generic policy, confidence selection, and companion-attribute handling live
+in RobotVision's `MetadataFusion.hpp` / `MetadataFusion.cpp` (C++17-compatible).
+
+At ingestion, `parse_detection_metadata` separates `Detection::reid_json` and
+its confidence from semantic `metadata_json`. `ReidSightingIndex` stores a vector
+of pointers to batches/detections owned by the current `Chunk`. Its optional
+`ReidSightingContext` lets coordinate transformation tag bbox detections with a
+`<chunk>:<index>` token, without serializing embeddings or complete sightings.
+After fusion, the worker resolves only published winners and lazily writes the
+sighting directly to a JSON writer. Each index can be consumed once; it is
+cleared before the chunk is destroyed. This lifetime is confined to
+`process_chunk`, including all OpenMP work and track conversion.
+
 ```cpp
 struct Chunk {
     std::string scene_id;
@@ -287,8 +321,56 @@ struct Track {
     std::array<double, 3> size;         // Object size [length, width, height] meters
     std::array<double, 4> rotation;     // Orientation quaternion [x, y, z, w]
     std::string metadata_json;          // Per-field fused detection metadata
+    std::string reid_sighting_json;     // Selected current-chunk sighting, if any
 };
 ```
+
+### Manager asset cache
+
+API-backed startup authenticates once, fetches scenes, and fetches
+`/api/v1/assets`. Each asset is parsed into a category-keyed `ObjectClassConfig`
+(`shift_type`, footprint size, and the `rotation_from_velocity` Boolean; a
+missing, null, or non-Boolean value disables it). The `ObjectClassMap` is passed
+to the `TimeChunkScheduler`, which resolves `TrackingScope.category` for each
+lazily created `TrackingWorker`. In file-backed mode, no Manager asset catalog
+is available, so `rotation_from_velocity` defaults to false. Asset changes are
+picked up through the existing API database update restart path.
+
+### Detection inputs and coordinate conversion
+
+The camera-data schema uses JSON Schema Draft-04 for RapidJSON compatibility,
+with `#/definitions/...` references and `minimum: 0` plus
+`exclusiveMinimum: true` for strictly positive size components. When schema
+validation is enabled, invalid detections reject the entire message before
+parsing, including mixed pixel-box and sensor-frame geometry.
+
+Detections can provide either `bounding_box_px` or `translation` plus `size`.
+Pixel boxes keep the existing camera-calibrated ground-plane projection. Direct
+3D detections provide sensor-frame position and dimensions in metres; the
+configured camera pose transforms XYZ into world coordinates. An optional
+`rotation` quaternion uses `[x, y, z, w]` order and is composed as camera-to-world
+rotation times detection rotation. RobotVision stores yaw only, so the composed
+world orientation is reduced to Z-yaw and marked with `has_orientation`.
+This also applies to bounding-box detections, whose rotation was previously
+ignored by the tracker; supplied orientation can now change their published rotation.
+
+### Rotation publishing
+
+For tracks with observed orientation, published yaw follows the Scene Controller
+`IntelLabsTracking.from_tracked_object` policy. At speeds below
+`rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE`, or when the
+wrapped yaw-to-velocity-heading error is at most
+`rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL`, publish Kalman
+yaw. Otherwise, publish velocity heading. This observed-orientation policy
+takes precedence over `rotation_from_velocity`; the fallback heading is not fed
+back into the Kalman filter.
+
+For tracks that have never received an orienting measurement,
+`rotation_from_velocity` controls the fallback. When enabled, each worker keeps
+velocity-orientation state per RobotVision track ID. It activates above
+`kRotationSpeedThresholdOn`, stays active above
+`kRotationSpeedThresholdOff`, and retains the last quaternion when it
+deactivates. When disabled, never-oriented tracks publish identity rotation.
 
 ### ObservabilityContext
 

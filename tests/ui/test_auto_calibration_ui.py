@@ -11,6 +11,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui import common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
@@ -55,6 +56,7 @@ def wait_for_image(browser, wait_time, image_id):
 
 # Timeouts for autocalibration-specific waits.
 AUTOCAL_RESULT_TIMEOUT_S = 120
+REGISTRATION_TIMEOUT_S = 180
 SAVE_TIMEOUT_S = 30
 RELOAD_TIMEOUT_S = 30
 
@@ -172,8 +174,11 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     assert wait_for_image(self.browser, wait_time, "camera_img")
     assert wait_for_image(self.browser, wait_time, "map_img")
 
-    autocal_button = wait_for_calibration(self.browser, wait_time)
-    assert autocal_button.is_enabled()
+    autocal_button = wait_for_calibration(self.browser, REGISTRATION_TIMEOUT_S)
+    assert autocal_button.is_enabled(), (
+      f"Auto-calibrate button not enabled within {REGISTRATION_TIMEOUT_S}s: "
+      f"{autocal_button.get_attribute('title')!r}"
+    )
     self.click_button_by_id("reset_points")
     time.sleep(1)
     # Snapshot current transforms so we can detect that save actually persisted.
@@ -225,7 +230,8 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     MAX_WAIT_TIME = 15
     assert self.login()
 
-    cam_url = "/cam/calibrate/4"
+    assert common.navigate_to_scene(self.browser, "Queuing")
+    cam_url = common.camera_calibrate_url(self.browser, "atag-qcam1")
     test_case_1 = self.checkForMalfunctions(cam_url, "Queuing", MAX_WAIT_TIME)
 
     if test_case_1:
@@ -250,6 +256,7 @@ def get_calibration_points_from_js(browser, canvas_type):
   print(f"Calibration points from {canvas_type}:", points)
   return points
 
+@pytest.mark.test_name("NEX-T15710")
 @common.mock_display
 def test_april_tag(scenescape_env, request, record_xml_attribute):
   """! Checks that a user can setup a scene with april tags.
@@ -258,10 +265,14 @@ def test_april_tag(scenescape_env, request, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T15710"
-  record_xml_attribute("name", TEST_NAME)
 
   test = AprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
-  test.execute_test()
+  try:
+    test.execute_test()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   assert test.exitCode == 0
   return test.exitCode

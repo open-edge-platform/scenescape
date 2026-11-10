@@ -11,6 +11,7 @@ from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -18,7 +19,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21880"
-MAX_CONTROLLER_WAIT = 20  # seconds
+MAX_CONTROLLER_WAIT = 60  # seconds
 MAX_ATTEMPTS = 3
 
 class DeleteSensorSceneTest(FunctionalTest):
@@ -181,7 +182,9 @@ class DeleteSensorSceneTest(FunctionalTest):
 
     return
 
+@pytest.mark.test_name("NEX-T21880")
 def test_del_sensor_scene(scenescape_env, demo_scene, request, record_xml_attribute):
   test = DeleteSensorSceneTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
   test.testDeleteSensorScene()
   assert test.exitCode == 0

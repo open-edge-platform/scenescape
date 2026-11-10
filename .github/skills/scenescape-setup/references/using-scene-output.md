@@ -84,6 +84,11 @@ any pipeline-detected attributes (age, gender, license plate, etc. depending on 
 `docs/user-guide/microservices/analytics/data_formats.md` in the SceneScape repo (section
 "Regulated Scene Output Message Format") for the full field reference.
 
+If you're also rendering positions yourself (not just viewing them in the SceneScape web UI), make
+sure your calibration and your renderer agree that world `(0, 0)` is the **bottom-left** corner of
+the scene, not the center — a mismatch won't error; it just makes the two views look inexplicably
+different. See [scene-and-cameras.md](./scene-and-cameras.md#scene-coordinate-convention).
+
 For a one-off application, poll this topic directly; for anything long-running, have the consumer
 app subscribe persistently rather than re-invoking `mosquitto_sub -C 1` in a loop.
 

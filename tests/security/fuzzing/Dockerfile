@@ -4,7 +4,7 @@
 # ---------------------------
 # Stage 1: Build RESTler and Python deps
 # ---------------------------
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 
 # Install Python and pip (using the .NET SDK image's underlying Debian)
 RUN apt-get update && \
@@ -28,7 +28,7 @@ RUN python3 -m compileall -b /build/engine
 # ---------------------------
 # Stage 2: Runtime
 # ---------------------------
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 
 # Install CA certs and Python (since RESTler needs Python)
 RUN apt-get update && \

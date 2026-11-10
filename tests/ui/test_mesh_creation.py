@@ -4,19 +4,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
-from tests.ui.browser import Browser, By
-import tests.ui.common_ui_test_utils as common
+
+import pytest
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from tests.utils.spec import FuncTestSpec
+
+import tests.ui.common_ui_test_utils as common
+from tests.ui.browser import Browser, By
 from tests.utils.profiles import FULL_STACK_WITH_MAPPING_AND_VIDEO
+from tests.utils.spec import FuncTestSpec
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_MAPPING_AND_VIDEO,
   require_password=True, auth="",
 )
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import TimeoutException
 
 MAX_ATTEMPTS = 10
 
@@ -68,19 +71,18 @@ def create_mesh_from_video(browser, video_file):
     raise AssertionError("Timed out waiting for mesh generation success alert from video")
   return
 
-def test_mesh_creation(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T30001")
+def test_mesh_creation(params, result_recorder):
   """ Test case to verify mesh creation from cameras and video file.
   @param    params                  Test parameters.
-  @param    record_xml_attribute     Function to record test attributes in XML report.
+  @param    result_recorder         Fixture for recording the test result.
   """
-  TEST_NAME = "NEX-T10470"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
+  browser = None
 
   try:
-    print("Executing: " + TEST_NAME)
+    print("Executing: NEX-T30001")
     browser = Browser()
-    video_file = "/workspace/sample_data/videos/apriltag-cam1.mp4"
+    video_file = "/workspace/sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4"
     assert common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     assert common.delete_camera(browser, "camera3")
@@ -100,11 +102,8 @@ def test_mesh_creation(params, record_xml_attribute):
     assert found, "generate_mesh button not found or not visible after retries"
     create_mesh_from_cameras(browser)
     create_mesh_from_video(browser, video_file)
-    exit_code = 0
+    result_recorder.success()
 
   finally:
-    browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
-  return
+    if browser is not None:
+      browser.quit()

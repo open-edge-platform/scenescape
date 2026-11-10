@@ -8,6 +8,7 @@ from openapi_spec_validator.readers import read_from_filename
 
 TEST_NAME = "NEX-T10572"
 
+@pytest.mark.test_name("NEX-T10572")
 @pytest.mark.basic_acceptance
 def test_validate_openapi(record_xml_attribute):
   """Validate the OpenAPI schema using openapi-spec-validator."""

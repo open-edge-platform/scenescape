@@ -10,8 +10,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
+#include <format>
+#include <map>
 #include <mutex>
 #include <thread>
 
@@ -317,6 +322,151 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_RespectsMaxScopesLimit) {
     EXPECT_GE(scheduler.scope_limit_drops(), 1);
 
     scheduler.stop();
+}
+
+// The scheduler resolves each scope's category in its ObjectClassMap: the same bbox publishes a
+// different world position for a TYPE_2 category than for an unlisted (TYPE_1) one.
+TEST_F(TimeChunkSchedulerTest, Dispatch_AppliesObjectClassPerCategory) {
+    TimeChunkBuffer buffer;
+    SceneRegistry registry;
+    Scene scene;
+    scene.uid = "scene-1";
+    scene.name = "Test Scene 1";
+    Camera cam;
+    cam.uid = "cam-1";
+    cam.name = "Camera 1";
+    cam.intrinsics = {905.0, 905.0, 640.0, 360.0, {0.0, 0.0, 0.0, 0.0}};
+    cam.extrinsics.translation = {0.0, 0.0, 3.0};
+    cam.extrinsics.rotation = {-90.0, 0.0, 0.0};
+    cam.extrinsics.scale = {1.0, 1.0, 1.0};
+    scene.cameras.push_back(cam);
+    registry.register_scenes({scene});
+
+    TrackingConfig config = createConfig(100, 10);
+    config.max_unreliable_time_s = 0.0;
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::map<std::string, std::array<double, 3>> positions;
+    PublishCallback callback = [&](const std::string&, const std::string&,
+                                   const std::string& category, const std::string&,
+                                   const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        if (!tracks.empty() && positions.try_emplace(category, tracks.front().translation).second) {
+            cv.notify_one();
+        }
+    };
+
+    const ObjectClassMap object_classes = {
+        {"plane", ObjectClassConfig{.shift_type = ObjectClassConfig::kShiftType2}}};
+    TimeChunkScheduler scheduler(buffer, registry, config, callback, makeSystemClock(),
+                                 object_classes);
+    scheduler.start();
+
+    std::unique_lock lock(mtx);
+    for (int i = 0; i < 20 && positions.size() < 2; ++i) {
+        lock.unlock();
+        for (const char* category : {"plane", "person"}) {
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+            batch.receive_time = std::chrono::steady_clock::now();
+            batch.detections.push_back(
+                Detection{.id = 1, .bounding_box_px = cv::Rect2f(600.0f, 400.0f, 80.0f, 200.0f)});
+            buffer.add({"scene-1", category}, "cam-1", std::move(batch));
+        }
+        lock.lock();
+        cv.wait_for(lock, std::chrono::milliseconds(100), [&] { return positions.size() == 2; });
+    }
+
+    ASSERT_EQ(positions.size(), 2u) << "Both categories should publish a reliable track";
+    const auto& plane = positions.at("plane");
+    const auto& person = positions.at("person");
+    EXPECT_GT(std::hypot(plane[0] - person[0], plane[1] - person[1]), 0.1)
+        << "TYPE_2 'plane' should project differently from TYPE_1 'person'";
+}
+
+// Scheduler reads rotation_from_velocity per category: true, false, and no asset entry.
+TEST_F(TimeChunkSchedulerTest, Dispatch_AppliesRotationFromVelocityPerCategory) {
+    TimeChunkBuffer buffer;
+    SceneRegistry registry;
+    Scene scene;
+    scene.uid = "scene-1";
+    scene.name = "Test Scene 1";
+    Camera cam;
+    cam.uid = "cam-1";
+    cam.name = "Camera 1";
+    cam.intrinsics = {905.0, 905.0, 640.0, 360.0, {0.0, 0.0, 0.0, 0.0}};
+    cam.extrinsics.translation = {0.0, 0.0, 3.0};
+    cam.extrinsics.rotation = {-90.0, 0.0, 0.0};
+    cam.extrinsics.scale = {1.0, 1.0, 1.0};
+    scene.cameras.push_back(cam);
+    registry.register_scenes({scene});
+
+    TrackingConfig config = createConfig(100, 10);
+    config.max_unreliable_time_s = 0.0;
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::map<std::string, int> publish_counts;
+    std::map<std::string, Track> last_tracks;
+    PublishCallback callback = [&](const std::string&, const std::string&,
+                                   const std::string& category, const std::string&,
+                                   const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        publish_counts[category]++;
+        if (!tracks.empty()) {
+            last_tracks[category] = tracks.front();
+        }
+        cv.notify_one();
+    };
+
+    const ObjectClassMap object_classes = {
+        {"car", ObjectClassConfig{.rotation_from_velocity = true}},
+        {"bike", ObjectClassConfig{.rotation_from_velocity = false}}};
+    constexpr std::array<const char*, 3> kCategories = {"car", "bike", "person"};
+    TimeChunkScheduler scheduler(buffer, registry, config, callback, makeSystemClock(),
+                                 object_classes);
+    scheduler.start();
+
+    constexpr int kFrames = 30;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    for (int i = 0; i < kFrames; ++i) {
+        const float foot_x = 1000.0f - 20.0f * static_cast<float>(i);
+        for (const char* category : kCategories) {
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp = std::chrono::system_clock::time_point{} + i * kFramePeriod;
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            batch.receive_time = std::chrono::steady_clock::now();
+            batch.detections.push_back(Detection{
+                .id = 1, .bounding_box_px = cv::Rect2f(foot_x - 20.0f, 520.0f, 40.0f, 80.0f)});
+            buffer.add({"scene-1", category}, "cam-1", std::move(batch));
+        }
+        std::unique_lock lock(mtx);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(1),
+                                [&] {
+                                    return std::ranges::all_of(kCategories, [&](const char* c) {
+                                        return publish_counts[c] > i;
+                                    });
+                                }))
+            << "Timed out waiting for frame " << i;
+    }
+    scheduler.stop();
+
+    for (const char* category : kCategories) {
+        ASSERT_TRUE(last_tracks.contains(category)) << category;
+        const auto& v = last_tracks.at(category).velocity;
+        ASSERT_GT(std::hypot(v[0], v[1]), kRotationSpeedThresholdOn) << category;
+    }
+    const auto& car = last_tracks.at("car");
+    EXPECT_GT(std::abs(2.0 * std::atan2(car.rotation[2], car.rotation[3])), 0.5)
+        << "rotation_from_velocity=true should publish the velocity heading";
+    constexpr std::array<double, 4> kIdentity = {0.0, 0.0, 0.0, 1.0};
+    EXPECT_EQ(last_tracks.at("bike").rotation, kIdentity)
+        << "rotation_from_velocity=false should publish identity rotation";
+    EXPECT_EQ(last_tracks.at("person").rotation, kIdentity)
+        << "Category without an asset entry should publish identity rotation";
 }
 
 TEST_F(TimeChunkSchedulerTest, WorkerCount_StartsAtZero) {

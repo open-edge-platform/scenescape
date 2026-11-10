@@ -48,25 +48,46 @@ Before adding imports or path setup in a new or modified test file:
 | Functional  | `tests/functional/`                             | Workflows with live REST/MQTT/DB             | `SCENESCAPE_SPEC` + `scenescape_env` |
 | Integration | `tests/functional/` or `tests/system/`          | Cross-service pipelines                      | Same as functional                   |
 | UI          | `tests/ui/`                                     | Browser/Selenium flows                       | `SCENESCAPE_SPEC` + `AUTH_BROWSER`   |
+| Non-functional | `tests/non_functional/`                      | Performance, build size/time, API contract   | `scenescape_env` + `result_recorder`  |
 | BAT         | functional/UI + `@pytest.mark.basic_acceptance` | Critical-path smoke                          | Same as parent category              |
 
 Read the matching reference under [Additional resources](#additional-resources) before writing a category.
 
 ## Hard requirements
 
-- **Zephyr ID**: every test suite/module needs `NEX-T#####` (`TEST_NAME` and/or `record_xml_attribute`).
+### Zephyr IDs (`@pytest.mark.test_name`) — CI source of truth
+
+CI enforces this via `make check-zephyr-ids` → `tests/scripts/check_zephyr_mapping.py`.
+That check **excludes** `tests/sscape_tests/` and fails on missing / invalid / duplicate
+`NEX-T#####` markers for every other collected test.
+
+| Category | `@pytest.mark.test_name("NEX-T#####")` |
+| -------- | ------------------------------------- |
+| Unit (`tests/sscape_tests/`, service `*/tests/`) | **Do not add.** CI does not require or check it. |
+| Functional, integration, UI, non_functional, BAT, perf | **Required** — unique per test method |
+
+- **Non-unit**: every test method needs its own unique `NEX-T#####`, plus `result_recorder`
+  using that same ID. Never share one NEX ID across multiple test methods in a module.
+- **Unit (mandatory agent rule)**: **never** add `@pytest.mark.test_name(...)`,
+  `TEST_NAME = "NEX-T…"`, or copy a sibling UI/functional Zephyr ID onto unit cases.
+  Existing unit files that omit markers are correct; do not “fix” them by adding IDs.
+- Details: [Conftest and Zephyr](references/conftest-and-zephyr.md).
+
+### Other requirements
+
 - **Functional/UI**: declare module-level `SCENESCAPE_SPEC = FuncTestSpec(...)` with the correct `ServiceProfile` from `tests/utils/profiles.py`.
 - **Naming**: files `test_*.py`, functions `test_*` (pytest norms).
 - **Markers that matter**:
   - `@pytest.mark.basic_acceptance` — BAT / `make run_basic_acceptance_tests`
-  - `@pytest.mark.preserve_db` — skip automatic DB restore
   - `@pytest.mark.kubernetes_only` — skipped on `--backend=docker`
+- **Isolation**: Create test data with the `scene_factory` fixture (auto-removes its scenes/cameras on teardown)
+  and clean up anything else the test mutates.
 
 ## Authoring checklist
 
 Before marking a test-authoring task complete:
 
-- [ ] Zephyr ID present
+- [ ] Non-unit tests: unique Zephyr ID on every test method; unit tests: **no** `test_name` / NEX-T markers
 - [ ] Positive and negative (or boundary) cases; at least one negative unless N/A
 - [ ] Correct category location and markers
 - [ ] Functional/UI declare `SCENESCAPE_SPEC`

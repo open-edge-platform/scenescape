@@ -11,7 +11,7 @@ The minimum required steps are:
 - Manager service Docker image is built. This can be done by running the command: `make manager` in the Scenescape repository root folder.
 - Secrets are generated. This can be done by running the command: `make init-secrets` in the Scenescape repository root folder.
 - Models are installed into a docker volume. This can be done by running the command: `make install-models` in the Scenescape repository root folder. Refer to the [model download documentation](../../model_download/README.md) for more details on model configuration.
-- Volume with sample video files is created with `make init-sample-data`.
+- Volume with sample video files is created with `make init-pipeline-runner-videos`.
 - Python dependencies are installed: `pip install -r tools/pipeline_runner/requirements.txt`.
 
 Building Scenescape will perform all the above steps and additionally build all images.
@@ -20,7 +20,7 @@ The commands below will perform all the above steps and additionally build all i
 
 ```
 make install-models PRECISIONS=FP32
-make init-sample-data
+make init-pipeline-runner-videos
 ```
 
 ## Basic usage
@@ -111,7 +111,7 @@ export GST_DEBUG_FILE=/tmp/trace.log
 
 > **Note**: For guidance on GStreamer debug levels and general debugging of GStreamer applications, see the [Troubleshooting](#troubleshooting) section.
 
-Enable the following setting in the [Docker Compose file](./docker-compose-ppl.yaml):
+Enable the following setting in the [Docker Compose file](./compose.ppl.yml):
 
 ```
 services:
@@ -138,7 +138,7 @@ Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.
 
 ### Disabling latency tracer
 
-To disable the latency tracer, unset the environment variables `GST_DEBUG`, `GST_TRACERS`, and `GST_DEBUG_FILE` and comment out the volume mount in the [Docker Compose file](./docker-compose-ppl.yaml):
+To disable the latency tracer, unset the environment variables `GST_DEBUG`, `GST_TRACERS`, and `GST_DEBUG_FILE` and comment out the volume mount in the [Docker Compose file](./compose.ppl.yml):
 
 ```
 services:

@@ -42,6 +42,7 @@ function main() {
   const canvas = document.getElementById("scene");
   const sceneID = document.getElementById("scene-id").value;
   const isStaff = document.getElementById("is-staff");
+  const isSuperuser = document.getElementById("is-superuser");
   const sceneName = document.getElementById("scene-name").value;
   const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
@@ -103,6 +104,8 @@ function main() {
   const panel = new GUI({ width: 310 });
   const panelSettings = {
     "show tracked objects": showTrackedObjects,
+    "show platform frustums": true,
+    "show association windows": false,
     "light intensity": lightIntensity,
   };
   panel.domElement.id = "panel-3d-controls";
@@ -112,6 +115,17 @@ function main() {
       showTrackedObjects = visibility;
       assetManager.setMarksVisibility(visibility);
     }).$widget.id = "tracked-objects-button";
+  panel
+    .add(panelSettings, "show platform frustums")
+    .onChange(function (visibility) {
+      if (assetManager) assetManager.setFrustumsVisible(visibility);
+    }).$widget.id = "platform-frustums-button";
+
+  panel
+    .add(panelSettings, "show association windows")
+    .onChange(function (visibility) {
+      assetManager.setAssociationWindowsVisibility(visibility);
+    }).$widget.id = "association-windows-button";
 
   // Add light intensity control
   panel
@@ -142,7 +156,7 @@ function main() {
     renderer,
     raycaster,
     orbitControls,
-    sceneViewCamera,
+    () => sceneViewCamera,
   );
 
   const camerasFolder = panel.addFolder("Camera Settings");
@@ -188,37 +202,69 @@ function main() {
 
   const DEFAULT_CAMERA_OPACITY = 80;
   const cameraPanelSettings = {
-    "project all frames": false,
+    "project all sensors": false,
     "all cameras opacity": DEFAULT_CAMERA_OPACITY,
   };
 
-  camerasFolder
-    .add(cameraPanelSettings, "project all frames")
+  const projectAllSensorsControl = camerasFolder
+    .add(cameraPanelSettings, "project all sensors")
     .onChange(function (visibility) {
       const cm = sceneThingManagers.things.camera.obj;
       if (!cm) return;
       for (const key in cm.sceneCameras) {
-        if (key !== "undefined" && cm.sceneCameras[key]) {
-          cm.sceneCameras[key].executeOnControl("project frame", (control) => {
-            if (control[0]) control[0].setValue(visibility);
-          });
-        }
+        const cam = cm.sceneCameras[key];
+        if (key === "undefined" || !cam) continue;
+        const controlName = cam.isPointCloudSensor
+          ? "project point cloud"
+          : "project frame";
+        cam.executeOnControl(controlName, (control) => {
+          if (control[0]) control[0].setValue(visibility);
+        });
       }
-    }).$widget.id = "project-all-frames";
+    });
+  projectAllSensorsControl.$widget.id = "project-all-sensors";
 
-  camerasFolder
+  const allCamerasOpacityControl = camerasFolder
     .add(cameraPanelSettings, "all cameras opacity", 0, 100, 1)
     .onChange(function (weight) {
       const cm = sceneThingManagers.things.camera.obj;
       if (!cm) return;
       for (const key in cm.sceneCameras) {
         if (key !== "undefined" && cm.sceneCameras[key]) {
+          if (cm.sceneCameras[key].isPointCloudSensor) continue;
           cm.sceneCameras[key].executeOnControl("opacity", (control) => {
             if (control[0]) control[0].setValue(weight);
           });
         }
       }
-    }).$input.id = "all-cameras-opacity";
+    });
+  allCamerasOpacityControl.$input.id = "all-cameras-opacity";
+
+  function refreshGlobalCameraPanelControls() {
+    const cm = sceneThingManagers.things.camera.obj;
+    let hasCamera = false;
+    let hasSensor = false;
+    if (cm) {
+      for (const key in cm.sceneCameras) {
+        const cam = cm.sceneCameras[key];
+        if (key === "undefined" || !cam) continue;
+        hasSensor = true;
+        if (!cam.isPointCloudSensor) hasCamera = true;
+      }
+    }
+    if (hasSensor) {
+      projectAllSensorsControl.show();
+    } else {
+      projectAllSensorsControl.hide();
+    }
+    if (hasCamera) {
+      allCamerasOpacityControl.show();
+    } else {
+      allCamerasOpacityControl.hide();
+    }
+  }
+
+  refreshGlobalCameraPanelControls();
 
   // Ambient scene lighting
   const ambientColor = 0xa0a0a0; // Brighter ambient for more vibrant colors
@@ -259,6 +305,8 @@ function main() {
 
     connectMQTT();
 
+    refreshGlobalCameraPanelControls();
+
     const checkboxes = panel.domElement.querySelectorAll(
       'input[type="checkbox"',
     );
@@ -278,6 +326,7 @@ function main() {
     orbitControls,
     axesHelper,
     isStaff,
+    isSuperuser,
   );
   sceneThing.loadMap(gltfLoader, loadThings, sceneBoundingBox);
 
@@ -327,6 +376,7 @@ function main() {
     for (const checkbox of checkboxes) {
       checkbox.classList.add("lil-gui-toggle");
     }
+    refreshGlobalCameraPanelControls();
   }
 
   // MQTT Client
@@ -357,12 +407,14 @@ function main() {
         console.log(
           "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+"),
         );
+        client.subscribe(appName + CONSTANTS.POINTCLOUD_CAMERA + "+");
+        console.log(
+          "Subscribed to " + (appName + CONSTANTS.POINTCLOUD_CAMERA + "+"),
+        );
         client.subscribe(appName + CONSTANTS.CMD_DATABASE);
         console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
-        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
-        console.log(
-          "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
-        );
+        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+");
+        console.log("Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+"));
 
         // Subscribe to singleton sensor data - only for sensors in this scene
         const sensorManager = sceneThingManagers["things"]["sensor"]["obj"];
@@ -403,7 +455,6 @@ function main() {
     client.on("error", (e) => {
       console.log("MQTT error: " + e);
     });
-
     assetManager = AssetManager(
       scene,
       subscribeToTracking,
@@ -531,18 +582,37 @@ function main() {
     }
 
     if (topic.includes(CONSTANTS.DATA_REGULATED)) {
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager) {
+        cameraManager.updatePoses(msg.cameras);
+      }
       if (showTrackedObjects) {
         // Plot the marks
         assetManager.plot(msg);
       }
     } else if (topic.includes(CONSTANTS.CMD_DATABASE)) {
       assetManager.loadAssets(gltfLoader, true);
-      cameraManager.refresh(client, appName + CONSTANTS.CMD_CAMERA);
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager) {
+        cameraManager
+          .syncWithDatabase(
+            sceneThingManagers.things.camera,
+            client,
+            appName,
+            isVARunning,
+          )
+          .then(({ added, removed }) => {
+            if (added.length || removed.length) {
+              refreshGlobalCameraPanelControls();
+            }
+            cameraManager.refresh(client, appName + CONSTANTS.CMD_CAMERA);
+          })
+          .catch((err) => console.error("Camera sync failed:", err));
+      }
     } else if (topic.includes(CONSTANTS.IMAGE_CAMERA)) {
       const id = topic.split("camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];
       if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
-        cameraManager.sceneCameras[id].currentFrame = msg.image;
         cameraManager.sceneCameras[id].projectCameraCapture(
           "data:image/png;base64," + msg.image,
           msg,
@@ -554,14 +624,17 @@ function main() {
           client.publish(appName + CONSTANTS.CMD_CAMERA + id, "getimage");
         }
       }
-    } else if (topic.includes(CONSTANTS.DATA_CAMERA)) {
-      const id = topic.split("/")[4];
+    } else if (topic.includes(CONSTANTS.POINTCLOUD_CAMERA)) {
+      const id = topic.split("camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];
       if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
-        cameraManager.sceneCameras[id].updateDistortion(msg.distortion);
-        if (cameraManager.sceneCameras[id].fovEnabled === false) {
-          cameraManager.sceneCameras[id].updateIntrinsics(msg.intrinsics);
-        }
+        cameraManager.sceneCameras[id].projectPointCloudCapture(msg);
+      }
+    } else if (topic.includes(CONSTANTS.DATA_CAMERA)) {
+      const id = topic.split("/data/camera/")[1];
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
+        cameraManager.sceneCameras[id].updateOptics(msg);
       }
     } else if (topic.includes(CONSTANTS.EVENT)) {
       let analyticsName = topic.split("/")[2];
