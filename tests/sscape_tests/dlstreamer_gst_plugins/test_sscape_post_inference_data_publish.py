@@ -31,10 +31,12 @@ import sscape_post_inference_data_publish as pubmod  # noqa: E402
 class TestTrackImages:
   """Exercise the real worker and JPEG encoder without GStreamer or a broker."""
 
+  @pytest.mark.parametrize('live_view_width', [320, 160])
   @pytest.mark.parametrize('with_tracks', [True, False])
-  def test_requested_image(self, connected_element, monkeypatch, with_tracks):
+  def test_requested_image(self, connected_element, monkeypatch, with_tracks, live_view_width):
     element = connected_element
     element.do_set_property(make_prop('annotate-track-ids'), True)
+    element.do_set_property(make_prop('live-view-width'), live_view_width)
     element.do_set_property(make_prop('track-wait-ms'), 0)
     timestamp = '2026-11-02T12:00:00.000Z'
     gid = '12345678-abcd-1234-abcd-123456789012'
@@ -58,7 +60,10 @@ class TestTrackImages:
       assert payload['timestamp'] == timestamp
       assert payload['track_ids'] == ([gid] if with_tracks else [])
       jpeg = np.frombuffer(base64.b64decode(payload['image']), dtype=np.uint8)
-      assert cv2.imdecode(jpeg, cv2.IMREAD_COLOR).shape == image.shape
+      scale = live_view_width / image.shape[1]
+      assert payload['resolution'] == [image.shape[1], image.shape[0]]
+      assert cv2.imdecode(jpeg, cv2.IMREAD_COLOR).shape == (
+        int(image.shape[0] * scale), live_view_width, 3)
       assert not np.any(image), 'Capture must not modify the source image'
     finally:
       worker = element._image_worker
@@ -193,7 +198,19 @@ class TestProperties:
     assert element.do_get_property(make_prop("publish-image")) is False
     assert element.do_get_property(make_prop("detection-labels")) == ""
     assert element.do_get_property(make_prop("mqtt-port")) == 1883
+    assert element.do_get_property(make_prop("live-view-width")) == 960
+    assert element.do_get_property(make_prop("live-view-quality")) == 65
 
+  def test_set_and_get_live_view_settings(self, element):
+    element.do_set_property(make_prop("live-view-width"), "1280")
+    element.do_set_property(make_prop("live-view-quality"), "80")
+    assert element.do_get_property(make_prop("live-view-width")) == 1280
+    assert element.do_get_property(make_prop("live-view-quality")) == 80
+
+  def test_live_view_properties_are_bounded(self):
+    props = SscapePostInferenceDataPublish.__gproperties__
+    assert props["live-view-width"][3:5] == (1, 65535)
+    assert props["live-view-quality"][3:5] == (1, 100)
   def test_set_and_get_cameraid(self, element):
     element.do_set_property(make_prop("cameraid"), "cam-42")
     assert element.do_get_property(make_prop("cameraid")) == "cam-42"
@@ -632,3 +649,89 @@ class TestProcessBuffer:
     result = connected_element.do_transform_ip(MagicMock())
 
     assert result == pubmod.Gst.FlowReturn.OK
+
+
+class TestBuildImageData:
+
+  @staticmethod
+  def _build(element, monkeypatch, annotate, width=3840, height=2160):
+    frame = np.random.default_rng(0).integers(
+      0, 255, (height, width, 3), dtype=np.uint8
+    )
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    out = {}
+    element._build_image_data(out, MagicMock(), annotate)
+    jpeg = base64.b64decode(out["image"])
+    return cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR), len(jpeg)
+
+  def test_live_view_image_is_downscaled(self, element, monkeypatch):
+    image, live_size = self._build(element, monkeypatch, annotate=True)
+    _, full_size = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (540, 960)
+    assert live_size < full_size / 10
+
+  def test_live_view_settings_change_the_preview(self, element, monkeypatch):
+    element.do_set_property(make_prop("live-view-width"), 1280)
+    image, default_quality_size = self._build(element, monkeypatch, annotate=True)
+    element.do_set_property(make_prop("live-view-quality"), 20)
+    _, low_quality_size = self._build(element, monkeypatch, annotate=True)
+
+    assert image.shape[:2] == (720, 1280)
+    assert low_quality_size < default_quality_size
+
+  def test_calibration_image_ignores_live_view_settings(self, element, monkeypatch):
+    element.do_set_property(make_prop("live-view-width"), 640)
+    image, _ = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (2160, 3840)
+
+  def test_live_view_image_smaller_than_limit_is_not_resized(self, element, monkeypatch):
+    image, _ = self._build(element, monkeypatch, annotate=True, width=640, height=480)
+    assert image.shape[:2] == (480, 640)
+
+  def test_calibration_image_keeps_full_resolution(self, element, monkeypatch):
+    image, _ = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (2160, 3840)
+
+  @pytest.mark.parametrize("annotate", [True, False])
+  def test_message_reports_native_resolution(self, element, monkeypatch, annotate):
+    frame = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    out = {}
+    element._build_image_data(out, MagicMock(), annotate)
+    assert out["resolution"] == [3840, 2160]
+
+  @staticmethod
+  def _live_view(element, monkeypatch, objects, **frame_data):
+    frame = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    element._frame_level_data = {"objects": objects, "rate": 0.0, **frame_data}
+    out = {}
+    element._build_image_data(out, MagicMock(), True)
+    return cv2.imdecode(np.frombuffer(base64.b64decode(out["image"]), np.uint8), cv2.IMREAD_COLOR)
+
+  def test_live_view_annotations_follow_the_downscale(self, element, monkeypatch):
+    box = {"x": 1920, "y": 1080, "width": 800, "height": 400}
+    image = self._live_view(element, monkeypatch, {"person": [{"bounding_box_px": box}]})
+
+    # Native (1920, 1080) maps to (480, 270) at 960 px wide; the box is red (BGR 0, 0, 255).
+    top_edge = image[266:275, 500:600]
+    assert top_edge[..., 2].max() > 150
+    assert image[200:260, 500:600].max() < 60
+    assert image[100:, 700:].max() < 60
+
+  def test_live_view_car_annotations_follow_the_downscale(self, element, monkeypatch):
+    car = {
+      "translation": [0.0, 0.0, 10.0],
+      "size": [2.0, 2.0, 4.0],
+      "license_plates": [{"bounding_box_px": {"x": 1000, "y": 1500, "width": 200, "height": 100}}],
+    }
+    image = self._live_view(
+      element, monkeypatch, {"car": [car]},
+      initial_intrinsics=[1000, 0, 1920, 0, 1000, 1080, 0, 0, 1],
+    )
+
+    # Cuboid centre (1920, 1080) -> (480, 270); plate (1000, 1500) -> (250, 375).
+    assert image[170:370, 380:580].max() > 100
+    assert image[372:380, 260:290].max() > 100
+    assert image[100:, 700:].max() < 60
+

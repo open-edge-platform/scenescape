@@ -135,6 +135,49 @@ TEST_F(ScenarioRecorderTest, RecordsScenarioFiles)
   EXPECT_NE(estimator.back().find(R"("timestamp":"1970-01-01T00:00:01.500000Z")"), std::string::npos);
 }
 
+TEST_F(ScenarioRecorderTest, RecordsTrackerRun)
+{
+  constexpr double kFps = 10.0;
+  const auto car = Trajectory({.speed = 2.0, .box = kCar}).straight(1.5).sample(kFps);
+  const auto person = Trajectory({.y = 10.0, .speed = 1.0, .box = kPerson}).straight(1.5).sample(kFps);
+  Sensor camera;
+  {
+    ScenarioRecorder recorder("tracker", mRoot);
+    recorder.truth(car, 1);
+    recorder.truth(person, 2);
+    auto observations = observe(car, camera, 1);
+    const auto personObservations = observe(person, camera, 2);
+    observations.insert(observations.end(), personObservations.begin(), personObservations.end());
+    TrackerRun run(positionMahalanobisAssociation(), kFps, productionTrackerConfig(), &recorder);
+    run.play(sampleTimes(car), observations);
+  }
+
+  const auto directory = mRoot / "ScenarioRecorderTest.RecordsTrackerRun" / "tracker";
+  const auto groundTruth = readLines(directory / "groundtruth.jsonl");
+  ASSERT_EQ(groundTruth.size(), car.size());
+  EXPECT_EQ(countContaining(groundTruth, R"("id":2,"category":"person")"), car.size());
+
+  // One frame per timestamp, detections grouped by the category of their object.
+  const auto detections = readLines(directory / "detections.jsonl");
+  ASSERT_EQ(detections.size(), car.size());
+  EXPECT_NE(detections.front().find(R"("objects":{"person":[{"id":2,)"), std::string::npos);
+  EXPECT_NE(detections.front().find(R"("vehicle":[{"id":1,)"), std::string::npos);
+
+  // Tracks are published once reliable: corrected in 10 frames (1 s), i.e. from 1.0 s to 1.5 s.
+  const auto tracks = readLines(directory / "tracks.jsonl");
+  ASSERT_EQ(tracks.size(), 6U);
+  EXPECT_NE(tracks.front().find(R"("timestamp":"1970-01-01T00:00:01.000000Z")"), std::string::npos);
+  EXPECT_EQ(countContaining(tracks, R"({"id":"1","category":"vehicle",)"), tracks.size());
+  EXPECT_EQ(countContaining(tracks, R"({"id":"2","category":"person",)"), tracks.size());
+
+  // A config per track with the association gate, then one predicted step per track and published frame.
+  const auto estimator = readLines(directory / "estimator.jsonl");
+  ASSERT_EQ(estimator.size(), 2 + 2 * tracks.size());
+  EXPECT_TRUE(estimator.front().ends_with(
+    R"("association":{"method":"position_mahalanobis","gate_probability":0.99,"max_radius_m":10}})"));
+  EXPECT_EQ(countContaining(estimator, R"("z_pred":[)"), 2 * tracks.size());
+}
+
 TEST_F(ScenarioRecorderTest, WithoutDirectoryRecordsNothing)
 {
   const auto truth = Trajectory({.speed = 1.0, .box = kPerson}).straight(0.5).sample(10.0);

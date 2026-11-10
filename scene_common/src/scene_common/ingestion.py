@@ -207,6 +207,7 @@ class SceneDataIngestion:
     obj.visibility = obj_data.get('visibility')
     obj._visibility_from_producer = bool(obj.visibility)
     self._set_observation_info(obj, obj_data)
+    obj.association_window = obj_data.get('association_window')
 
     # Reconstruct bbMeters from size when available
     if obj.size and len(obj.size) == 3:

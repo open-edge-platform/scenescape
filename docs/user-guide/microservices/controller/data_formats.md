@@ -704,6 +704,7 @@ tracked object contains the following fields:
 | `first_seen`           | string (ISO 8601)          | Timestamp when the track was first created                                                                                                                                                                                                                       |
 | `metadata`             | object                     | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
 | `camera_bounds`        | object                     | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
+| `association_window`   | object or absent           | Association gate geometry for UI visualization. Present when the producer publishes gate parameters. See note below.                                                                                                                                             |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)
@@ -754,6 +755,22 @@ subject to the existing identity-collision checks.
 > separately as `{"object": <track>, "dwell": <seconds>}` in the top-level `exited` array.
 > See [Regulated Scene Output Message Format](../analytics/data_formats.md#regulated-scene-output-message-format)
 > for full format details.
+
+> **Note on `association_window`**: Produced by the Scene Controller and Tracker service so
+> the Manager 2D/3D UI can draw association gates. Shape depends on `association.method`:
+>
+> - `euclidean` → `{method, shape: "circle", radius_m}` where `radius_m` is `max_radius_m`; without
+>   it, the Scene Controller's gate, the average `tracking_radius` of the frame's objects
+> - `position_mahalanobis` → `{method, shape: "ellipse", semi_major_m, semi_minor_m, angle_rad}`
+>   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`), with each
+>   semi-axis clipped to `max_radius_m` so the drawn region stays inside the hard association ceiling
+>
+> `angle_rad` is the major-axis orientation in the scene XY plane (radians from +X toward +Y),
+> defined modulo π: the ellipse is the same after a half turn.
+> The window has no centre of its own: the UIs draw it at the object's published (corrected)
+> `translation`, while the gate is centred on the predicted position. The drawing is exact for a
+> track without a detection in that frame and off by the Kalman correction otherwise.
+> Analytics passes the field through on regulated scene output when present.
 
 ## Data Scene Output Message Format
 

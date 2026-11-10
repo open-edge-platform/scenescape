@@ -71,10 +71,11 @@ only skips the TrackEval plots, with a warning.
 
 - `overview`: the whole scene, ground-truth boxes (black, dashed) and track boxes with heading and trail. Objects
   without a size are points.
-- `zoom_<ID>`: follows one object and adds the track's predicted position, the 99% confidence ellipse of that position
-  (XY block of the predicted measurement covariance S of the most probable model) and its velocity arrow (1 s of
-  motion). The ellipse is not the association gate: the Controller and the Tracker associate by a Euclidean radius
-  (2 m in the Tracker).
+- `zoom_<ID>`: follows one object and adds the track's predicted position, an ellipse around it and its velocity arrow
+  (1 s of motion). For tracker-level recordings (`AssociationScenarioTest`) the ellipse is the track's association
+  gate: the χ² ellipse of the XY block of the predicted measurement covariance S (most probable model) for
+  `position_mahalanobis`, without the `max_radius_m` ceiling, or a circle of `max_radius_m` for `euclidean`. Otherwise
+  it is the 99% confidence ellipse of S.
 
 ### Options
 
@@ -91,12 +92,12 @@ only skips the TrackEval plots, with a warning.
 
 ### Input files
 
-| Recorder file       | Pipeline run file            | Content                                                                                                           |
-| ------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `groundtruth.jsonl` | `dataset/ground_truth.jsonl` | [Ground truth](../README.md#ground-truth-format-canonical-jsonl); the recorder adds size, heading, velocity, etc. |
-| `detections.jsonl`  | `harness/inputs.jsonl`       | [Input detections](../README.md#input-detection-format); only 3D detections are shown, in recordings only         |
-| `tracks.jsonl`      | `harness/outputs.jsonl`      | [Tracker output](../README.md#tracker-output-format)                                                              |
-| `estimator.jsonl`   | –                            | Per track a `config` line, then per filter step model probabilities, state, P, predicted measurement and S        |
+| Recorder file       | Pipeline run file            | Content                                                                                                                                         |
+| ------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `groundtruth.jsonl` | `dataset/ground_truth.jsonl` | [Ground truth](../README.md#ground-truth-format-canonical-jsonl); the recorder adds size, heading, velocity, etc.                               |
+| `detections.jsonl`  | `harness/inputs.jsonl`       | [Input detections](../README.md#input-detection-format); only 3D detections are shown, in recordings only                                       |
+| `tracks.jsonl`      | `harness/outputs.jsonl`      | [Tracker output](../README.md#tracker-output-format)                                                                                            |
+| `estimator.jsonl`   | –                            | Per track a `config` line (with `association` for tracker-level runs), then per step model probabilities, state, P, predicted measurement and S |
 
 Any file may be missing. Tracks are paired with ground-truth objects by position with `match_tracks()` from
 [utils/tracks.py](../utils/tracks.py), so their ids may differ; frames count from the first track or ground-truth
