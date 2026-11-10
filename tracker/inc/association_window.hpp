@@ -19,7 +19,8 @@ namespace tracker {
  * @brief Association gate geometry for UI visualization (MQTT association_window).
  *
  * Euclidean → circle of radius max_radius_m.
- * Position Mahalanobis → χ² (df=2) ellipse of the XY block of S_pred.
+ * Position Mahalanobis → χ² (df=2) ellipse of the XY block of S_pred, with each semi-axis
+ * clipped to max_radius_m so the drawn region stays inside the hard association ceiling.
  * Matching itself gates in 3D (df=3); the published window is the XY projection.
  */
 struct AssociationWindow {
@@ -59,8 +60,9 @@ inline AssociationWindow buildAssociationWindow(const AssociationConfig& config,
     const double vy = eigenvectors.at<double>(0, 1);
 
     window.shape = "ellipse";
-    window.semi_major_m = std::sqrt(chi2 * lambda_major);
-    window.semi_minor_m = std::sqrt(chi2 * lambda_minor);
+    // An ellipse with both semi-axes ≤ R lies inside the disk of radius R used as the hard gate.
+    window.semi_major_m = std::min(std::sqrt(chi2 * lambda_major), config.max_radius_m);
+    window.semi_minor_m = std::min(std::sqrt(chi2 * lambda_minor), config.max_radius_m);
     window.angle_rad = std::atan2(vy, vx);
     return window;
 }

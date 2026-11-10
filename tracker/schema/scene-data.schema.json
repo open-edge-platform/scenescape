@@ -166,6 +166,10 @@
           "description": "Optional per-camera pixel bounding boxes when the producer supplies them",
           "additionalProperties": true
         },
+        "source_id": {
+          "type": "string",
+          "description": "Identifier of the external source that produced this observation; matches the external contract's source_id"
+        },
         "prev_translation": {
           "type": "array",
           "description": "Previous world position [x, y, z] in meters when available",
@@ -185,7 +189,7 @@
         },
         "association_window": {
           "type": "object",
-          "description": "Association gate geometry for UI visualization. Euclidean association is a circle of radius max_radius_m; position_mahalanobis is the χ² ellipse of the track's predicted XY measurement covariance. Drawn at the published (corrected) translation; the gate is centred on the predicted position, off by the Kalman correction when the track was measured in that frame.",
+          "description": "Association gate geometry for UI visualization. Euclidean association is a circle of radius max_radius_m; position_mahalanobis is the χ² ellipse of the track's predicted XY measurement covariance with each semi-axis clipped to max_radius_m. Drawn at the published (corrected) translation; the gate is centred on the predicted position, off by the Kalman correction when the track was measured in that frame.",
           "properties": {
             "method": {
               "type": "string",

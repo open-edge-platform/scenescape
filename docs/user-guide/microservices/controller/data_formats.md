@@ -254,15 +254,117 @@ publishes over authenticated MQTT, see
 
 ### External Source Top-Level Fields
 
-| Field        | Type                  |  Required   | Description                                                                                                                                                                                                                                                                                |
-| ------------ | --------------------- | :---------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `timestamp`  | string (ISO 8601 UTC) |     Yes     | Time the observations (and pose, if present) were acquired                                                                                                                                                                                                                                 |
-| `source_id`  | string                |     Yes     | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                                                       |
-| `objects`    | array                 |     Yes     | Observed objects, in the source's local coordinate frame, or camera-style pixel detections when `bounding_box_px` is used (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update                                         |
-| `pose`       | object                | Conditional | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` (Cartesian and pixel detections alike) |
-| `intrinsics` | object                | Conditional | Sensor intrinsics used to localize `bounding_box_px` detections with the same algorithm as detector-topic payloads; may be omitted to reuse the most recently cached, non-expired intrinsics for this `source_id` (same cache entry and TTL as pose)                                       |
-| `distortion` | object                |     No      | Optional distortion coefficients paired with `intrinsics` for external pixel detections; cached with intrinsics when provided                                                                                                                                                              |
-| `track`      | boolean               |     No      | When present, applies to **all** `objects[*]` in the message. `false` bypasses Scenescape tracking and preserves source object ids; `true` (or lack of this attrtibute) routes all objects through the normal tracking path                                                                |
+| Field        | Type                  |  Required   | Description                                                                                                                                                                                                                                                                   |
+| ------------ | --------------------- | :---------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`  | string (ISO 8601 UTC) |     Yes     | Time the observations (and pose, if present) were acquired                                                                                                                                                                                                                    |
+| `source_id`  | string                |     Yes     | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                                          |
+| `objects`    | array                 | Conditional | Source/body-relative observations; required only when `cameras` is omitted. May be empty for a pose-only update. Camera-specific detections belong in their camera entry's `objects` array. See [External Detection Object Fields](#external-detection-object-fields-objects) |
+| `pose`       | object                | Conditional | Pose of the source/body origin, used to transform source-level and camera observations into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the live cached pose                                              |
+| `intrinsics` | object                | Conditional | Legacy single-view calibration for pixel detections in top-level `objects`; newer multi-camera sources put calibration in each camera entry                                                                                                                                   |
+| `distortion` | object                |     No      | Optional distortion coefficients paired with top-level `intrinsics` for legacy external pixel detections                                                                                                                                                                      |
+| `cameras`    | array                 |     No      | Camera configurations and the observations captured by each camera. Each entry has a stable `id`, body-relative mount, calibration, and its own `objects` array. See [Drone Coordinate and Camera Contract](#drone-coordinate-and-camera-contract)                            |
+| `track`      | boolean               |     No      | Applies to source-level and all camera-level objects. `true` (or omitted) routes observations through Scenescape tracking after dual transform; `false` uses source-provided `id` as an exclusive identity claim for Cartesian observations and discards pixel detections     |
+
+### Drone Coordinate and Camera Contract
+
+Each entry in `cameras` describes one camera and owns the observations captured by it.
+The controller caches each camera's configuration with the source pose for transform
+reuse (internal TTL cache) and projects that configuration onto the platform scene
+object's `cameras` field for UI frustums. Mounted-camera pixel detections are
+localized with a dual transform (platform pose composed with each camera mount)
+and, when `track` is true or omitted, enter Scenescape multi-camera fusion like
+ordinary camera input. With `track=false`, pixel detections are discarded (same as
+camera input while tracking is off); use Cartesian `translation` observations when
+the publisher asserts trusted object identity.
+
+With `track=false`, reusing the same Cartesian object `id` from different publishers
+is an identity collision and the later observation is rejected.
+
+For a drone using this contract:
+
+- `pose` places the **drone body origin**, not the camera optical origin, in the scene.
+  Use a right-handed body frame: **x forward, y left, z up**. Adapters must convert native
+  frames (for example MAVLink forward/right/down) before publishing.
+- Top-level `objects[*].translation` is a point in the body frame, in metres. If supplied,
+  `objects[*].rotation` describes object-local-to-body orientation.
+- A `cameras[*].id` is a stable identifier unique within the source (for example
+  `front`). Controllers attribute pixel detections using `source_id:camera_id`.
+- `cameras[*].mount` is a rigid transform from the **camera optical frame into the body frame**.
+  Optical axes are **x right, y down, z forward**. Its required `translation` is the camera
+  optical origin expressed in body metres; its required `rotation` is an active
+  optical-to-body quaternion in `(x, y, z, w)` order. Publish a unit quaternion; a zero
+  quaternion is rejected. An explicit identity mount means aligned axes, not an automatically
+  forward-facing camera.
+- `cameras[*].objects[*].translation` is in the camera optical frame, in metres.
+  `cameras[*].objects[*].bounding_box_px` is in that camera's image coordinates.
+- Intrinsics specify angular geometry for pixel localization and for ideal-pinhole
+  UI frustums rendered from the platform object's projected `cameras` field.
+  Distortion-aware boundaries, ground footprints, and video projection remain
+  follow-on work.
+
+Let `T_scene_body` be the resolved source pose, and `T_body_camera` the camera's fixed mount.
+Using homogeneous column vectors:
+
+```text
+point_scene    = T_scene_body * point_body
+rotation_scene = rotation_scene_body * rotation_body_object
+T_scene_camera = T_scene_body * T_body_camera
+point_scene    = T_scene_camera * point_camera
+```
+
+The mounting transform is used for camera-local observations only. It must **not** be applied
+to body-relative top-level object translations. Pixel-box localization uses the composed
+`T_scene_camera` transform shown above.
+Keep the drone model's origin at the body origin and correct asset axis conventions on
+the model child, not by modifying telemetry.
+
+For `reference_frame: wgs84`, `lat_long_alt` uses degrees and altitude in metres above the
+WGS84 ellipsoid, as required by the LLA/ECEF conversion; adapters must convert MSL or
+relative-flight altitude before publishing. Rotation still maps body axes directly into
+the **target scene axes**, even for WGS84 positions. Native ENU/NED attitude is not automatically
+aligned by geospatial calibration. The same rotation must not be assumed valid for several
+scenes with differently oriented axes.
+
+Sources with no `cameras` array continue to use the source-level observation format; omission
+of camera metadata does not imply an identity mount. `camera_mount` at the external-message
+top level is not accepted. Every camera entry contains its own complete mount, intrinsics,
+stable id, and observations, so calibration for one camera cannot be applied to another. A
+pose update from a source already using cameras must include the complete camera list. Messages
+without a pose reuse the live source pose; their camera entries still carry the camera
+configuration required to interpret those observations. A non-stale camera list may refresh
+cached camera state without extending the source-pose expiry.
+
+The controller converts pixel boxes using the corresponding camera's intrinsics and
+distortion, then composes the resolved source pose with that camera's mount. Camera-local
+Cartesian translations use the same composed transform; top-level Cartesian translations
+remain body-relative.
+
+### Platform citizenship (no `data/source` topic)
+
+Dynamic agents remain first-class through the **scene object** pipeline
+(`scenescape/data/scene/...` / regulated output), not a parallel retained
+`scenescape/data/source/...` product surface. The controller may keep an
+**internal** pose/intrinsics TTL cache for transform reuse; that cache is not
+a consumer MQTT contract.
+
+- On every accepted message the controller ensures a platform scene object with
+  `id == source_id` at the body origin (`translation: [0,0,0]` if synthesized).
+  Adapters may publish that object explicitly; otherwise the controller adds it.
+  The platform always merges as a trusted identity (`retrack=false`), even when
+  message-level `track` is true or omitted for detections.
+- Pose-only updates (`objects: []`) still emit/update the platform object and
+  advance the tracker so departed detections age out.
+- When camera configuration is known (message `cameras[]` or cached config,
+  including legacy top-level `intrinsics`), the platform object carries a
+  `cameras` array of `{ id, mount, intrinsics, optional distortion }` with
+  observations stripped. The 3D view renders child frustums from that
+  object-graph state (Bar A); there is no `scenescape/data/source/...` topic.
+- Nested ingest `cameras[]` remain the wire encoding for mounts and
+  camera-local observations. Frustum lifetime follows platform object presence
+  on regulated output (age-out / absence), not retained MQTT tombstones.
+- Registered perceptual sensors that should behave as Cams (for example
+  handheld devices) use `scenescape/data/camera/{id}` and pose lock /
+  provenance — not the external-source topic family.
 
 External-source `pose` and optics are **ephemeral** for every perceptual modality that
 publishes on this topic (robots, UWB/RTLS, airborne platforms, LiDAR hubs, and so on):
@@ -306,7 +408,7 @@ are never written to Manager. That matches the unlocked detector-topic policy fo
 | ----------------- | ------------------ | :---------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `category`        | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                   |
 | `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); exactly one of `translation` or `bounding_box_px` is required                                               |
-| `id`              | string             | Conditional | Required when the top-level source `track` value is `false`; optional when the top-level source `track` value is `true` or omitted                                                        |
+| `id`              | string             | Conditional | Source-provided identifier; required for Cartesian observations when `track=false`; optional when `track` is true or omitted (pixel detections with `track=false` are discarded)          |
 | `rotation`        | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                               |
 | `size`            | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                      |
 | `confidence`      | number > 0         |     No      | Source-reported confidence for this observation                                                                                                                                           |
@@ -318,11 +420,15 @@ extent may report a point observation. Point objects (no `size`) remain eligible
 position-based ROI, tripwire, and sensor-tagging analytics, but are excluded from
 volume/occupancy/collision analytics.
 
-The top-level source `track` field determines the tracking mode for every object in the message.
-When that value is `false`, the object bypasses the kinematic tracker/ReID path and the
-published object `id` remains the source-provided `id`. When the value is `true` or
-omitted, the object follows the normal Scenescape tracking path and the controller assigns the
-published object `id`, so the source message may omit `objects[*].id`.
+The top-level source `track` field determines the tracking mode for detection
+objects in the message. When `track` is true or omitted, detections follow the
+normal Scenescape tracking path and the controller assigns the published object
+`id`, so the source message may omit detection `objects[*].id`. When
+`track=false`, Cartesian detections bypass the kinematic tracker/ReID path and
+the published object identity is the source-provided `id`; pixel
+(`bounding_box_px`) detections are discarded, matching camera input while
+tracking is off. The platform self-object (`id == source_id`) is always treated
+as a trusted identity regardless of `track`.
 
 When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
 than as a source-local Cartesian observation. Do not send both `translation` and `bounding_box_px`
@@ -334,8 +440,8 @@ on the same object. In that case:
 - Scenescape computes the object location with the same pixel-to-location algorithm used for camera
   detections.
 - With `track=true` or when `track` is omitted, the localized detection enters normal Scenescape
-  tracking. With `track=false`, it bypasses tracking and keeps its source-provided `id`, just like
-  a source-local Cartesian observation.
+  tracking after the platform/mount dual transform. With `track=false`, pixel detections are
+  discarded; they do not become trusted-identity tracks.
 
 ### Pose Caching and Message Ordering
 
@@ -343,7 +449,12 @@ A resolved pose is cached per `(scene_id, source_id)` for `30` seconds. Camera `
 (and optional `distortion`) for pixel detections are stored on the same cache entry and preserved
 across pose refreshes until replaced or the entry expires. Subsequent messages from the same
 source may omit `pose` and/or `intrinsics` to reuse the cached values; a message with a `pose`
-and an empty `objects` array updates the cache without ingesting any observations. Messages with
+and an empty `objects` array updates the cache and still materializes the
+platform scene object at the body origin. Every successfully resolved message,
+including one with zero detections, still advances the bound scene's tracker for
+that object category: an accepted empty update is an empty measurement for
+detections (so they age out of the published scene state) while the platform
+remains present. Messages with
 a `timestamp` older than the currently cached pose are treated as out-of-order and ignored in
 favor of the newer cached transform. If no usable transform can be resolved (no pose supplied and
 nothing cached, or the cached pose has expired), the message is dropped without ingesting
@@ -356,71 +467,55 @@ Rejection reasons (logged, not published) include:
 | `pose_expired`                   | No `pose` supplied and the cached transform is older than the cache TTL                     |
 | `no_intrinsics_available`        | Pixel detections present, no `intrinsics` supplied, and none cached on the live pose entry  |
 | `invalid_intrinsics`             | `intrinsics` failed construction                                                            |
+| `cameras_required`               | Pose update for a multi-camera source omitted the complete `cameras` list                   |
 | `scene_georeference_unavailable` | `reference_frame: wgs84` but the target scene has no valid geospatial calibration           |
 | `untrusted_scene_pose`           | `reference_frame: scene` from a `source_id` not in `CONTROLLER_TRUSTED_POSITIONING_SOURCES` |
 | `unsupported_reference_frame`    | `reference_frame` is not `wgs84` or `scene`                                                 |
 | `invalid_pose`                   | `pose` failed schema validation or transform construction                                   |
 
-### Untracked External Objects Preserve Source Identity
+### Source-Identity Trust for Untracked Objects, with Collision Detection
 
-When an external source message sets `track` to `false`, the controller trusts each object's
-source-provided `id` directly as the published object identity. The object bypasses Scenescape's
-kinematic multi-object tracker/ReID association and is merged through the same already-tracked
-path used for child scenes with `retrack=false`.
+When an external source message sets `track` to `false`, Cartesian observations
+bypass Scenescape's kinematic multi-object tracker/ReID association and merge
+through the already-tracked path used for child scenes with `retrack=false`.
+The source-provided `id` is used as the published object identity. Pixel
+(`bounding_box_px`) detections in the same message are discarded — the same
+behavior as camera input while tracking is off — because there is no
+cross-camera identity authority for raw detector boxes.
 
-Because two different sources could otherwise silently merge distinct objects by publishing the
-same `id`, the controller performs collision detection for these untracked objects: within a given
-`(scene, category)`, only one source may hold a live claim on a given `id` at a time. A colliding
-object is dropped and logged; non-colliding objects from the same message are still ingested.
+Two different sources publishing the same source-provided Cartesian `id` could
+silently merge distinct objects. The controller therefore allows only one source to hold a live
+claim on that `id` within a `(scene, category)` pair. A colliding object is dropped and logged;
+other Cartesian objects from the same message are still ingested.
+
+Identity is trusted based on the `source_id` and `id` values in the payload, not a
+cryptographically verified per-device credential. Scenescape's current MQTT authentication does
+not bind individual publishers to individual source IDs (see
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md#future-work)).
+A publisher that can reach the broker can claim either of these values.
 
 ### Tracked External Objects Use Controller-Assigned IDs
 
 When an external source message sets `track` to `true` or omits it, each object is processed
-as a normal Scenescape detection. The controller runs it through the kinematic tracker/ReID path
-and assigns the published track `id`. On this path, source-provided `objects[*].id` is optional
-and treated only as source metadata for the incoming observation, not as the final published
-track identity.
-
-### Source-Identity Trust for Untracked Objects, with Collision Detection
-
-**Collision detection.** Trusting source ids on `track=false` messages could let two different
-sources that report the same `id` silently merge two distinct physical objects under one
-identity. To prevent that without requiring configuration, each untracked `id` is claimed
-exclusively per `(scene, category)`: only one `source_id` may hold a live claim on a given `id`
-at a time. If a second source publishes the same `id` while another source's claim on it is still
-live, the newly arriving, colliding object is dropped — logged as a rejection, not merged or
-substituted — while any other, non-colliding objects in the same message are still ingested
-normally. A claim goes stale (and can be reclaimed by a different source) after the same
-identity-claim TTL used for pose-cache reuse; a source that legitimately stops publishing an
-`id` and a different source later reusing that same `id` value is therefore not permanently
-blocked.
-
-**What collision detection does _not_ cover.** It only detects two _different_ sources colliding
-on the same `id` at the same time. It cannot detect — and does not attempt to detect — a single
-source reusing one of its _own_ previously-claimed `id`s for a genuinely different physical
-object once its earlier claim has gone stale (for example, a robot restarting and reissuing small
-integer track-slot numbers that a previous, now-stale claim also used). For a source with that
-kind of unstable/resettable local `id` scheme, a reused `id` will be silently accepted as if it
-were a continuation of the previous object's identity. See
-[Choosing a `source_id`](#choosing-a-source_id-self-identification-for-agents) below for how to
-avoid this by choosing a genuinely persistent, unique identifier.
-
-**Security note:** identity is trusted based on the `source_id`/`id` values present in the
-message payload, not a cryptographically verified per-device credential — Scenescape's current
-MQTT authentication does not yet bind individual publishers to individual `source_id`s (see
-[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md#future-work)). A publisher that
-can reach the broker can claim any `source_id`/`id` it chooses, subject only to the collision
-check above.
+as a normal Scenescape detection. Mounted-camera pixel detections are first localized with
+the dual transform (platform pose composed with each camera mount), then enter the
+kinematic tracker/ReID path. The controller assigns the published track `id`. On this path,
+source-provided `objects[*].id` is optional and treated only as source metadata for the
+incoming observation, not as the final published track identity.
 
 ### Choosing a `source_id` (Self-Identification for Agents)
 
 `source_id` is not provisioned or registered anywhere in Scenescape ahead of time — unlike a
 camera or sensor `id`, which must match a scene/sensor already configured in the database, an
 external source simply announces itself by choosing a `source_id` string and publishing with it.
-For messages using `track=false`, choosing a persistent, unique `source_id` and per-object `id`
-matters because those object ids become published identities. For tracked messages, a stable
-source-provided object `id` can still improve observation correlation even though Scenescape
-assigns the published identity. The deployer/integrator should choose values that are:
+For messages using `track=false` with Cartesian observations, choose a persistent
+`source_id` and per-object `id`. That `id` becomes the published identity and must
+not collide with another publisher's live identity. Mounted-camera pixel
+detections should use `track=true` (or omit `track`) so Scenescape can fuse them
+after the dual transform; `track=false` discards those pixels. For tracked
+messages, a stable source-provided object `id` can improve observation
+correlation even though Scenescape assigns the published identity. The
+deployer/integrator should choose values that are:
 
 - **Persistent** — stable across process restarts and reboots, so a track's identity (and any
   cached pose) is recognized as the same source/object next time it publishes, rather than
@@ -475,6 +570,56 @@ number, or device UUID — rather than a value tied to the current process/sessi
 }
 ```
 
+### Example: Drone with Multiple Cameras
+
+Each camera carries its own calibration and detections. Omit `track` (or set
+`track: true`) so each camera's pixel boxes are dual-transformed into the scene
+and fused by Scenescape tracking. Detector-local `id` values are optional hints
+only; they are not cross-camera identity. With `track: false`, these pixel
+detections would be discarded.
+
+```json
+{
+  "timestamp": "2026-03-26T21:01:31.486Z",
+  "source_id": "drone-1",
+  "pose": {
+    "reference_frame": "wgs84",
+    "lat_long_alt": [37.38688947, -121.96410521, 8.07],
+    "rotation": [0, 0, 0, 1]
+  },
+  "cameras": [
+    {
+      "id": "front",
+      "mount": {
+        "translation": [0.2, 0, 0.1],
+        "rotation": [-0.5, 0.5, -0.5, 0.5]
+      },
+      "intrinsics": { "fx": 905, "fy": 910, "cx": 600, "cy": 350 },
+      "objects": [
+        {
+          "category": "person",
+          "bounding_box_px": { "x": 400, "y": 120, "width": 80, "height": 210 }
+        }
+      ]
+    },
+    {
+      "id": "rear",
+      "mount": {
+        "translation": [-0.2, 0, 0.1],
+        "rotation": [0.5, -0.5, 0.5, 0.5]
+      },
+      "intrinsics": { "fx": 820, "fy": 825, "cx": 640, "cy": 360 },
+      "objects": [
+        {
+          "category": "person",
+          "bounding_box_px": { "x": 700, "y": 130, "width": 76, "height": 206 }
+        }
+      ]
+    }
+  ]
+}
+```
+
 ### Example: Positioning Service Publishing a Scene-Local Pose
 
 Requires `source_id` (e.g. `"positioning-service-1"`) to be listed in
@@ -498,7 +643,8 @@ Requires `source_id` (e.g. `"positioning-service-1"`) to be listed in
 
 ### Example: Pose-Only Update and Point-Object Observation
 
-A pose-only update refreshes the cached transform without ingesting observations:
+A pose-only update refreshes the cached transform and still materializes the
+platform scene object (`id` matching `source_id`) at the body origin:
 
 ```json
 {
@@ -536,28 +682,29 @@ A subsequent message reuses the cached pose and reports a point object (no `size
 All Scene Controller output messages include an `objects` array of tracked objects. Each
 tracked object contains the following fields:
 
-| Field                  | Type               | Description                                                                                                                                                                                                                                                      |
-| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                   | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                                                                                           |
-| `type`                 | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                    |
-| `category`             | string             | Object class label (e.g. `"person"`)                                                                                                                                                                                                                             |
-| `confidence`           | number             | Inference confidence of the most recent contributing detection                                                                                                                                                                                                   |
-| `translation`          | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
-| `size`                 | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
-| `velocity`             | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
-| `rotation`             | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                           |
-| `visibility`           | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                       |
-| `keypoints`            | array of objects   | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                            |
-| `keypoint_connections` | array of strings   | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                                          |
-| `regions`              | object             | Map of region/sensor IDs to membership metadata. **Never populated by the Scene Controller** — added by the Analytics microservice when it enriches this data; see note below.                                                                                   |
-| `sensors`              | object             | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`). **Never populated by the Scene Controller** — added by the Analytics microservice; see note below.                                                                                |
-| `similarity`           | number or null     | Similarity/distance value to the matched ReID embedding in the configured vector database; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled. |
-| `reid_state`           | string             | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                                |
-| `previous_ids_chain`   | array or absent    | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                         |
-| `first_seen`           | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                       |
-| `metadata`             | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
-| `camera_bounds`        | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
-| `association_window`   | object or absent   | Association gate geometry for UI visualization. Present when the producer publishes gate parameters. See note below.                                                                                                                                             |
+| Field                  | Type                       | Description                                                                                                                                                                                                                                                      |
+| ---------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                   | string                     | Persistent scene-object identifier; assigned by Scenescape for tracked detections, and may be source-provided or a controller-scoped shared identity for `track=false` external observations                                                                     |
+| `type`                 | string                     | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                    |
+| `category`             | string                     | Object class label (e.g. `"person"`)                                                                                                                                                                                                                             |
+| `confidence`           | number                     | Inference confidence of the most recent contributing detection                                                                                                                                                                                                   |
+| `translation`          | array[3] of number         | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
+| `size`                 | array[3] of number         | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
+| `velocity`             | array[3] of number         | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
+| `rotation`             | array[4] of number         | Orientation quaternion                                                                                                                                                                                                                                           |
+| `visibility`           | array of string            | Camera IDs currently observing this object                                                                                                                                                                                                                       |
+| `source_ids`           | array of strings, optional | External publishers that have contributed observations during this active track's lifetime. Retained until the track expires; this is provenance, not camera visibility                                                                                          |
+| `keypoints`            | array of objects           | Pose keypoints propagated from detections when available; each entry uses `{"name": "<keypoint>", "x": <0-1>, "y": <0-1>}` coordinates normalized to frame dimensions                                                                                            |
+| `keypoint_connections` | array of strings           | Flat list of keypoint-name pairs defining the skeleton edges (e.g. `["nose","eye_l","nose","eye_r",...]`); length is always `2 x number_of_connections`                                                                                                          |
+| `regions`              | object                     | Map of region/sensor IDs to membership metadata. **Never populated by the Scene Controller** — added by the Analytics microservice when it enriches this data; see note below.                                                                                   |
+| `sensors`              | object                     | Map of sensor IDs to timestamped readings (`{id: [[timestamp, value], ...]}`). **Never populated by the Scene Controller** — added by the Analytics microservice; see note below.                                                                                |
+| `similarity`           | number or null             | Similarity/distance value to the matched ReID embedding in the configured vector database; higher-is-better for `COSINE`; lower is better for `L2`. `null` when ReID is still collecting embeddings, when no database match was found, or when ReID is disabled. |
+| `reid_state`           | string                     | Re-ID processing state for the object. One of: `pending_collection`, `query_no_match`, `matched`, `reid_disabled`                                                                                                                                                |
+| `previous_ids_chain`   | array or absent            | History of UUID reassignments for this track. Each element is `{"id": "<uuid>", "timestamp": "<ISO 8601>", "similarity_score": <number or null>}`. Present only when the object has been re-identified at least once; omitted otherwise.                         |
+| `first_seen`           | string (ISO 8601)          | Timestamp when the track was first created                                                                                                                                                                                                                       |
+| `metadata`             | object                     | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
+| `camera_bounds`        | object                     | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
+| `association_window`   | object or absent           | Association gate geometry for UI visualization. Present when the producer publishes gate parameters. See note below.                                                                                                                                             |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)
@@ -569,6 +716,21 @@ tracked object contains the following fields:
 > **Note on keypoint propagation**: `keypoints` and `keypoint_connections` are
 > optional pass-through fields from object detections. They are included in output
 > objects when present on the contributing detection data.
+
+> **External observation provenance:** `objects[*].source_ids` lists external publishers
+> that contributed observations to the active track and is preserved through Analytics
+> regulated and event output. It is separate from `visibility`, which is calculated from
+> configured camera geometry: a drone can report an object even when that object's
+> `visibility` is empty. The set accumulates for the lifetime of the track and is not
+> cleared when one source stops reporting; it does not imply that an object lies inside a
+> source camera's frustum. Native camera tracks do not receive this field automatically.
+
+External Cartesian observations are transformed independently for each bound scene:
+translation is transformed once, and an explicitly supplied object rotation is composed
+as `rotation_scene_source * rotation_source_object`. The fixed camera mount does not
+affect body-relative translations. No object orientation measurement is invented when
+rotation is omitted. Untracked objects continue to preserve publisher-supplied ids,
+subject to the existing identity-collision checks.
 
 > **Note on `similarity`**: This field holds the metric value returned by the ReID
 > backend in `_distance` and is evaluated by the controller using configured metric semantics.
@@ -600,7 +762,8 @@ tracked object contains the following fields:
 > - `euclidean` → `{method, shape: "circle", radius_m}` where `radius_m` is `max_radius_m`; without
 >   it, the Scene Controller's gate, the average `tracking_radius` of the frame's objects
 > - `position_mahalanobis` → `{method, shape: "ellipse", semi_major_m, semi_minor_m, angle_rad}`
->   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`)
+>   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`), with each
+>   semi-axis clipped to `max_radius_m` so the drawn region stays inside the hard association ceiling
 >
 > `angle_rad` is the major-axis orientation in the scene XY plane (radians from +X toward +Y),
 > defined modulo π: the ellipse is the same after a half turn.
@@ -616,6 +779,14 @@ Published on MQTT topic: `scenescape/data/scene/{scene_id}/{thing_type}`
 The Scene Controller publishes unregulated (raw) tracking results, one message per object
 category per scene publication cycle. Each message contains the current state of all tracked
 objects of that category.
+
+This is a scene-level snapshot, not a copy of the input publisher envelope. The top-level
+`source_id`, `pose`, `track`, `intrinsics`, `distortion`, and message `cameras` fields
+are omitted. The platform appears here as a normal scene object (`id` matching
+`source_id`). When camera configuration is known, that platform object includes a
+`cameras` array (`id`, `mount`, `intrinsics`, optional `distortion`) used for
+object-graph frustum rendering. Per-object contributing publishers are represented
+by `source_ids`.
 
 ### Data Scene Top-Level Fields
 

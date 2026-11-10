@@ -92,5 +92,18 @@ TEST(AssociationWindowTest, MahalanobisClampsNegativeEigenvaluesToZero) {
                 1e-9);
 }
 
+TEST(AssociationWindowTest, MahalanobisClipsSemiAxesToMaxRadius) {
+    // Unclipped χ²(0.99) radius for S=100·I is ~30 m; the hard gate is 10 m.
+    AssociationConfig config = mahalanobisConfig(0.99);
+    config.max_radius_m = 10.0;
+
+    const auto window =
+        buildAssociationWindow(config, trackWithPositionCovariance(100.0, 0.0, 100.0));
+
+    EXPECT_EQ(window.shape, "ellipse");
+    EXPECT_DOUBLE_EQ(window.semi_major_m.value(), 10.0);
+    EXPECT_DOUBLE_EQ(window.semi_minor_m.value(), 10.0);
+}
+
 } // namespace
 } // namespace tracker

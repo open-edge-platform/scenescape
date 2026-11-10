@@ -28,7 +28,7 @@ sudo apt-get install -y cmake build-essential libbenchmark-dev
 
 ./build_benchmark.sh
 ./run_benchmark.sh
-./run_benchmark.sh --json --association-config configs/association_production.json
+./run_benchmark.sh --json --association-config configs/association_mahalanobis.json
 ./compare_benchmarks.sh out/baseline.json out/contender.json
 ```
 
@@ -36,14 +36,14 @@ sudo apt-get install -y cmake build-essential libbenchmark-dev
 
 Harness flags (parsed before Google Benchmark flags):
 
-| Flag                             | Default | Meaning                                                                                                                                                                                                                                                    |
-| -------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--people N[,N...]`              | `50`    | Object counts to sweep                                                                                                                                                                                                                                     |
-| `--cameras N[,N...]`             | `1,2`   | Camera counts to sweep                                                                                                                                                                                                                                     |
-| `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                                                                                        |
-| `--association-config path.json` | unset   | JSON object with top-level `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`); malformed JSON or a wrong type fails. Unset: production association |
+| Flag                             | Default | Meaning                                                                                                                                                                                                                                                                                                     |
+| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--people N[,N...]`              | `50`    | Object counts to sweep                                                                                                                                                                                                                                                                                      |
+| `--cameras N[,N...]`             | `1,2`   | Camera counts to sweep                                                                                                                                                                                                                                                                                      |
+| `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                                                                                                                                         |
+| `--association-config path.json` | unset   | JSON object with top-level `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`); malformed JSON or a wrong type fails. Unset: `position_mahalanobis` (same as `configs/association_mahalanobis.json`) |
 
-Presets: `configs/association_production.json` (`position_mahalanobis`, the default) and `configs/association_euclidean.json` (2 m gate, as the shipped Tracker service config).
+Presets: `configs/association_mahalanobis.json` (`position_mahalanobis`, the default without an `association` block) and `configs/association_euclidean.json` (2 m gate, as the shipped Tracker service config).
 
 Use `--benchmark_filter=BM_Immediate` (or `BM_TimeChunking`) to run one mode.
 
