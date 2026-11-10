@@ -23,6 +23,9 @@ operator-friendly configuration:
 - `source_uid` (UUID): canonical internal identity used for storage, joins, routing, and fusion
 - `source_key` (string alias): human/external identifier used by pipelines and UI
 
+Publishers port to the unified topic. The legacy `scenescape/data/camera/+` ingress path is removed
+when this change is confirmed; there is no long-lived compatibility adapter or `id` alias.
+
 ## Context
 
 SceneScape currently ingests all spatial detection data through a single camera-shaped path:
@@ -70,7 +73,6 @@ All perceptual sensor messages on the unified topic share a common envelope:
 
 ```json
 {
-  "id": "<legacy alias>",
   "source_uid": "<uuid>",
   "source_key": "<alias>",
   "timestamp": "<ISO8601>",
@@ -80,9 +82,9 @@ All perceptual sensor messages on the unified topic share a common envelope:
       {
         "category": "<string>",
         "bounding_box_px": { "x": 0, "y": 0, "width": 0, "height": 0 },
-        "translation": [x, y, z],
-        "size": [l, w, h],
-        "rotation": [x, y, z, w],
+        "translation": [0.0, 0.0, 0.0],
+        "size": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
         "confidence": 0.0
       }
     ]
@@ -94,12 +96,12 @@ Identity rules:
 
 - `source_uid` is canonical and immutable once bound.
 - `source_key` is user-facing and scoped-unique (not globally unique).
-- `id` remains as compatibility alias during migration and maps to `source_key`.
+- There is no legacy `id` field. Ingress identity is `source_uid` and/or `source_key` only.
 
 Each detection satisfies **one** of:
 
 - `bounding_box_px` (camera/thermal pixel detections),
-- `translation + size` (pre-projected metric 3D detections), or
+- `translation + rotation + size` (pre-projected metric 3D detections), or
 - `bounding_box_3D` (sensor-native 3D box to be projected by strategy).
 
 ### 3. Plugin/strategy registry (Open/Closed Principle)
@@ -132,27 +134,35 @@ registering a strategy, with no core handler changes.
 
 `DEFAULT_INTRINSICS` auto-fill is applied only when `modality == "camera"`.
 
-### 5. Migration compatibility
+### 5. Data model and cutover
 
-- Existing `scenescape/data/camera/+` publishers continue through a compatibility adapter that
-  transforms into the unified perceptual envelope.
-- `Cam` model is extended with `modality` (default `"camera"`), preserving current rows.
-- UI adds modality selector for new sensors; existing sensors default to `camera` behavior.
-- Camera ingress compatibility is marked deprecated for later removal.
+Prefer a common perceptual sensor base model with modality-specific derived models (for example
+`PerceptualSensor` with `Camera` / `Lidar` / `Radar` / `Thermal` subtypes) over extending `Cam`
+with a `modality` flag. Derived models keep calibration fields and validation rules local to each
+modality while sharing identity (`source_uid`, `source_key`) and scene association.
 
-Identity compatibility and ordering:
+Cutover rules:
 
-- Ingress accepts either `source_uid` or `source_key` during transition.
-- A resolver maps `source_key` -> `source_uid` using scene scope.
+- Publishers and pipelines port to `scenescape/data/perceptual_sensor/+`. There is no
+  compatibility adapter from `scenescape/data/camera/+`.
+- On confirmation of this change, remove the legacy camera ingress path. Do not keep a deprecated
+  dual-path for a later release.
+- Ingress accepts `source_uid` and/or `source_key`. A resolver maps `source_key` -> `source_uid`
+  using scene scope.
 - Support alias pre-registration so DLStreamer can be configured before scene sensor binding.
 - When binding is completed, reserved aliases transition to active mappings without pipeline
   reconfiguration.
 
 ## Alternatives Considered
 
-- **Modality-specific topics (`scenescape/data/lidar/+`, `.../radar/+`)** — Rejected. Clear, but
-  forces external interface additions for every new modality.
+- **Modality-specific topics (`scenescape/data/lidar/+`, `.../radar/+`)** — Not chosen as the
+  default. Clear per modality, but each new modality would add an external topic unless topic
+  registration is config-driven. A config-extensible modality topic map remains a viable escape
+  hatch if unified-topic routing proves insufficient.
 - **Keep everything as camera** — Rejected. Keeps wrong semantics and camera-specific assumptions.
+- **Extend `Cam` with `modality`** — Considered. Simpler short-term migration of existing rows, but
+  leaves camera-shaped fields and validation on non-camera sensors. Prefer a common base with
+  derived modality models.
 
 ## Consequences
 
@@ -161,15 +171,16 @@ Identity compatibility and ordering:
 - External ingestion interface remains stable as modalities expand.
 - New modalities require no core handler edits.
 - Calibration requirements are modality-appropriate.
-- Existing camera deployments continue working.
 - Hierarchical namespace collisions are prevented by canonical UUID routing.
 - Users can configure pipelines early with aliases and bind later via resolver.
+- No long-lived dual ingress or legacy `id` field to maintain.
 
 ### Negative
 
 - Consumers must inspect payload metadata to determine modality.
 - Strategy registry and envelope schema infrastructure must be built and maintained.
-- UI/docs still require migration from camera-only language.
+- Existing camera publishers must be ported to the unified topic at cutover.
+- UI/docs require migration from camera-only language.
 - Resolver and alias reservation lifecycle add state-management complexity.
 
 ## Implementation Notes

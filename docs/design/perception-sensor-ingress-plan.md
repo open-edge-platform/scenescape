@@ -18,7 +18,8 @@ SceneScape currently models all spatial perception sensors as cameras. This docu
 migration to one stable perceptual ingress topic and a plugin/strategy-based modality registry that
 is open for extension without modifying core message handlers.
 
-The migration is staged: existing camera publishers continue working through compatibility adapters.
+Publishers port to the unified topic. The legacy `scenescape/data/camera/+` path is removed when
+this change is confirmed; there is no compatibility adapter.
 
 ---
 
@@ -30,7 +31,8 @@ The migration is staged: existing camera publishers continue working through com
 - Keep external interfaces stable as new modalities are introduced.
 - Eliminate hierarchical namespace collisions while keeping user-friendly sensor identifiers.
 - Make calibration requirements modality-appropriate.
-- Preserve backward compatibility for existing camera deployments.
+- Cut over camera publishers to the unified topic; remove the legacy camera ingress path on
+  confirmation.
 
 ---
 
@@ -38,7 +40,7 @@ The migration is staged: existing camera publishers continue working through com
 
 - Rewriting tracker fusion or Kalman filter math.
 - Migrating discrete event sensors (`SingletonSensor`) from `scenescape/data/sensor/+`.
-- Removing camera compatibility ingress in this change cycle.
+- Shipping a long-lived camera-topic compatibility bridge.
 
 ---
 
@@ -58,11 +60,8 @@ Perceptual sensors use dual identity:
 - `source_uid` (UUID): canonical internal identity for routing, storage, joins, and fusion
 - `source_key` (string alias): user-facing/pipeline-facing identifier
 
-Compatibility fields:
-
-- `id` is retained short-term as legacy alias and mapped to `source_key`
-
-Canonical processing always converts ingress identity to `source_uid` at the boundary.
+There is no legacy `id` field. Canonical processing always converts ingress identity to
+`source_uid` at the boundary.
 
 ### 5.1 Topic namespace
 
@@ -83,6 +82,7 @@ Notes:
 
 - `data/perceptual_sensor/{sensor_id}` is the only perceptual detection ingress.
 - Raw and preview topics can stay modality-specific because they are non-fusion side channels.
+- `data/camera/{sensor_id}` is removed at cutover; publishers must use the unified topic.
 
 ### 5.2 Shared detection envelope
 
@@ -90,7 +90,6 @@ A top-level `modality` field is required for perceptual ingress.
 
 ```json
 {
-  "id": "legacy-alias",
   "source_uid": "e7cdcbf4-9e2d-4b10-8d8d-f8f4be8a9dbe",
   "source_key": "dock-north-lidar",
   "timestamp": "2026-06-10T12:00:00.000Z",
@@ -113,14 +112,14 @@ A top-level `modality` field is required for perceptual ingress.
 Resolution rules:
 
 1. If `source_uid` is present and valid, use it directly.
-2. Else if `source_key` (or legacy `id`) is present, resolve via identity registry.
+2. Else if `source_key` is present, resolve via identity registry.
 3. If unresolved and auto-reserve is enabled, create `reserved` mapping and emit warning event.
 4. If ambiguous, reject with explicit diagnostics.
 
 Each detection satisfies exactly one of:
 
 - `bounding_box_px`
-- `translation + size`
+- `translation + rotation + size`
 - `bounding_box_3D`
 
 ### 5.3 PerceptualSensorStrategy interface
@@ -198,14 +197,20 @@ This allows reused friendly names in different hierarchy branches without collis
 - Payload parser reads `modality` and dispatches to `IProjectionStrategy` implementation.
 - `CoordinateTransformer` is wrapped by `CameraProjectionStrategy`.
 - Add `LidarProjectionStrategy` and `RadarProjectionStrategy` implementations.
+- Unsubscribe and remove handlers for `scenescape/data/camera/+` at cutover.
 
 ### 5.6 Manager model changes
 
-- Add `modality` field to `Cam` (default `"camera"`).
-- Add `source_uid` (UUID, immutable) and `source_key` (string alias).
-- Gate `DEFAULT_INTRINSICS` auto-fill behind `modality == "camera"`.
+- Introduce a common perceptual sensor base with modality-specific derived models (preferred over
+  tagging `Cam` with a `modality` flag).
+- Shared base fields: `source_uid` (UUID, immutable) and `source_key` (string alias).
+- Modality-specific subclasses own calibration fields and validation.
+- Gate `DEFAULT_INTRINSICS` auto-fill to camera-derived models only.
 - Serializer validation delegates calibration fields to `calibration_schema()` for modality.
-- Enforce scoped uniqueness for `source_key` and shared validation rules with topic segment constraints.
+- Enforce scoped uniqueness for `source_key` and shared validation rules with topic segment
+  constraints.
+- DB migration maps existing `Cam` rows onto the camera-derived model and drops any transitional
+  legacy `id` alias afterward.
 
 ### 5.7 UI changes
 
@@ -224,7 +229,7 @@ This allows reused friendly names in different hierarchy branches without collis
 ### Phase 1 — Foundation
 
 - [ ] Add required `modality` field to perceptual envelope schema.
-- [ ] Add `source_uid` and `source_key` fields to envelope schema (with compatibility `id`).
+- [ ] Add `source_uid` and `source_key` fields to envelope schema (no legacy `id`).
 - [ ] Add `sensor_strategy.py` and `sensor_registry.py`.
 - [ ] Add identity resolver module with reserve/resolve/bind APIs.
 - [ ] Implement and register `CameraStrategy`.
@@ -232,16 +237,17 @@ This allows reused friendly names in different hierarchy branches without collis
 - [ ] Add unit tests for modality registry and unknown modality behavior.
 - [ ] Add unit tests for identity resolution, ambiguity rejection, and reserved state.
 
-### Phase 2 — Compatibility adapter + lidar
+### Phase 2 — Model cutover + lidar
 
-- [ ] Add compatibility bridge from `data/camera/+` to unified envelope.
-- [ ] Add `modality` field to `Cam` and DB migration.
-- [ ] Add `source_uid`/`source_key` fields and migration for existing sensors.
+- [ ] Introduce common perceptual sensor base and camera-derived model; migrate existing `Cam`
+      rows.
+- [ ] Add `source_uid`/`source_key` fields; eliminate legacy `id` after migration.
 - [ ] Gate intrinsics autofill for camera only.
 - [ ] Implement `LidarStrategy` and register it.
-- [ ] Extend tracker parser/dispatcher for modality routing.
-- [ ] Add lidar unit tests and camera compatibility tests.
-- [ ] Add compatibility path resolving legacy `id` to `source_key` then `source_uid`.
+- [ ] Extend tracker parser/dispatcher for modality routing on the unified topic.
+- [ ] Port camera publishers to `data/perceptual_sensor/+`.
+- [ ] Remove `data/camera/+` ingress handlers and schemas on confirmation.
+- [ ] Add lidar unit tests and camera-on-unified-topic tests.
 
 ### Phase 3 — Radar strategy
 
@@ -252,20 +258,17 @@ This allows reused friendly names in different hierarchy branches without collis
 
 - [ ] Modality selector and conditional calibration UI.
 - [ ] API docs updated to show `modality` field and unified ingress contract.
-
-### Phase 5 — Deprecation follow-up
-
-- [ ] Mark `data/camera/+` compatibility path deprecated.
-- [ ] Set timeline for removing compatibility bridge after migration window.
+- [ ] Docs and samples reference only the unified topic.
 
 ---
 
 ## 7. Validation Approach
 
 1. Unit tests for registry dispatch and modality validation.
-2. Backward compatibility tests for existing camera payloads.
+2. Camera payloads published on the unified topic (post-port).
 3. Lidar and radar modality tests on unified topic.
-4. Full run: `make run_unit_tests && make run_functional_tests`.
+4. Regression check that `data/camera/+` is no longer accepted after cutover.
+5. Full run: `make run_unit_tests && make run_functional_tests`.
 
 ---
 
@@ -275,3 +278,4 @@ This allows reused friendly names in different hierarchy branches without collis
 2. Should raw lidar/radar streams remain MQTT or move to another channel for high bandwidth?
 3. Should discrete event sensors eventually use a parallel strategy interface for consistency?
 4. Should unresolved alias messages be buffered briefly or fail-fast with diagnostics only?
+5. Confirm Django inheritance vs composition for the common perceptual sensor base model.
