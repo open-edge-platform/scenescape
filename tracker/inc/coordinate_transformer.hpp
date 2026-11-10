@@ -85,7 +85,9 @@ public:
      * normalized foot, BL, BR, TL before batched world projection. Computes
      * world position (from foot point) and world size (from corner distances).
      *
-     * Detections where any projection fails are silently skipped.
+     * Returns exactly one TrackedObject per input detection, in input order.
+     * Rays at or above the horizon are projected to the horizon distance
+     * rather than rejected.
      * When present, rotation must be a finite sensor-frame [x, y, z, w]
      * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
@@ -140,11 +142,14 @@ private:
      * Parallel pose-transform + ray-plane intersection.
      *
      * @param normalized Undistorted normalized image-plane coordinates
+     * Every point yields a world coordinate: rays at or above the horizon are
+     * projected to the horizon distance instead of being rejected.
+     *
+     * @param normalized Undistorted normalized image-plane coordinates
      * @param[out] world Output world coordinates (same size as normalized)
-     * @param[out] valid Output validity flags (same size as normalized)
      */
     void batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
-                                std::vector<cv::Point2d>& world, std::vector<uint8_t>& valid) const;
+                                std::vector<cv::Point2d>& world) const;
 
     /**
      * @brief Compute 3x3 rotation matrix from Euler angles (XYZ intrinsic, degrees).

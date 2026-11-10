@@ -826,14 +826,15 @@ TEST(CoordinateTransformerTest, HorizonDistanceMatchesEarthCurvatureAndFallback)
     CameraTestConfig config = {
         "horizon-camera", 500.0,           500.0,          320.0, 240.0, 0.0, 0.0, 0.0, 0.0,
         {0.0, 0.0, 0.0},  {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}};
-    const std::array<double, 5> heights = {0.0, 0.1, 0.100001, 0.5, 2.0};
+    const std::array<double, 8> heights = {0.0, 0.1, 0.100001, 0.5, 2.0, -0.1, -0.100001, -2.0};
 
     for (const double height : heights) {
         config.translation[2] = height;
         const auto transformer = make_transformer(config, ObjectClassConfig::kShiftType1, 0.0);
         const auto result = transformer.transformDetections(
             std::vector{make_detection(420.0f, 240.0f, 0.0f, 0.0f)});
-        const double expected = height > 0.1 ? std::sqrt(2.0 * 6371000.0 * height) : 1000.0;
+        const double abs_height = std::abs(height);
+        const double expected = abs_height > 0.1 ? std::sqrt(2.0 * 6371000.0 * abs_height) : 1000.0;
 
         ASSERT_EQ(result.size(), 1u) << "camera height " << height;
         EXPECT_NEAR(result[0].x, expected, kWorldTolerance) << "camera height " << height;
@@ -855,6 +856,64 @@ TEST(CoordinateTransformerTest, AllUpwardBboxRemainsValidViaHorizonCulling) {
     EXPECT_NEAR(result[0].y, 6182.717848972246, kWorldTolerance);
     EXPECT_TRUE(std::isfinite(result[0].length));
     EXPECT_TRUE(std::isfinite(result[0].height));
+}
+
+TEST(TransformDetectionsTest, EveryDetectionProducesOneOutputInInputOrder) {
+    // Pitched 45° down with a short focal length: rows below v=340 point downward,
+    // rows above point upward, and (u=320, v=140) is the vertical-up degenerate ray.
+    CameraTestConfig config = {"mixed-batch-camera",
+                               100.0,
+                               100.0,
+                               320.0,
+                               240.0,
+                               0.0,
+                               0.0,
+                               0.0,
+                               0.0,
+                               {0.0, 0.0, 3.0},
+                               {-45.0, 0.0, 0.0},
+                               {1.0, 1.0, 1.0}};
+    const double horizon_distance = std::sqrt(2.0 * 6371000.0 * 3.0);
+
+    Detection translation_detection;
+    translation_detection.id = 13;
+    translation_detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    translation_detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+
+    const std::array detections = {
+        make_detection(100.0f, 400.0f, 100.0f, 80.0f, 11), // downward
+        make_detection(100.0f, 20.0f, 100.0f, 60.0f, 12),  // all rays upward
+        translation_detection,                             // world-space, no projection
+        make_detection(320.0f, 140.0f, 0.0f, 0.0f, 14),    // vertical-up degenerate ray
+        make_detection(300.0f, 380.0f, 60.0f, 90.0f, 15)}; // downward
+
+    for (const int shift_type : {ObjectClassConfig::kShiftType1, ObjectClassConfig::kShiftType2}) {
+        const auto transformer = make_transformer(config, shift_type, 0.0);
+        const auto result = transformer.transformDetections(detections);
+
+        ASSERT_EQ(result.size(), detections.size()) << "shift type " << shift_type;
+        for (size_t i = 0; i < detections.size(); ++i) {
+            EXPECT_EQ(result[i].id, *detections[i].id) << "index " << i;
+            for (const double value : {result[i].x, result[i].y, result[i].z, result[i].length,
+                                       result[i].width, result[i].height}) {
+                EXPECT_TRUE(std::isfinite(value)) << "index " << i << " shift type " << shift_type;
+            }
+        }
+
+        if (shift_type == ObjectClassConfig::kShiftType1) {
+            EXPECT_NEAR(std::hypot(result[1].x, result[1].y), horizon_distance, kWorldTolerance);
+            EXPECT_NEAR(result[3].x, 0.0, kWorldTolerance);
+            EXPECT_NEAR(result[3].y, 0.0, kWorldTolerance);
+        }
+        EXPECT_LT(std::hypot(result[0].x, result[0].y), horizon_distance);
+        EXPECT_LT(std::hypot(result[4].x, result[4].y), horizon_distance);
+
+        const cv::Vec4d expected_position =
+            transformer.getPoseMatrix() * cv::Vec4d(1.0, 2.0, 3.0, 1.0);
+        EXPECT_NEAR(result[2].x, expected_position[0], kWorldTolerance);
+        EXPECT_NEAR(result[2].y, expected_position[1], kWorldTolerance);
+        EXPECT_NEAR(result[2].z, expected_position[2], kWorldTolerance);
+    }
 }
 
 TEST(CoordinateTransformerTest, BelowGroundCameraProducesNonnegativeObjectHeight) {
