@@ -21,6 +21,8 @@ import pytest
 
 import pytimeparse2
 
+from sli import drop_gate, message_counts
+
 
 class LoadTestWarning(UserWarning):
   """Non-critical KPI warning (latency or throughput outside expected range)."""
@@ -53,6 +55,20 @@ STAGE_METRICS = [
 # Tests
 # ---------------------------------------------------------------------------
 
+def _message_counts(load_config, prometheus):
+  """Received/accepted/rejected/dropped counts once the counters stop changing.
+
+  Either counter may be absent: the tracker exports tracker.mqtt.messages only
+  after the first accepted message and tracker.mqtt.dropped after the first drop.
+  """
+  prometheus.wait_for_stable_counters(
+    [MESSAGES_TOTAL, DROPPED_TOTAL],
+    timeout=load_config["metrics_timeout"],
+  )
+  drop_reasons = prometheus.get_counter_by_label(DROPPED_TOTAL, "reason")
+  accepted = prometheus.get_counter(MESSAGES_TOTAL) or 0
+  return message_counts(accepted, drop_reasons), drop_reasons
+
 class TestSLI:
   """Validate tracker service under load.
 
@@ -66,24 +82,18 @@ class TestSLI:
     The system can handle the load if it does not drop messages.
     Threshold: < 0.1% dropped messages.
     """
-    received = prometheus.wait_for_stable_counter(
-      MESSAGES_TOTAL,
-      timeout=load_config["metrics_timeout"],
-    )
-    dropped = prometheus.get_counter(DROPPED_TOTAL) or 0
-    drop_reasons = prometheus.get_counter_by_label(DROPPED_TOTAL, "reason")
-
-    metrics_summary["received"] = received
-    metrics_summary["dropped"] = dropped
+    counts, drop_reasons = _message_counts(load_config, prometheus)
+    metrics_summary.update(counts)
     metrics_summary["drop_reasons"] = drop_reasons
 
-    ratio = dropped / received if received else 0
+    ratio, passed = drop_gate(counts["dropped"], counts["received"], load_config["drop_max_ratio"])
+    assert counts["received"] > 0, "The tracker received no messages"
     reason_detail = ", ".join(
       f"{int(v)}\u00d7{k}" for k, v in sorted(drop_reasons.items()) if v
     )
-    assert ratio < load_config["drop_max_ratio"], (
+    assert passed, (
       f"Drop ratio {ratio:.4%} >= {load_config['drop_max_ratio']:.4%} "
-      f"({dropped:.0f} dropped / {received:.0f} received"
+      f"({counts['dropped']} dropped / {counts['received']} received"
       + (f": {reason_detail}" if reason_detail else "") + ")"
     )
 
@@ -108,15 +118,12 @@ class TestSLI:
   def test_throughput(self, load_config, prometheus, metrics_summary):
     """KPI warning: sustained message throughput.
 
-    Computes received messages / duration and compares against the
-    configured minimum rate (cameras × FPS by default).
+    Computes received messages (accepted + rejected) / duration and compares
+    against the configured minimum rate (cameras × FPS by default).
     """
     duration_s = pytimeparse2.parse(load_config["duration"])
 
-    received = prometheus.wait_for_stable_counter(
-      MESSAGES_TOTAL,
-      timeout=load_config["metrics_timeout"],
-    )
+    received = _message_counts(load_config, prometheus)[0]["received"]
 
     rate = received / duration_s if duration_s else 0
     metrics_summary["throughput_rate"] = rate
@@ -124,7 +131,7 @@ class TestSLI:
     if rate < load_config["throughput_min"]:
       warnings.warn(
         f"Throughput {rate:.1f} msg/s < {load_config['throughput_min']} msg/s "
-        f"(received {received:.0f} in {duration_s}s)",
+        f"(received {received} in {duration_s}s)",
         LoadTestWarning,
         stacklevel=2,
       )

@@ -336,7 +336,7 @@ def run_test(test_name, test_desc, scene_config, params):
   return exit_code
 
 @pytest.mark.test_name("NEX-T10539")
-def test_reid_unique_count(params):
+def test_reid_unique_count(demo_scene, params, record_xml_attribute):
   """! Tests the unique count for each scene when RE-ID is enabled.
   @param    params                  Dict of test parameters.
   @return   exit_code               Indicates test success or failure.

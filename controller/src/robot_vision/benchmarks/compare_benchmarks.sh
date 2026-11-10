@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Compare benchmark results using Google Benchmark's compare.py tool
@@ -11,19 +11,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/../build"
 TOOLS_DIR="${BUILD_DIR}/benchmark-tools"
 COMPARE_PY="${TOOLS_DIR}/tools/compare.py"
+# google/benchmark v1.9.5, as in CMakeLists.txt; requirements-compare.txt pins its tools/requirements.txt.
+BENCHMARK_COMMIT=192ef10025eb2c4cdd392bc502f0c852196baa48
 
 # Clone benchmark tools if they don't exist
 if [ ! -f "$COMPARE_PY" ]; then
     echo "Cloning Google Benchmark tools..."
     mkdir -p "$BUILD_DIR"
-    
+
     # Clone the repository with sparse checkout to get only the tools directory
-    git clone --filter=blob:none --sparse -b v1.9.4 https://github.com/google/benchmark.git "$TOOLS_DIR"
-    cd "$TOOLS_DIR"
-    git sparse-checkout set tools
-    
-    # Install Python dependencies
-    pip3 install -r "$TOOLS_DIR/tools/requirements.txt" || echo "Warning: Could not install some Python dependencies"
+    rm -rf -- "$TOOLS_DIR"
+    git clone --filter=blob:none --sparse --no-checkout https://github.com/google/benchmark.git "$TOOLS_DIR"
+    git -C "$TOOLS_DIR" sparse-checkout set tools
+    git -C "$TOOLS_DIR" checkout --quiet "$BENCHMARK_COMMIT"
 fi
 
 # Check arguments
@@ -33,5 +33,21 @@ if [ $# -lt 2 ]; then
     exit 1
 fi
 
+
+# Use a Python virtual environment in the current folder, creating it if absent
+VENV_DIR="${SCRIPT_DIR}/.venv"
+if [ ! -f "$VENV_DIR/bin/activate" ]; then
+    echo "Creating Python virtual environment in $VENV_DIR..."
+    python3 -m venv "$VENV_DIR"
+fi
+# shellcheck disable=SC1091
+source "$VENV_DIR/bin/activate"
+
+# Install the hash-pinned compare.py dependencies; wheels only, so no build backend is needed
+pip3 install --require-hashes --only-binary :all: -r "${SCRIPT_DIR}/requirements-compare.txt"
+
 # Run comparison
 PYTHONPATH="${TOOLS_DIR}/tools:$PYTHONPATH" python3 "$COMPARE_PY" benchmarks "$1" "$2"
+
+# Deactivate the virtual environment
+deactivate

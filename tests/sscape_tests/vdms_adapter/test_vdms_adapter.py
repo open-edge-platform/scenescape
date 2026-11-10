@@ -1914,6 +1914,7 @@ class TestGetPersistedAttributes:
     assert 'persist' in results_list
     assert 'persist_timestamp' in results_list
 
+@pytest.mark.usefixtures("shutdown_uuid_managers")
 class TestUpdateActiveDictPersistMerge:
   """Test persist attribute merging in updateActiveDict on REID match."""
 
