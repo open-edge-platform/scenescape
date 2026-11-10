@@ -530,6 +530,13 @@ class TestGlbAlignment:
     assert res["formInputs"] == []
     assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
 
+  @pytest.mark.parametrize("deg, expected", [(-180.001, 179.999), (180, -180), (0, 0), (359, -1)])
+  def test_wrap_degrees_180_normalizes_negative_remainders(self, deg, expected):
+    """Longitudes wrap into [-180, 180) even when JS % keeps a negative sign."""
+    res = run_js("helpers", {"fn": "wrapDegrees180", "args": [deg]})
+    assert res["ok"] is True
+    assert res["result"] == pytest.approx(expected, abs=1e-9)
+
 
 def _assert_form_matches(form, scene_fields):
   """Every scene field returned by the server is written to its scene-edit input."""

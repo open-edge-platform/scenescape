@@ -1322,15 +1322,17 @@ class GeospatialGlb(APIView):
       if new_use_glb is not None and not isinstance(new_use_glb, bool):
         return JsonResponse({'error': 'use_glb_map must be a boolean'}, status=400)
 
-      # Apply MOVE if anchor provided
-      if new_anchor:
-        glb_alignment.move_glb_anchor(scene, new_anchor)
-        scene.refresh_from_db()
+      # DB rows roll back together on failure; files written by apply are not removed.
+      with transaction.atomic():
+        # Apply MOVE if anchor provided
+        if new_anchor:
+          glb_alignment.move_glb_anchor(scene, new_anchor)
+          scene.refresh_from_db()
 
-      # Apply APPLY/UNAPPLY if use_glb_map changed
-      if new_use_glb is not None:
-        glb_alignment.set_glb_applied(scene, new_use_glb)
-        scene.refresh_from_db()
+        # Apply APPLY/UNAPPLY if use_glb_map changed
+        if new_use_glb is not None:
+          glb_alignment.set_glb_applied(scene, new_use_glb)
+          scene.refresh_from_db()
 
       response = glb_alignment.saved_alignment(scene)
       response['scene_fields'] = glb_alignment.scene_form_fields(scene)

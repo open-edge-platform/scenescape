@@ -288,6 +288,19 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.assertEqual(fields['map_corners_lla'], self.scene.map_corners_lla)
     self.assertNotEqual(fields['map_corners_lla'], applied['map_corners_lla'])
 
+  def test_put_anchor_with_failed_apply_keeps_stored_anchor(self):
+    """PUT anchor with use_glb_map=true leaves the stored anchor unchanged when the apply fails."""
+    anchor_before = self.scene.glb_anchor
+    Scene.objects.filter(pk=self.scene.pk).update(map_corners_lla=None, base_map_corners_lla=None)
+
+    response = self._put({'anchor': {'lat': 37.40, 'lng': -121.95, 'heading_deg': 45.0}, 'use_glb_map': True})
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(response.json(), {'error': 'Cannot compute pose: missing frame or anchor'})
+    self.scene.refresh_from_db()
+    self.assertEqual(self.scene.glb_anchor, anchor_before)
+    self.assertFalse(self.scene.use_glb_map)
+
 
 class TestSceneFormFields(SimpleTestCase):
   """Unit tests for glb_alignment.scene_form_fields."""

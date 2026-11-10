@@ -15,7 +15,7 @@ const POLAR_RADIUS = 6356752.314245;
  * @returns {number} Wrapped angle in degrees
  */
 function _wrapDegrees180(deg) {
-  return ((deg + 180.0) % 360.0) - 180.0;
+  return ((((deg + 180.0) % 360.0) + 360.0) % 360.0) - 180.0;
 }
 
 /**

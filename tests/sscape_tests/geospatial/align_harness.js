@@ -245,7 +245,7 @@ function load(args) {
     fs.readFileSync(path.join(jsDir, "geo-overlay-math.js"), "utf8") + "\n";
   src += fs.readFileSync(path.join(jsDir, "glb-alignment.js"), "utf8") + "\n";
   src +=
-    ";this.__api = {GlbAlignment, pointInPolygon, clampHeading, dragAnchor};";
+    ";this.__api = {GlbAlignment, pointInPolygon, clampHeading, dragAnchor, wrapDegrees180: _wrapDegrees180};";
 
   vm.runInContext(src, ctx);
 
@@ -455,7 +455,7 @@ const scenarios = {
 
   helpers(args) {
     const { ctx } = load(args);
-    const { pointInPolygon, clampHeading, dragAnchor } = ctx.__api;
+    const { pointInPolygon, clampHeading, dragAnchor, wrapDegrees180 } = ctx.__api;
     if (args.fn === "pointInPolygon") {
       const result = pointInPolygon(args.args[0], args.args[1]);
       return { ok: true, result };
@@ -466,6 +466,10 @@ const scenarios = {
     }
     if (args.fn === "dragAnchor") {
       const result = dragAnchor(args.args[0], args.args[1], args.args[2]);
+      return { ok: true, result };
+    }
+    if (args.fn === "wrapDegrees180") {
+      const result = wrapDegrees180(args.args[0]);
       return { ok: true, result };
     }
     return { ok: false, error: "Unknown helper" };
