@@ -10,17 +10,143 @@ gi/GstBase/gstgva (see conftest.py) and the paho MQTT client, without a real
 PyGObject/GStreamer installation and without any production code changes.
 """
 
+import base64
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import cv2
+import numpy as np
 import pytest
 
 from sscape_post_inference_data_publish import (  # noqa: E402
   SscapePostInferenceDataPublish,
 )
 import sscape_post_inference_data_publish as pubmod  # noqa: E402
+
+
+class TestTrackImages:
+  """Exercise the real worker and JPEG encoder without GStreamer or a broker."""
+
+  @pytest.mark.parametrize('live_view_width', [320, 160])
+  @pytest.mark.parametrize('with_tracks', [True, False])
+  def test_requested_image(self, connected_element, monkeypatch, with_tracks, live_view_width):
+    element = connected_element
+    element.do_set_property(make_prop('annotate-track-ids'), True)
+    element.do_set_property(make_prop('live-view-width'), live_view_width)
+    element.do_set_property(make_prop('track-wait-ms'), 0)
+    timestamp = '2026-11-02T12:00:00.000Z'
+    gid = '12345678-abcd-1234-abcd-123456789012'
+    image = np.zeros((240, 320, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, '_image_pixels', lambda *_args: image)
+    element._frame_level_data.update(timestamp=timestamp, objects={})
+    if with_tracks:
+      message = {'timestamp': timestamp, 'objects': [
+        {'id': gid, 'camera_bounds': {'cam-1': {'x': 10, 'y': 80, 'width': 60, 'height': 80}}}
+      ]}
+      element._handle_camera_message(None, None, SimpleNamespace(
+        topic='scenescape/regulated/scene/scene-1', payload=json.dumps(message).encode()))
+    published = Event()
+    element._client.publish.side_effect = lambda *_args: published.set()
+    try:
+      element._publish_requested_image({}, None, None)
+      assert published.wait(2), 'Image worker did not publish'
+      topic, encoded = element._client.publish.call_args.args
+      payload = json.loads(encoded)
+      assert topic == 'scenescape/image/camera/cam-1'
+      assert payload['timestamp'] == timestamp
+      assert payload['track_ids'] == ([gid] if with_tracks else [])
+      jpeg = np.frombuffer(base64.b64decode(payload['image']), dtype=np.uint8)
+      scale = live_view_width / image.shape[1]
+      assert payload['resolution'] == [image.shape[1], image.shape[0]]
+      assert cv2.imdecode(jpeg, cv2.IMREAD_COLOR).shape == (
+        int(image.shape[0] * scale), live_view_width, 3)
+      assert not np.any(image), 'Capture must not modify the source image'
+    finally:
+      worker = element._image_worker
+      element.do_stop()
+      assert not worker.is_alive()
+
+  def test_subscriptions_and_commands(self, connected_element):
+    element = connected_element
+    element.do_set_property(make_prop('annotate-track-ids'), True)
+    client = element._client
+    client.subscribe.assert_called_with('scenescape/regulated/scene/+')
+    element.do_set_property(make_prop('track-topic'), 'scenescape/regulated/scene/scene-1')
+    client.unsubscribe.assert_called_with('scenescape/regulated/scene/+')
+    client.subscribe.assert_called_with('scenescape/regulated/scene/scene-1')
+    element._handle_camera_message(None, None, SimpleNamespace(
+      topic='scenescape/cmd/camera/cam-1', payload=b'getimage'))
+    assert element._publish_image
+    element._publish_image = False
+    element._handle_camera_message(None, None, SimpleNamespace(
+      topic='scenescape/regulated/scene/scene-1', payload=b'getimage'))
+    assert not element._publish_image
+    element.do_set_property(make_prop('annotate-track-ids'), False)
+    client.unsubscribe.assert_called_with('scenescape/regulated/scene/scene-1')
+
+  @pytest.mark.parametrize('change_topic', [True, False])
+  def test_topic_change_invalidates_snapshot(self, element, monkeypatch, change_topic):
+    old_topic = 'scenescape/regulated/scene/scene-a'
+    new_topic = 'scenescape/regulated/scene/scene-b' if change_topic else old_topic
+    snapshot = (1.0, [('scene-a-gid', (10, 20, 30, 40))])
+    monkeypatch.setattr(pubmod, 'parse_track_message', lambda *_args: snapshot)
+    element._set_track_option('track-topic', old_topic)
+    message = SimpleNamespace(topic=old_topic, payload=b'tracks')
+    element._handle_track_message(message)
+    element._set_track_option('track-topic', new_topic)
+    assert element._track_sync.snapshot == (None if change_topic else snapshot)
+    element._handle_track_message(message)
+    assert element._track_sync.snapshot == (None if change_topic else snapshot)
+    if change_topic:
+      element._handle_track_message(SimpleNamespace(topic=new_topic, payload=b'tracks'))
+      assert element._track_sync.snapshot == snapshot
+
+  def test_topic_change_during_callback(self, element, monkeypatch):
+    parsing = Event()
+    release = Event()
+    switching = Event()
+    old_topic = 'scenescape/regulated/scene/scene-a'
+    element._set_track_option('track-topic', old_topic)
+
+    def parse(*_args):
+      parsing.set()
+      assert release.wait(2)
+      return (1.0, [('scene-a-gid', (10, 20, 30, 40))])
+
+    def switch_topic():
+      switching.set()
+      element._set_track_option('track-topic', 'scenescape/regulated/scene/scene-b')
+
+    monkeypatch.setattr(pubmod, 'parse_track_message', parse)
+    with ThreadPoolExecutor(max_workers=2) as workers:
+      callback = workers.submit(element._handle_track_message,
+                                SimpleNamespace(topic=old_topic, payload=b'tracks'))
+      try:
+        assert parsing.wait(2)
+        switch = workers.submit(switch_topic)
+        assert switching.wait(2)
+      finally:
+        release.set()
+      callback.result(timeout=2)
+      switch.result(timeout=2)
+    assert element._track_sync.snapshot is None
+
+  def test_disabled_payload_unchanged(self, connected_element, monkeypatch):
+    monkeypatch.setattr(connected_element, '_build_image_data',
+                        lambda payload, *_args: payload.update(image='original'))
+    connected_element._publish_requested_image({}, None, None)
+    assert json.loads(connected_element._client.publish.call_args.args[1]) == {'image': 'original'}
+    assert connected_element._image_worker is None
+
+  def test_wait_limits(self, element):
+    element.do_set_property(make_prop('track-wait-ms'), 9999)
+    element.do_set_property(make_prop('track-max-age-ms'), -1)
+    assert element.do_get_property(make_prop('track-wait-ms')) == 2000
+    assert element.do_get_property(make_prop('track-max-age-ms')) == 0
 
 def make_prop(name):
   return SimpleNamespace(name=name)
@@ -72,7 +198,19 @@ class TestProperties:
     assert element.do_get_property(make_prop("publish-image")) is False
     assert element.do_get_property(make_prop("detection-labels")) == ""
     assert element.do_get_property(make_prop("mqtt-port")) == 1883
+    assert element.do_get_property(make_prop("live-view-width")) == 960
+    assert element.do_get_property(make_prop("live-view-quality")) == 65
 
+  def test_set_and_get_live_view_settings(self, element):
+    element.do_set_property(make_prop("live-view-width"), "1280")
+    element.do_set_property(make_prop("live-view-quality"), "80")
+    assert element.do_get_property(make_prop("live-view-width")) == 1280
+    assert element.do_get_property(make_prop("live-view-quality")) == 80
+
+  def test_live_view_properties_are_bounded(self):
+    props = SscapePostInferenceDataPublish.__gproperties__
+    assert props["live-view-width"][3:5] == (1, 65535)
+    assert props["live-view-quality"][3:5] == (1, 100)
   def test_set_and_get_cameraid(self, element):
     element.do_set_property(make_prop("cameraid"), "cam-42")
     assert element.do_get_property(make_prop("cameraid")) == "cam-42"
@@ -320,8 +458,15 @@ class TestBuildObjectData:
     assert fld["timestamp"] == "2026-07-21T00:00:00.000Z"
     assert fld["rate"] == 15.5
     assert fld["initial_intrinsics"] == {"fx": 1000}
+    assert fld["resolution"] == {"width": 640, "height": 480}
     assert fld["debug_timestamp_end"].endswith("Z")
     assert isinstance(fld["objects"], dict) and not fld["objects"]
+
+  def test_resolution_omitted_when_gva_resolution_invalid(self, element):
+    element._cameraid = "cam-a"
+    gvadata = self._gvadata([], resolution={"width": 0, "height": 480})
+    element._build_object_data(gvadata)
+    assert "resolution" not in element._frame_level_data
 
   def test_detection_labels_filter_excludes_non_matching(self, element):
     element._detection_labels = ["person"]
@@ -436,6 +581,7 @@ class TestProcessBuffer:
     payload = json.loads(frame.added_messages[0])
     assert payload["id"] == "cam-1"
     assert "person" in payload["objects"]
+    assert payload["resolution"] == {"width": 320, "height": 240}
 
   def test_publish_image_flag_publishes_image_topic_once(self, connected_element, monkeypatch):
     connected_element._publish_image = True
@@ -503,3 +649,89 @@ class TestProcessBuffer:
     result = connected_element.do_transform_ip(MagicMock())
 
     assert result == pubmod.Gst.FlowReturn.OK
+
+
+class TestBuildImageData:
+
+  @staticmethod
+  def _build(element, monkeypatch, annotate, width=3840, height=2160):
+    frame = np.random.default_rng(0).integers(
+      0, 255, (height, width, 3), dtype=np.uint8
+    )
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    out = {}
+    element._build_image_data(out, MagicMock(), annotate)
+    jpeg = base64.b64decode(out["image"])
+    return cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR), len(jpeg)
+
+  def test_live_view_image_is_downscaled(self, element, monkeypatch):
+    image, live_size = self._build(element, monkeypatch, annotate=True)
+    _, full_size = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (540, 960)
+    assert live_size < full_size / 10
+
+  def test_live_view_settings_change_the_preview(self, element, monkeypatch):
+    element.do_set_property(make_prop("live-view-width"), 1280)
+    image, default_quality_size = self._build(element, monkeypatch, annotate=True)
+    element.do_set_property(make_prop("live-view-quality"), 20)
+    _, low_quality_size = self._build(element, monkeypatch, annotate=True)
+
+    assert image.shape[:2] == (720, 1280)
+    assert low_quality_size < default_quality_size
+
+  def test_calibration_image_ignores_live_view_settings(self, element, monkeypatch):
+    element.do_set_property(make_prop("live-view-width"), 640)
+    image, _ = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (2160, 3840)
+
+  def test_live_view_image_smaller_than_limit_is_not_resized(self, element, monkeypatch):
+    image, _ = self._build(element, monkeypatch, annotate=True, width=640, height=480)
+    assert image.shape[:2] == (480, 640)
+
+  def test_calibration_image_keeps_full_resolution(self, element, monkeypatch):
+    image, _ = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (2160, 3840)
+
+  @pytest.mark.parametrize("annotate", [True, False])
+  def test_message_reports_native_resolution(self, element, monkeypatch, annotate):
+    frame = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    out = {}
+    element._build_image_data(out, MagicMock(), annotate)
+    assert out["resolution"] == [3840, 2160]
+
+  @staticmethod
+  def _live_view(element, monkeypatch, objects, **frame_data):
+    frame = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    element._frame_level_data = {"objects": objects, "rate": 0.0, **frame_data}
+    out = {}
+    element._build_image_data(out, MagicMock(), True)
+    return cv2.imdecode(np.frombuffer(base64.b64decode(out["image"]), np.uint8), cv2.IMREAD_COLOR)
+
+  def test_live_view_annotations_follow_the_downscale(self, element, monkeypatch):
+    box = {"x": 1920, "y": 1080, "width": 800, "height": 400}
+    image = self._live_view(element, monkeypatch, {"person": [{"bounding_box_px": box}]})
+
+    # Native (1920, 1080) maps to (480, 270) at 960 px wide; the box is red (BGR 0, 0, 255).
+    top_edge = image[266:275, 500:600]
+    assert top_edge[..., 2].max() > 150
+    assert image[200:260, 500:600].max() < 60
+    assert image[100:, 700:].max() < 60
+
+  def test_live_view_car_annotations_follow_the_downscale(self, element, monkeypatch):
+    car = {
+      "translation": [0.0, 0.0, 10.0],
+      "size": [2.0, 2.0, 4.0],
+      "license_plates": [{"bounding_box_px": {"x": 1000, "y": 1500, "width": 200, "height": 100}}],
+    }
+    image = self._live_view(
+      element, monkeypatch, {"car": [car]},
+      initial_intrinsics=[1000, 0, 1920, 0, 1000, 1080, 0, 0, 1],
+    )
+
+    # Cuboid centre (1920, 1080) -> (480, 270); plate (1000, 1500) -> (250, 375).
+    assert image[170:370, 380:580].max() > 100
+    assert image[372:380, 260:290].max() > 100
+    assert image[100:, 700:].max() < 60
+

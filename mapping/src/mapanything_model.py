@@ -474,14 +474,19 @@ class MapAnythingModel(ReconstructionModel):
       original_sizes
     )
 
-    # Convert scaled intrinsics to list format
+    # Convert scaled intrinsics to list format (include the image frame size K
+    # was scaled to, so consumers can keep Cam.width/height consistent).
     intrinsics_list = []
     for i, K in enumerate(original_intrinsics):
       cam_id = camera_ids[i] if camera_ids is not None and i < len(camera_ids) else None
-      intrinsics_list.append({
+      entry = {
           "camera_id": cam_id,
           "K": K.tolist()
-      })
+      }
+      if i < len(original_sizes):
+        entry["width"] = int(original_sizes[i][0])
+        entry["height"] = int(original_sizes[i][1])
+      intrinsics_list.append(entry)
 
     # Create predictions dict for GLB export
     predictions = {

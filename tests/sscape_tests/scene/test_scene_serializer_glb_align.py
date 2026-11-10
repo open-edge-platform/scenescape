@@ -5,7 +5,48 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+from django.http import QueryDict
+from rest_framework.exceptions import ValidationError
+
 from manager.serializers import SceneSerializer
+
+
+@pytest.mark.parametrize("value", [[1, 2.5, -3], (1, 2.5, -3), "[1, 2.5, -3]"])
+def test_mesh_transform_accepts_json_vector_forms(value):
+  data = {"mesh_translation": value, "name": "untouched"}
+  validated = {}
+  SceneSerializer().handleMeshTransform(data, validated)
+  assert validated == {"translation_x": 1.0, "translation_y": 2.5, "translation_z": -3.0}
+  assert data == {"name": "untouched", "mesh_translation": value}
+
+
+def test_mesh_transform_accepts_multipart_vector():
+  data = QueryDict("mesh_rotation=%5B1%2C2%2C3%5D")
+  validated = {}
+  SceneSerializer().handleMeshTransform(data, validated)
+  assert validated == {"rotation_x": 1.0, "rotation_y": 2.0, "rotation_z": 3.0}
+
+
+@pytest.mark.parametrize("value", [
+  None, "not-json", "[1,2]", {"x": 1}, [1, 2, 3, 4], [True, 2, 3], [1, "2", 3],
+  [float("nan"), 2, 3], [1, float("inf"), 3],
+])
+def test_mesh_transform_rejects_malformed_vectors(value):
+  with pytest.raises(ValidationError) as exc:
+    SceneSerializer().handleMeshTransform({"mesh_scale": value}, {})
+  assert "mesh_scale" in exc.value.detail
+
+
+def test_mesh_transform_omission_preserves_validated_data():
+  validated = {"name": "unchanged"}
+  SceneSerializer().handleMeshTransform({}, validated)
+  assert validated == {"name": "unchanged"}
+
+
+@pytest.fixture(autouse=True)
+def _skip_source_map_storage(monkeypatch):
+  monkeypatch.setattr(SceneSerializer, "_record_source_map", MagicMock())
 
 
 def _glb_map_file(name="scene.glb", committed=True):
@@ -19,7 +60,8 @@ def _scene_instance(map_file):
   instance = MagicMock()
   instance.pk = "scene-pk"
   instance.map = map_file
-  instance._original_map = map_file
+  instance._original_map = map_file.name
+  map_file.save.side_effect = lambda name, upload, save=False: setattr(map_file, "name", upload.name)
   instance.thumbnail = "thumb.png"
   instance.scale = 100.0
   instance.rotation_x = 0.0
@@ -42,7 +84,7 @@ def test_create_with_glb_calls_auto_align_when_original_map_matches(
   map_file = _glb_map_file()
   instance = _scene_instance(map_file)
   # Create path: __init__ snapshots _original_map from the uploaded map.
-  instance._original_map = instance.map
+  instance._original_map = instance.map.name
 
   mock_scene_cls.return_value = instance
   mock_scene_cls.objects.bulk_create = MagicMock()
@@ -73,7 +115,10 @@ def test_create_with_glb_preserves_explicit_mesh_transforms(
   mock_scene_cls.objects.filter.return_value.update = MagicMock()
 
   serializer = SceneSerializer()
-  serializer.initial_data = {"name": "glb_scene", "map": map_file}
+  serializer.initial_data = {
+    "name": "glb_scene", "map": map_file,
+    "mesh_rotation": [12, 0, 0], "mesh_translation": [0, 3.5, 0],
+  }
   validated = {
       "name": "glb_scene",
       "map": map_file,
@@ -91,7 +136,7 @@ def test_create_with_glb_preserves_explicit_mesh_transforms(
 
 @patch.object(SceneSerializer, "handleMeshTransform")
 @patch("manager.serializers.Scene")
-def test_update_with_unchanged_glb_skips_auto_align(mock_scene_cls, _mock_mesh_xform):
+def test_update_with_same_name_glb_reupload_auto_aligns(mock_scene_cls, _mock_mesh_xform):
   map_file = _glb_map_file()
   instance = _scene_instance(map_file)
 
@@ -102,9 +147,9 @@ def test_update_with_unchanged_glb_skips_auto_align(mock_scene_cls, _mock_mesh_x
 
   serializer.create_update({"name": "glb_scene", "map": map_file}, instance=instance)
 
-  instance.autoAlignSceneMap.assert_not_called()
+  instance.autoAlignSceneMap.assert_called_once()
   instance.saveThumbnail.assert_called_once()
-  # Unchanged map still goes through save(); _original_map sync only on change.
+  # A same-name upload is still a map replacement.
   instance.save.assert_called_once()
 
 
@@ -116,7 +161,7 @@ def test_update_with_new_glb_assigns_map_and_auto_aligns(
   old_map = _glb_map_file("old.glb")
   new_map = _glb_map_file("new.glb", committed=False)
   instance = _scene_instance(old_map)
-  instance._original_map = old_map
+  instance._original_map = old_map.name
 
   mock_scene_cls.objects.filter.return_value.update = MagicMock()
 
@@ -125,11 +170,11 @@ def test_update_with_new_glb_assigns_map_and_auto_aligns(
 
   serializer.create_update({"name": "glb_scene", "map": new_map}, instance=instance)
 
-  assert instance.map is new_map
+  assert instance.map.name == new_map.name
   instance.autoAlignSceneMap.assert_called_once()
   instance.saveThumbnail.assert_called_once()
   # Prevent model.save() from aligning again after explicit handling.
-  assert instance._original_map is instance.map
+  assert instance._original_map == instance.map.name
   instance.save.assert_called_once()
 
 
@@ -141,12 +186,15 @@ def test_update_with_new_glb_preserves_explicit_mesh_transforms(
   old_map = _glb_map_file("old.glb")
   new_map = _glb_map_file("new.glb", committed=False)
   instance = _scene_instance(old_map)
-  instance._original_map = old_map
+  instance._original_map = old_map.name
 
   mock_scene_cls.objects.filter.return_value.update = MagicMock()
 
   serializer = SceneSerializer()
-  serializer.initial_data = {"name": "glb_scene", "map": new_map}
+  serializer.initial_data = {
+    "name": "glb_scene", "map": new_map,
+    "mesh_rotation": [45, 0, 0], "mesh_translation": [1.25, 0, 0],
+  }
   validated = {
       "name": "glb_scene",
       "map": new_map,
@@ -159,4 +207,4 @@ def test_update_with_new_glb_preserves_explicit_mesh_transforms(
   instance.autoAlignSceneMap.assert_not_called()
   assert instance.rotation_x == 45.0
   assert instance.translation_x == 1.25
-  assert instance._original_map is instance.map
+  assert instance._original_map == instance.map.name

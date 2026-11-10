@@ -120,6 +120,10 @@ spec:
           - name: DLSPS_URL
             value: {{ .Values.web.dlspsUrl | quote }}
           {{- end }}
+          {{- if .Values.web.ptzCalibrationResidualThresholdPx }}
+          - name: PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
+            value: {{ .Values.web.ptzCalibrationResidualThresholdPx | quote }}
+          {{- end }}
           - name: SUPASS
             valueFrom:
               secretKeyRef:
@@ -188,6 +192,12 @@ spec:
             name: calibration-auth
             subPath: calibration.auth
             readOnly: true
+          {{- if .Values.positioning.enabled }}
+          - mountPath: /run/secrets/positioning.auth
+            name: positioning-auth
+            subPath: positioning.auth
+            readOnly: true
+          {{- end }}
           - mountPath: /home/scenescape/Scenescape/media
             name: media-storage
           - mountPath: /workspace/media
@@ -218,6 +228,11 @@ spec:
       - name: calibration-auth
         secret:
           secretName: {{ .Release.Name }}-calibration.auth
+      {{- if .Values.positioning.enabled }}
+      - name: positioning-auth
+        secret:
+          secretName: {{ .Release.Name }}-positioning.auth
+      {{- end }}
       - name: media-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc

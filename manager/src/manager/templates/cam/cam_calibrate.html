@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -205,8 +205,23 @@ SPDX-License-Identifier: Apache-2.0
             </div>
           {% endif %}
 
+          <div class="form-group row">
+            <label class="col-form-label form-label" for="detected_resolution"
+              >Image Resolution</label
+            >
+            <div class="col-sm-3">
+              <input
+                type="text"
+                class="form-control"
+                id="detected_resolution"
+                value="{{ caminst.width }} x {{ caminst.height }}"
+                disabled
+              />
+            </div>
+          </div>
+
           {% for field in form %}
-            {% if field.name in "name sensor_id scene command camerachain pipeline" %}
+            {% if field.name in "name sensor_id scene command camerachain pipeline pose_locked" %}
               <div class="form-group row" id="{{ field.name }}_wrapper">
                 <label
                   class="col-form-label form-label"
@@ -335,6 +350,11 @@ SPDX-License-Identifier: Apache-2.0
     value="scenescape/image/calibration/camera/{{ caminst.sensor_id }}"
   />
   <input type="hidden" id="sensor_id" value="{{ caminst.sensor_id }}" />
+  <input
+    type="hidden"
+    id="ptz_calibration_version"
+    value="{{ caminst.ptz_calibration.calibration_version|default:'' }}"
+  />
   <input
     type="hidden"
     id="generate-pipeline-url"
