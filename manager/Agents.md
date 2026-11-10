@@ -142,6 +142,9 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
+- `ENABLE_MLOPS_FLOW`: Enables the ViPPET / DLSPS 2.0 pipeline integration (default off). Same as
+  the `webserver --enable-mlops-flow` option, which wins over the variable; Helm `web.enableMlopsFlow`.
+  See [MLOps flow feature flag](#mlops-flow-feature-flag)
 - `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`).
   Enables **Sync with ViPPET** on the Pipelines page. Passed through Docker Compose
   (`VIPPET_URL`) and Helm (`web.vippetUrl`); empty disables the feature.
@@ -303,6 +306,12 @@ docker compose exec manager python manage.py showmigrations
   `PipelineSyncView`, superuser + POST only): one `Pipeline` row per variant, named
   `"<pipeline name> (<variant name>)"`, matched on `vippet_pipeline_id = "<pipeline id>/<variant id>"`.
   Rows gone from ViPPET are kept; name clashes with other rows are skipped and reported
+- Optional tag filter: `sync_vippet_pipelines(tag_filter)` takes a `TagFilter` built by
+  `parse_tag_filter(text, match_all)` (comma-separated, case-insensitive whole-tag match, Any/All,
+  max 20 tags of 100 chars). Non-matching ViPPET pipelines are skipped without fetching their
+  strings, but variants already imported are still updated. `PipelineSyncForm` validates the input;
+  `PipelineSyncView` stores the last filter in the session (`pipeline_sync_filter`) and the list
+  view pre-fills it
 
 ### DL Streamer Pipeline Server 2.0
 
@@ -323,6 +332,19 @@ docker compose exec manager python manage.py showmigrations
 - Editing an assigned pipeline's string (UI or ViPPET sync) restarts the camera's instance; a
   `post_delete` signal on `Cam` stops the instance after commit. Deleting a `Pipeline` does not
   call DLSPS. Instances are not reconciled after a DLSPS restart
+
+### MLOps flow feature flag
+
+- `settings.ENABLE_MLOPS_FLOW` (from `ENABLE_MLOPS_FLOW`, or `--enable-mlops-flow` exported to
+  Apache by `config/webserver-init`) gates the whole Pipelines feature; default off
+- Off: `MlopsFlowSuperUserCheck` makes pipeline create/update/delete/sync views return 403 (the list
+  stays readable); `CameraPipelineForm` marks `pipeline` as a disabled field, so posted values are
+  ignored; `pipeline_runtime` entry points and the `Cam` `post_delete` signal never call ViPPET or DLSPS
+- Templates read `ENABLE_MLOPS_FLOW` and `MLOPS_FLOW_DISABLED_HINT` from the context processor and
+  render greyed controls inside a `.mlops-flow-disabled` wrapper that carries the hint as `title`
+- Tests that exercise the enabled feature use `@override_settings(ENABLE_MLOPS_FLOW=True)`
+- Demo with an external ViPPET + DLSPS 2.0: `make demo-vippet-dlsps2`
+  (`sample_data/vippet_dlsps2/README.md`)
 
 ### PostgreSQL
 

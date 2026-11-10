@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# ViPPET + DL Streamer Pipeline Server 2.0 demo: Scenescape side.
+# Merged with docker-compose.yml by `make demo-vippet-dlsps2`; see README.md.
+#
+# ViPPET and its DLSPS 2.0 container run outside this stack (ViPPET's own
+# `make run DLSPS2=1`) on the "<ViPPET dir>_default" Docker network. This
+# override joins that network so:
+#   - Manager (web) reaches http://vippet:7860 and
+#     http://dlstreamer-pipeline-server:8080 by name, and
+#   - pipelines running in DLSPS can publish to broker.scenescape.intel.com
+#     and query ntpserv.
+# Demo only: it exposes the broker and NTP server to every container on
+# ViPPET's network.
+
+networks:
+  vippet:
+    external: true
+    name: ${VIPPET_NETWORK:-visual-pipeline-and-platform-evaluation-tool_default}
+
+services:
+  web:
+    networks:
+      vippet:
+    environment:
+      - ENABLE_MLOPS_FLOW=true
+      - VIPPET_URL=${VIPPET_URL:-http://vippet:7860/api/v1}
+      - DLSPS_URL=${DLSPS_URL:-http://dlstreamer-pipeline-server:8080}
+      # Keep ViPPET / DLSPS traffic off any corporate HTTP proxy.
+      - no_proxy=${no_proxy:-${NO_PROXY:-}},.scenescape.intel.com,vippet,dlstreamer-pipeline-server
+      - NO_PROXY=${NO_PROXY:-${no_proxy:-}},.scenescape.intel.com,vippet,dlstreamer-pipeline-server
+
+  broker:
+    networks:
+      vippet:
+        aliases:
+          - broker.scenescape.intel.com
+
+  ntpserv:
+    networks:
+      vippet:
+        aliases:
+          - ntpserv

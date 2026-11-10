@@ -50,7 +50,8 @@ from manager.models import Scene, ChildScene, \
   SingletonAreaPoint, UserSession, FailedLogin, \
   RegionOccupancyThreshold, SceneImport, sendUpdateCommand
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
-  SceneUpdateForm, SceneImportForm, CamCreateForm, CamUpdateForm, SingletonCreateForm, ChildSceneForm, PipelineForm
+  SceneUpdateForm, SceneImportForm, CamCreateForm, CamUpdateForm, SingletonCreateForm, ChildSceneForm, PipelineForm, \
+  PipelineSyncForm
 from manager.validators import add_form_error, validate_uuid
 
 
@@ -132,6 +133,13 @@ def remove_other_sessions(sender, user, request, **kwargs):
 class SuperUserCheck(UserPassesTestMixin):
   def test_func(self):
     return self.request.user.is_superuser
+
+
+class MlopsFlowSuperUserCheck(SuperUserCheck):
+  """Superuser-only pipeline integration views; forbidden while ENABLE_MLOPS_FLOW is off."""
+
+  def test_func(self):
+    return super().test_func() and settings.ENABLE_MLOPS_FLOW
 
 def superuser_required(view_func=None, redirect_field_name=REDIRECT_FIELD_NAME,
                    login_url='sign_in'):
@@ -595,19 +603,31 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
   template_name = "asset/asset_update.html"
   success_url = reverse_lazy('asset_list')
 
+
+PIPELINE_SYNC_SESSION_KEY = 'pipeline_sync_filter'
+
+
 class PipelineListView(LoginRequiredMixin, ListView):
   model = Pipeline
   template_name = "pipeline/pipeline_list.html"
 
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    last_filter = self.request.session.get(PIPELINE_SYNC_SESSION_KEY) or {}
+    context['sync_form'] = PipelineSyncForm(
+      initial={key: last_filter[key] for key in ('tags', 'tag_match') if key in last_filter},
+      disabled=not settings.ENABLE_MLOPS_FLOW)
+    return context
 
-class PipelineCreateView(SuperUserCheck, CreateView):
+
+class PipelineCreateView(MlopsFlowSuperUserCheck, CreateView):
   model = Pipeline
   form_class = PipelineForm
   template_name = "pipeline/pipeline_form.html"
   success_url = reverse_lazy('pipeline_list')
 
 
-class PipelineUpdateView(SuperUserCheck, UpdateView):
+class PipelineUpdateView(MlopsFlowSuperUserCheck, UpdateView):
   model = Pipeline
   form_class = PipelineForm
   template_name = "pipeline/pipeline_form.html"
@@ -620,27 +640,46 @@ class PipelineUpdateView(SuperUserCheck, UpdateView):
     return response
 
 
-class PipelineDeleteView(SuperUserCheck, DeleteView):
+class PipelineDeleteView(MlopsFlowSuperUserCheck, DeleteView):
   model = Pipeline
   template_name = "pipeline/pipeline_delete.html"
   success_url = reverse_lazy('pipeline_list')
 
 
-class PipelineSyncView(SuperUserCheck, View):
+class PipelineSyncView(MlopsFlowSuperUserCheck, View):
   http_method_names = ['post']
 
   def post(self, request):
+    form = PipelineSyncForm(request.POST)
+    if not form.is_valid():
+      for errors in form.errors.values():
+        for error in errors:
+          messages.error(request, f"Sync with ViPPET: {error}")
+      return redirect('pipeline_list')
+    request.session[PIPELINE_SYNC_SESSION_KEY] = {
+      'tags': form.cleaned_data['tags'],
+      'tag_match': form.cleaned_data['tag_match'] or PipelineSyncForm.MATCH_ANY,
+    }
+    tag_filter = form.cleaned_data['tag_filter']
     try:
-      result = sync_vippet_pipelines()
+      result = sync_vippet_pipelines(tag_filter)
     except PipelineSyncError as e:
       messages.error(request, str(e))
       return redirect('pipeline_list')
-    messages.success(request, f"Synced with ViPPET: {len(result.created)} created, "
-                     f"{len(result.updated)} updated, {result.unchanged} unchanged.")
+    messages.success(request, _sync_summary(result, tag_filter))
     if result.skipped:
       messages.warning(request, "Skipped: " + "; ".join(result.skipped))
     _add_warnings(request, result.warnings)
     return redirect('pipeline_list')
+
+
+def _sync_summary(result, tag_filter):
+  counts = (f"{len(result.created)} created, {len(result.updated)} updated, "
+            f"{result.unchanged} unchanged.")
+  if not tag_filter.labels:
+    return f"Synced with ViPPET: {counts}"
+  return (f"Synced with ViPPET ({tag_filter.describe()}): {result.pipelines_matched} of "
+          f"{result.pipelines_total} pipelines matched; {counts}")
 
 
 def _add_warnings(request, warnings):

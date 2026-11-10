@@ -95,6 +95,9 @@ spec:
             - --autocalibration
             - autocalibration.{{ .Release.Namespace }}.svc.cluster.local:8443
             - --overwrite-user-auth
+            {{- if .Values.web.enableMlopsFlow }}
+            - --enable-mlops-flow
+            {{- end }}
           env:
           {{- if .Values.mapping.enabled }}
           - name: MAPPING_SERVICE_URL

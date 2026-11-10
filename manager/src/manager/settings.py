@@ -190,6 +190,16 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('FILE_UPLOAD_MAX_MEMORY_SIZE_MB', '1
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
 MAPBOX_API_KEY = os.getenv('MAPBOX_API_KEY', '')
 
+# ViPPET / DL Streamer Pipeline Server integration (Pipelines page, camera pipeline selector).
+# Enabled with the webserver --enable-mlops-flow flag or ENABLE_MLOPS_FLOW=true.
+def _env_flag(name, default='False'):
+  return os.getenv(name, default).strip().lower() in ('true', '1', 't', 'yes', 'on')
+
+ENABLE_MLOPS_FLOW = _env_flag('ENABLE_MLOPS_FLOW')
+MLOPS_FLOW_DISABLED_HINT = ("Disabled: start Manager with --enable-mlops-flow (or set "
+                            "ENABLE_MLOPS_FLOW=true) to enable pipeline integration with "
+                            "ViPPET and DL Streamer Pipeline Server.")
+
 MODEL_ROOT = os.path.join(BASE_DIR, 'models')
 MODEL_URL = '/models/'
 

@@ -73,6 +73,19 @@ DEMO_REBUILD_IMAGES ?= true
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
 LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
 LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
+# ViPPET + DLSPS 2.0 demo: ViPPET (make run DLSPS2=1) runs externally on VIPPET_NETWORK
+VIPPET_DLSPS2_DIR := sample_data/vippet_dlsps2
+VIPPET_NETWORK ?= visual-pipeline-and-platform-evaluation-tool_default
+VIPPET_DLSPS2_COMPOSE_ARGS = -f docker-compose.yml -f $(VIPPET_DLSPS2_DIR)/compose.scenescape-override.yml
+VIPPET_DLSPS2_CAMS_COMPOSE = SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape VIPPET_NETWORK=$(VIPPET_NETWORK) \
+	VIDEOSOURCE_PORT=$(VIPPET_DLSPS2_RTSP_PORT) \
+	docker compose --project-directory . -f $(QUEUING_VIDEO_COMPOSE_FILE) -f $(VIPPET_DLSPS2_DIR)/compose.queuing-cams-override.yml
+# Host port of the demo RTSP server; ViPPET's own mediamtx already publishes 8554
+VIPPET_DLSPS2_RTSP_PORT ?= 18554
+VIPPET_DLSPS2_SCENES_DIR := $(BUILD_DIR)/vippet_dlsps2_scenes
+# Run in the web container before shutdown so camera pipelines don't keep running in DLSPS
+VIPPET_DLSPS2_STOP_INSTANCES = from manager.models import Cam; from manager.pipeline_runtime import stop_dlsps_instance; \
+	[stop_dlsps_instance(i) for i in Cam.objects.exclude(dlsps_instance_id=None).values_list('dlsps_instance_id', flat=True)]
 
 # Test variables
 TESTS_FOLDER := tests
@@ -138,6 +151,8 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
+	@echo "  demo-vippet-dlsps2          Start Scenescape connected to a running ViPPET + DLSPS 2.0 with the Queuing camera streams"
+	@echo "  demo-vippet-dlsps2-close    Stop the ViPPET + DLSPS 2.0 demo and remove its volumes (ViPPET keeps running)"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
@@ -216,6 +231,8 @@ help:
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
 	@echo "  - Use 'make demo-lidar' to run the basic LiDAR-intersection (LIDAR/Camera) fusion demo."
 	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
+	@echo "  - Use 'make demo-vippet-dlsps2' to demo the ViPPET / DL Streamer Pipeline Server 2.0 integration."
+	@echo "    See sample_data/vippet_dlsps2/README.md for prerequisites and setup steps."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -897,6 +914,54 @@ demo-tracker: $(DEMO_BUILD:build=build-all)
 .PHONY: demo-lidar
 demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
 	$(call start_demo,controller,$(LIDAR_COMPOSE_ARGS))
+
+# ViPPET + DL Streamer Pipeline Server 2.0 demo (see sample_data/vippet_dlsps2/README.md)
+.PHONY: check-vippet-dlsps2
+check-vippet-dlsps2:
+	@CONTAINERS=$$(docker network inspect -f '{{range .Containers}}{{.Name}} {{end}}' $(VIPPET_NETWORK) 2>/dev/null) || { \
+		echo "Error: Docker network '$(VIPPET_NETWORK)' not found."; \
+		echo "Start ViPPET with DL Streamer Pipeline Server 2.0 first (in the ViPPET directory: make build run DLSPS2=1),"; \
+		echo "or set VIPPET_NETWORK to the network ViPPET runs on."; \
+		exit 1; \
+	}; \
+	for c in vippet dlstreamer-pipeline-server; do \
+		case " $$CONTAINERS " in *" $$c "*) ;; *) \
+			echo "Warning: container '$$c' is not running on network '$(VIPPET_NETWORK)'."; \
+			echo "         Scenescape starts anyway; pipeline sync / camera pipelines work once ViPPET runs with"; \
+			echo "         DL Streamer Pipeline Server 2.0 enabled (make build run DLSPS2=1)." ;; \
+		esac; \
+	done
+
+.PHONY: demo-vippet-dlsps2
+demo-vippet-dlsps2: check-vippet-dlsps2 $(DEMO_BUILD:build=build-core)
+	@$(MAKE) deploy DEPLOY_PROFILES=controller DEPLOY_COMPOSE_ARGS="$(VIPPET_DLSPS2_COMPOSE_ARGS)" DEPLOY_FROM_DEMO=true \
+		VIPPET_NETWORK=$(VIPPET_NETWORK)
+	@touch .scenescape-demo
+	@$(MAKE) convert-dls-videos
+	$(VIPPET_DLSPS2_CAMS_COMPOSE) up -d
+	@rm -rf $(VIPPET_DLSPS2_SCENES_DIR) && mkdir -p $(VIPPET_DLSPS2_SCENES_DIR)/Queuing
+	@cp $(VIDEO_SOURCE_DIR)/Queuing/Queuing.zip $(VIPPET_DLSPS2_SCENES_DIR)/Queuing/
+	@$(MAKE) demo-scenes DEMO_SCENES_DIR=$(VIPPET_DLSPS2_SCENES_DIR)
+	@echo ""
+	@echo "Scenescape is connected to ViPPET (http://vippet:7860) and DLSPS 2.0 (http://dlstreamer-pipeline-server:8080)."
+	@echo "Queuing camera streams: rtsp://mediaserver:8554/queuing-cam1 and rtsp://mediaserver:8554/queuing-cam2"
+	@echo "  (from the host: rtsp://localhost:$(VIPPET_DLSPS2_RTSP_PORT)/queuing-cam1)"
+	@echo "Next steps: sample_data/vippet_dlsps2/README.md"
+	@echo "To stop the demo, run: make demo-vippet-dlsps2-close"
+
+.PHONY: demo-vippet-dlsps2-close
+demo-vippet-dlsps2-close:
+	-@if [ -f .scenescape-profile ]; then \
+		echo "Stopping camera pipelines started on DLSPS 2.0..."; \
+		VIPPET_NETWORK=$(VIPPET_NETWORK) docker compose $$(cat .scenescape-profile) exec -T -w /home/scenescape/Scenescape web \
+			./manage.py shell -c "$(VIPPET_DLSPS2_STOP_INSTANCES)" >/dev/null; \
+	fi
+	-$(VIPPET_DLSPS2_CAMS_COMPOSE) down
+	@if [ -f .scenescape-profile ]; then \
+		VIPPET_NETWORK=$(VIPPET_NETWORK) docker compose $$(cat .scenescape-profile) down -v; \
+	fi
+	@rm -f .scenescape-profile .scenescape-demo
+	@rm -rf $(VIPPET_DLSPS2_SCENES_DIR)
 
 .PHONY: demo-close
 demo-close:

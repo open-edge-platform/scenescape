@@ -6,16 +6,20 @@ from uuid import UUID
 
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
-from django.test import Client, TestCase
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from manager.dlsps import DLSPSConflictError, DLSPSNotFoundError, DLSPSUnavailableError
 from manager.forms import CamCalibrateForm
 from manager.models import Cam, Pipeline, Scene
 from manager.pipeline_runtime import (
+  MAX_FILTER_TAG_LENGTH,
+  MAX_FILTER_TAGS,
   RESTART_CONFIG,
   PipelineSyncError,
+  TagFilter,
   apply_camera_pipeline,
+  parse_tag_filter,
   stop_dlsps_instance,
   sync_vippet_pipelines,
 )
@@ -30,8 +34,8 @@ OLD_ID = UUID('11111111-1111-4111-8111-111111111111')
 NEW_ID = UUID('22222222-2222-4222-8222-222222222222')
 
 
-def summary(pipeline_id, name, *variants):
-  return PipelineSummary(id=pipeline_id, name=name, description='', tags=(),
+def summary(pipeline_id, name, *variants, tags=()):
+  return PipelineSummary(id=pipeline_id, name=name, description='', tags=tuple(tags),
                          variants=tuple(PipelineVariant(id=v, name=v.upper()) for v in variants))
 
 
@@ -74,6 +78,7 @@ class MockedClientsMixin:
     return Cam.objects.get(pk=camera.pk).dlsps_instance_id
 
 
+@override_settings(ENABLE_MLOPS_FLOW=True)
 class ViPPETSyncTests(MockedClientsMixin, TestCase):
 
   def test_creates_one_pipeline_per_variant(self):
@@ -178,6 +183,7 @@ class ViPPETSyncTests(MockedClientsMixin, TestCase):
     self.dlsps_cls.assert_not_called()
 
 
+@override_settings(ENABLE_MLOPS_FLOW=True)
 class PipelineSyncViewTests(MockedClientsMixin, TestCase):
 
   @classmethod
@@ -262,6 +268,7 @@ class CameraFixturesMixin(MockedClientsMixin):
     return [str(m) for m in get_messages(response.wsgi_request)]
 
 
+@override_settings(ENABLE_MLOPS_FLOW=True)
 class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
 
   def test_create_with_pipeline_starts_instance_with_restarts(self):
@@ -374,6 +381,7 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
 
+@override_settings(ENABLE_MLOPS_FLOW=True)
 class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
 
   def test_editing_assigned_pipeline_string_restarts_camera(self):
@@ -415,3 +423,167 @@ class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
         stop_dlsps_instance(OLD_ID)
     self.dlsps_cls.side_effect = ValueError('no url')
     stop_dlsps_instance(OLD_ID)
+
+
+class TagFilterParsingTests(SimpleTestCase):
+
+  def test_blank_input_means_no_filter(self):
+    for text in (None, '', '   ', ' , ,, '):
+      with self.subTest(text=text):
+        tag_filter = parse_tag_filter(text)
+        self.assertEqual(tag_filter.labels, ())
+        self.assertTrue(tag_filter.matches([]))
+        self.assertTrue(tag_filter.matches(['Anything']))
+
+  def test_tags_are_trimmed_and_deduplicated_ignoring_case(self):
+    tag_filter = parse_tag_filter(' Scenescape , retail,SCENESCAPE,, Retail ', match_all=True)
+    self.assertEqual(tag_filter.labels, ('Scenescape', 'retail'))
+    self.assertTrue(tag_filter.match_all)
+    self.assertEqual(tag_filter.describe(), 'tags all of: Scenescape, retail')
+
+  def test_limits_are_enforced(self):
+    self.assertEqual(len(parse_tag_filter(','.join(f't{i}' for i in range(MAX_FILTER_TAGS))).labels),
+                     MAX_FILTER_TAGS)
+    self.assertEqual(parse_tag_filter('x' * MAX_FILTER_TAG_LENGTH).labels, ('x' * MAX_FILTER_TAG_LENGTH,))
+    invalid = (','.join(f't{i}' for i in range(MAX_FILTER_TAGS + 1)),
+               'x' * (MAX_FILTER_TAG_LENGTH + 1), 'bad\ttag', 'bad\x00tag')
+    for text in invalid:
+      with self.subTest(text=text[:30]), self.assertRaises(ValueError):
+        parse_tag_filter(text)
+
+  def test_any_and_all_matching_ignore_case(self):
+    any_filter = TagFilter(labels=('scenescape', 'Manufacturing'))
+    all_filter = TagFilter(labels=('retail', 'SCENESCAPE'), match_all=True)
+    cases = (
+      (['Retail', 'Scenescape'], True, True),
+      (['Retail'], False, False),
+      (['Scenescape'], True, False),
+      (['manufacturing'], True, False),
+      ([], False, False),
+      (['Retail Scenescape'], False, False),
+    )
+    for tags, any_expected, all_expected in cases:
+      with self.subTest(tags=tags):
+        self.assertEqual(any_filter.matches(tags), any_expected)
+        self.assertEqual(all_filter.matches(tags), all_expected)
+
+
+@override_settings(ENABLE_MLOPS_FLOW=True)
+class ViPPETTagFilteredSyncTests(MockedClientsMixin, TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.set_vippet(
+      [summary('queuing', 'Queuing', 'cpu', 'gpu', tags=['Scenescape', 'Retail']),
+       summary('parking', 'Parking', 'cpu', tags=['Smart Cities']),
+       summary('shelf', 'Shelf', 'cpu', tags=['retail']),
+       summary('untagged', 'Untagged', 'cpu')],
+      {('queuing', 'cpu'): 'q-cpu', ('queuing', 'gpu'): 'q-gpu', ('parking', 'cpu'): 'p-cpu',
+       ('shelf', 'cpu'): 's-cpu', ('untagged', 'cpu'): 'u-cpu'})
+
+  def fetched_ids(self):
+    return {call.args for call in self.vippet.get_pipeline_string.call_args_list}
+
+  def test_any_filter_imports_only_matching_pipelines(self):
+    result = sync_vippet_pipelines(parse_tag_filter('scenescape'))
+    self.assertEqual(result.created, ['Queuing (CPU)', 'Queuing (GPU)'])
+    self.assertEqual((result.pipelines_matched, result.pipelines_total), (1, 4))
+    self.assertEqual(self.fetched_ids(), {('queuing', 'cpu'), ('queuing', 'gpu')})
+    self.assertEqual(set(Pipeline.objects.values_list('vippet_pipeline_id', flat=True)),
+                     {'queuing/cpu', 'queuing/gpu'})
+
+  def test_any_filter_with_several_tags(self):
+    result = sync_vippet_pipelines(parse_tag_filter('Retail, Smart Cities'))
+    self.assertEqual(result.pipelines_matched, 3)
+    self.assertEqual(sorted(result.created),
+                     ['Parking (CPU)', 'Queuing (CPU)', 'Queuing (GPU)', 'Shelf (CPU)'])
+
+  def test_all_filter_requires_every_tag(self):
+    result = sync_vippet_pipelines(parse_tag_filter('RETAIL, scenescape', match_all=True))
+    self.assertEqual(result.pipelines_matched, 1)
+    self.assertEqual(result.created, ['Queuing (CPU)', 'Queuing (GPU)'])
+
+  def test_no_filter_imports_everything(self):
+    for tag_filter in (None, parse_tag_filter('')):
+      with self.subTest(tag_filter=tag_filter):
+        result = sync_vippet_pipelines(tag_filter)
+        self.assertEqual(result.pipelines_matched, 4)
+    self.assertEqual(Pipeline.objects.count(), 5)
+
+  def test_no_match_imports_nothing(self):
+    result = sync_vippet_pipelines(parse_tag_filter('Manufacturing'))
+    self.assertEqual((result.created, result.pipelines_matched), ([], 0))
+    self.vippet.get_pipeline_string.assert_not_called()
+
+  def test_previously_imported_non_matching_variant_is_still_updated(self):
+    parking = Pipeline.objects.create(name='Parking (CPU)', pipeline='old',
+                                      vippet_pipeline_id='parking/cpu')
+    camera = self.make_camera(pipeline=parking, instance_id=OLD_ID)
+    result = sync_vippet_pipelines(parse_tag_filter('Scenescape'))
+    self.assertEqual(sorted(result.updated + result.created),
+                     ['Parking (CPU)', 'Queuing (CPU)', 'Queuing (GPU)'])
+    self.assertEqual(result.updated, ['Parking (CPU)'])
+    parking.refresh_from_db()
+    self.assertEqual(parking.pipeline, 'p-cpu')
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+    self.assertEqual(self.instance_id_of(camera), NEW_ID)
+    self.assertNotIn(('shelf', 'cpu'), self.fetched_ids())
+
+
+@override_settings(ENABLE_MLOPS_FLOW=True)
+class PipelineSyncViewTagTests(MockedClientsMixin, TestCase):
+
+  @classmethod
+  def setUpTestData(cls):
+    cls.admin = get_user_model().objects.create_user(
+      username='tag-admin', is_staff=True, is_superuser=True)
+
+  def setUp(self):
+    super().setUp()
+    self.client.force_login(self.admin)
+    self.url = reverse('pipeline_sync')
+    self.set_vippet(
+      [summary('queuing', 'Queuing', 'cpu', tags=['Scenescape', 'Retail']),
+       summary('parking', 'Parking', 'cpu', tags=['Smart Cities'])],
+      {('queuing', 'cpu'): 'q-cpu', ('parking', 'cpu'): 'p-cpu'})
+
+  def test_filter_is_applied_and_reported(self):
+    response = self.client.post(self.url, {'tags': 'scenescape, Retail', 'tag_match': 'all'},
+                                follow=True)
+    self.assertContains(response, 'Synced with ViPPET (tags all of: scenescape, Retail): '
+                                  '1 of 2 pipelines matched; 1 created, 0 updated, 0 unchanged.')
+    self.assertEqual(list(Pipeline.objects.values_list('name', flat=True)), ['Queuing (CPU)'])
+
+  def test_last_filter_is_prefilled(self):
+    self.client.post(self.url, {'tags': 'Scenescape', 'tag_match': 'all'})
+    page = self.client.get(reverse('pipeline_list'))
+    self.assertContains(page, 'value="Scenescape"')
+    self.assertRegex(page.content.decode(), r'<input[^>]*value="all"[^>]*checked')
+    other_client = Client()
+    other_client.force_login(self.admin)
+    self.assertNotContains(other_client.get(reverse('pipeline_list')), 'value="Scenescape"')
+
+  def test_default_form_has_empty_filter_and_any(self):
+    page = self.client.get(reverse('pipeline_list')).content.decode()
+    self.assertRegex(page, r'<input type="text" name="tags"(?![^>]*value=)[^>]*>')
+    self.assertRegex(page, r'<input[^>]*value="any"[^>]*checked')
+    self.assertIn('id="pipeline-sync-form"', page)
+
+  def test_missing_fields_sync_everything(self):
+    response = self.client.post(self.url, follow=True)
+    self.assertContains(response, 'Synced with ViPPET: 2 created, 0 updated, 0 unchanged.')
+
+  def test_invalid_filter_is_rejected_without_contacting_vippet(self):
+    for data in ({'tags': 'x' * (MAX_FILTER_TAG_LENGTH + 1)}, {'tags': 'a', 'tag_match': 'some'},
+                 {'tags': 'x' * 2001}):
+      with self.subTest(data={k: v[:20] for k, v in data.items()}):
+        response = self.client.post(self.url, data, follow=True)
+        self.assertContains(response, 'alert-danger')
+        self.assertContains(response, 'Sync with ViPPET:')
+    self.vippet_cls.assert_not_called()
+    self.assertFalse(Pipeline.objects.exists())
+
+  def test_filter_text_is_escaped(self):
+    response = self.client.post(self.url, {'tags': '<script>alert(1)</script>'}, follow=True)
+    self.assertContains(response, '&lt;script&gt;alert(1)&lt;/script&gt;')
+    self.assertNotContains(response, '<script>alert(1)</script>')

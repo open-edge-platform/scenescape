@@ -11,6 +11,7 @@ from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene, Pipeline
+from manager.pipeline_runtime import parse_tag_filter
 from manager.validators import validate_zip_file
 from manager.ppl_generator import (
   PipelineGenerationValueError,
@@ -45,14 +46,54 @@ class PipelineForm(forms.ModelForm):
     return pipeline
 
 
+class PipelineSyncForm(forms.Form):
+  """Optional tag filter for "Sync with ViPPET"."""
+
+  MATCH_ANY = 'any'
+  MATCH_ALL = 'all'
+
+  tags = forms.CharField(
+    label="Tags", required=False, max_length=2000,
+    widget=forms.TextInput(attrs={
+      'class': 'form-control form-control-sm',
+      'placeholder': 'Filter by tags, e.g. Scenescape, Retail',
+      'aria-label': 'Filter ViPPET pipelines by tags (comma-separated)',
+      'size': 32,
+    }))
+  tag_match = forms.ChoiceField(
+    label="Match", initial=MATCH_ANY, required=False,
+    choices=[(MATCH_ANY, 'Any'), (MATCH_ALL, 'All')],
+    widget=forms.RadioSelect(attrs={'class': 'form-check-input'}))
+
+  def __init__(self, *args, disabled=False, **kwargs):
+    super().__init__(*args, **kwargs)
+    if disabled:
+      for field in self.fields.values():
+        field.disabled = True
+
+  def clean(self):
+    cleaned_data = super().clean()
+    match_all = cleaned_data.get('tag_match') == self.MATCH_ALL
+    try:
+      cleaned_data['tag_filter'] = parse_tag_filter(cleaned_data.get('tags'), match_all)
+    except ValueError as e:
+      self.add_error('tags', str(e))
+    return cleaned_data
+
+
 class CameraPipelineForm(forms.ModelForm):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
+    pipeline_field = self.fields['pipeline']
     assigned = Cam.objects.filter(pipeline__isnull=False)
     if self.instance.pk:
       assigned = assigned.exclude(pk=self.instance.pk)
-    self.fields['pipeline'].queryset = Pipeline.objects.exclude(
+    pipeline_field.queryset = Pipeline.objects.exclude(
       pk__in=assigned.values('pipeline_id'))
+    if not settings.ENABLE_MLOPS_FLOW:
+      # Disabled fields ignore submitted data, so the stored association is kept as is.
+      pipeline_field.disabled = True
+      pipeline_field.widget.attrs['title'] = settings.MLOPS_FLOW_DISABLED_HINT
 
 
 class CamUpdateForm(CameraPipelineForm):

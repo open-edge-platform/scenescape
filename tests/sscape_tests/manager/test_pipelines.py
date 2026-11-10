@@ -8,7 +8,7 @@ from uuid import UUID
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
-from django.test import Client, TestCase, TransactionTestCase
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -59,6 +59,7 @@ class PipelineFormTests(TestCase):
     self.assertNotIn('vippet_pipeline_id', PipelineForm.base_fields)
 
 
+@override_settings(ENABLE_MLOPS_FLOW=True)
 class PipelineTests(TestCase):
 
   @classmethod

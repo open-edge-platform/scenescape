@@ -7,6 +7,24 @@ create them by hand or import them from ViPPET (Visual Pipeline and Platform
 Evaluation Tool). Selecting a stored pipeline on a camera runs it on DL
 Streamer Pipeline Server 2.0 (DLSPS).
 
+For a ready-to-run setup with an external ViPPET and DLSPS, see the
+[ViPPET and DL Streamer Pipeline Server 2.0 demo](../../../sample_data/vippet_dlsps2/README.md).
+
+### Enabling the Integration
+
+The integration is disabled by default. While it is disabled, the pipelines
+stay visible read-only: **Sync with ViPPET**, **+ New Pipeline**, edit and
+delete, and the camera **Pipeline** selector are greyed out with a tooltip on
+how to enable them. Their URLs return HTTP 403, existing camera selections are
+kept unchanged, and Scenescape never contacts ViPPET or DLSPS. Enable it with
+any of:
+
+| Deployment     | Setting                                                 |
+| -------------- | ------------------------------------------------------- |
+| Manager option | `webserver ... --enable-mlops-flow`                     |
+| Docker Compose | `ENABLE_MLOPS_FLOW=true` in the environment of `web`    |
+| Helm           | `web.enableMlopsFlow=true` (adds `--enable-mlops-flow`) |
+
 ### Configuration
 
 Set these variables for the `web` (Manager) service. Leaving a variable empty
@@ -22,13 +40,27 @@ to the `web` service. With Helm, set `web.vippetUrl` and `web.dlspsUrl`.
 
 ### Sync with ViPPET
 
-Click **Sync with ViPPET** on the **Pipelines** page to import every ViPPET
-vision pipeline. Each hardware variant becomes its own stored pipeline:
+Click **Sync with ViPPET** on the **Pipelines** page to import ViPPET vision
+pipelines. Each hardware variant becomes its own stored pipeline:
 
 - **Name**: `<pipeline name> (<variant name>)`, for example `People (CPU)`.
 - **Pipeline string**: the variant's GStreamer launch string from ViPPET.
 - **ViPPET pipeline / variant ID**: `<pipeline id>/<variant id>`, shown
   read-only and used to match the pipeline on later syncs.
+
+To import only some pipelines, enter ViPPET tags, separated by commas, in the
+field next to the button, for example `Scenescape, Retail`, and choose how they
+match:
+
+- **Any**: the pipeline has at least one of the tags (default).
+- **All**: the pipeline has every tag.
+
+Tags match whole values and ignore case, so `scenescape` matches `Scenescape`
+but `Retail` does not match `Retail Analytics`. An empty field imports every
+pipeline. The filter only limits new imports: pipelines imported by an earlier
+sync are still updated even if they no longer match. The sync summary shows
+how many ViPPET pipelines matched, and your last filter is pre-filled for the
+next sync.
 
 A sync updates the name and string of previously imported pipelines, so local
 edits to them are overwritten. Pipelines removed from ViPPET are kept. A variant

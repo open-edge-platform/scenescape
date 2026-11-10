@@ -6,28 +6,63 @@ SPDX-License-Identifier: Apache-2.0
 {% extends 'sscape/base.html' %}
 {% block content %}
   {% if user.is_superuser %}
-    <div class="float-right">
-      <form
-        class="d-inline"
-        method="post"
-        action="{% url 'pipeline_sync' %}"
-        id="pipeline-sync-form"
+    {% if ENABLE_MLOPS_FLOW %}
+      <div class="float-right form-inline pipeline-actions">
+        <form
+          class="form-inline"
+          method="post"
+          action="{% url 'pipeline_sync' %}"
+          id="pipeline-sync-form"
+        >
+          {% csrf_token %}
+          {% include 'pipeline/sync_filter_fields.html' %}
+          <button type="submit" class="btn btn-secondary" id="pipeline-sync">
+            Sync with ViPPET
+          </button>
+        </form>
+        <a class="btn btn-primary" href="{% url 'pipeline_create' %}"
+          >+ New Pipeline</a
+        >
+      </div>
+    {% else %}
+      <div
+        class="float-right form-inline pipeline-actions mlops-flow-disabled"
+        id="pipeline-actions-disabled"
+        title="{{ MLOPS_FLOW_DISABLED_HINT }}"
+        tabindex="0"
       >
-        {% csrf_token %}
-        <button type="submit" class="btn btn-secondary" id="pipeline-sync">
+        {% include 'pipeline/sync_filter_fields.html' %}
+        <button
+          type="button"
+          class="btn btn-secondary"
+          id="pipeline-sync"
+          disabled
+          aria-disabled="true"
+        >
           Sync with ViPPET
         </button>
-      </form>
-      <a class="btn btn-primary" href="{% url 'pipeline_create' %}"
-        >+ New Pipeline</a
-      >
-    </div>
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="pipeline-create"
+          disabled
+          aria-disabled="true"
+        >
+          + New Pipeline
+        </button>
+      </div>
+    {% endif %}
   {% endif %}
   <h2 class="form-title">Pipelines</h2>
   <p>
     Pipelines imported from ViPPET are refreshed by "Sync with ViPPET".
     Selecting a pipeline on a camera starts it on DL Streamer Pipeline Server.
   </p>
+  {% if not ENABLE_MLOPS_FLOW %}
+    <p class="text-muted" id="mlops-flow-disabled-note">
+      Pipeline integration is disabled; pipelines are shown read-only.
+    </p>
+  {% endif %}
   <table class="table table-fluid">
     <thead>
       <tr>
@@ -48,7 +83,7 @@ SPDX-License-Identifier: Apache-2.0
             {{ pipeline.vippet_pipeline_id|default_if_none:"Not assigned" }}
           </td>
           <td><pre>{{ pipeline.pipeline }}</pre></td>
-          {% if user.is_superuser %}
+          {% if user.is_superuser and ENABLE_MLOPS_FLOW %}
             <td>
               <a
                 href="{% url 'pipeline_update' pipeline.pk %}"
@@ -62,6 +97,27 @@ SPDX-License-Identifier: Apache-2.0
                 aria-label="Delete {{ pipeline.name }}"
                 ><i class="bi bi-trash"></i
               ></a>
+            </td>
+          {% elif user.is_superuser %}
+            <td>
+              <span
+                class="mlops-flow-disabled text-muted"
+                title="{{ MLOPS_FLOW_DISABLED_HINT }}"
+                tabindex="0"
+                aria-disabled="true"
+                aria-label="Update {{ pipeline.name }} (disabled)"
+                ><i class="bi bi-wrench"></i
+              ></span>
+            </td>
+            <td>
+              <span
+                class="mlops-flow-disabled text-muted"
+                title="{{ MLOPS_FLOW_DISABLED_HINT }}"
+                tabindex="0"
+                aria-disabled="true"
+                aria-label="Delete {{ pipeline.name }} (disabled)"
+                ><i class="bi bi-trash"></i
+              ></span>
             </td>
           {% endif %}
         </tr>

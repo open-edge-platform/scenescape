@@ -1,0 +1,19 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% if ENABLE_MLOPS_FLOW %}
+  {{ field }}
+  {% include 'cam/dlsps_instance_id.html' %}
+{% else %}
+  <div
+    class="mlops-flow-disabled"
+    id="pipeline-mlops-flow-disabled"
+    title="{{ MLOPS_FLOW_DISABLED_HINT }}"
+    tabindex="0"
+  >
+    {{ field }}
+    {% include 'cam/dlsps_instance_id.html' %}
+  </div>
+{% endif %}

@@ -215,9 +215,12 @@ services:
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.
       - DATA_UPLOAD_MAX_MEMORY_SIZE_MB=${DATA_UPLOAD_MAX_MEMORY_SIZE_MB:-132}
-      # Optional pipeline services. VIPPET_URL (API root incl. /api/v1) enables
-      # "Sync with ViPPET" on the Pipelines page; DLSPS_URL enables starting
-      # camera pipelines on DL Streamer Pipeline Server 2.0. Empty disables.
+      # Pipeline integration (Pipelines page, camera pipeline selector) is
+      # greyed out unless ENABLE_MLOPS_FLOW=true (same as webserver
+      # --enable-mlops-flow). VIPPET_URL (API root incl. /api/v1) enables
+      # "Sync with ViPPET"; DLSPS_URL enables starting camera pipelines on
+      # DL Streamer Pipeline Server 2.0. Empty URLs disable each service.
+      - ENABLE_MLOPS_FLOW=${ENABLE_MLOPS_FLOW:-false}
       - VIPPET_URL=${VIPPET_URL:-}
       - DLSPS_URL=${DLSPS_URL:-}
       - FILE_UPLOAD_MAX_MEMORY_SIZE_MB=${FILE_UPLOAD_MAX_MEMORY_SIZE_MB:-132}

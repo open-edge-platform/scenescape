@@ -1114,7 +1114,7 @@ class Cam(Sensor):
 def stop_deleted_camera_pipeline(sender, instance, **kwargs):
   """Stop the DLSPS instance of a deleted camera once the deletion is committed."""
   instance_id = instance.dlsps_instance_id
-  if instance_id is None:
+  if instance_id is None or not settings.ENABLE_MLOPS_FLOW:
     return
   # Deferred import: pipeline_runtime imports this module.
   from manager.pipeline_runtime import stop_dlsps_instance
