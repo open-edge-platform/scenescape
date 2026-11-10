@@ -220,6 +220,14 @@ Recommended identifier lifecycle:
 1. `reserved`: `source_key` created, provisional `source_uid` allocated
 2. `bound`: alias is attached to concrete scene sensor
 3. `active`: ingestion and fusion use canonical `source_uid`
+4. `retired`: source removed, unbound, or otherwise taken out of service — ingest for that
+   `source_uid` is rejected
+
+Transitions out of `active` are required. Typical triggers: sensor delete in Manager, explicit
+unbind, or an operator/admin retire. Long idle alone does not auto-retire unless a deployment
+policy opts in. `source_uid` stays immutable for history/joins after retirement; the scoped
+`source_key` may be released for reuse once the mapping is `retired`. `reserved` entries that
+never bind may be cancelled directly to `retired` (or deleted) without becoming `active`.
 
 Recommended uniqueness constraint:
 

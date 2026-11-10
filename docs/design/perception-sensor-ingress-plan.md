@@ -248,10 +248,18 @@ Add a resolver service/module used by ingress and UI (`scope` is the owning
 - `resolve(source_key, scene_uid) -> source_uid`
 - `reserve(source_key, scene_uid, modality) -> source_uid`
 - `bind(source_uid, scene_sensor_ref) -> active mapping`
+- `retire(source_uid) -> retired mapping` (also used on sensor delete / unbind)
 
 State machine:
 
-- `reserved` -> `bound` -> `active`
+- `reserved` -> `bound` -> `active` -> `retired`
+- `reserved` -> `retired` (cancel unused reservation)
+
+`active` must have an exit. Retire when the scene sensor is deleted, unbound, or explicitly
+retired by an operator. After `retired`, Observation Processor rejects ingest for that
+`source_uid`. `source_uid` remains immutable for audit/history; the scoped `source_key` may be
+reclaimed for a new reservation once the prior mapping is `retired`. Long idle does not
+auto-retire unless a deployment policy enables it.
 
 Suggested scope key:
 
@@ -297,7 +305,8 @@ merge them into one sensor type.
 - Existing camera objects retain current UX by default.
 - Add "reserve alias" and "bind existing alias" workflows so pipeline setup can happen before
   full scene configuration.
-- Display identity status badge: `Reserved`, `Bound`, `Active`.
+- Display identity status badge: `Reserved`, `Bound`, `Active`, `Retired`.
+- Support unbind/retire from the perceptual sensor editor (and on sensor delete).
 
 ---
 
