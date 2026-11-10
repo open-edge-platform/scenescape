@@ -11,6 +11,8 @@ source =
     cluster_analytics/src
     positioning/src
     observation_processor/src
+    spatial_performance_primitives/frustum_gaussian/python/frustum_gaussian
+    spatial_performance_primitives/observation_conditioning
 omit =
     */.venv/*
     */site-packages/*

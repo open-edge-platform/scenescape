@@ -20,7 +20,7 @@ RUN /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
 
 # Build and install the frustum-gaussian wheel (C++/TBB kernel) into the venv.
 COPY spatial_performance_primitives/frustum_gaussian /tmp/frustum_gaussian
-RUN /opt/venv/bin/pip install --no-cache-dir /tmp/frustum_gaussian \
+RUN make -C /tmp/frustum_gaussian build PYTHON=/opt/venv/bin/python \
     && rm -rf /tmp/frustum_gaussian
 
 # scene_common and fast_geometry come pre-installed in common-base system site-packages.

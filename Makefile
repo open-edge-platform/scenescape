@@ -85,7 +85,9 @@ DEPLOYMENT_TEST ?= 0
 COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
 	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
 	manager/src/manager mapping/src observation_processor/src/observation_processor  reid/src/reid \
-	scene_common/src/scene_common model_download/src
+	scene_common/src/scene_common model_download/src \
+	spatial_performance_primitives/frustum_gaussian/python/frustum_gaussian \
+	spatial_performance_primitives/observation_conditioning
 COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
 COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
 COMPLEXITY_TOP ?= 20
@@ -413,6 +415,11 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 UNIT_COV_CONFIG := $(TESTS_DIR)/config.coveragerc
 UNIT_COV_FAIL_UNDER ?= 70
+SPATIAL_PERFORMANCE_UNIT_TESTS := \
+	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/tests \
+	$(CURDIR)/spatial_performance_primitives/observation_conditioning/tests
+SPATIAL_PERFORMANCE_PYTHONPATH := \
+	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/python:$(CURDIR)/spatial_performance_primitives
 UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
 	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
 UNIT_TEST_EXTRA_ARGS ?=
@@ -543,7 +550,10 @@ run_unit_tests_coverage: init-secrets setup-pytest
 
 .PHONY: run_sscape_unit_suite
 run_sscape_unit_suite:
-	PYTHONDONTWRITEBYTECODE=1 $(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) $(UNIT_TEST_EXTRA_ARGS) \
+	PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONPATH="$(SPATIAL_PERFORMANCE_PYTHONPATH)$${PYTHONPATH:+:$${PYTHONPATH}}" \
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(SPATIAL_PERFORMANCE_UNIT_TESTS) \
+	$(PYTEST_FLAGS) $(UNIT_TEST_EXTRA_ARGS) \
 		|| { echo "Unit tests failed"; exit 1; }
 
 .PHONY: check-unit-coverage

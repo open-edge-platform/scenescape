@@ -70,39 +70,42 @@ def project_frustum_batch(
   ``axis_aware`` (bool or per-detection mask): when True, BB width maps to
   ``mu_x`` and height to ``mu_z``; when False, use orientation-averaged size.
   """
-  if detections_or_dict is not None and isinstance(detections_or_dict, dict) \
-      and "boxes" in detections_or_dict:
-    boxes = detections_or_dict["boxes"]
-    priors = detections_or_dict["priors"]
-    clipped = detections_or_dict.get("clipped", clipped)
-    if "axis_aware" in detections_or_dict:
-      axis_aware = detections_or_dict["axis_aware"]
+  inputs = _resolve_batch_inputs(
+    detections_or_dict, boxes, priors, intrinsics, img_size, clipped, axis_aware)
+  sensor = kwargs.get("sensor")
+  if _cpp is None:
+    return _project_batch_numpy(inputs, sigma_px, sensor)
+  return _project_batch_native(inputs, sigma_px, sensor)
+
+
+def _resolve_batch_inputs(
+    detections_or_dict, boxes, priors, intrinsics, img_size, clipped, axis_aware):
+  ranges = None
+  if isinstance(detections_or_dict, dict):
+    ranges = detections_or_dict.get("ranges")
+    if "boxes" in detections_or_dict:
+      boxes = detections_or_dict["boxes"]
+      priors = detections_or_dict["priors"]
+      clipped = detections_or_dict.get("clipped", clipped)
+      axis_aware = detections_or_dict.get("axis_aware", axis_aware)
   if boxes is None or priors is None or intrinsics is None or img_size is None:
     raise TypeError(
       "project_frustum_batch requires boxes, priors, intrinsics, and img_size")
-  boxes = np.asarray(boxes, dtype=np.float32)
-  priors = np.asarray(priors, dtype=np.float32)
-  intrinsics = np.asarray(intrinsics, dtype=np.float32)
-  img_size = np.asarray(img_size, dtype=np.float32)
-  clipped = None if clipped is None else np.asarray(clipped, dtype=np.uint8)
-  ranges = detections_or_dict.get("ranges") if isinstance(detections_or_dict, dict) else None
-  sensor = kwargs.get("sensor")
-  if _cpp is None and (ranges is not None or sensor is not None):
+  return (
+    np.asarray(boxes, dtype=np.float32),
+    np.asarray(priors, dtype=np.float32),
+    np.asarray(intrinsics, dtype=np.float32),
+    np.asarray(img_size, dtype=np.float32),
+    None if clipped is None else np.asarray(clipped, dtype=np.uint8),
+    axis_aware,
+    ranges,
+  )
+
+
+def _project_batch_numpy(inputs, sigma_px, sensor):
+  boxes, priors, intrinsics, img_size, clipped, axis_aware, ranges = inputs
+  if ranges is not None or sensor is not None:
     raise NotImplementedError("range fusion requires the native frustum kernel")
-  if _cpp is not None:
-    obs: dict[str, np.ndarray] = {"boxes": boxes, "priors": priors}
-    if ranges is not None:
-      ranges = np.asarray(ranges, dtype=np.float32)
-      if ranges.shape != (boxes.shape[0],):
-        raise ValueError("ranges must have shape (N,)")
-      obs["ranges"] = ranges
-    if clipped is not None:
-      obs["clipped"] = clipped
-    if not (isinstance(axis_aware, (bool, np.bool_)) and bool(axis_aware)):
-      obs["axis_aware"] = np.broadcast_to(
-        np.asarray(axis_aware, dtype=np.uint8), (boxes.shape[0],)).copy()
-    return _cpp.project_frustum_batch(
-      obs, intrinsics, img_size, sigma_px=float(sigma_px), sensor=sensor)
   return project_frustum_batch_numpy(
     boxes=boxes,
     intrinsics=intrinsics,
@@ -112,6 +115,23 @@ def project_frustum_batch(
     clipped=clipped,
     axis_aware=axis_aware,
   )
+
+
+def _project_batch_native(inputs, sigma_px, sensor):
+  boxes, priors, intrinsics, img_size, clipped, axis_aware, ranges = inputs
+  observations: dict[str, np.ndarray] = {"boxes": boxes, "priors": priors}
+  if ranges is not None:
+    ranges = np.asarray(ranges, dtype=np.float32)
+    if ranges.shape != (boxes.shape[0],):
+      raise ValueError("ranges must have shape (N,)")
+    observations["ranges"] = ranges
+  if clipped is not None:
+    observations["clipped"] = clipped
+  if not (isinstance(axis_aware, (bool, np.bool_)) and bool(axis_aware)):
+    observations["axis_aware"] = np.broadcast_to(
+      np.asarray(axis_aware, dtype=np.uint8), (boxes.shape[0],)).copy()
+  return _cpp.project_frustum_batch(
+    observations, intrinsics, img_size, sigma_px=float(sigma_px), sensor=sensor)
 
 
 def transform_to_world_batch(

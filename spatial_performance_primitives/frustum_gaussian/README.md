@@ -17,6 +17,16 @@ The library is **stateless and mode-agnostic**. It does not decide whether an ob
 
 ### C++
 
+From the repository root, build the standalone C++ library and run its native
+tests with the local Makefile targets:
+
+```bash
+make -C spatial_performance_primitives/frustum_gaussian build-cpp
+make -C spatial_performance_primitives/frustum_gaussian test-cpp
+```
+
+To consume the library from another CMake project, add it with `FetchContent`:
+
 ```cmake
 include(FetchContent)
 FetchContent_Declare(frustum_gaussian
@@ -251,31 +261,45 @@ result = fg.project_frustum_batch(
 
 ### Requirements
 
-| Dependency   | Version                       | Notes                                             |
-| ------------ | ----------------------------- | ------------------------------------------------- |
-| CMake        | ≥ 3.20                        |                                                   |
-| C++ compiler | C++20                         | GCC ≥ 12, Clang ≥ 15, Intel oneAPI DPC++ ≥ 2024.0 |
-| Eigen3       | ≥ 3.4                         | Header-only                                       |
-| Intel TBB    | 2021+ (oneTBB) or classic TBB | `libtbb-dev` on Ubuntu                            |
-| pybind11     | ≥ 2.12                        | Python bindings only                              |
-| Python       | ≥ 3.10                        | Python bindings only                              |
+| Dependency   | Version                       | Notes                                                 |
+| ------------ | ----------------------------- | ----------------------------------------------------- |
+| CMake        | ≥ 3.20                        |                                                       |
+| C++ compiler | C++20                         | GCC ≥ 12, Clang ≥ 15, Intel oneAPI DPC++ ≥ 2024.0     |
+| Eigen3       | ≥ 3.4                         | Header-only                                           |
+| Intel TBB    | 2021+ (oneTBB) or classic TBB | `libtbb-dev` on Ubuntu                                |
+| GoogleTest   | 1.17.0                        | Installed by the `test-cpp` Makefile target via Conan |
+| gcovr        | Current Python package        | Required by `test-cpp-coverage`                       |
+| pybind11     | ≥ 2.12                        | Python bindings only                                  |
+| Python       | ≥ 3.10                        | Python bindings and tests                             |
 
 Optional: OpenVINO ≥ 2024.0 (planned depth-estimation head).
 
-### CMake standalone
+### Makefile
+
+Run these targets from this directory. `build` builds and installs the Python
+wheel containing the native C++ extension. `build-cpp` builds only the standalone
+C++ core library. `test-cpp` installs pinned GoogleTest with Conan before
+configuring and running CTest. `test-unit` runs both the C++ suite and the Python
+suite; the latter installs the wheel first so the native-extension parity test
+exercises the compiled backend. Set `PYTHON` to an environment with pytest and
+NumPy installed; the repository test environment can be selected with
+`PYTHON=../../tests/.venv/bin/python`.
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DFG_BUILD_TESTS=ON
-cmake --build build -j$(nproc)
-ctest --test-dir build --output-on-failure
+make build
+make build-cpp
+make test-cpp
+make test-cpp-coverage
+make test-python
+make test-unit PYTHON=../../tests/.venv/bin/python
 ```
 
-### Python wheel
-
-```bash
-pip install .
-pytest tests/
-```
+Python coverage for these tests is collected by the root
+`make run_unit_tests_coverage` target. Native C++ coverage is measured locally
+with `test-cpp-coverage`, which enforces 90% line and 50% branch coverage by
+default and writes HTML and XML reports under
+`build-coverage/coverage/cpp/`. Override the thresholds with
+`CPP_COVERAGE_LINE_MIN` and `CPP_COVERAGE_BRANCH_MIN`.
 
 ### Benchmarks
 
@@ -311,7 +335,3 @@ tracking system. Its outputs feed a planned chain of downstream components:
 The `mu`, `Sigma`, `ray`, `depth_lo`, `depth_hi`, and `score` fields are the interface contract with the scene-projection layer, which decides how to apply terrain or surface constraints depending on each object's class and posture.
 
 For the full architectural rationale, object mode discussion, and deployment scenarios see [ALGORITHM.md](ALGORITHM.md).
-
-## License
-
-Apache-2.0 © 2026 Intel Corporation
