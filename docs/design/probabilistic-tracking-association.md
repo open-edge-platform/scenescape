@@ -98,21 +98,21 @@ Phase 1 omits `R_meas` (association uses `S_pred` only; correct still uses fixed
 **Association cost** (track↔detection):
 
 ```text
-d² = (z_xy − ŷ_xy)ᵀ S_pred[0:2,0:2]⁻¹ (z_xy − ŷ_xy)
-valid if d² ≤ χ²(p, 2) and ||z_xy − ŷ_xy|| ≤ max_radius_m
+d² = (z_xyz − ŷ_xyz)ᵀ S_pred[0:3,0:3]⁻¹ (z_xyz − ŷ_xyz)
+valid if d² ≤ χ²(p, 3) and ||z_xy − ŷ_xy|| ≤ max_radius_m
 ```
 
-| Element                | Design choice                                                                                                                                                                                                                                                                                       |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Distance type          | `DistanceType::PositionMahalanobis` — 2×2 on (x, y); exclude size and yaw                                                                                                                                                                                                                           |
-| Gate                   | `chi2_inv(gate_probability, df=2)`; default `gate_probability=0.99` → χ² ≈ 9.21                                                                                                                                                                                                                     |
-| Safety ceiling         | `max_radius_m` (production default **10**); rejects pairs regardless of Mahalanobis; **not** a multi-cam tolerance                                                                                                                                                                                  |
-| Process noise shaping  | Velocity-aligned kinematic Q (Δt-scaled along-track ≫ cross-track); no direct position Q                                                                                                                                                                                                            |
-| Association covariance | Top IMM model `S_pred`; correct UKF/IMM Sxy handling so coast ellipses elongate along velocity                                                                                                                                                                                                      |
-| Birth clustering       | Detection↔detection remains Euclidean at **`kDefaultBirthClusterRadiusM` ≈ 2 m** (independent of `max_radius_m`); the Controller's `euclidean` rollback without `max_radius_m` uses the frame's average `tracking_radius`, as before Phase 1                                                        |
-| Multi-cam geometry     | Equal-weight average of matched cameras' world geometry (stopgap until Phase 2 R)                                                                                                                                                                                                                   |
-| Config                 | `association.method`, `gate_probability`, `max_radius_m` on tracker + controller                                                                                                                                                                                                                    |
-| UI visualization       | Each published track carries `association_window` ([data formats](../user-guide/microservices/controller/data_formats.md)): the `euclidean` circle or the χ² ellipse of `S_pred` xy, drawn by the Manager 2D/3D views at the corrected `translation`, not the predicted mean the gate is centred on |
+| Element                | Design choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Distance type          | `DistanceType::PositionMahalanobis` — 3×3 on (x, y, z); exclude size and yaw                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Gate                   | `chi2_inv(gate_probability, df=3)`; default `gate_probability=0.99` → χ² ≈ 11.345                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Safety ceiling         | `max_radius_m` (production default **10**); rejects pairs regardless of Mahalanobis; **not** a multi-cam tolerance                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Process noise shaping  | Velocity-aligned kinematic Q (Δt-scaled along-track ≫ cross-track); no direct position Q                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Association covariance | Top IMM model `S_pred`; correct UKF/IMM Sxy handling so coast ellipses elongate along velocity                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Birth clustering       | Detection↔detection remains Euclidean at **`kDefaultBirthClusterRadiusM` ≈ 2 m** (independent of `max_radius_m`); the Controller's `euclidean` rollback without `max_radius_m` uses the frame's average `tracking_radius`, as before Phase 1. Birth clustering is XYZ when both detections have measured z (`zMeasured`) and XY otherwise; the Controller sets `zMeasured` when the detection carries `translation`, which also holds for child-scene and external-source objects whose z is a planar ground point |
+| Multi-cam geometry     | Equal-weight average of matched cameras' world geometry (stopgap until Phase 2 R)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Config                 | `association.method`, `gate_probability`, `max_radius_m` on tracker + controller                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| UI visualization       | Each published track carries `association_window` ([data formats](../user-guide/microservices/controller/data_formats.md)): the `euclidean` circle or the χ² ellipse of `S_pred` xy, drawn by the Manager 2D/3D views at the corrected `translation`, not the predicted mean the gate is centred on                                                                                                                                                                                                                 |
 
 **Methods:**
 
@@ -180,12 +180,12 @@ Phase 1 default without an `association` block: `method: position_mahalanobis`, 
 
 ### 5.6 Chi-squared gate reference
 
-| gate_probability | χ² threshold (2 DOF) |
+| gate_probability | χ² threshold (3 DOF) |
 | ---------------- | -------------------- |
-| 0.90             | 4.605                |
-| 0.95             | 5.991                |
-| 0.99             | 9.210                |
-| 0.999            | 13.816               |
+| 0.90             | 6.251                |
+| 0.95             | 7.815                |
+| 0.99             | 11.345               |
+| 0.999            | 16.266               |
 
 Default recommendation: **0.99**.
 

@@ -166,8 +166,8 @@ def build_association_window(association_config, measurement_covariance=None,
 
   Euclidean association is a circle of radius ``max_radius_m``, or
   ``tracking_radius_m`` without it. Position Mahalanobis association gates in
-  3D (χ² df=3); the published window is the XY projection ellipse of the 2×2
-  XY block of ``S_pred`` (χ² df=2), with each semi-axis clipped to
+  3D (χ² df=3); the published window is the XY projection of that gate, the
+  ellipse of the 2×2 XY block of ``S_pred`` (χ² df=3), with each semi-axis clipped to
   ``max_radius_m`` so the drawn region stays inside the hard association
   ceiling; without a usable covariance it falls back to the ``max_radius_m``
   circle.
@@ -194,8 +194,8 @@ def build_association_window(association_config, measurement_covariance=None,
   # published object every frame; numpy.linalg.eigh made this call 5x slower.
   mean = 0.5 * (s00 + s11)
   spread = math.hypot(0.5 * (s00 - s11), s01)
-  # XY ellipse visualization uses 2-DOF chi²; matching uses df=3 for (x,y,z).
-  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"], 2))
+  # The XY shadow of the 3-DOF (x,y,z) gate: the S_xy ellipse at the same chi² as matching.
+  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"], 3))
 
   return {
     "method": method,

@@ -888,6 +888,53 @@ TEST(MultipleObjectTrackerTest, CoastsClimbingZWithoutMeasurements)
   EXPECT_NEAR(tracks[0].vz, vzAtCoastStart, 0.15);
 }
 
+TEST(MultipleObjectTrackerTest, ProductionFilterFollowsClimbingZAndCoastsIt)
+{
+  // The same non-planar path with the production IMM {CV, CA, CTRV} and noise, not a single CV model: a target walking
+  // at 1.4 m/s and climbing at 0.5 m/s is followed in z and vz, and keeps climbing through a 1 s coast.
+  using namespace rv::tracking::test;
+  auto trackerConfig = productionConfig();
+  ASSERT_GT(trackerConfig.mMotionModels.size(), 1U);
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  constexpr double totalS = 6.0;
+  constexpr double vx = 1.4;
+  constexpr double vz = 0.5;
+  for (double t = stepS; t < totalS; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = vx * t;
+    measurement.z = vz * t;
+    measurement.length = measurement.width = 0.5;
+    measurement.height = 1.8;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  const double lastT = totalS - stepS;
+  EXPECT_NEAR(tracks[0].x, vx * lastT, 0.3);
+  EXPECT_NEAR(tracks[0].z, vz * lastT, 0.3);
+  EXPECT_NEAR(tracks[0].vz, vz, 0.2);
+  const double zAtCoastStart = tracks[0].z;
+  const double vzAtCoastStart = tracks[0].vz;
+
+  constexpr double coastS = 1.0;
+  timestamp += std::chrono::milliseconds(static_cast<int>(coastS * 1000));
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  EXPECT_NEAR(tracks[0].z, zAtCoastStart + vzAtCoastStart * coastS, 0.3);
+  EXPECT_GT(tracks[0].vz, 0.5 * vz);
+}
+
 TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
 {
   // A detection 1.5 m from the track, inside the wide gate: the track takes it without a ceiling; with a 1 m ceiling

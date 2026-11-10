@@ -359,7 +359,7 @@ pixel boxes are projected to z = 0. The filter estimates vertical velocity, so
 tracks publish `translation[2]` and `velocity[2] = vz`. Track-to-detection
 association gates in XYZ (χ² with 3 degrees of freedom for
 `position_mahalanobis`); the published `association_window` ellipse is the XY
-block with 2 degrees of freedom. Birth clustering across cameras uses XY distance
+block of that gate, also with 3 degrees of freedom. Birth clustering across cameras uses XY distance
 unless both detections have measured z, so stacked 3D detections stay separate
 while a pixel box and a 3D detection of the same object still fuse. Pixel boxes
 report the ground point and 3D detectors usually report the box centre, so a

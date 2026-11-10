@@ -28,7 +28,7 @@ Replace Euclidean association gated by per-object `tracking_radius` with **covar
 
 Additional decisions locked with this ADR:
 
-- Prefer a **position-only** (2×2) Mahalanobis gate over full 7D Mahalanobis for association.
+- Prefer a **position-only** (3×3 on x, y, z) Mahalanobis gate over full 7D Mahalanobis for association.
 - Prefer geometry-derived `R` over TYPE_2 / ad-hoc multi-cam pose heuristics for disagreement.
 - Deprecate `tracking_radius` as an association knob (retain in object library metadata during transition).
 - Keep controller and tracker service behaviorally aligned via shared config / shared `robot_vision`.

@@ -810,7 +810,6 @@ TEST(ConfigLoaderTest, AssociationMahalanobisCostThresholdUsesChi2) {
     association.method = AssociationMethod::PositionMahalanobis;
     association.gate_probability = 0.99;
     EXPECT_NEAR(association.costThreshold(), rv::chi2Threshold(0.99, 3), 1e-6);
-    EXPECT_NEAR(association.chi2ThresholdXy(), rv::chi2Threshold(0.99, 2), 1e-6);
     EXPECT_EQ(association.distanceType(), rv::tracking::DistanceType::PositionMahalanobis);
 }
 

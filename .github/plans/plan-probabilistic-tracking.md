@@ -24,8 +24,8 @@ This plan tracks **tasks, validation, and exit criteria**. Architecture and desi
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Add `DistanceType::PositionMahalanobis` | `ObjectMatching.hpp/.cpp` | 2×2 block on (x,y) |
-| Chi-squared gate helper | `ObjectMatching.cpp` / `Utils.hpp` | `df=2` |
+| Add `DistanceType::PositionMahalanobis` | `ObjectMatching.hpp/.cpp` | 2×2 block on (x,y); 3×3 on (x,y,z) with Z tracking |
+| Chi-squared gate helper | `ObjectMatching.cpp` / `Utils.hpp` | `df=2`; `df=3` with Z tracking |
 | Keep `max_radius_m` as hard ceiling | `ObjectMatching.cpp` | Independent of χ² |
 | Velocity-aligned kinematic process noise | `MultiModelKalmanEstimator.cpp` | Along-track ≫ cross-track Q |
 | UKF / IMM association covariance fixes | UKF + IMM | Top-model S; Sxy sigma points; yaw-rate init |
@@ -174,20 +174,20 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 
 | Item | Detail | Commit / notes |
 |------|--------|----------------|
-| State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | `ee393034` |
-| Process noise | Independent `Q[vz,vz]` | same |
-| 3D association | Euclidean + `PositionMahalanobis` on `(x,y,z)`; birth cluster Euclidean is 3D | `0f4c1b5a` |
-| χ² gate | Matching uses `df=3` (~11.34 @ p=0.99); UI XY ellipse stays `df=2` | same |
-| Named indices | `StateIndex` / `MeasurementIndex` | same |
-| `isDynamic` | `vx²+vy²+vz² > 1` (vertical counts toward coast aging) | same |
-| Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association | same |
+| State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | |
+| Process noise | Independent `Q[vz,vz]` | |
+| 3D association | Euclidean + `PositionMahalanobis` on `(x,y,z)`; birth cluster Euclidean is 3D | |
+| χ² gate | Matching uses `df=3` (~11.34 @ p=0.99); the UI XY ellipse uses the same `df=3` | |
+| Named indices | `StateIndex` / `MeasurementIndex` | |
+| `isDynamic` | `vx²+vy²+vz² > 1` (vertical counts toward coast aging) | |
+| Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association | |
 
 ### Controller-only — done (skip for tracker)
 
 | Item | Location |
 |------|----------|
 | Association params use `chi2_threshold(p, 3)` | `ilabs_tracking.association_match_params` |
-| Association window viz uses `chi2_threshold(p, 2)` | `ilabs_tracking.build_association_window` |
+| Association window viz uses `chi2_threshold(p, 3)` | `ilabs_tracking.build_association_window` |
 | Publish `velocity[2]` from UKF `vz` | `ilabs_tracking` |
 | Prefer detection `translation` / 3D bbox Z when present | `moving_object.mapObjectDetectionToWorld` (already) |
 | Functional climb via external-source MQTT | `tests/functional/test_z_tracking.py` |
@@ -198,7 +198,7 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 
 | # | Task | Location | Status |
 |---|------|----------|--------|
-| T1 | χ² `df=3` for match cost; `df=2` for association-window ellipse | `association_config.hpp`, `association_window.hpp` | Done |
+| T1 | χ² `df=3` for match cost; `df=3` for the association-window ellipse too | `association_config.hpp`, `association_window.hpp` | Done |
 | T2 | Detection `translation` / `size` / `rotation` input, translation path preserves Z | #2050 (through main) | Done |
 | T3 | Set `zMeasured = true` on the translation path | `coordinate_transformer.cpp` | Done |
 | T5 | Assert published `velocity[2]` / `translation[2]` | `track_publisher_test.cpp` | Done |
@@ -232,7 +232,7 @@ cd tracker && make test-unit test-robot-vision
 1. [ ] Phase 1 default flip (`position_mahalanobis`): shipped configs stay `euclidean`, with Mahalanobis alternative configs, until the Wildtrack regression is resolved
 2. [ ] Phase 2 opt-in combined; default stays Phase 1 until sign-off
 3. [ ] Phase 3 default flip to combined
-4. [x] Controller non-planar Z/`vz` + 3D association (`0f4c1b5a` / `ee393034`)
+4. [x] Controller non-planar Z/`vz` + 3D association
 5. [x] Tracker χ² df=3 parity + `vz` publish tests
 6. [ ] F2: Wildtrack eval post–χ² df=3; mitigate from results
 7. [x] F1: Tracker 3D detection input (#2050) + `zMeasured` (T3)
