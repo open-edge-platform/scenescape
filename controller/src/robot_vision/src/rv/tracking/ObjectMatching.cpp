@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -19,7 +20,7 @@ namespace rv {
 namespace tracking {
 
 constexpr double kDefaultClassBoundValue = 1000.;
-// A track whose position covariance S has a smaller |det S| is never assigned.
+// A track whose position covariance S has det S at or below this is never assigned.
 constexpr double kMinPositionCovarianceDeterminant = 1e-12;
 
 // Legacy (DistanceType::MultiClassEuclidean, MCEMahalanobis); the services do not use it.
@@ -112,10 +113,21 @@ cv::Matx33d positionCovariance(const TrackedObject &track)
   return track.predictedMeasurementCov.get_minor<3, 3>(MeasurementIndex::X, MeasurementIndex::X);
 }
 
-/// S^-1 of the position block; false for a near-singular S, which LU would still invert.
+/// S^-1 of the position block when S is symmetric positive definite. A singular or indefinite S could give a negative
+/// d^2 that passes any gate and wins the assignment; LU alone would still invert a near-singular one.
 bool invertPositionCovariance(const cv::Matx33d &S, cv::Mat &Sinv)
 {
-  return std::abs(cv::determinant(S)) >= kMinPositionCovarianceDeterminant && cv::invert(S, Sinv, cv::DECOMP_LU) != 0;
+  if (!cv::checkRange(S))
+  {
+    return false;
+  }
+  // Sylvester: SPD iff the leading principal minors are positive; the last one keeps the near-singular floor.
+  const double minor2 = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
+  if (S(0, 0) <= 0.0 || minor2 <= 0.0 || cv::determinant(S) <= kMinPositionCovarianceDeterminant)
+  {
+    return false;
+  }
+  return cv::invert(S, Sinv, cv::DECOMP_LU) != 0;
 }
 
 } // namespace
