@@ -239,8 +239,8 @@ def _residuals(scene, jdata, when, static_camera, candidate_camera):
     if not detections:
       continue
     prepared = copy.deepcopy(detections)
-    if "intrinsics" not in jdata:
-      scene.convertPixelBoundingBoxesToMeters(prepared, intrinsics.intrinsics, intrinsics.distortion)
+    scene.convertPixelBoundingBoxesToMeters(
+      prepared, intrinsics.intrinsics, intrinsics.distortion)
     static_objects = scene.createMovingObjectsForDetection(
       detection_type, copy.deepcopy(prepared), when, static_camera)
     candidate_objects = scene.createMovingObjectsForDetection(

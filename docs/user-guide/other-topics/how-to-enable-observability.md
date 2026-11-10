@@ -124,7 +124,9 @@ The Scene Controller emits the following OpenTelemetry instruments under the
 - `scenescape_controller_mqtt_messages` (counter) — MQTT messages received
   and processed.
 - `scenescape_controller_mqtt_messages_dropped` (counter) — MQTT messages
-  dropped.
+  dropped: once per message dropped before tracking (e.g. lag), and once per
+  message and category when that category's tracker is busy, also when a time
+  chunk is skipped.
 - `scenescape_controller_mqtt_handler_duration` (histogram, ms) — MQTT
   handler processing time.
 - `scenescape_controller_tracking_duration` (histogram, ms) — Tracking
@@ -254,10 +256,13 @@ scope with the following instruments (see
 
 - `tracker.mqtt.latency` (histogram, ms) — end-to-end processing latency,
   attributed by `scene` and `category`.
-- `tracker.mqtt.messages` (counter) — messages received, attributed by
-  `scene`, `camera_id`, and `reason` (accepted / rejected).
-- `tracker.mqtt.dropped` (counter) — messages dropped, attributed by
-  `scene`, `camera_id`, and `reason`.
+- `tracker.mqtt.messages` (counter) — messages accepted, attributed by
+  `scene`, `camera_id`, and `reason` (`accepted`). Rejected messages are
+  counted in `tracker.mqtt.dropped`.
+- `tracker.mqtt.dropped` (counter) — messages rejected on arrival (`reason`
+  `rejected_*`, with `camera_id`, once per message) or dropped later
+  (`dropped_*`, with `category`, once per message and active category of the
+  scene), attributed by `scene` and `reason`.
 - `tracker.tracks.active` (gauge) — currently active tracks, attributed by
   `scene` and `category`.
 
