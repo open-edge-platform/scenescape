@@ -289,6 +289,10 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
     fuseGeometry(matches, objectsPerCamera, fusedObject);
     applyOrientingYaw(matches, objectsPerCamera, fusedObject);
+    // The update measured z if any matched camera did, whichever camera seeds the fused object.
+    fusedObject.zMeasured = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
+      return objectsPerCamera[match.first][match.second].zMeasured;
+    });
     metadata_fusion::fuseMetadata(matches, objectsPerCamera, fusedObject);
     metadata_fusion::mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
 

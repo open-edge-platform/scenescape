@@ -374,6 +374,8 @@ void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurem
   const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
+  // Sticky like orientation_observed: z is gated once any update has measured it.
+  mCurrentState.zMeasured = priorState.zMeasured || measurement.zMeasured;
   mCurrentState.corrected = true;
 }
 
@@ -429,6 +431,8 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
+  // Sticky like orientation_observed: z is gated once any update has measured it.
+  mCurrentState.zMeasured = priorState.zMeasured || measurement.zMeasured;
 
   mCurrentState.corrected = true;
 }
