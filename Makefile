@@ -441,7 +441,7 @@ setup-pytest:
 		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
 			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
 	fi
-	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
+	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision.tracking.DistanceType, 'PositionMahalanobis')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
 		for pkg in libopencv-dev libeigen3-dev; do \
 			dpkg -s $$pkg > /dev/null 2>&1 || { echo "ERROR: $$pkg is required to build robot_vision. See tests/README.md for installation instructions."; exit 1; }; \
