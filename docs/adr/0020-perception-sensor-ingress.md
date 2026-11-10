@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# ADR 12: Perception Sensor Ingress — Unified Topic and Strategy-Based Modality Routing
+# ADR 20: Perception Sensor Ingress — Unified Topic and Strategy-Based Modality Routing
 
 - **Author(s)**: [spoluri](https://github.com/spoluri)
 - **Date**: 2026-06-10
@@ -17,14 +17,20 @@ registry. Modality is declared in JSON metadata and used for routing to the prop
 projection strategy. New modalities are added by registering a strategy, not by branching existing
 code or changing external topic interfaces.
 
+Ingress handling follows the [ADR-13](0013-controller-breakdown-microservices.md) service
+breakdown: pose context from Positioning, modality parse/project in the **Observation Processor**
+(the evolved name for ADR-13's Spatial Transform & Projection responsibility), and world-space
+observations into the Tracker. The Tracker does not own perceptual MQTT parse/project.
+
 Also adopt a dual-identity contract to avoid hierarchical namespace collisions while preserving
 operator-friendly configuration:
 
 - `source_uid` (UUID): canonical internal identity used for storage, joins, routing, and fusion
 - `source_key` (string alias): human/external identifier used by pipelines and UI
 
-Publishers port to the unified topic. The legacy `scenescape/data/camera/+` ingress path is removed
-when this change is confirmed; there is no long-lived compatibility adapter or `id` alias.
+**Hard cutover:** publishers port to the unified topic. The legacy `scenescape/data/camera/+`
+ingress path is removed when this change is confirmed; there is no compatibility adapter or
+legacy `id` alias.
 
 ## Context
 
@@ -104,7 +110,21 @@ Each detection satisfies **one** of:
 - `translation + rotation + size` (pre-projected metric 3D detections), or
 - `bounding_box_3D` (sensor-native 3D box to be projected by strategy).
 
-### 3. Plugin/strategy registry (Open/Closed Principle)
+### 3. Plugin/strategy registry owned by Observation Processor (ADR-13 aligned)
+
+Perceptual detection ingest is not a Tracker responsibility. It follows ADR-13's split:
+
+1. **Ingress** — subscribe to `scenescape/data/perceptual_sensor/+` only (hard cutover; no
+   `data/camera/+`).
+2. **Positioning** — supply pose / calibration context for the resolved `source_uid`.
+3. **Observation Processor** — resolve identity, read `modality`, dispatch
+   `PerceptualSensorStrategy` parse + project, emit **world-space** observations.
+4. **Tracker** — consume world-space observations only (prediction, association, fusion).
+
+The Observation Processor is the forward name for ADR-13's Spatial Transform & Projection
+service. Shared strategy contracts may live in `scene_common` for Manager validation and
+cross-language schema alignment; the latency-critical project path belongs in the Observation
+Processor (C++ on the critical path, consistent with ADR-13).
 
 A `PerceptualSensorStrategy` interface carries three responsibilities:
 
@@ -121,7 +141,8 @@ Built-in strategies:
 | `RadarStrategy`  | `radar`      | Polar-to-Cartesian conversion for heatmap/range-doppler |
 
 Registry maps `modality` -> strategy instance. Adding a new modality means implementing and
-registering a strategy, with no core handler changes.
+registering a strategy in the Observation Processor path, with no Tracker or core handler
+branching.
 
 ### 4. Calibration inputs by modality
 
@@ -141,17 +162,23 @@ Prefer a common perceptual sensor base model with modality-specific derived mode
 with a `modality` flag. Derived models keep calibration fields and validation rules local to each
 modality while sharing identity (`source_uid`, `source_key`) and scene association.
 
-Cutover rules:
+Cutover rules (hard cutover):
 
 - Publishers and pipelines port to `scenescape/data/perceptual_sensor/+`. There is no
   compatibility adapter from `scenescape/data/camera/+`.
-- On confirmation of this change, remove the legacy camera ingress path. Do not keep a deprecated
-  dual-path for a later release.
+- On confirmation of this change, remove the legacy camera ingress path everywhere it is
+  subscribed (Observation Processor / former Tracker camera handlers, schemas, samples, and
+  docs). Do not keep a deprecated dual-path for a later release.
 - Ingress accepts `source_uid` and/or `source_key`. A resolver maps `source_key` -> `source_uid`
   using scene scope.
 - Support alias pre-registration so DLStreamer can be configured before scene sensor binding.
 - When binding is completed, reserved aliases transition to active mappings without pipeline
   reconfiguration.
+
+This ADR amends the Cam-as-catch-all modality assumptions in [ADR-16](0016-unified-external-source-ingestion.md)
+and [ADR-18](0018-camera-pose-provenance.md) for **registered perceptual sensors**: those sensors
+use the unified perceptual topic and Observation Processor strategies after cutover. Dynamic
+agents remain on ADR-16's `scenescape/external/{publisher_id}/...` contract.
 
 ## Alternatives Considered
 
@@ -163,24 +190,27 @@ Cutover rules:
 - **Extend `Cam` with `modality`** — Considered. Simpler short-term migration of existing rows, but
   leaves camera-shaped fields and validation on non-camera sensors. Prefer a common base with
   derived modality models.
+- **Embed parse/project in the Tracker** — Rejected. Conflicts with ADR-13: Tracker inputs are
+  world-space observations; modality projection belongs in the Observation Processor.
 
 ## Consequences
 
 ### Positive
 
 - External ingestion interface remains stable as modalities expand.
-- New modalities require no core handler edits.
+- New modalities require no Tracker or core handler edits.
 - Calibration requirements are modality-appropriate.
 - Hierarchical namespace collisions are prevented by canonical UUID routing.
 - Users can configure pipelines early with aliases and bind later via resolver.
 - No long-lived dual ingress or legacy `id` field to maintain.
+- Aligns perceptual ingest with ADR-13 service boundaries under the Observation Processor name.
 
 ### Negative
 
 - Consumers must inspect payload metadata to determine modality.
 - Strategy registry and envelope schema infrastructure must be built and maintained.
-- Existing camera publishers must be ported to the unified topic at cutover.
-- UI/docs require migration from camera-only language.
+- Existing camera publishers must be ported to the unified topic at cutover (breaking change).
+- UI/docs and accepted ADR-16/18 Cam-path wording need follow-up amendment.
 - Resolver and alias reservation lifecycle add state-management complexity.
 
 ## Implementation Notes
@@ -204,10 +234,13 @@ in different scenes in a parent/child hierarchy while canonical routing stays on
 ## References
 
 - [Implementation plan](../design/perception-sensor-ingress-plan.md)
+- [ADR-13: Controller Breakdown into Functionality-Aligned Microservices](0013-controller-breakdown-microservices.md)
+- [ADR-7: Tracker Service](0007-tracker-service.md)
+- [ADR-16: Unified External-Source Ingestion](0016-unified-external-source-ingestion.md)
+- [ADR-18: Camera Pose Provenance](0018-camera-pose-provenance.md)
 - [Current coordinate transformer](../../tracker/src/coordinate_transformer.cpp)
 - [Current camera-data schema](../../tracker/schema/camera-data.schema.json)
 - [Current scene schema](../../tracker/schema/scene.schema.json)
 - [Controller scene ingress](../../controller/src/controller/scene.py)
 - [Manager Cam model](../../manager/src/manager/models.py)
-- [ADR-7: Tracker Service](0007-tracker-service.md)
 - [ADR-3: Scaling Controller Performance](0003-scaling-controller-performance.md)

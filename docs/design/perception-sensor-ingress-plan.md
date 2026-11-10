@@ -8,7 +8,8 @@ SPDX-License-Identifier: Apache-2.0
 - **Author(s)**: [spoluri](https://github.com/spoluri)
 - **Date**: 2026-06-10
 - **Status**: `Proposed`
-- **Related ADRs**: [ADR-12](../adr/0012-perception-sensor-ingress.md)
+- **Related ADRs**: [ADR-20](../adr/0020-perception-sensor-ingress.md),
+  [ADR-13](../adr/0013-controller-breakdown-microservices.md)
 
 ---
 
@@ -18,8 +19,12 @@ SceneScape currently models all spatial perception sensors as cameras. This docu
 migration to one stable perceptual ingress topic and a plugin/strategy-based modality registry that
 is open for extension without modifying core message handlers.
 
-Publishers port to the unified topic. The legacy `scenescape/data/camera/+` path is removed when
-this change is confirmed; there is no compatibility adapter.
+Handling aligns with [ADR-13](../adr/0013-controller-breakdown-microservices.md): Positioning
+supplies pose context; the **Observation Processor** (forward name for ADR-13 Spatial Transform &
+Projection) owns modality parse/project; the Tracker consumes world-space observations only.
+
+**Hard cutover:** publishers port to the unified topic. The legacy `scenescape/data/camera/+` path
+is removed on confirmation; there is no compatibility adapter.
 
 ---
 
@@ -27,11 +32,13 @@ this change is confirmed; there is no compatibility adapter.
 
 - Replace camera-as-catch-all ingress with one stable topic:
   `scenescape/data/perceptual_sensor/{sensor_id}`.
-- Route by JSON metadata (`modality`) through strategy plugins.
+- Route by JSON metadata (`modality`) through strategy plugins in the Observation Processor.
 - Keep external interfaces stable as new modalities are introduced.
 - Eliminate hierarchical namespace collisions while keeping user-friendly sensor identifiers.
 - Make calibration requirements modality-appropriate.
-- Cut over camera publishers to the unified topic; remove the legacy camera ingress path on
+- Align ingest with ADR-13 service boundaries (Observation Processor, not Tracker, owns
+  projection).
+- Hard-cut over camera publishers to the unified topic; remove the legacy camera ingress path on
   confirmation.
 
 ---
@@ -42,12 +49,13 @@ this change is confirmed; there is no compatibility adapter.
 - Migrating discrete event sensors (`SingletonSensor`) from `scenescape/data/sensor/+`, or unifying
   them with perceptual sensors under a single model/UI.
 - Shipping a long-lived camera-topic compatibility bridge.
+- Replacing ADR-16 dynamic external-agent ingest (`scenescape/external/{publisher_id}/...`).
 
 ---
 
 ## 4. Background / Context
 
-See [ADR-12](../adr/0012-perception-sensor-ingress.md). The current camera assumptions are spread
+See [ADR-20](../adr/0020-perception-sensor-ingress.md). The current camera assumptions are spread
 across manager, controller, scene_common, and tracker.
 
 ---
@@ -153,9 +161,36 @@ Each detection satisfies exactly one of:
 - `translation + rotation + size`
 - `bounding_box_3D`
 
-### 5.3 PerceptualSensorStrategy interface
+### 5.3 Service placement (ADR-13 / Observation Processor)
 
-Location: `scene_common/src/scene_common/sensor_strategy.py`
+```text
+perceptual_sensor MQTT
+        |
+        v
+ Identity resolve (source_key/source_uid)
+        |
+        v
+ Positioning  ---- pose / calibration context ----+
+                                                  |
+                                                  v
+                              Observation Processor
+                     (modality strategy parse + project)
+                                                  |
+                                                  v
+                              world-space observations
+                                                  |
+                                                  v
+                                               Tracker
+```
+
+- **Observation Processor** is the forward name for ADR-13 Spatial Transform & Projection.
+- Shared strategy contracts/schemas may live in `scene_common` for Manager validation; runtime
+  project implementations for the critical path live in the Observation Processor (C++).
+- Tracker does **not** subscribe to `data/perceptual_sensor/+` or run modality projection.
+
+### 5.4 PerceptualSensorStrategy interface
+
+Shared contract (illustrative Python; C++ mirror in Observation Processor):
 
 ```python
 from abc import ABC, abstractmethod
@@ -179,9 +214,9 @@ class PerceptualSensorStrategy(ABC):
     pass
 ```
 
-### 5.4 Strategy registry
+### 5.5 Strategy registry
 
-Location: `scene_common/src/scene_common/sensor_registry.py`
+Registry is owned/consumed by the Observation Processor:
 
 ```python
 _registry = {}
@@ -198,13 +233,14 @@ def get(modality):
 
 Routing flow:
 
-1. Subscriber receives payload on `data/perceptual_sensor/{sensor_id}`.
+1. Observation Processor receives payload on `data/perceptual_sensor/{sensor_id}`.
 2. Resolve ingress identity to canonical `source_uid`.
-3. Parse top-level `modality`.
-4. Resolve strategy from registry.
-5. Delegate parse + project to that strategy.
+3. Obtain pose/calibration context from Positioning for that source.
+4. Parse top-level `modality` and resolve strategy from registry.
+5. Delegate parse + project; emit world-space observations to Tracker.
+6. At hard cutover, do not subscribe to `data/camera/+`.
 
-### 5.4.1 Identity resolver service
+### 5.5.1 Identity resolver service
 
 Add a resolver service/module used by ingress and UI (`scope` is the owning
 `scene_uid`):
@@ -227,13 +263,13 @@ regulated MQTT topics, and controller bindings). SceneScape does not currently m
 owning scene so the same friendly `source_key` can exist in different scenes in a
 parent/child hierarchy.
 
-### 5.5 C++ tracker changes
+### 5.5.2 Tracker contract changes
 
-- `message_handler.cpp` subscribes to `scenescape/data/perceptual_sensor/+`.
-- Payload parser reads `modality` and dispatches to `IProjectionStrategy` implementation.
-- `CoordinateTransformer` is wrapped by `CameraProjectionStrategy`.
-- Add `LidarProjectionStrategy` and `RadarProjectionStrategy` implementations.
-- Unsubscribe and remove handlers for `scenescape/data/camera/+` at cutover.
+- Tracker input is world-space observations from the Observation Processor (ADR-13 / ADR-7
+  target), not raw perceptual MQTT.
+- Remove Tracker subscriptions and parsers for `scenescape/data/camera/+` at cutover.
+- Existing `CoordinateTransformer` camera math moves behind `CameraStrategy` inside the
+  Observation Processor; add `LidarStrategy` / `RadarStrategy` there as well.
 
 ### 5.6 Manager model changes
 
@@ -271,28 +307,30 @@ merge them into one sensor type.
 
 - [ ] Add required `modality` field to perceptual envelope schema.
 - [ ] Add `source_uid` and `source_key` fields to envelope schema (no legacy `id`).
-- [ ] Add `sensor_strategy.py` and `sensor_registry.py`.
+- [ ] Add shared strategy contract + registry used by Observation Processor (and Manager
+      validation helpers in `scene_common` as needed).
 - [ ] Add identity resolver module with reserve/resolve/bind APIs.
-- [ ] Implement and register `CameraStrategy`.
+- [ ] Implement and register `CameraStrategy` in the Observation Processor path.
 - [ ] Add unified perceptual topic constant in `mqtt.py`.
+- [ ] Wire Observation Processor subscription to `data/perceptual_sensor/+` only.
 - [ ] Add unit tests for modality registry and unknown modality behavior.
 - [ ] Add unit tests for identity resolution, ambiguity rejection, and reserved state.
 
-### Phase 2 — Model cutover + lidar
+### Phase 2 — Model cutover + lidar (hard cutover)
 
 - [ ] Introduce common perceptual sensor base and camera-derived model; migrate existing `Cam`
       rows.
 - [ ] Add `source_uid`/`source_key` fields; eliminate legacy `id` after migration.
 - [ ] Gate intrinsics autofill for camera only.
-- [ ] Implement `LidarStrategy` and register it.
-- [ ] Extend tracker parser/dispatcher for modality routing on the unified topic.
+- [ ] Implement `LidarStrategy` and register it in the Observation Processor.
+- [ ] Emit world-space observations to Tracker; remove Tracker camera MQTT parse/project path.
 - [ ] Port camera publishers to `data/perceptual_sensor/+`.
-- [ ] Remove `data/camera/+` ingress handlers and schemas on confirmation.
+- [ ] Remove `data/camera/+` ingress handlers and schemas on confirmation (no dual-path).
 - [ ] Add lidar unit tests and camera-on-unified-topic tests.
 
 ### Phase 3 — Radar strategy
 
-- [ ] Implement `RadarStrategy` and register it.
+- [ ] Implement `RadarStrategy` and register it in the Observation Processor.
 - [ ] Add radar projection strategy tests.
 
 ### Phase 4 — UI and API cleanup
@@ -300,16 +338,19 @@ merge them into one sensor type.
 - [ ] Modality selector and conditional calibration UI.
 - [ ] API docs updated to show `modality` field and unified ingress contract.
 - [ ] Docs and samples reference only the unified topic.
+- [ ] Follow-up amendments to ADR-16/18 Cam-as-catch-all wording for registered perceptual
+      sensors.
 
 ---
 
 ## 7. Validation Approach
 
-1. Unit tests for registry dispatch and modality validation.
+1. Unit tests for registry dispatch and modality validation in Observation Processor.
 2. Camera payloads published on the unified topic (post-port).
-3. Lidar and radar modality tests on unified topic.
+3. Lidar and radar modality tests on unified topic through Observation Processor → Tracker.
 4. Regression check that `data/camera/+` is no longer accepted after cutover.
-5. Full run: `make run_unit_tests && make run_functional_tests`.
+5. Confirm Tracker receives world-space observations only (no raw perceptual MQTT dependency).
+6. Full run: `make run_unit_tests && make run_functional_tests`.
 
 ---
 
@@ -320,3 +361,5 @@ merge them into one sensor type.
 3. Should discrete event sensors eventually use a parallel strategy interface for consistency?
 4. Should unresolved alias messages be buffered briefly or fail-fast with diagnostics only?
 5. Confirm Django inheritance vs composition for the common perceptual sensor base model.
+6. Exact Observation Processor deployable packaging relative to ADR-13 phase sequencing
+   (in-process first vs separate service).
