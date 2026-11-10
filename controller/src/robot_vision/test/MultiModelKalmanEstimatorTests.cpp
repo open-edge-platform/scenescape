@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 
 #include <rv/tracking/MultiModelKalmanEstimator.hpp>
+#include <rv/tracking/TrackManager.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "support/Scenario.hpp"
@@ -360,6 +361,47 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
       = MultiModelKalmanEstimator::processNoiseCov(defaultModels[i], config.mDefaultProcessNoise, 0.0, 0.0, kDeltaT);
     EXPECT_LT(cv::norm(defaults.mKalmanFilters[i]->getProcessNoiseCov(), stationary, cv::NORM_INF), 1e-12)
       << "model " << i;
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, TrackKeepsZMeasuredOnceMeasured)
+{
+  // A track born from a planar detection gets zMeasured with its first measured-z update and keeps it through planar
+  // updates and coasting, as orientation_observed does for yaw. One model and the production IMM.
+  for (const auto &models :
+       {std::vector<rv::tracking::MotionModel>{rv::tracking::MotionModel::CV}, rv::tracking::kProductionMotionModels})
+  {
+    SCOPED_TRACE(models.size());
+    rv::tracking::TrackedObject planar;
+    planar.length = planar.width = 0.5;
+    planar.height = 1.8;
+    rv::tracking::TrackedObject measured = planar;
+    measured.z = 0.9;
+    measured.zMeasured = true;
+
+    rv::tracking::MultiModelKalmanEstimator estimator;
+    auto timestamp = std::chrono::system_clock::now();
+    estimator.initialize(planar, timestamp, 1e-4, 0.2, 1.0, models);
+    EXPECT_FALSE(estimator.currentState().zMeasured);
+
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    estimator.correct(planar);
+    EXPECT_FALSE(estimator.currentState().zMeasured) << "planar update";
+
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    estimator.correct(measured);
+    EXPECT_TRUE(estimator.currentState().zMeasured) << "measured-z update";
+
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    estimator.correct(planar);
+    EXPECT_TRUE(estimator.currentState().zMeasured) << "planar update after a measured one";
+
+    timestamp += std::chrono::milliseconds(500);
+    estimator.predict(timestamp);
+    EXPECT_TRUE(estimator.currentState().zMeasured) << "coast";
   }
 }
 

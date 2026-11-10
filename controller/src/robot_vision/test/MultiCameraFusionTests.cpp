@@ -358,6 +358,31 @@ TEST(MultipleObjectTrackerTest, BirthClusteringDoesNotFuseStackedFloors)
   ASSERT_EQ(tracks.size(), 2U) << "measured-Z detections stacked in Z must not birth-cluster into one track";
 }
 
+TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
+{
+  // A planar track matched in one chunk by a measured-z camera and, last, by a planar camera: the fused update counts
+  // as measured, whatever the camera order.
+  rv::tracking::TrackedObject planar = makeDetection(5.0, 5.0, 0.0, 0.5, 0.5, 1.8);
+  rv::tracking::TrackedObject measured = planar;
+  measured.z = 0.3;
+  measured.zMeasured = true;
+
+  for (const bool measuredFirst : {true, false})
+  {
+    SCOPED_TRACE(measuredFirst ? "measured camera first" : "measured camera last");
+    auto tracker = makeFusionTracker();
+    tracker.track(DetectionsPerCamera{{planar}}, atMs(0), rv::tracking::DistanceType::Euclidean, kFusionGate);
+    ASSERT_EQ(tracker.getTracks().size(), 1U);
+    ASSERT_FALSE(tracker.getTracks()[0].zMeasured);
+
+    const auto cameras
+      = measuredFirst ? DetectionsPerCamera{{measured}, {planar}} : DetectionsPerCamera{{planar}, {measured}};
+    tracker.track(cameras, atMs(100), rv::tracking::DistanceType::Euclidean, kFusionGate);
+    ASSERT_EQ(tracker.getTracks().size(), 1U);
+    EXPECT_TRUE(tracker.getTracks()[0].zMeasured);
+  }
+}
+
 TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
 {
   rv::tracking::TrackManagerConfig trackerConfig;
