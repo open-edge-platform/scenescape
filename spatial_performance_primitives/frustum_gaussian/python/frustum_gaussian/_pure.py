@@ -134,8 +134,8 @@ def project_frustum_batch_numpy(
   alpha_x = np.maximum(alpha_x, 0.0)
   alpha_y = np.maximum(alpha_y, 0.0)
 
-  sigma_angular_x = (sigma_px / fx) / (1.0 + xn_c**2)
-  sigma_angular_y = (sigma_px / fy) / (1.0 + yn_c**2)
+  sigma_angular_x = np.sqrt(2.0) * sigma_px / fx
+  sigma_angular_y = np.sqrt(2.0) * sigma_px / fy
 
   # ---- 6. Depth from angular size -----------------------------------------
   tan_x = np.tan(0.5 * alpha_x)

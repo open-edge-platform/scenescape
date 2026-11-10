@@ -24,7 +24,6 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
   if(FG_NATIVE_ARCH)
     add_compile_options(-march=native)
   endif()
-  add_compile_options(-ffast-math)
 endif()
 
 # ---------------------------------------------------------------------------
