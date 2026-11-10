@@ -831,10 +831,12 @@ class TestNonPlanarTracking(unittest.TestCase):
     self.assertAlmostEqual(tracks[0].vz, 0.0, delta=0.05)
 
   def test_euclidean_association_separates_stacked_floors(self):
-    """Same XY at different Z must not match within a 2 m Euclidean gate."""
+    """Same XY at different Z must not match within a 2 m Euclidean gate once both sides measured z."""
     track = create_object_at_location(x=1.0, y=2.0, z=0.0)
     same_floor = create_object_at_location(x=1.0, y=2.0, z=0.1)
     upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
+    for obj in (track, same_floor, upper_floor):
+      obj.zMeasured = True
 
     assignments, _, _ = tracking.match(
       [track], [same_floor, upper_floor],
@@ -846,6 +848,18 @@ class TestNonPlanarTracking(unittest.TestCase):
       [track], [upper_floor],
       tracking.DistanceType.Euclidean, 2.0, 2.0)
     self.assertEqual(len(assignments), 0)
+
+  def test_euclidean_association_ignores_z_without_measured_z(self):
+    """A planar detection (ground point, no measured z) matches on x and y whatever its z."""
+    track = create_object_at_location(x=1.0, y=2.0, z=0.0)
+    upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
+    measured_upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
+    measured_upper_floor.zMeasured = True
+
+    for detection in (upper_floor, measured_upper_floor):
+      assignments, _, _ = tracking.match(
+        [track], [detection], tracking.DistanceType.Euclidean, 2.0, 2.0)
+      self.assertEqual(assignments, [(0, 0)])
 
   def test_mot_coasts_climbing_z_without_measurements(self):
     """After a climb, empty frames continue z via estimated vz."""
