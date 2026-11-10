@@ -157,7 +157,8 @@ class GlbAlignment {
       }
     });
     const form = row.closest("form");
-    if (form) on(form, "submit", () => this._attachGlbChanges(form));
+    if (form)
+      on(form, "submit", (event) => this._attachGlbChanges(form, event));
   }
 
   _strategy() {
@@ -242,7 +243,8 @@ class GlbAlignment {
   }
 
   _updateMapFrame() {
-    if (this.mapReady) this._strategy().setOverlayFrameColor(this._frameColor());
+    if (this.mapReady)
+      this._strategy().setOverlayFrameColor(this._frameColor());
   }
 
   _updateControlsVisibility() {
@@ -502,7 +504,7 @@ class GlbAlignment {
 
     try {
       const sent = { ...this.anchor };
-      await this._request(
+      const response = await this._request(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         {
           method: "PUT",
@@ -511,6 +513,7 @@ class GlbAlignment {
       );
 
       this.saved.anchor = sent;
+      this._applySceneFields(response.scene_fields);
       this.dirty = JSON.stringify(this.anchor) !== JSON.stringify(sent);
       this._updateControlsVisibility();
       this.ui.status.textContent = "Position saved";
@@ -522,9 +525,31 @@ class GlbAlignment {
     }
   }
 
+  // Mirrors server-side GLB changes (pose, scale, corners) into the scene-edit form so that
+  // Save Scene Updates does not post the values from before the change.
+  _applySceneFields(fields) {
+    if (!fields) return;
+    for (const [name, value] of Object.entries(fields)) {
+      const input = byId(`id_${name}`);
+      if (!input) continue;
+      if (name === "map_corners_lla") {
+        input.value = value ? JSON.stringify(value) : "";
+      } else {
+        input.value = value ?? "";
+      }
+    }
+  }
+
   // Save Scene Updates carries a staged GLB (token + anchor) or a shifted saved anchor;
   // SceneUpdateView.form_valid persists them.
-  _attachGlbChanges(form) {
+  _attachGlbChanges(form, event) {
+    if (this.saving) {
+      // A GLB request is in flight; submitting now would post pre-change values.
+      event.preventDefault();
+      this.ui.status.textContent =
+        "Wait for the 3D model change to finish, then save.";
+      return;
+    }
     form.querySelector('input[name="glb_token"]')?.remove();
     form.querySelector('input[name="glb_anchor"]')?.remove();
     if (!this.anchor || this.ui.mapType.value !== "geospatial_map") return;
@@ -565,6 +590,7 @@ class GlbAlignment {
       );
 
       this.saved.use_glb_map = response.use_glb_map;
+      this._applySceneFields(response.scene_fields);
       this._updateMapFrame();
       this.ui.status.textContent = this.saved.use_glb_map
         ? "3D model applied to scene map"
@@ -589,11 +615,12 @@ class GlbAlignment {
     this._updateLocks();
 
     try {
-      await this._request(
+      const response = await this._request(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         { method: "DELETE" },
       );
 
+      this._applySceneFields(response?.scene_fields);
       this.saved = null;
       this.anchor = null;
       this.dirty = false;

@@ -19,6 +19,27 @@ FRAME_APPLIED = "#2e7d32"
 FRAME_UNAPPLIED = "#c62828"
 _NO_SAVED = {"status": 404, "body": {}}
 
+SCENE_FIELDS_APPLIED = {
+  "scale": 2.5,
+  "rotation_x": 90.0,
+  "rotation_y": 0.0,
+  "rotation_z": 0.0,
+  "translation_x": 12.5,
+  "translation_y": -4.0,
+  "translation_z": 0.0,
+  "map_corners_lla": [[37.1, -122.1, 0.0], [37.1, -122.0, 0.0], [37.0, -122.0, 0.0], [37.0, -122.1, 0.0]],
+}
+SCENE_FIELDS_BASE = {
+  "scale": None,
+  "rotation_x": 0.0,
+  "rotation_y": 0.0,
+  "rotation_z": 0.0,
+  "translation_x": 0.0,
+  "translation_y": 0.0,
+  "translation_z": 0.0,
+  "map_corners_lla": None,
+}
+
 
 def run_js(scenario, args):
   """Run harness via stdin/stdout JSON."""
@@ -429,6 +450,95 @@ class TestGlbAlignment:
     assert res["frameTrail"] == [FRAME_UNAPPLIED, None, FRAME_UNAPPLIED]
     assert res["savedBlockDisplay"] == ""
     assert res["controlsDisplay"] == "none"
+
+  def test_toggle_use_writes_applied_scene_fields_to_form(self):
+    """Applying the GLB writes the server pose, scale and corners into the scene-edit form."""
+    res = _align(
+      [_saved_model_get(), {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}}],
+      [["toggleUse", True]],
+    )
+    _assert_form_matches(res["sceneForm"], SCENE_FIELDS_APPLIED)
+
+  def test_toggle_use_round_trip_follows_server_scene_fields(self):
+    """Toggling the GLB on then off moves the scene-edit form from the applied to the base values."""
+    responses = [
+      _saved_model_get(),
+      {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"use_glb_map": False, "scene_fields": SCENE_FIELDS_BASE}},
+    ]
+    res = _align(responses, [["toggleUse", True], ["toggleUse", False]])
+    _assert_form_matches(res["sceneFormTrail"][1], SCENE_FIELDS_APPLIED)
+    assert res["sceneFormTrail"][2] == {
+      "id_scale": "",
+      "id_rotation_x": 0,
+      "id_rotation_y": 0,
+      "id_rotation_z": 0,
+      "id_translation_x": 0,
+      "id_translation_y": 0,
+      "id_translation_z": 0,
+      "id_map_corners_lla": "",
+    }
+
+  def test_remove_applied_glb_writes_base_scene_fields_to_form(self):
+    """Removing an applied GLB writes the server's unapplied scene fields into the form."""
+    responses = [
+      _saved_model_get(),
+      {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"success": True, "scene_fields": SCENE_FIELDS_BASE}},
+    ]
+    res = _align(responses, [["toggleUse", True], ["remove"]])
+    _assert_form_matches(res["sceneFormTrail"][1], SCENE_FIELDS_APPLIED)
+    _assert_form_matches(res["sceneForm"], SCENE_FIELDS_BASE)
+    assert res["status"] == "3D model removed"
+
+  def test_remove_without_scene_fields_leaves_form_unchanged(self):
+    """A DELETE response without scene_fields keeps the form as it was and still clears the saved model."""
+    responses = [
+      _saved_model_get(),
+      {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 204, "body": {}},
+    ]
+    res = _align(responses, [["toggleUse", True], ["remove"]])
+    assert res["sceneFormTrail"][2] == res["sceneFormTrail"][1]
+    _assert_form_matches(res["sceneForm"], SCENE_FIELDS_APPLIED)
+    assert res["savedAnchor"] is None
+    assert res["status"] == "3D model removed"
+
+  def test_save_position_writes_moved_scene_fields_to_form(self):
+    """Saving a moved anchor writes the server's recomputed scene fields into the form."""
+    moved = {**SCENE_FIELDS_APPLIED, "translation_x": 20.0, "map_corners_lla": [[37.2, -122.2, 0.0]]}
+    responses = [_saved_model_get(use_glb_map=True), {"status": 200, "body": {"scene_fields": moved}}]
+    res = _align(responses, [["drag", [0, 0], [100, 100]], ["save"]])
+    _assert_form_matches(res["sceneForm"], moved)
+    assert res["status"] == "Position saved"
+
+  def test_submit_when_idle_is_not_prevented(self):
+    """Save Scene Updates submits normally when no position save is in flight."""
+    res = _align([_saved_model_get()], [["drag", [0, 0], [100, 100]], ["submit"]])
+    (submit,) = res["submits"]
+    assert submit["prevented"] is False
+
+  def test_submit_during_position_save_is_prevented_and_posts_nothing(self):
+    """Save Scene Updates is blocked while a position save is in flight and adds no form inputs."""
+    res = _align(
+      [_saved_model_get(), {"status": 200, "body": {}}],
+      [["drag", [0, 0], [100, 100]], ["saveAndSubmit"]],
+    )
+    (submit,) = res["submits"]
+    assert submit["prevented"] is True
+    assert submit["status"] == "Wait for the 3D model change to finish, then save."
+    assert res["formInputs"] == []
+    assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
+
+
+def _assert_form_matches(form, scene_fields):
+  """Every scene field returned by the server is written to its scene-edit input."""
+  for name, value in scene_fields.items():
+    actual = form[f"id_{name}"]
+    if name == "map_corners_lla":
+      assert (json.loads(actual) if actual else None) == value, name
+    else:
+      assert actual == (value if value is not None else ""), name
 
 
 def _element_classes(html, element_id):

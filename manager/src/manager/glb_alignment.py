@@ -30,6 +30,11 @@ from .validators import validate_glb
 STAGING_SUBDIR = 'glb_staging'
 STAGING_TTL_SECONDS = 24 * 3600
 MAX_GLB_BYTES = settings.GLB_UPLOAD_MAX_BYTES
+# Scene-edit form fields written by apply, unapply and move.
+SCENE_FORM_GLB_FIELDS = (
+  'scale', 'rotation_x', 'rotation_y', 'rotation_z',
+  'translation_x', 'translation_y', 'translation_z', 'map_corners_lla',
+)
 # Staged GLBs are z-up (generated meshes and most exports), so no X rotation is applied
 ALIGN_ROTATION_X = 0.0
 
@@ -569,6 +574,15 @@ def commit_glb(scene, token, anchor):
     remove_stored_file(scene.glb_map.storage, old_preview)
 
   return saved_alignment(scene)
+
+
+def scene_form_fields(scene):
+  """Values of scene-edit form fields that the GLB apply, unapply and move paths write.
+
+  The scene-edit form posts these fields as values, so the page must mirror them
+  after a GLB change; otherwise Save Scene Updates restores the previous values.
+  """
+  return {name: getattr(scene, name) for name in SCENE_FORM_GLB_FIELDS}
 
 
 def saved_alignment(scene):

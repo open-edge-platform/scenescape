@@ -1332,7 +1332,9 @@ class GeospatialGlb(APIView):
         glb_alignment.set_glb_applied(scene, new_use_glb)
         scene.refresh_from_db()
 
-      return JsonResponse(glb_alignment.saved_alignment(scene))
+      response = glb_alignment.saved_alignment(scene)
+      response['scene_fields'] = glb_alignment.scene_form_fields(scene)
+      return JsonResponse(response)
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:
@@ -1347,7 +1349,7 @@ class GeospatialGlb(APIView):
       if not scene.glb_map:
         return JsonResponse({'error': 'No stored GLB'}, status=404)
       glb_alignment.remove_glb_map(scene)
-      return JsonResponse({'success': True})
+      return JsonResponse({'success': True, 'scene_fields': glb_alignment.scene_form_fields(scene)})
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:

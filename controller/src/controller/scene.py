@@ -182,6 +182,7 @@ class Scene(SceneModel):
       log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
       self.tracker.updateReidConfig(self.reid_config_data)
 
+    self.reloadMapIfChanged(scene_data.get('map', self.map_file), scene_data.get('scale', self.scale))
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
     if 'regulated_rate' in scene_data:

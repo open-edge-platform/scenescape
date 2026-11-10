@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from analytics.adapters.scene_model import AnalyticsScene
 from analytics.state import AnalyticsStateStore
@@ -134,6 +135,77 @@ class TestHydrateFromSceneData:
     scene._updateTripwires.assert_called_once_with(tripwires)
     assert scene._updateRegions.call_args_list[0].args == (scene.regions, regions)
     assert scene._updateRegions.call_args_list[1].args == (scene.sensors, sensors)
+
+
+MAP_CORNERS_LLA = [
+  [37.38, -121.96, 0.0], [37.38, -121.95, 0.0],
+  [37.39, -121.95, 0.0], [37.39, -121.96, 0.0],
+]
+
+
+class TestMapReloadOnHydrate:
+  """Hydration must reload the map when its file or scale changes."""
+
+  @staticmethod
+  def _write_png(path):
+    Image.fromarray(np.zeros((8, 8, 3), dtype=np.uint8)).save(path)
+
+  @staticmethod
+  def _write_box_glb(path):
+    trimesh = pytest.importorskip('trimesh')
+    trimesh.creation.box(extents=(30.0, 20.0, 3.0)).export(str(path))
+
+  @staticmethod
+  def _data(map_file):
+    return {
+      'name': 'rt', 'map': map_file, 'scale': 10.0, 'output_lla': True,
+      'map_corners_lla': MAP_CORNERS_LLA,
+      'mesh_translation': [0, 0, 0], 'mesh_rotation': [0, 0, 0], 'mesh_scale': [1, 1, 1],
+    }
+
+  def test_png_glb_png_round_trip_restores_png_footprint(self, tmp_path):
+    pytest.importorskip('trimesh')
+    png = str(tmp_path / 'map.png')
+    glb = str(tmp_path / 'map.glb')
+    self._write_png(png)
+    self._write_box_glb(glb)
+    scene = AnalyticsScene('rt', png, 10.0)
+    scene._hydrateFromSceneData(self._data(png))
+    png_corners = np.array(scene.mapFootprintCorners())
+    png_trs = scene.trs_xyz_to_lla
+    assert png_trs is not None
+
+    scene._hydrateFromSceneData(self._data(glb))
+    assert scene.map_file == glb
+    assert not np.allclose(scene.mapFootprintCorners(), png_corners)
+
+    scene._hydrateFromSceneData(self._data(png))
+    assert scene.map_file == png
+    assert scene.background is not None
+    assert np.allclose(scene.mapFootprintCorners(), png_corners)
+    assert np.allclose(scene.trs_xyz_to_lla, png_trs)
+
+  def test_unchanged_map_and_scale_does_not_reload(self, tmp_path):
+    png = str(tmp_path / 'map.png')
+    self._write_png(png)
+    scene = AnalyticsScene('rt', png, 10.0)
+    scene.extractMapTriangleMesh = MagicMock()
+
+    scene._hydrateFromSceneData(self._data(png))
+
+    scene.extractMapTriangleMesh.assert_not_called()
+
+  def test_scale_change_on_same_map_reloads_mesh(self, tmp_path):
+    png = str(tmp_path / 'map.png')
+    self._write_png(png)
+    scene = AnalyticsScene('rt', png, 10.0)
+    scene.extractMapTriangleMesh = MagicMock()
+    data = {**self._data(png), 'scale': 20.0}
+
+    scene._hydrateFromSceneData(data)
+
+    scene.extractMapTriangleMesh.assert_called_once_with(png, 20.0)
+    assert scene.scale == 20.0
 
 
 MODULE = 'analytics.adapters.scene_model'

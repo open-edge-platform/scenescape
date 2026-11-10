@@ -65,6 +65,7 @@ class AnalyticsScene(SceneModel):
     self._updateTripwires(scene_data.get('tripwires', []))
     self._updateRegions(self.sensors, scene_data.get('sensors', []))
     self.name = scene_data['name']
+    self.reloadMapIfChanged(scene_data.get('map', self.map_file), scene_data.get('scale', self.scale))
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
     if 'regulated_rate' in scene_data:

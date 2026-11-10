@@ -12,6 +12,18 @@ const jsDir = path.join(
   "../../../manager/src/manager/static/js/geospatial",
 );
 
+// Scene-edit form inputs that a server scene_fields payload writes into.
+const SCENE_FORM_IDS = [
+  "id_scale",
+  "id_rotation_x",
+  "id_rotation_y",
+  "id_rotation_z",
+  "id_translation_x",
+  "id_translation_y",
+  "id_translation_z",
+  "id_map_corners_lla",
+];
+
 class FakeEl {
   constructor() {
     this.style = {};
@@ -282,6 +294,26 @@ const scenarios = {
     const savePosTrail = [];
     const frameState = () => strategy.frame;
     const frameTrail = [];
+    const submits = [];
+    const sceneForm = () =>
+      Object.fromEntries(
+        SCENE_FORM_IDS.map((id) => [id, fakeEls[id]?.value ?? null]),
+      );
+    const sceneFormTrail = [];
+    // Fires the form submit like a browser would, recording whether the handler prevented it.
+    const submit = () => {
+      const ev = {
+        type: "submit",
+        preventDefault() {
+          this.prevented = true;
+        },
+      };
+      fakeForm.fire("submit", ev);
+      submits.push({
+        prevented: !!ev.prevented,
+        status: fakeEls["glbAlignStatus"]?.textContent || "",
+      });
+    };
     const drag = (from, to) => {
       const ev0 = {
         type: "pointerdown",
@@ -303,6 +335,7 @@ const scenarios = {
     await new Promise((r) => setImmediate(r));
     savePosTrail.push(savePosShown());
     frameTrail.push(frameState());
+    sceneFormTrail.push(sceneForm());
     {
       for (const step of args.steps || []) {
         if (step[0] === "upload") {
@@ -346,11 +379,16 @@ const scenarios = {
           if (step[2]) ctx.window.location.pathname = step[2];
           takes.push(ctx.window.takeGlbAcceptedView(step[1]));
         } else if (step[0] === "submit") {
-          fakeForm.fire("submit", {});
+          submit();
+        } else if (step[0] === "saveAndSubmit") {
+          const inflight = a._savePosition?.();
+          submit();
+          await inflight;
         }
         await new Promise((r) => setImmediate(r));
         savePosTrail.push(savePosShown());
         frameTrail.push(frameState());
+        sceneFormTrail.push(sceneForm());
       }
     }
 
@@ -369,6 +407,9 @@ const scenarios = {
         : null,
       savePosTrail,
       frameTrail,
+      sceneFormTrail,
+      sceneForm: sceneForm(),
+      submits,
       mapFrame: frameState(),
       savedBlockDisplay: fakeEls["glbSavedBlock"]?.style?.display ?? null,
       savedAnchor: a.saved?.anchor ?? null,

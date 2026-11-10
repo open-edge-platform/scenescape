@@ -62,7 +62,8 @@ def _create_box_glb(width_m=30.0, height_m=20.0, depth_m=3.0, rotation_euler=Non
     pytest.skip("trimesh not available")
 
   if path is None:
-    path = tempfile.mktemp(suffix='.glb')
+    fd, path = tempfile.mkstemp(suffix='.glb')
+    os.close(fd)
 
   # Create axis-aligned box centered at origin
   vertices = np.array([
@@ -111,7 +112,8 @@ def _create_l_shaped_prism_glb(path=None):
     pytest.skip("trimesh not available")
 
   if path is None:
-    path = tempfile.mktemp(suffix='.glb')
+    fd, path = tempfile.mkstemp(suffix='.glb')
+    os.close(fd)
 
   # L-shaped footprint with top notch
   vertices = np.array([

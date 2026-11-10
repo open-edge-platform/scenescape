@@ -413,23 +413,39 @@ class Scene(models.Model):
 
   def _sync_glb_snapshot_on_map_change(self):
     """Keep GLB snapshot state consistent when a geospatial scene's map changes."""
-    if self.map_type != 'geospatial_map' or self._original_map == self.map:
+    if self.map_type != 'geospatial_map':
       return
-    map_ext = os.path.splitext(self.map.name)[1].lower() if self.map else ''
-    if self.use_glb_map and map_ext != '.glb':
-      # New non-GLB map uploaded while GLB is applied: swap out the GLB
-      from manager import glb_alignment
-      if self.base_map and self.base_map.name:
-        glb_alignment.remove_stored_file(self.base_map.storage, self.base_map.name)
-      self.use_glb_map = False
-      self.base_map = None
-      self.base_scale = None
-      self.base_map_corners_lla = self.map_corners_lla
-      self.resetRotation()
-      self.resetTranslation()
+    if self._original_use_glb_map and not self.use_glb_map:
+      # GLB unapplied: the restored snapshot frame is the corners now in effect,
+      # even when the map filename did not change.
+      self._adoptMapCornersAsBaseFrame()
+      return
+    if self._original_map == self.map:
+      return
+    if self.use_glb_map and self._mapFileExtension() != '.glb':
+      self._dropGlbForNonGlbMap()
     elif not self.use_glb_map and self.map_corners_lla:
       # New non-GLB snapshot saved: update base frame
       self.base_map_corners_lla = self.map_corners_lla
+
+  def _adoptMapCornersAsBaseFrame(self):
+    if self.map_corners_lla:
+      self.base_map_corners_lla = self.map_corners_lla
+
+  def _mapFileExtension(self):
+    return os.path.splitext(self.map.name)[1].lower() if self.map else ''
+
+  def _dropGlbForNonGlbMap(self):
+    # New non-GLB map uploaded while GLB is applied: swap out the GLB
+    from manager import glb_alignment
+    if self.base_map and self.base_map.name:
+      glb_alignment.remove_stored_file(self.base_map.storage, self.base_map.name)
+    self.use_glb_map = False
+    self.base_map = None
+    self.base_scale = None
+    self.base_map_corners_lla = self.map_corners_lla
+    self.resetRotation()
+    self.resetTranslation()
 
   def _invalidateMapState(self, glb_from_zip):
     # FieldFile equality is name-based; detect same-name uploads before storage saves them.

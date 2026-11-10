@@ -84,13 +84,7 @@ class SceneModel:
     self.background = None
     self.map_triangle_mesh = None
     self.map_file = map_file
-    if map_file:
-      # FIXME: get the image binary data using url rather than this hack
-      if 'http' in map_file:
-        map_file = map_file.replace('https://web.scenescape.intel.com', '/home/scenescape/Scenescape')
-      if os.path.exists(map_file):
-        self.background = cv2.imread(map_file)
-        self.extractMapTriangleMesh(map_file, scale)
+    self._loadMapData(map_file, scale)
     self.children = []
     self.cameras = {}
     self._camera_lock = RLock()
@@ -107,6 +101,33 @@ class SceneModel:
     self.mesh_scale = None
     self.scale = scale
     return
+
+  def _loadMapData(self, map_file, scale):
+    """Load the background image and triangle mesh for map_file when it exists on disk."""
+    if not map_file:
+      return
+    # FIXME: get the image binary data using url rather than this hack
+    if 'http' in map_file:
+      map_file = map_file.replace('https://web.scenescape.intel.com', '/home/scenescape/Scenescape')
+    if os.path.exists(map_file):
+      self.background = cv2.imread(map_file)
+      self.extractMapTriangleMesh(map_file, scale)
+
+  def reloadMapIfChanged(self, map_file, scale):
+    """Reload the map when its file or scale differs from the loaded one.
+
+    Hydration updates a scene in place, so a map swapped from an image to a GLB
+    (or back) must replace the background and triangle mesh; otherwise the
+    footprint and TRS-to-LLA transform keep describing the old map.
+    Call before self.scale is updated to the new value.
+    """
+    if map_file == self.map_file and scale == self.scale:
+      return False
+    self.map_file = map_file
+    self.background = None
+    self.map_triangle_mesh = None
+    self._loadMapData(map_file, scale)
+    return True
 
   def extractMapTriangleMesh(self, mapFile, scale):
     map_info = []

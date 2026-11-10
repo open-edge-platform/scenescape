@@ -998,3 +998,54 @@ def test_updateScene_refreshes_glb_mesh_pose_and_footprint():
     assert scene.mesh_scale == [2, 1, 1]
     assert np.isclose(after_w, 2.0 * before_w, atol=1e-6)
 
+
+def _map_update(map_file, mesh_rotation):
+  """! Scene update payload for a map file, with a 10 m x 10 m georeferenced frame."""
+  return {
+    'name': 'test', 'map': map_file, 'scale': 10.0, 'output_lla': True,
+    'map_corners_lla': localFootprintCornersLLA(
+      center_lat=37.38, center_lng=-121.96, heading_deg=0.0, width_m=10.0, height_m=10.0).tolist(),
+    'mesh_rotation': mesh_rotation, 'mesh_translation': [0, 0, 0], 'mesh_scale': [1, 1, 1],
+  }
+
+
+def test_updateScene_png_glb_png_round_trip_restores_png_frame(tmp_path):
+  """! Swapping PNG -> GLB -> PNG on update restores the PNG footprint and TRS-to-LLA transform."""
+  png = str(tmp_path / "map.png")
+  glb = str(tmp_path / "map.glb")
+  cv2.imwrite(png, np.zeros((8, 8, 3), dtype=np.uint8))
+  shutil.copy("tests/sscape_tests/mesh_util/test_data/scene.glb", glb)
+  scene = scene_module.Scene("test", png, 10.0)
+  scene.updateScene(_map_update(png, [0, 0, 0]))
+  png_corners = scene.mapFootprintCorners()
+  png_trs = scene.trs_xyz_to_lla
+  assert png_trs is not None
+
+  scene.updateScene(_map_update(glb, [90, 0, 0]))
+  assert scene.map_file == glb
+  assert scene.background is None
+  assert not np.allclose(scene.mapFootprintCorners(), png_corners)
+
+  scene.updateScene(_map_update(png, [0, 0, 0]))
+  assert scene.map_file == png
+  assert scene.background is not None
+  assert np.allclose(scene.mapFootprintCorners(), png_corners)
+  assert np.allclose(scene.trs_xyz_to_lla, png_trs)
+
+
+def test_updateScene_same_map_and_scale_does_not_reload_mesh(tmp_path, monkeypatch):
+  """! Hydrating an unchanged map keeps the loaded background and mesh without re-extracting."""
+  png = str(tmp_path / "map.png")
+  cv2.imwrite(png, np.zeros((8, 8, 3), dtype=np.uint8))
+  scene = scene_module.Scene("test", png, 10.0)
+  mesh = scene.map_triangle_mesh
+  background = scene.background
+  extract = Mock()
+  monkeypatch.setattr(scene, 'extractMapTriangleMesh', extract)
+
+  scene.updateScene(_map_update(png, [0, 0, 0]))
+
+  extract.assert_not_called()
+  assert scene.map_triangle_mesh is mesh
+  assert scene.background is background
+

@@ -11,6 +11,8 @@ Coverage:
   C2: Saving new snapshot while not applied refreshes base_map_corners_lla
   C3: Serializer get_rotation/get_translation: [0,0,0] only when ALL components are 0
   C4: frame_corners_lla() fallbacks for legacy scenes
+  C5: Unapplying GLB with an unchanged map name syncs base_map_corners_lla
+  C6: Corner edit without GLB applied leaves base_map_corners_lla unchanged
 """
 
 import os
@@ -126,6 +128,77 @@ class TestSceneSaveGlbInterplay(TransactionTestCase):
 
     # Verify: base_map_corners_lla updated to new corners
     assert scene.base_map_corners_lla == new_corners
+
+  def _save_with_patches(self, scene):
+    """Save without thumbnail generation, auto-alignment, or MQTT side effects."""
+    with patch.object(Scene, 'autoAlignSceneMap'), \
+         patch.object(Scene, 'saveThumbnail'), \
+         patch('manager.models.sendUpdateCommand'):
+      scene.save(send_update_command=False)
+
+  def test_unapply_glb_with_unchanged_map_name_syncs_base_map_corners(self):
+    """Test: unapplying GLB while the map filename is unchanged still syncs base_map_corners_lla."""
+    png = self._create_png_file("unapply_same_map.png")
+    old_corners = localFootprintCornersLLA(
+      center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
+      width_m=100.0, height_m=100.0
+    ).tolist()
+    new_corners = localFootprintCornersLLA(
+      center_lat=37.39, center_lng=-121.97, heading_deg=0.0,
+      width_m=80.0, height_m=80.0
+    ).tolist()
+    scene = Scene.objects.create(
+      name="unapply_same_map",
+      map_type="geospatial_map",
+      map_center_lat=37.38,
+      map_center_lng=-121.96,
+      map=png,
+      map_corners_lla=old_corners,
+      use_glb_map=False,
+      output_lla=True
+    )
+    # Persisted state of a scene with GLB applied on top of the same PNG snapshot.
+    Scene.objects.filter(pk=scene.pk).update(use_glb_map=True, base_map_corners_lla=old_corners)
+    scene = Scene.objects.get(pk=scene.pk)
+    assert scene.use_glb_map is True
+
+    scene.use_glb_map = False
+    scene.map_corners_lla = new_corners
+    self._save_with_patches(scene)
+
+    assert scene.use_glb_map is False
+    assert scene.map == png
+    assert scene.base_map_corners_lla == new_corners
+
+  def test_corner_edit_without_glb_keeps_base_map_corners(self):
+    """Test: editing corners on a non-GLB scene with the same map leaves base_map_corners_lla alone."""
+    png = self._create_png_file("corner_edit_same_map.png")
+    old_corners = localFootprintCornersLLA(
+      center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
+      width_m=100.0, height_m=100.0
+    ).tolist()
+    new_corners = localFootprintCornersLLA(
+      center_lat=37.39, center_lng=-121.97, heading_deg=0.0,
+      width_m=80.0, height_m=80.0
+    ).tolist()
+    scene = Scene.objects.create(
+      name="corner_edit_same_map",
+      map_type="geospatial_map",
+      map_center_lat=37.38,
+      map_center_lng=-121.96,
+      map=png,
+      map_corners_lla=old_corners,
+      use_glb_map=False,
+      output_lla=True
+    )
+    scene = Scene.objects.get(pk=scene.pk)
+    base_before = scene.base_map_corners_lla
+
+    scene.map_corners_lla = new_corners
+    self._save_with_patches(scene)
+
+    assert scene.use_glb_map is False
+    assert scene.base_map_corners_lla == base_before
 
 
 class TestSerializerRotationTranslation(TestCase):
