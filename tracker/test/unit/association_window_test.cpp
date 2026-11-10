@@ -48,9 +48,9 @@ TEST(AssociationWindowTest, EuclideanIsCircleOfMaxRadius) {
 }
 
 TEST(AssociationWindowTest, MahalanobisEllipseFollowsRotatedCovariance) {
-    // S_xy = R(angle) diag(4, 1) R(angle)^T: semi-axes sqrt(chi2 * 4) and sqrt(chi2 * 1), major
+    // S_xy = R(angle) diag(4, 1) R(angle)^T: semi-axes sqrt(chi2(p, 3) * 4) and sqrt(chi2(p, 3) * 1), major
     // axis at angle.
-    const double chi2 = rv::chi2Threshold(0.95, 2);
+    const double chi2 = rv::chi2Threshold(0.95, 3);
     for (const double degrees : {0.0, 30.0, 90.0, -60.0, 135.0}) {
         SCOPED_TRACE(degrees);
         const double angle = degrees * std::numbers::pi / 180.0;
@@ -74,7 +74,7 @@ TEST(AssociationWindowTest, MahalanobisMajorAxisFollowsLargerVariance) {
     const auto window =
         buildAssociationWindow(mahalanobisConfig(0.99), trackWithPositionCovariance(1.0, 0.0, 9.0));
 
-    const double chi2 = rv::chi2Threshold(0.99, 2);
+    const double chi2 = rv::chi2Threshold(0.99, 3);
     EXPECT_NEAR(window.semi_major_m.value(), std::sqrt(chi2 * 9.0), 1e-9);
     EXPECT_NEAR(window.semi_minor_m.value(), std::sqrt(chi2 * 1.0), 1e-9);
     EXPECT_NEAR(angleDifferenceModuloPi(window.angle_rad.value(), std::numbers::pi / 2.0), 0.0,
@@ -86,7 +86,7 @@ TEST(AssociationWindowTest, MahalanobisClampsNegativeEigenvaluesToZero) {
     const auto window =
         buildAssociationWindow(mahalanobisConfig(0.99), trackWithPositionCovariance(1.0, 2.0, 1.0));
 
-    EXPECT_NEAR(window.semi_major_m.value(), std::sqrt(rv::chi2Threshold(0.99, 2) * 3.0), 1e-9);
+    EXPECT_NEAR(window.semi_major_m.value(), std::sqrt(rv::chi2Threshold(0.99, 3) * 3.0), 1e-9);
     EXPECT_DOUBLE_EQ(window.semi_minor_m.value(), 0.0);
     EXPECT_NEAR(angleDifferenceModuloPi(window.angle_rad.value(), std::numbers::pi / 4.0), 0.0,
                 1e-9);
