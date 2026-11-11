@@ -84,7 +84,7 @@ DEPLOYMENT_TEST ?= 0
 # First-party application trees; this list is the complexity scope of record.
 COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
 	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
-	manager/src/manager mapping/src reid/src/reid scene_common/src/scene_common \
+	manager/src/manager manager/src/mcp_server mapping/src reid/src/reid scene_common/src/scene_common \
 	model_download/src
 COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
 COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
