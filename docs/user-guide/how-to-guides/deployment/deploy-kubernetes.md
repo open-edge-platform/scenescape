@@ -1,0 +1,205 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Deploy Scenescape on Kubernetes
+
+This guide deploys a clean Scenescape instance to an existing Kubernetes cluster with Helm: an empty scene database, without the bundled demo video sources or preloaded demo scenes. It assumes a cluster already exists and `kubectl` is configured with access to it. To run the demo instead, see [Deploy the Demo](./deploy-demo.md). For a self-contained local cluster managed by this repository's tooling (Kind), see [Scenescape on Kubernetes](/kubernetes/README.md) instead.
+
+- **Time to Complete:** 15-30 minutes
+
+## Prerequisites
+
+- A Kubernetes cluster reachable through `kubectl`.
+- [Helm](https://helm.sh/) 3.
+- [Cert Manager](https://cert-manager.io/) installed in the cluster; the chart's certificate resources depend on it.
+- A default StorageClass with dynamic volume provisioning, or a values file that sets storage classes for the chart's persistent volume claims.
+- Container images available to the cluster: see [Preparation](./preparation.md).
+- A checkout of the Scenescape repository (see [Get Scenescape](../../get-started/installation.md#step-1-get-scenescape)); the chart lives at `kubernetes/scenescape-chart/`.
+
+Check the selected cluster context and available storage classes:
+
+```bash
+kubectl config current-context
+kubectl get nodes
+kubectl get storageclass
+```
+
+## Deploy
+
+From the repository root, prepare the chart files:
+
+```bash
+make -C kubernetes copy-files chart.yaml
+```
+
+Set the namespace and passwords, then install the chart. Use unique, strong passwords for both values:
+
+```bash
+export NAMESPACE=scenescape
+export SUPASS='<choose-a-strong-admin-password>'
+export PGPASS='<choose-a-strong-database-password>'
+
+(
+  VALUES_FILE=$(mktemp)
+  trap 'rm -f "$VALUES_FILE"' EXIT
+
+  printf "supass: '%s'\npgserver:\n  password: '%s'\n" \
+    "$(printf '%s' "$SUPASS" | sed "s/'/''/g")" \
+    "$(printf '%s' "$PGPASS" | sed "s/'/''/g")" > "$VALUES_FILE"
+
+  helm upgrade --install scenescape kubernetes/scenescape-chart/ \
+    --namespace "$NAMESPACE" --create-namespace \
+    --values "$VALUES_FILE" \
+    --set reid.enabled=false \
+    --wait --timeout 30m
+)
+```
+
+Passwords are written to a temporary values file rather than passed with `--set`/`--set-string`, because Helm splits those flags on commas: a password containing one would otherwise be parsed as two separate values. The subshell's `EXIT` trap removes the file whether the install succeeds, fails, or is interrupted.
+
+This installs the web application, database, broker, NTP server, Scene Controller, Analytics, Auto Camera Calibration, and supporting resources, including persistent volume claims and certificates. ReID is disabled explicitly, because it is enabled by the chart's defaults. No demo scenes or video sources are installed.
+
+If the cluster has no default StorageClass, provide a Helm values file that sets the applicable storage-class values before running the install command.
+
+## Optional Services
+
+Enable additional chart features by setting these values on `helm upgrade`/`helm install`:
+
+| Value                      | Default | Effect                                                                                                                                                   |
+| -------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reid.enabled`             | `true`  | Deploys the ReID vector database (`reid.backend`: `vdms` or `qdrant`); requires `tracker.enabled=false` so the Scene Controller is deployed to use ReID. |
+| `tracker.enabled`          | `false` | Deploys Tracker + Analytics instead of the Scene Controller.                                                                                             |
+| `mapping.enabled`          | `false` | Deploys the mapping service.                                                                                                                             |
+| `clusterAnalytics.enabled` | `false` | Deploys the cluster-analytics service.                                                                                                                   |
+| `positioning.enabled`      | `false` | Deploys the Positioning service. See [Configure the Positioning Service](#configure-the-positioning-service).                                            |
+
+ReID is consumed by the Scene Controller. Tracker mode replaces the Scene Controller, so do not enable ReID together with `tracker.enabled=true`.
+
+See [How to Enable Re-identification](../../other-topics/how-to-enable-reidentification.md) for ReID backend details, and [Scenescape on Kubernetes](/kubernetes/README.md) for the full chart reference.
+
+### Select the Mapping Model
+
+Each Mapping image contains exactly one 3D reconstruction model, fixed at build time. The chart selects the image tag with `mapping.model`:
+
+| `mapping.model` | Image used                                         |
+| --------------- | -------------------------------------------------- |
+| empty (default) | `intel/scenescape-mapping:<version>` (MapAnything) |
+| `mapanything`   | `intel/scenescape-mapping:<version>-mapanything`   |
+| `vggt`          | `intel/scenescape-mapping:<version>-vggt`          |
+
+The matching variant must be available to the cluster: either pulled from Docker Hub, or built with `make -C mapping build-all` (see [Build Mapping Service from Source](../../microservices/mapping-service/build-from-source.md)) and pushed to the registry set in `repository`. The root `make build-all` builds only the default MapAnything image.
+
+### Configure the Positioning Service
+
+When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account, and renders `positioning.json` from these values. The deployment reads calibration from Manager at `https://web.<namespace>.svc.cluster.local/api/v1`, verifying TLS against the chart's Scenescape CA:
+
+| Value                                                       | Default                       | Effect                                                                                                                                                                                                                |
+| ----------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `positioning.resolverId`                                    | `positioning-default`         | Identifies the instance in its status topic `scenescape/positioning/status/{resolverId}` and is rendered as `resolver_id`. Must be a single MQTT topic segment (no `/`, `+`, or `#`).                                 |
+| `positioning.assignments`                                   | `{}`                          | Source ownership manifest (`source_id` to `resolver_id`), mounted into Positioning and the Scene Controller. Positioning exits if its sources are not assigned to `resolverId`.                                       |
+| `positioning.config`                                        | resolver limits, no `sources` | Rendered as `positioning.json` using the runtime keys described in [Configure](../../microservices/positioning/positioning.md#configure); do not set `resolver_id` here. The chart defaults the four resolver limits. |
+| `positioning.onvifCredentials.sources`                      | `{}`                          | `<source_id>: {username, password}` entries; the chart creates a Secret with one `<source_id>.json` key per source and mounts it read-only at `/run/secrets/onvif`.                                                   |
+| `positioning.onvifCredentials.existingSecret`               | `""`                          | Name of an existing Secret with the same `<source_id>.json` keys, mounted at `/run/secrets/onvif`. Mutually exclusive with `onvifCredentials.sources`.                                                                |
+| `positioning.extraVolumes`, `positioning.extraVolumeMounts` | `[]`                          | Additional pod volumes and Positioning container mounts, for example a camera CA bundle referenced by a source's `tls_ca_file`.                                                                                       |
+| `positioning.networkPolicy.cameraCIDRs`                     | `[]`                          | Camera IP/CIDR allowlist for Positioning egress. Required when PTZ sources are configured.                                                                                                                            |
+| `positioning.networkPolicy.cameraPorts`                     | `[80, 443]`                   | ONVIF TCP ports allowed to the camera CIDRs; include each configured custom port.                                                                                                                                     |
+| `scene.ptz.enabled`, `scene.ptz.shadowMode`                 | `false`, `false`              | Controller PTZ modes; leave disabled until that profile independently passes shadow acceptance. See below.                                                                                                            |
+
+Positioning connects to the standard broker TLS listener on port 1883 with its
+`positioning.auth` credentials. Positioning egress is isolated by a NetworkPolicy:
+only the broker TLS listener, Manager HTTPS, NTP, cluster DNS, and the
+configured camera CIDRs/ports are allowed. The policy blocks all inbound traffic to
+the Positioning pod. Ensure the cluster CNI enforces Kubernetes NetworkPolicy.
+
+PTZ resolution runs only when `positioning.config.sources` is not empty. A source
+without `credentials_file` reads `/run/secrets/onvif/<source_id>.json`. Rendering
+fails when a source is not assigned to `resolverId`, when an assignment to
+`resolverId` has no source, or when a resolver limit (`max_pose_age_s`,
+`max_timestamp_uncertainty_s`, `max_clock_offset_s`, `target_reprojection_rms_px`)
+is removed while sources are configured. For example, a values file:
+
+```yaml
+positioning:
+  enabled: true
+  resolverId: positioning-default
+  assignments:
+    <manager-camera-uid>: positioning-default
+  networkPolicy:
+    cameraCIDRs:
+      - <camera-ip>/32
+    cameraPorts: [443]
+  config:
+    target_reprojection_rms_px: 3.0
+    sources:
+      <manager-camera-uid>:
+        type: onvif_ptz
+        host: <camera-host>
+        scheme: https
+        port: 443
+        tls_ca_file: /run/secrets/camera-ca/ca.pem
+        move_status: get_status
+  onvifCredentials:
+    existingSecret: positioning-onvif
+  extraVolumes:
+    - name: camera-ca
+      secret:
+        secretName: camera-ca
+  extraVolumeMounts:
+    - name: camera-ca
+      mountPath: /run/secrets/camera-ca
+      readOnly: true
+```
+
+Create the referenced Secrets before installing, for example
+`kubectl create secret generic positioning-onvif --namespace "$NAMESPACE" --from-file=<manager-camera-uid>.json=<path-to-credentials.json>`,
+where the file contains `{"username": "...", "password": "..."}`. Prefer
+`existingSecret` over `onvifCredentials.sources`, which keeps credentials in Helm
+values and release history. Changes to `positioning.config` or
+`positioning.assignments` roll the Positioning pod automatically; after rotating
+credentials, run `kubectl rollout restart deployment/<release>-positioning`.
+
+To let the Scene Controller consume the resolved poses, set `scene.ptz.enabled` (gate
+and project PTZ detections) or `scene.ptz.shadowMode` (observe and record only); they
+are off by default and mutually exclusive. Both need the four bounds in
+`scene.ptz.config`, and use `positioning.assignments` as the source-to-Resolver
+manifest. Rendering fails if both modes are on or a bound is missing. See
+[PTZ Pose Consumption](../../microservices/controller/ptz-pose-consumption.md#deploy).
+
+See the [Positioning Service](../../microservices/positioning/positioning.md)
+and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for runtime behavior.
+
+## Verify
+
+Confirm that workloads and claims become ready:
+
+```bash
+kubectl get pods,services,pvc --namespace "$NAMESPACE"
+```
+
+For local access, forward the web service port in a terminal and leave the command running:
+
+```bash
+kubectl port-forward --namespace "$NAMESPACE" service/web 8443:443
+```
+
+Open `https://localhost:8443`. The certificate is self-signed, so the browser displays a warning. Sign in as `admin` with the password assigned to `SUPASS`.
+
+The scene list is empty. Import or create your own scene and configure its cameras and analytics inputs before expecting detections or tracks; see [Build a Scene](../build-a-scene/index.md).
+
+## Stopping
+
+To remove the Helm release while leaving the namespace and any retained storage in place:
+
+```bash
+helm uninstall scenescape --namespace "$NAMESPACE"
+```
+
+For a local Kind deployment created by the repository's Kubernetes Makefile, use `make -C kubernetes uninstall` to uninstall its Helm release while leaving the Kind cluster running. To delete that local Kind cluster and all resources/data in it, use:
+
+```bash
+make -C kubernetes clean-all
+```
+
+> **Warning:** `make -C kubernetes clean-all` runs `kind delete cluster`, which deletes the default Kind cluster named `kind` and its data regardless of the active kubectl context. Its cleanup prerequisite also deletes the generated mediaserver resource using the current kubectl context. Check `kubectl config current-context` and confirm both cleanup effects are safe before running it; do not use it to clean up an existing or production cluster.

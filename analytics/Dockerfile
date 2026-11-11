@@ -5,7 +5,7 @@
 # C++ tracking extension.  AnalyticsScene and AnalyticsService are designed
 # to be importable without robot_vision present.
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 
 # -------------- Analytics Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-analytics-builder
@@ -16,8 +16,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Build analytics package
 COPY ./analytics/src/analytics /tmp/analytics/analytics
 COPY ./analytics/src/setup.py /tmp/analytics/setup.py
-RUN cd /tmp/analytics \
-    && python3 setup.py bdist_wheel \
+RUN pip3 install --no-cache-dir build \
+    && cd /tmp/analytics \
+    && python3 -m build --wheel \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
     && cd \
     && rm -rf /tmp/analytics
@@ -74,6 +75,7 @@ COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/
 # Schema file consumed by the analytics service at startup
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE_HOME/tracker/schema/scene-data.schema.json
+COPY --chown=$WSUSER:$WSUSER ./analytics/schema/regulated-scene.schema.json $SCENESCAPE_HOME/analytics/schema/regulated-scene.schema.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./analytics/src/analytics-cmd $SCENESCAPE_HOME/analytics-cmd
 

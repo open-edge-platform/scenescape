@@ -19,6 +19,7 @@ from scene_common.timestamp import get_epoch_time
 from scene_common import log
 
 from scene_common.chain_data import ChainData
+from scene_common.reid_constants import REID_STATES
 
 
 class SceneDataIngestion:
@@ -91,9 +92,32 @@ class SceneDataIngestion:
       obj = self._build_one(obj_data, sensors or {})
       self._objects[obj.gid] = obj
 
+  def update_object_id(self, detection_type: str, old_id: str, new_id: str) -> bool:
+    """Move a live object's identity and history without replacing its state.
+
+    Return False if the rename would overwrite another live object or cross categories.
+    An absent source is a successful no-op for cold starts and subsequent frames.
+    """
+    if old_id == new_id:
+      return True
+    obj = self._objects.get(old_id)
+    if obj is None:
+      return True
+    if obj.category != detection_type or new_id in self._objects:
+      return False
+    self._objects[new_id] = self._objects.pop(old_id)
+    obj.gid = new_id
+    if old_id in self._history:
+      self._history[new_id] = self._history.pop(old_id)
+    return True
+
   def get_objects(self, detection_type: str) -> List[SimpleNamespace]:
     """Return all live objects for *detection_type*."""
     return [o for o in self._objects.values() if o.category == detection_type]
+
+  def get_all_objects(self) -> List[SimpleNamespace]:
+    """Return all live objects across detection types."""
+    return list(self._objects.values())
 
   def deserialize(
     self,
@@ -132,6 +156,22 @@ class SceneDataIngestion:
   # Internal helpers
   # ------------------------------------------------------------------
 
+  @staticmethod
+  def _set_observation_info(obj: SimpleNamespace, obj_data: dict) -> None:
+    previous = getattr(obj, 'info', None) or {}
+    obj.info = {'category': obj.category, 'confidence': obj.confidence}
+    if 'source_id' in obj_data:
+      obj.info['source_id'] = obj_data['source_id']
+    # Platform camera mounts/intrinsics must survive regulated republish so
+    # the 3D view can keep rendering frustums. Carry forward the last known
+    # cameras list when a later snapshot omits the field.
+    if 'cameras' in obj_data:
+      obj.info['cameras'] = obj_data['cameras']
+    elif 'cameras' in previous:
+      obj.info['cameras'] = previous['cameras']
+    # Sensor modality is distinct from an external publisher's identity.
+    obj.source = obj_data.get('source')
+
   def _build_one(self, obj_data: dict, sensors: dict) -> SimpleNamespace:
     """Build or update a single live object from an MQTT dict.
 
@@ -165,10 +205,9 @@ class SceneDataIngestion:
     # None when omitted so Analytics can FOV-fill. Explicit [] is preserved here
     # but Analytics _updateVisible also treats empty as fill-eligible.
     obj.visibility = obj_data.get('visibility')
-    obj.info = {'category': obj.category, 'confidence': obj.confidence}
-    # Debug aid carried through from the publisher (e.g. "lidar"/"camera");
-    # not part of the curated obj.info reconstruction above.
-    obj.source = obj_data.get('source')
+    obj._visibility_from_producer = bool(obj.visibility)
+    self._set_observation_info(obj, obj_data)
+    obj.association_window = obj_data.get('association_window')
 
     # Reconstruct bbMeters from size when available
     if obj.size and len(obj.size) == 3:
@@ -180,9 +219,15 @@ class SceneDataIngestion:
       obj.bbMeters = None
 
     metadata = obj_data.get('metadata', {})
+    # Legacy Scene Controller embeddings only. Tracker sightings go to reid-service;
+    # Analytics applies identity decisions without matching embeddings or querying the store.
     obj.reid = metadata.get('reid') if metadata else {}
     obj.metadata = {}
     obj.similarity = obj_data.get('similarity')
+    reid_state = obj_data.get('reid_state')
+    if isinstance(reid_state, str) and reid_state in REID_STATES:
+      obj.reid_state = reid_state
+    obj.previous_ids_chain = obj_data.get('previous_ids_chain', [])
 
     if obj_data.get('camera_bounds'):
       obj._camera_bounds = obj_data['camera_bounds']

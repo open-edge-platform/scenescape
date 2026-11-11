@@ -45,9 +45,13 @@ Skills are loaded on-demand based on task context to optimize token usage:
 - `.github/skills/testing/SKILL.md` (and any `references/*.md` it points to) - Loaded when task involves tests or `test` keyword detected
 - `.github/skills/javascript/SKILL.md` - Loaded when `.js` files are being edited
 - `.github/skills/shell/SKILL.md` - Loaded when `.sh` files are being edited
-- `.github/skills/makefile/SKILL.md` - Loaded when Makefile or build system changes
+- `.github/skills/makefile/SKILL.md` - Load for Makefile or build system changes, and when implementing or reviewing a new service or container image (including GitHub PR reviews), even if no Makefile or workflow is changed. Apply its "New Service Build And Publish Gate".
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
+
+When adding a service, ask the user before adding build-and-publish workflow integration; follow the Makefile skill for the publishing decision and implementation steps.
+
+For GitHub PR reviews adding a service, always signal missing `.github/workflows/build-and-publish.yml` integration with an inline comment, including experimental services and intentional exclusions. Ask for the publishing decision when undocumented; treat documented exclusions as informational, not a requirement to publish. Use the Makefile skill for the detailed checklist and comment example.
 
 ### Instruction Placement Policy (Critical)
 
@@ -118,11 +122,12 @@ Sensors → MQTT (broker) → Scene Controller → Manager/Web UI
 make build-core                    # Default: core services (autocalibration, controller, manager, analytics)
 make build-all                     # All services (adds mapping, cluster_analytics, tracker)
 make rebuild-core                  # Clean + build (useful after code changes)
+make deploy                        # Start Compose stack; DEPLOY_PROFILES selects profiles (default: controller)
 ```
 
 **Configuration** via environment/Makefile variables:
 
-- `SUPASS`: Super user password (required for demos)
+- `SUPASS`: Super user password (required for `make deploy` and the demo targets)
 - `COMPOSE_PROJECT_NAME`: Container name prefix (default: `scenescape`)
 - `BUILD_DIR`: Output folder for logs, dependency lists
 - `CERTDOMAIN`: Certificate domain (default: `scenescape.intel.com`)
@@ -152,6 +157,13 @@ for containerized test targets.
 
 Service-specific examples belong in each service guide (for controller, see
 `controller/Agents.md`).
+
+### Required Python Complexity Check
+
+After adding or changing first-party Python application code, run `make complexity-check SERVICE=<name>`
+for each touched service, or `make complexity-check` when more than one service is touched.
+A non-zero exit must be fixed before the change is finished or pushed.
+See the [Python skill](skills/python/SKILL.md#required-complexity-check) for baseline rules.
 
 ## Code Patterns & Conventions
 
@@ -234,8 +246,9 @@ pubsub.publish(topic, json_payload)
 
 - Helm chart: `kubernetes/scenescape-chart/`
 - Reference: `kubernetes/README.md` for K8s-specific patterns
-- Test via `make demo-k8s DEMO_K8S_MODE=core|reid|all`
+- Test via `make demo-k8s DEPLOY_PROFILES="controller|tracker|mapping|cluster-analytics|reid"` (space-separated, same variable as the Compose `deploy` target, default: `controller`)
 - ReID backend selected by `reid.backend` (`vdms`|`qdrant`), or `REID_BACKEND` for the make targets
+- `tracker.enabled=true` deploys Tracker + Analytics and omits the Scene Controller
 
 ## File Organization Essentials
 
@@ -275,6 +288,7 @@ This skill contains:
 
 - `docs/user-guide/microservices/<service>/<service>.md` - Features and API endpoints
 - `docs/user-guide/microservices/<service>/get-started/build-from-source.md` - Build instructions
+- `docs/user-guide/how-to-guides/deployment/` - Image preparation and deployment guides (Docker, Kubernetes, demo)
 - `<service>/README.md` - Quick start
 - `docs/user-guide/` - Cross-service documentation
 
@@ -286,7 +300,7 @@ When adding a new microservice:
 2. Source should import from `scene_common` for shared logic
 3. Add `setup.py` if needed for local testing
 4. Add docker-compose service (network: `scenescape`, depends_on appropriate services)
-5. Update root `Makefile` `IMAGE_FOLDERS` and (optionally) `CORE_IMAGE_FOLDERS`
+5. Follow the [Makefile skill's build and publish gate](skills/makefile/SKILL.md#new-service-build-and-publish-gate) for root build registration and release workflow integration
 6. Create tests in `tests/sscape_tests/<service>/` with conftest.py fixtures
 7. Add test-build target in service Makefile
 8. **Update ALL relevant documentation** (overview, build guide, API docs, examples)

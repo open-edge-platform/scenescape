@@ -15,7 +15,11 @@
 #include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
+#include "support/TestUtils.hpp"
+
 namespace {
+
+using rv::tracking::test::atMs;
 
 rv::tracking::TrackedObject makeDetection(double x, double y, double yaw, bool hasOrientation,
                                           double confidence = 1.0)
@@ -48,11 +52,6 @@ rv::tracking::MultipleObjectTracker makeTracker()
   config.mDefaultProcessNoise = 1e-4;
   config.mDefaultMeasurementNoise = 1e-4;
   return rv::tracking::MultipleObjectTracker(config);
-}
-
-std::chrono::system_clock::time_point atMs(int milliseconds)
-{
-  return std::chrono::system_clock::time_point(std::chrono::milliseconds(milliseconds));
 }
 
 } // namespace
@@ -97,6 +96,26 @@ TEST(OrientationFusionTest, BatchedFusePrefersOrientingYawOverLastCamera)
   ASSERT_EQ(tracks.size(), 1u);
   EXPECT_NEAR(tracks[0].yaw, lidarYaw, 0.25);
   EXPECT_TRUE(rv::tracking::orientation::orientationObserved(tracks[0]));
+}
+
+TEST(OrientationFusionTest, BirthClusteringPicksGlobalOrientingYawWinner)
+{
+  // The most confident orienting detection across all cameras sets the birth yaw,
+  // even when a less confident one joins the cluster after it.
+  auto tracker = makeTracker();
+  const double winnerYaw = 1.2;
+  std::vector<std::vector<rv::tracking::TrackedObject>> batch = {
+    {makeDetection(0.0, 0.0, 0.3, true, 0.6)},
+    {makeDetection(0.02, 0.0, winnerYaw, true, 0.9)},
+    {makeDetection(0.04, 0.0, 2.0, true, 0.7)},
+  };
+
+  tracker.track(batch, atMs(10));
+
+  auto tracks = tracker.getReliableTracks();
+  ASSERT_EQ(tracks.size(), 1u);
+  EXPECT_NEAR(tracks[0].yaw, winnerYaw, 1e-6);
+  EXPECT_TRUE(rv::tracking::orientation::hasOrientation(tracks[0]));
 }
 
 TEST(OrientationFusionTest, OrientationAttributeHelpers)

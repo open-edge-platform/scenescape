@@ -18,9 +18,11 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Directories that require C++ extensions not available on the host.
 # Listed as paths relative to this conftest's directory.
-_NATIVE_ONLY_DIRS = {"autocamcalib", "markerless", "robot_vision"}
+_NATIVE_ONLY_DIRS = {"robot_vision"}
 
 # Import controller module
 _controller_src = Path(__file__).resolve().parent.parent.parent / "controller" / "src"
@@ -28,8 +30,10 @@ if str(_controller_src) not in sys.path:
   sys.path.insert(0, str(_controller_src))
 
 def pytest_ignore_collect(collection_path, config):
-  """Skip test directories that need C++ extensions not installed on host."""
+  """Skip native-only suites and the legacy AprilTag rendering test."""
   if collection_path.is_dir() and collection_path.name in _NATIVE_ONLY_DIRS:
+    return True
+  if collection_path.name == "test_auto_cam.py" and collection_path.parent.name == "autocamcalib":
     return True
 
 # Ensure repo root is on sys.path so "tests.sscape_tests.settings_unittest"
@@ -87,3 +91,27 @@ except Exception:
   # Django setup may fail if optional deps are missing; let pytest
   # report the error per-test rather than blocking all collection.
   pass
+
+
+@pytest.fixture
+def shutdown_uuid_managers(monkeypatch):
+  """Shut down every UUIDManager created during the test.
+
+  A manager reschedules a daemon timer whose callback references the manager,
+  so without shutdown() it is never collected and its thread outlives the
+  session. Objects reachable from such threads are not freed at interpreter
+  exit, which makes Open3D report leaks and force exit code 1.
+  """
+  from controller.uuid_manager import UUIDManager
+
+  managers = []
+  original_init = UUIDManager.__init__
+
+  def tracking_init(self, *args, **kwargs):
+    original_init(self, *args, **kwargs)
+    managers.append(self)
+
+  monkeypatch.setattr(UUIDManager, "__init__", tracking_init)
+  yield managers
+  for manager in managers:
+    manager.shutdown()

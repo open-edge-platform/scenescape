@@ -77,16 +77,42 @@ web:
   # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to:
   # ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
   allowedHosts: ""
+  # Maximum accepted ptz_calibration quality.reprojection_rms_px, in pixels.
+  # Empty keeps the Manager image default (12.0).
+  ptzCalibrationResidualThresholdPx: ""
 
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
+  # PTZ pose consumption; both modes are off by default and mutually exclusive.
+  # shadowMode only observes and logs; enabled gates PTZ detections and projects them
+  # with the PoseContext. Sources come from positioning.assignments.
+  ptz:
+    enabled: false
+    shadowMode: false
+    # Deployment-owned bounds, all required (no defaults) when either mode is on:
+    # max_pose_age_s, max_clock_offset_s, max_detection_pipeline_latency_s,
+    # max_detection_timestamp_uncertainty_s; optional shadow: {run_id, per_decision, sample_every_n}.
+    config: {}
 
 analytics:
   image: intel/scenescape-analytics
   pullPolicy: IfNotPresent
   # regulated, unregulated, or none
   visibilityTopic: regulated
+
+tracker:
+  enabled: false
+  image: intel/scenescape-tracker
+  pullPolicy: IfNotPresent
+  logLevel: info
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "2"
+      memory: 512Mi
 
 autocalibration:
   image: intel/scenescape-autocalibration
@@ -106,7 +132,7 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.3.0-20260929-weekly-ubuntu24"
+    tag: "2026.3.0-ubuntu24-rc1"
     pullPolicy: IfNotPresent
 
 models:
@@ -144,10 +170,59 @@ clusterAnalytics:
   webUI:
     enabled: false
 
+positioning:
+  enabled: false
+  image: intel/scenescape-positioning
+  pullPolicy: IfNotPresent
+  logLevel: INFO
+  resolverId: positioning-default
+  # Source ownership manifest (source_id -> resolver_id). Positioning validates its
+  # sources against it. Empty: no source may publish poses.
+  assignments: {}
+  # Rendered as positioning.json (runtime keys; resolver_id comes from resolverId).
+  # Every source must be assigned to resolverId above. A source without
+  # credentials_file reads /run/secrets/onvif/<source_id>.json.
+  config:
+    poll_interval_s: 0.2
+    max_pose_age_s: 0.5
+    max_timestamp_uncertainty_s: 0.1
+    max_clock_offset_s: 0.05
+    target_reprojection_rms_px: 12.0
+    sample_ring_buffer_size: 64
+    calibration_refresh_interval_s: 30.0
+    # <source_id>:
+    #   type: onvif_ptz
+    #   host: 192.0.2.10
+    #   scheme: https
+    #   port: 443
+    #   move_status: get_status
+    sources: {}
+  # ONVIF credentials mounted read-only at /run/secrets/onvif, one
+  # <source_id>.json ({"username": ..., "password": ...}) key per source.
+  # Set either existingSecret or sources (chart-created Secret), not both.
+  onvifCredentials:
+    existingSecret: ""
+    # Increment after rotating the referenced Secret to restart pollers without
+    # putting credential values or their hashes into the pod template.
+    rolloutRevision: ""
+    # <source_id>: {username: ..., password: ...}
+    sources: {}
+  # Additional volumes/mounts for the Positioning container, e.g. a camera CA
+  # bundle referenced by a source's tls_ca_file.
+  extraVolumes: []
+  extraVolumeMounts: []
+  # Positioning egress is limited to broker, Manager, NTP, DNS and these
+  # deployment-owned camera address ranges. Custom ONVIF ports must be added.
+  networkPolicy:
+    cameraCIDRs: []
+    cameraPorts:
+      - 80
+      - 443
+
 mapping:
   enabled: false
   image: intel/scenescape-mapping
-  model: mapanything # one of [mapanything, vggt]
+  model: "" # one of [mapanything, vggt], empty value uses mapanything
   pullPolicy: IfNotPresent
 
 # Used as init container in some deployments to wait for dependent services
@@ -175,7 +250,6 @@ migrations:
 # PVC
 pvc:
   storageClassName: ""
-  hookWeight: "0"
 
 # External access
 service:
@@ -214,13 +288,8 @@ certdomain: ""
 supass: ""
 dbroot: ""
 debug: false
-chartdebug: false
 
 # Proxy configuration
 httpProxy: ""
 httpsProxy: ""
 noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
-
-# disable pre-install and post-install hooks for cluster compatibility
-hooks:
-  enabled: true

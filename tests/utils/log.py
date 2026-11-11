@@ -36,27 +36,42 @@ _state: dict = {}
 
 
 class _Tee:
-  """Write to two streams; flush primary each write for real-time output."""
+  """Write to the primary stream and, while attached, to a per-test mirror.
 
-  def __init__(self, primary, mirror):
-    self._primary = primary
-    self._mirror = mirror
+  Installed once and kept on sys.stdout/sys.stderr so handlers that bound the
+  stream on first use never hold a closed file.
+  """
+
+  def __init__(self, primary):
+    self.primary = primary
+    self.mirror = None
 
   def write(self, data):
-    self._mirror.write(data)
-    n = self._primary.write(data)
-    self._primary.flush()
+    if self.mirror is not None:
+      self.mirror.write(data)
+    n = self.primary.write(data)
+    self.primary.flush()
     return n
 
   def flush(self):
-    self._mirror.flush()
-    self._primary.flush()
+    if self.mirror is not None:
+      self.mirror.flush()
+    self.primary.flush()
 
   def isatty(self):
-    return getattr(self._primary, "isatty", lambda: False)()
+    return getattr(self.primary, "isatty", lambda: False)()
 
   def fileno(self):
-    return self._primary.fileno()
+    return self.primary.fileno()
+
+
+def _install_tee(name: str) -> _Tee:
+  """Wrap sys.<name> in a _Tee unless it is already wrapped."""
+  stream = getattr(sys, name)
+  if not isinstance(stream, _Tee):
+    stream = _Tee(stream)
+    setattr(sys, name, stream)
+  return stream
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
@@ -67,11 +82,9 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
 
 def _teardown() -> None:
-  """Undo whatever setup() installed."""
-  if "stdout" in _state:
-    sys.stdout = _state.pop("stdout")
-  if "stderr" in _state:
-    sys.stderr = _state.pop("stderr")
+  """Undo whatever setup() installed; the tees stay on sys.std* but detach."""
+  for tee in _state.pop("tees", ()):
+    tee.mirror = None
   if "tee_file" in _state:
     _state.pop("tee_file").close()
   root = logging.getLogger(_ROOT)
@@ -98,7 +111,11 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
   # Container-log dir is created lazily by utils.containers on failure.
   root._container_log_dir = test_dir / f"{stem}-containers"
 
-  console = logging.StreamHandler(sys.stdout)
+  out_tee = _install_tee("stdout")
+  err_tee = _install_tee("stderr")
+
+  # Bind to the primary so console lines are not teed into the log file twice.
+  console = logging.StreamHandler(out_tee.primary)
   console.setLevel(logging.INFO)
   console.setFormatter(
     logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
@@ -116,13 +133,12 @@ def setup(test_name: str, group: str = "functional", log_base: Path | None = Non
   root.addHandler(fh)
 
   tee_file = open(str(log_path), "a", encoding="utf-8", buffering=1)
-  _state["stdout"] = sys.stdout
-  _state["stderr"] = sys.stderr
+  out_tee.mirror = tee_file
+  err_tee.mirror = tee_file
+  _state["tees"] = (out_tee, err_tee)
   _state["tee_file"] = tee_file
   _state["console"] = console
   _state["log_path"] = log_path
-  sys.stdout = _Tee(_state["stdout"], tee_file)
-  sys.stderr = _Tee(_state["stderr"], tee_file)
   return log_path
 
 

@@ -46,6 +46,25 @@ def test_ingest_single_object_sets_core_fields():
   assert obj.sceneLoc == Point(1.0, 2.0, 0.0)
 
 
+@pytest.mark.parametrize('state', ['pending_collection', 'matched', 'query_no_match', 'reid_disabled'])
+def test_ingest_preserves_reid_state_and_lineage(state):
+  ingestion = SceneDataIngestion()
+  lineage = [{'id': 'previous', 'timestamp': '2026-01-01T00:00:00Z', 'similarity_score': 0.9}]
+  ingestion.ingest('person', [_person(reid_state=state, previous_ids_chain=lineage)], {})
+
+  obj = ingestion.get_objects('person')[0]
+  assert obj.reid_state == state
+  assert obj.previous_ids_chain == lineage
+
+
+@pytest.mark.parametrize('state', ['unknown', {}, None])
+def test_ingest_does_not_invent_state_for_invalid_or_missing_reid_state(state):
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person(reid_state=state)], {})
+
+  assert not hasattr(ingestion.get_objects('person')[0], 'reid_state')
+
+
 def test_ingest_omitted_visibility_is_none():
   """Omitted visibility must stay None so Analytics can FOV-fill."""
   ingestion = SceneDataIngestion()
@@ -254,3 +273,46 @@ def test_deserialize_builds_objects_and_indexes_by_gid():
   assert len(result) == 2
   assert 'p1' in ingestion._objects
   assert 'p2' in ingestion._objects
+
+
+# ---------------------------------------------------------------------------
+# External platform provenance
+# ---------------------------------------------------------------------------
+
+def test_ingest_preserves_source_id_and_platform_cameras():
+  cameras = [{
+    'id': 'front',
+    'mount': {'translation': [0.1, 0.0, 0.0], 'rotation': [0.0, 0.0, 0.0, 1.0]},
+    'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+  }]
+  ingestion = SceneDataIngestion()
+  ingestion.ingest(
+    'drone',
+    [_person('drone-1', type='drone', source_id='drone-1', cameras=cameras)],
+    {},
+  )
+
+  info = ingestion._objects['drone-1'].info
+  assert info['source_id'] == 'drone-1'
+  assert info['cameras'] == cameras
+
+
+def test_ingest_retains_cameras_when_later_snapshot_omits_them():
+  cameras = [{
+    'id': 'front',
+    'mount': {'translation': [0.1, 0.0, 0.0], 'rotation': [0.0, 0.0, 0.0, 1.0]},
+    'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+  }]
+  ingestion = SceneDataIngestion()
+  ingestion.ingest(
+    'drone',
+    [_person('drone-1', type='drone', source_id='drone-1', cameras=cameras)],
+    {},
+  )
+  ingestion.ingest(
+    'drone',
+    [_person('drone-1', type='drone', source_id='drone-1')],
+    {},
+  )
+
+  assert ingestion._objects['drone-1'].info['cameras'] == cameras

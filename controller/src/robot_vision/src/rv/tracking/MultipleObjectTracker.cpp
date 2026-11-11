@@ -1,13 +1,13 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/MultipleObjectTracker.hpp"
 #include <algorithm>
-#include <charconv>
 #include <cmath>
-#include <optional>
+#include <unordered_map>
 #include "rv/Utils.hpp"
 #include "rv/tracking/Classification.hpp"
+#include "rv/tracking/MetadataFusion.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
@@ -15,134 +15,53 @@ namespace tracking {
 
 namespace {
 
-constexpr const char *METADATA_PREFIX = "metadata.";
-constexpr const char *METADATA_CONFIDENCE_PREFIX = "metadata_confidence.";
-
-bool startsWith(const std::string &value, const char *prefix)
-{
-  return value.rfind(prefix, 0) == 0;
-}
-
-std::optional<double> metadataConfidence(const TrackedObject &object, const std::string &field)
-{
-  const auto confidence = object.attributes.find(METADATA_CONFIDENCE_PREFIX + field);
-  if (confidence == object.attributes.end())
-  {
-    return std::nullopt;
-  }
-
-  double value{};
-  const auto *begin = confidence->second.data();
-  const auto *end = begin + confidence->second.size();
-  const auto [ptr, error] = std::from_chars(begin, end, value);
-  if (error != std::errc{} || ptr != end || !std::isfinite(value))
-  {
-    return std::nullopt;
-  }
-  return value;
-}
-
-void clearMetadataAttributes(TrackedObject &object)
-{
-  for (auto attribute = object.attributes.begin(); attribute != object.attributes.end();)
-  {
-    if (startsWith(attribute->first, METADATA_PREFIX) || startsWith(attribute->first, METADATA_CONFIDENCE_PREFIX))
-    {
-      attribute = object.attributes.erase(attribute);
-    }
-    else
-    {
-      ++attribute;
-    }
-  }
-}
-
-void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
+/**
+ * @brief Average world position and size across multi-camera matches into measurement.
+ *
+ * Last-camera-wins for x/y biases static objects when cameras disagree on the
+ * ground-plane projection. Equal-weight averaging is the Phase-1 fix; per-detection
+ * R weighting belongs with Phase 2 measurement covariance. Yaw is not averaged:
+ * non-orienting detections carry no yaw (see applyOrientingYaw).
+ */
+void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
                   const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
                   TrackedObject &measurement)
 {
-  struct Winner
+  if (matches.size() <= 1)
   {
-    std::optional<double> confidence;
-    size_t cameraIndex;
-  };
+    return;
+  }
 
-  std::unordered_map<std::string, Winner> winners;
-  clearMetadataAttributes(measurement);
+  double sumX = 0.0;
+  double sumY = 0.0;
+  double sumZ = 0.0;
+  double sumLength = 0.0;
+  double sumWidth = 0.0;
+  double sumHeight = 0.0;
 
   for (const auto &[cameraIndex, objectIndex] : matches)
   {
     const auto &object = objectsPerCamera[cameraIndex][objectIndex];
-    for (const auto &[key, value] : object.attributes)
-    {
-      if (!startsWith(key, METADATA_PREFIX))
-      {
-        continue;
-      }
-
-      const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
-      const auto confidence = metadataConfidence(object, field);
-      const auto winner = winners.find(field);
-      const bool winnerExists = winner != winners.end();
-      const std::optional<double> winnerConfidence = winnerExists ? winner->second.confidence : std::optional<double>{};
-      const size_t winnerCameraIndex = winnerExists ? winner->second.cameraIndex : 0;
-      if (!metadata_fusion::shouldReplace(winnerExists, confidence, cameraIndex, winnerConfidence, winnerCameraIndex))
-      {
-        continue;
-      }
-
-      measurement.attributes[key] = value;
-      const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
-      if (confidence)
-      {
-        measurement.attributes[confidenceKey] = object.attributes.at(confidenceKey);
-      }
-      else
-      {
-        measurement.attributes.erase(confidenceKey);
-      }
-      winners[field] = Winner{confidence, cameraIndex};
-    }
+    sumX += object.x;
+    sumY += object.y;
+    sumZ += object.z;
+    sumLength += object.length;
+    sumWidth += object.width;
+    sumHeight += object.height;
   }
-}
 
-void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurement)
-{
-  for (const auto &[key, value] : track.attributes)
-  {
-    if (!startsWith(key, METADATA_PREFIX))
-    {
-      continue;
-    }
-
-    const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
-    const auto storedConfidence = metadataConfidence(track, field);
-    const auto currentValue = measurement.attributes.find(key);
-    const auto currentConfidence = metadataConfidence(measurement, field);
-
-    const bool currentIsHigher = currentValue != measurement.attributes.end() && currentConfidence
-      && (!storedConfidence || *currentConfidence > *storedConfidence);
-    if (currentIsHigher)
-    {
-      continue;
-    }
-
-    measurement.attributes[key] = value;
-    const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
-    if (storedConfidence)
-    {
-      measurement.attributes[confidenceKey] = track.attributes.at(confidenceKey);
-    }
-    else
-    {
-      measurement.attributes.erase(confidenceKey);
-    }
-  }
+  const double n = static_cast<double>(matches.size());
+  measurement.x = sumX / n;
+  measurement.y = sumY / n;
+  measurement.z = sumZ / n;
+  measurement.length = sumLength / n;
+  measurement.width = sumWidth / n;
+  measurement.height = sumHeight / n;
 }
 
 /**
- * Prefer yaw from an orienting detection among matches. Geometry (xyz/size)
- * stays on fusedObject (typically last-match). When several orienting
+ * Prefer yaw from an orienting detection among matches. Position and size are
+ * averaged separately by fuseGeometry. When several orienting
  * detections match, pick the highest classification confidence and break ties
  * with later camera order.
  */
@@ -163,8 +82,7 @@ void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
       continue;
     }
     const double confidence = object.classification.size() > 0 ? object.classification.maxCoeff() : 0.0;
-    if (!found || confidence > bestConfidence
-        || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
+    if (!found || confidence > bestConfidence || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
     {
       found = true;
       bestConfidence = confidence;
@@ -221,19 +139,21 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
                                                   std::vector<tracking::TrackedObject> &objects,
                                                   const DistanceType &distanceType,
                                                   double distanceThreshold,
-                                                  std::vector<size_t> &unassignedObjects)
+                                                  std::vector<size_t> &unassignedObjects,
+                                                  double maxRadiusM)
 {
   std::vector<std::pair<size_t, size_t>> assignments;
   std::vector<size_t> unassignedTracks;
 
-  match(tracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
+  match(tracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold,
+        maxRadiusM);
 
   // Update measurements - set measurement
   for (const auto &assignment : assignments)
   {
     auto const &track = tracks[assignment.first];
     auto &measurement = objects[assignment.second];
-    mergeHistoricalMetadata(track, measurement);
+    metadata_fusion::mergeHistoricalMetadata(track, measurement);
     mTrackManager.setMeasurement(track.id, measurement);
   }
 
@@ -245,14 +165,15 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
 {
-  track(objects, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold);
+  track(objects, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold, mMaxRadiusM);
 }
 
 void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   const DistanceType &distanceType,
                                   double distanceThreshold,
-                                  double scoreThreshold)
+                                  double scoreThreshold,
+                                  double maxRadiusM)
 {
   if (objects.empty())
   {
@@ -272,24 +193,27 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
   auto tracks = mTrackManager.getReliableTracks();
 
   std::vector<size_t> unassignedObjects;
-  tracks = matchAndAssignMeasurements(tracks, objects, distanceType, distanceThreshold, unassignedObjects);
+  tracks
+    = matchAndAssignMeasurements(tracks, objects, distanceType, distanceThreshold, unassignedObjects, maxRadiusM);
 
   std::vector<size_t> unassignedLowScoreObjects;
-  tracks
-    = matchAndAssignMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold, unassignedLowScoreObjects);
+  tracks = matchAndAssignMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold,
+                                      unassignedLowScoreObjects, maxRadiusM);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   // Remove objects already assigned to tracks
   objects = filterByIndex(objects, unassignedObjects);
 
   auto unreliableTracks = mTrackManager.getUnreliableTracks();
-  matchAndAssignMeasurements(unreliableTracks, objects, distanceType, distanceThreshold, unassignedObjects);
+  matchAndAssignMeasurements(unreliableTracks, objects, distanceType, distanceThreshold, unassignedObjects,
+                             maxRadiusM);
 
   // Remove objects already assigned to Unreliable tracks
   objects = filterByIndex(objects, unassignedObjects);
 
   auto suspendedTracks = mTrackManager.getSuspendedTracks();
-  matchAndAssignMeasurements(suspendedTracks, objects, distanceType, distanceThreshold, unassignedObjects);
+  matchAndAssignMeasurements(suspendedTracks, objects, distanceType, distanceThreshold, unassignedObjects,
+                             maxRadiusM);
 
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();
@@ -309,7 +233,8 @@ std::vector<tracking::TrackedObject>
 MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
                                                   std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
                                                   const DistanceType &distanceType,
-                                                  double distanceThreshold)
+                                                  double distanceThreshold,
+                                                  double maxRadiusM)
 {
   const size_t numCameras = objectsPerCamera.size();
   if (numCameras == 0 || tracks.empty())
@@ -335,7 +260,8 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
           unassignedTracks,
           unassignedObjectsPerCamera[i],
           distanceType,
-          distanceThreshold);
+          distanceThreshold,
+          maxRadiusM);
   }
 
   // Group all camera matches per track index so each track gets one fused measurement.
@@ -357,12 +283,14 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
       continue;
     }
 
-    // Keep geometry/measurement from the latest matched camera for compatibility.
+    // Seed from the latest matched camera, then average geometry across all cameras
+    // that matched this track (metadata still uses confidence / camera-order policy).
     const auto &lastMatch = matches.back();
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
+    fuseGeometry(matches, objectsPerCamera, fusedObject);
     applyOrientingYaw(matches, objectsPerCamera, fusedObject);
-    fuseMetadata(matches, objectsPerCamera, fusedObject);
-    mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
+    metadata_fusion::fuseMetadata(matches, objectsPerCamera, fusedObject);
+    metadata_fusion::mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
 
     mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
     isTrackAssigned[trackIdx] = true;
@@ -394,14 +322,16 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
                                   const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
 {
-  track(objectsPerCamera, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold);
+  track(objectsPerCamera, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold, mMaxRadiusM);
 }
 
 void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   const DistanceType &distanceType,
                                   double distanceThreshold,
-                                  double scoreThreshold)
+                                  double scoreThreshold,
+                                  double maxRadiusM,
+                                  double birthClusterRadiusM)
 {
   if (objectsPerCamera.empty())
   {
@@ -426,55 +356,73 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   // 2.- Associate with the reliable states first
   auto tracks = mTrackManager.getReliableTracks();
 
-  tracks = matchAndAssignMeasurements(tracks, objectsPerCamera, distanceType, distanceThreshold);
+  tracks = matchAndAssignMeasurements(tracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
-  tracks = matchAndAssignMeasurements(tracks, lowScoreObjectsPerCamera, distanceType, distanceThreshold);
+  tracks = matchAndAssignMeasurements(tracks, lowScoreObjectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   auto unreliableTracks = mTrackManager.getUnreliableTracks();
-  matchAndAssignMeasurements(unreliableTracks, objectsPerCamera, distanceType, distanceThreshold);
+  matchAndAssignMeasurements(unreliableTracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
   auto suspendedTracks = mTrackManager.getSuspendedTracks();
-  matchAndAssignMeasurements(suspendedTracks, objectsPerCamera, distanceType, distanceThreshold);
+  matchAndAssignMeasurements(suspendedTracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();
 
   // 4. - Group unmatched detections across cameras before creating tracks.
+  // Detection-to-detection clustering must use Euclidean meters: raw detections
+  // do not carry track predictedMeasurementCov, so PositionMahalanobis treats
+  // them as near-delta covariances and fails to fuse the same object seen by
+  // two cameras (duplicate frozen tracks). Use birthClusterRadiusM (default 2 m) —
+  // not maxRadiusM — so a Mahalanobis association ceiling (e.g. 10 m) does not
+  // over-merge nearby people at birth. Track-to-detection association above
+  // still uses distanceType / distanceThreshold / maxRadiusM.
   std::vector<tracking::TrackedObject> newObjects;
+  // (camera, object) members of each newObjects entry, re-fused together so cameras weigh equally.
+  std::vector<std::vector<std::pair<size_t, size_t>>> clusterMembers;
   size_t totalUnassignedObjects = 0;
   for (auto &cameraObjects : objectsPerCamera)
   {
     totalUnassignedObjects += cameraObjects.size();
   }
   newObjects.reserve(totalUnassignedObjects);
+  clusterMembers.reserve(totalUnassignedObjects);
 
-  for (auto &cameraObjects : objectsPerCamera)
+  for (size_t cameraIndex = 0; cameraIndex < objectsPerCamera.size(); ++cameraIndex)
   {
+    const auto &cameraObjects = objectsPerCamera[cameraIndex];
     if (newObjects.empty())
     {
-      newObjects.insert(newObjects.end(), cameraObjects.begin(), cameraObjects.end());
+      for (size_t objectIndex = 0; objectIndex < cameraObjects.size(); ++objectIndex)
+      {
+        newObjects.push_back(cameraObjects[objectIndex]);
+        clusterMembers.push_back({{cameraIndex, objectIndex}});
+      }
       continue;
     }
 
     std::vector<std::pair<size_t, size_t>> assignments;
     std::vector<size_t> unassignedTracks;
     std::vector<size_t> unassignedObjects;
-    match(newObjects, cameraObjects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
+    match(newObjects, cameraObjects, assignments, unassignedTracks, unassignedObjects,
+          DistanceType::Euclidean, birthClusterRadiusM, birthClusterRadiusM);
 
     for (const auto &[newObjectIndex, cameraObjectIndex] : assignments)
     {
-      auto fusedObject = cameraObjects[cameraObjectIndex];
-      const std::vector<std::vector<TrackedObject>> candidates = {{newObjects[newObjectIndex]}, {fusedObject}};
-      const std::vector<std::pair<size_t, size_t>> matches = {{0, 0}, {1, 0}};
-      applyOrientingYaw(matches, candidates, fusedObject);
-      fuseMetadata(matches, candidates, fusedObject);
-      newObjects[newObjectIndex] = std::move(fusedObject);
+      auto &members = clusterMembers[newObjectIndex];
+      members.emplace_back(cameraIndex, cameraObjectIndex);
+      // Re-fuse on every join, not once after the loop: later cameras are matched against the fused cluster.
+      auto &fusedObject = newObjects[newObjectIndex];
+      fuseGeometry(members, objectsPerCamera, fusedObject);
+      applyOrientingYaw(members, objectsPerCamera, fusedObject);
+      metadata_fusion::fuseMetadata(members, objectsPerCamera, fusedObject);
     }
 
     for (const auto objectIndex : unassignedObjects)
     {
       newObjects.push_back(cameraObjects[objectIndex]);
+      clusterMembers.push_back({{cameraIndex, objectIndex}});
     }
   }
 

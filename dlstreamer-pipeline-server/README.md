@@ -6,6 +6,7 @@
 - [Enable Re-ID](#enable-reidentification)
 - [Enable Pose Estimation](#enable-pose-estimation)
 - [Enable Frame NTP Timestamp Extraction](#enable-frame-ntp-timestamp-extraction)
+- [Enable Track GID Labels](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md#track-gid-labels-on-camera-images)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
 - [Additional Resources](#additional-resources)
@@ -19,24 +20,14 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in Scenes
 
 2. **Start Scenescape DL Streamer-based demo:**
 
-   If this is the first time running Scenescape, run:
+If this is the first time running Scenescape, follow the [Installation guide](../docs/user-guide/get-started/installation.md) to build and deploy the demo.
 
-   ```sh
-   make && make demo
-   ```
+If you have already deployed Scenescape, use:
 
-   Alternatively, the script can be used:
-
-   ```sh
-   ./deploy.sh
-   ```
-
-   If you have already deployed Scenescape, use:
-
-   ```sh
-   docker compose --profile controller down --remove-orphans
-   docker compose --profile controller up -d
-   ```
+```sh
+docker compose --profile controller down --remove-orphans
+docker compose --profile controller up -d
+```
 
 ## Running on GPU
 
@@ -207,29 +198,25 @@ Following are the step-by-step instructions for enabling person reidentification
        file: ./sample_data/demo_scenes/Retail/retail-config-reid.json
    ```
 
-   If this is the first time running Scenescape, run:
+If this is the first time running Scenescape, follow the [Installation guide](../docs/user-guide/get-started/installation.md) to build and deploy it before applying the ReID video-pipeline configuration.
 
-   ```sh
-   ./deploy.sh
-   ```
+If you have already deployed Scenescape, use:
 
-   If you have already deployed Scenescape, use:
+```sh
+docker compose -f docker-compose.yml \
+  -f sample_data/compose/compose.vdms-override.yml \
+  --profile controller down
+docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yml \
+  -f sample_data/demo_scenes/Queuing/compose.queuing-video.yml down
+docker compose -f docker-compose.yml \
+  -f sample_data/compose/compose.vdms-override.yml \
+  --profile controller up reid scene -d
+docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yml \
+  -f sample_data/demo_scenes/Queuing/compose.queuing-video.yml \
+  -f sample_data/compose/compose.reid-pipeline-override.yml up -d
+```
 
-   ```sh
-   docker compose -f docker-compose.yml \
-     -f sample_data/compose/compose.vdms-override.yml \
-     --profile controller down
-   docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yml \
-     -f sample_data/demo_scenes/Queuing/compose.queuing-video.yml down
-   docker compose -f docker-compose.yml \
-     -f sample_data/compose/compose.vdms-override.yml \
-     --profile controller up reid scene -d
-   docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yml \
-     -f sample_data/demo_scenes/Queuing/compose.queuing-video.yml \
-     -f sample_data/compose/compose.reid-pipeline-override.yml up -d
-   ```
-
-   Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
+Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
 
 ## Enable Pose Estimation
 

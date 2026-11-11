@@ -21,24 +21,43 @@ Owns session lifecycle:
 
 Adds functional helpers (`rest`, `scene_uid`, etc.) and related setup fixtures.
 
-## Unit-test Zephyr hooks (when using a local conftest)
+## CI check (`make check-zephyr-ids`)
 
-All tests need a Zephyr ID (`NEX-T#####`). Functional/UI tests typically set it via @pytest.mark.test_name("NEX-T#####"). For unit suites that still use session hooks:
+`tests/scripts/check_zephyr_mapping.py` collects every pytest under `tests/` **except**
+`tests/sscape_tests/` and fails on:
+
+- `missing_id` — no `@pytest.mark.test_name("NEX-T#####")`
+- `invalid_id` — value not matching `NEX-T` + 5–6 digits
+- `duplicate_id` — same ID on more than one test
+
+Unit tests are out of scope for this check. Do not add markers there to “satisfy” CI.
+
+## Zephyr IDs: every category except unit tests
+
+Required for any test that isn't a unit test. Each test method must carry its own
+unique `NEX-T#####` and pass that same ID into `result_recorder`:
 
 ```python
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import pytest
-import tests.common_test_utils as common
+@pytest.mark.test_name("NEX-T10001")
+def test_foo(result_recorder):
+  ...
+  result_recorder.success()
 
-TEST_NAME = "NEX-T#####"
-
-def pytest_sessionstart():
-  print(f"Executing: {TEST_NAME}")
-
-def pytest_sessionfinish(exitstatus):
-  common.record_test_result(TEST_NAME, exitstatus)
+@pytest.mark.test_name("NEX-T10002")
+def test_bar(result_recorder):
+  ...
+  result_recorder.success()
 ```
+
+## Unit tests: do not add Zephyr IDs
+
+Unit tests under `tests/sscape_tests/` (and similar host-only unit trees) must **not**
+use `@pytest.mark.test_name(...)` or module-level `TEST_NAME = "NEX-T…"`.
+
+Agents often wrongly copy a related UI/functional `NEX-T#####` onto every unit case
+in the same PR — that is incorrect and adds noise. Omit the marker.
 
 Prefer placing shared path/bootstrap setup in the nearest `conftest.py`, not in individual test modules.

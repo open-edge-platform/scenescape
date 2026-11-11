@@ -2,26 +2,35 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import defaultdict
+from copy import deepcopy
 import os
 import queue
 import threading
+import time
 from types import SimpleNamespace
 
 import ntplib
 import orjson
 
 from scene_common.cache_manager import CacheManager
+from scene_common.transform import CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
-from controller.scene import Scene
+from controller.ilabs_tracking import normalize_association_config, warn_association_config
+from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mqtt import PubSub
+from scene_common.positioning_dwell import seconds_to_ns
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
+from controller.ptz import provider as ptz_provider
+from controller.ptz.ingress import PTZIngress
+from controller.ptz.registry import PTZPoseRegistry
+from controller.ptz.shadow import ShadowRecorder, SummaryRecorder
 from controller.reid_env import (
   get_reid_client_cert,
   get_reid_client_key,
@@ -33,6 +42,60 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+# Ingest-failure errors are logged at most once per window for each publisher.
+FAILURE_RATE_LIMIT_WINDOW_S = 10
+
+
+class RateLimiter:
+  """Allows an action at most once per window for each key."""
+
+  def __init__(self, window_s, max_keys=1024):
+    self._window_s = window_s
+    self._max_keys = max_keys
+    # key -> [last allowed time, calls suppressed since then]
+    self._entries = {}
+
+  def allow(self, key=None):
+    """Return (allowed, suppressed), where suppressed is the number of calls
+    blocked for this key since it was last allowed."""
+    now = time.monotonic()
+    entry = self._entries.get(key)
+    if entry is not None:
+      if now - entry[0] < self._window_s:
+        entry[1] += 1
+        return False, 0
+      suppressed = entry[1]
+      entry[0], entry[1] = now, 0
+      return True, suppressed
+    if len(self._entries) >= self._max_keys:
+      # Keys come from untrusted topics: bound the table by dropping expired
+      # entries only, and reject new keys while every cooldown is still active.
+      self._entries = {k: e for k, e in self._entries.items()
+                       if now - e[0] < self._window_s}
+      if len(self._entries) >= self._max_keys:
+        return False, 0
+    self._entries[key] = [now, 0]
+    return True, 0
+
+
+def _parseAssociationConfig(tracker_config):
+  """Normalized ``association`` block of a tracker config; the default block when it is malformed.
+
+  An unknown ``method`` or a block that is not an object drops the whole block: its other fields were meant for
+  another method.
+  """
+  association = tracker_config.get("association", {})
+  if not isinstance(association, dict):
+    log.error(f"Invalid association config in tracker config file: expected an object, got {association!r}; "
+              "using the default association")
+    return normalize_association_config()
+  try:
+    association_config = normalize_association_config(association)
+  except ValueError as err:
+    log.error(f"Invalid association config in tracker config file: {err}; using the default association")
+    return normalize_association_config()
+  warn_association_config(association_config)
+  return association_config
 
 
 def _parseTrustedSources(value):
@@ -77,7 +140,7 @@ class SceneController:
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
                tracker_config_file, schema_file, visibility_topic, data_source,
-               reid_config_file=None, pose_adjustment_config_file=None):
+               reid_config_file=None, pose_adjustment_config_file=None, ptz_settings=None):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -107,6 +170,16 @@ class SceneController:
     self.time_offset = 0
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
+
+    self.ptz_settings = ptz_settings
+    self.ptz_registry = None
+    self.ptz_ingress = None
+    if ptz_settings is not None:
+      self.ptz_registry = PTZPoseRegistry(ptz_settings, self.schema_val, self._ptzClock)
+      self.ptz_ingress = PTZIngress(ptz_settings, self.ptz_registry,
+                                    self._ptzRecorder(ptz_settings))
+      ptz_provider.set_active_registry(self.ptz_registry)
+      log.info(f"PTZ pose consumption: {ptz_settings.mode.upper()} mode")
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -143,6 +216,7 @@ class SceneController:
     if self.external_source_bindings:
       log.info("Loaded %s manual external-source bindings for %s publishers",
                EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
+    self._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_S)
     self._moving_object_queue = queue.Queue(maxsize=1000)
     self._moving_object_stop = threading.Event()
     self._moving_object_worker = threading.Thread(
@@ -173,6 +247,8 @@ class SceneController:
         else:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
+
+      self.tracker_config_data["association"] = _parseAssociationConfig(tracker_config)
     return
 
   def extractReidConfigData(self, reid_config_file):
@@ -241,6 +317,57 @@ class SceneController:
     """Return the NTP-corrected time used to accept external-source events."""
     return get_epoch_time() + self.time_offset
 
+  @staticmethod
+  def _ptzRecorder(ptz_settings):
+    if ptz_settings.shadow_per_decision:
+      return ShadowRecorder(ptz_settings.run_id, ptz_settings.shadow_sample_every_n)
+    return SummaryRecorder()
+
+  def _ptzClock(self):
+    """Synchronized local time in ns and whether the clock is within the configured bound."""
+    synchronized = (self.last_time_sync is not None
+                    and abs(self.time_offset) <= self.ptz_settings.consumer.max_clock_offset_s)
+    return seconds_to_ns(get_epoch_time() + self.time_offset), synchronized
+
+  def _ptzFilter(self, scene, camera_id, jdata, msg_when):
+    """Apply the PTZ dwell gate; returns (process, pose_context)."""
+    if getattr(self, 'ptz_ingress', None) is None:
+      return True, None
+    return self.ptz_ingress.filter(scene, camera_id, jdata, msg_when)
+
+  def handlePoseMessage(self, client, userdata, message):
+    """PoseContext callback; runs on the MQTT thread and never blocks."""
+    try:
+      self.ptz_registry.on_pose_message(message.topic, message.payload)
+    except Exception as e:
+      log.error(f"Failed to process PoseContext on {message.topic}: {e}")
+    return
+
+  def handlePositioningStatusMessage(self, client, userdata, message):
+    """Resolver status/LWT callback; runs on the MQTT thread and never blocks."""
+    try:
+      self.ptz_registry.on_status_message(message.topic, message.payload)
+    except Exception as e:
+      log.error(f"Failed to process positioning status on {message.topic}: {e}")
+    return
+
+  def _addPTZSubscriptions(self, need_subscribe):
+    """Subscribe only to poses of this Controller's assigned PTZ cameras and their resolvers."""
+    if getattr(self, 'ptz_registry', None) is None:
+      return
+    self.ptz_registry.reconcile(self.scenes)
+    for source_id in self.ptz_registry.pose_source_ids():
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id=source_id),
+        self.handlePoseMessage,
+      ))
+    for resolver_id in self.ptz_registry.resolver_ids():
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.POSITIONING_STATUS, resolver_id=resolver_id),
+        self.handlePositioningStatusMessage,
+      ))
+    return
+
   def shutdown(self):
     """Stop background maintenance threads owned by this controller.
 
@@ -265,6 +392,9 @@ class SceneController:
 
     self.external_source_pose_cache.stopBackgroundSweep()
     self.identity_claim_registry.stopBackgroundSweep()
+    if getattr(self, 'ptz_registry', None) is not None \
+        and ptz_provider.active_registry() is self.ptz_registry:
+      ptz_provider.set_active_registry(None)
     return
 
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
@@ -276,6 +406,9 @@ class SceneController:
       "scene": scene.name
     }
     metrics.record_object_count(len(objects), metric_attributes)
+
+    if camera_id is not None:
+      jdata['camera_id'] = camera_id
 
     self.publishSceneDetections(scene, objects, otype, jdata)
     return
@@ -311,6 +444,7 @@ class SceneController:
       reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
+
       # Hierarchy output must not carry agent publisher fields. If source_id
       # leaks onto external/{scene_uid}/+, the wildcard subscription re-ingests
       # it and rejects the message (source_id != scene uid).
@@ -512,11 +646,10 @@ class SceneController:
         return
 
       jdata['debug_hmo_start_time'] = now
-      # Camera intrinsics/distortion refresh only applies to camera-originated
-      # messages (keyed by 'id'); external-source messages are keyed by
-      # 'source_id' and have no camera parameters to refresh.
-      if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
-        self.cache_manager.refreshScenesForCamParams(jdata)
+      # MQTT optics (intrinsics/distortion/resolution) are applied ephemerally with
+      # extrinsics in processCameraData → cameraSnapshot when unlocked. They are not
+      # persisted to Manager. External-source messages still resolve via
+      # ExternalSourcePoseCache (ADR 0016).
 
       if self.rewrite_all_time:
         msg_when = now
@@ -549,14 +682,16 @@ class SceneController:
           if not scenes:
             log.warning("No scene binding for external publisher %s", publisher_id)
             return
+          detection_types = self._externalDetectionTypes(jdata, topic['thing_type'])
           for scene in scenes:
             jdata_scene = dict(jdata)
             jdata_scene['objects'] = [dict(obj) for obj in jdata.get('objects', [])]
             success = self._handleExternalSourceObject(
               scene, jdata_scene, detection_types[0], msg_when)
             if not success:
-              log.error("Camera fail publisher_id=%s scene=%s", publisher_id, getattr(scene, 'name', None))
-              self.cache_manager.invalidate()
+              self._logFailure(
+                publisher_id,
+                f"Camera fail publisher_id={publisher_id} scene={getattr(scene, 'name', None)}")
               return
             jdata_scene['id'] = scene.uid
             jdata_scene['name'] = scene.name
@@ -568,34 +703,22 @@ class SceneController:
                 msg_when, detection_type, jdata_scene, camera_id)
           return
 
-        handled = self._handleChildSceneObject(
+        success, scene = self._handleChildSceneObject(
           publisher_id, jdata, detection_types[0], msg_when)
-        # None => orphan hierarchy echo from a root scene; ignore.
-        if handled is None:
+        # (None, None) => dropped: root-scene echo or unresolved sender/parent.
+        if success is None:
           return
-        success, scene = handled
         sender_id = publisher_id
       else:
-        detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
-        sender = self.cache_manager.sceneWithCameraID(sender_id)
-        if sender is None:
-          log.error(f"UNKNOWN SENDER: {sender_id}")
+        outcome = self._processCameraMessage(camera_id, jdata, msg_when, metric_attributes)
+        if outcome is None:
           return
-        scene = sender
-
-        # If no detection types in the message, add empty arrays for all tracked types
-        # This must be done BEFORE processCameraData so the tracker processes them
-        if not detection_types:
-          detection_types = list(scene.tracker.trackers.keys())
-          for dtype in detection_types:
-            jdata['objects'][dtype] = []
-
-        success = scene.processCameraData(jdata, when=msg_when)
+        scene, detection_types, success = outcome
 
       if not success:
-        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
-        self.cache_manager.invalidate()
+        scene_name = scene.name if scene is not None else "unknown"
+        self._logFailure(sender_id, f"Camera fail {sender_id} {scene_name}")
         return
 
       jdata['id'] = scene.uid
@@ -606,14 +729,58 @@ class SceneController:
                               msg_when, detection_type, jdata, camera_id)
       return
 
+  def _logFailure(self, publisher_id, message):
+    """Log an ingest failure at most once per window for each publisher."""
+    allowed, suppressed = self._failure_log_limiter.allow(publisher_id)
+    if allowed:
+      if suppressed:
+        message = f"{message} (+{suppressed} suppressed)"
+      log.error(message)
+    return
+
+  def _processCameraMessage(self, camera_id, jdata, msg_when, metric_attributes):
+    """Resolve the camera's scene, apply the PTZ gate and feed the detections to tracking.
+
+    @return (scene, detection_types, success), or None when the message was dropped
+    """
+    detection_types = jdata['objects'].keys()
+    scene = self.cache_manager.sceneWithCameraID(camera_id)
+    if scene is None:
+      log.error(f"UNKNOWN SENDER: {camera_id}")
+      return None
+
+    process, pose_context = self._ptzFilter(scene, camera_id, jdata, msg_when)
+    if not process:
+      metric_attributes["reason"] = "ptz_dwell"
+      metrics.inc_dropped(metric_attributes)
+      return None
+
+    # If no detection types in the message, add empty arrays for all tracked types
+    # This must be done BEFORE processCameraData so the tracker processes them
+    if not detection_types:
+      detection_types = list(scene.tracker.trackers.keys())
+      for dtype in detection_types:
+        jdata['objects'][dtype] = []
+
+    if pose_context is None:
+      success = scene.processCameraData(jdata, when=msg_when)
+    else:
+      success = scene.processCameraData(jdata, when=msg_when, pose_context=pose_context)
+    return scene, detection_types, success
+
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    """Forward a child scene's objects into its parent scene.
+
+    Unresolved senders/parents return (None, None) without invalidating the
+    cache: only a DB change can resolve them, and CMD_DATABASE invalidates then.
+    """
     is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error(f"UNKNOWN SENDER: {sender_id}")
-        return False, None
+        self._logFailure(sender_id, f"UNKNOWN SENDER: {sender_id}")
+        return None, None
       sender = remote_sender
       is_remote = True
 
@@ -624,20 +791,21 @@ class SceneController:
           sender.parent = recovered
           log.info(f"Recovered parent={recovered} for remote child {sender_id}")
         else:
-          log.error("UNKNOWN PARENT", sender_id)
-          return False, sender
+          self._logFailure(sender_id, f"UNKNOWN PARENT: {sender_id}")
+          return None, None
       else:
         # Hierarchy publishes (no source_id) from a root scene are not destined
         # for a parent — ignore them rather than failing closed and invalidating
         # the scene cache. (Root scenes no longer self-subscribe for ingest.)
         log.debug("Ignoring hierarchy publish from root scene %s (no parent)",
                   sender_id)
-        return None
+        return None, None
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
-      log.error("PARENT SCENE NOT FOUND", sender.parent, "for sender", sender.name)
-      return False, None
+      self._logFailure(
+        sender_id, f"PARENT SCENE NOT FOUND: {sender.parent} for sender {sender.name}")
+      return None, None
 
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
@@ -696,65 +864,395 @@ class SceneController:
     'source_id' in the payload."""
     source_id = jdata['source_id']
     trusted = source_id in self.trusted_positioning_sources
-    camera_pose, reason = self.external_source_pose_cache.resolve(
-      scene, source_id, jdata.get('pose'), msg_when, trusted_scene_pose=trusted)
+    jdata = dict(jdata)
+    jdata['objects'] = self._ensurePlatformObject(
+      jdata.get('objects'), source_id, detection_type)
+    objects = jdata['objects']
+    pixel_objects, _ = self._partitionExternalObjects(objects)
+
+    camera_pose, pose_state, reason = self.external_source_pose_cache.resolveMessage(
+      scene, source_id, jdata, msg_when, trusted_scene_pose=trusted)
     if camera_pose is None:
       log.warning(f"External source pose unavailable for source={source_id} "
                 f"scene={scene.uid}: {reason}")
       return True
 
-    source_track = jdata.get('track')
-    tracked_id_counts = {}
-    if source_track is not False:
-      for obj in jdata.get('objects', []):
-        source_obj_id = obj.get('id')
-        if source_obj_id is not None:
-          tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
-
-    routed_objects = []
-    for index, obj in enumerate(jdata.get('objects', [])):
-      routed_obj = dict(obj)
-      routed_obj.pop('track', None)
-      if source_track is False:
-        obj_id = routed_obj.get('id')
-        if obj_id is None:
-          log.warning(
-            f"Rejecting external-source object without id: source={source_id} "
-            f"scene={scene.uid} category={detection_type} track=false")
-          continue
-        ok, collision_reason = self.identity_claim_registry.claim(
-          scene.uid, detection_type, source_id, obj_id, msg_when)
-        if not ok:
-          log.warning(
-            f"Rejecting external-source object: id={obj_id} from source={source_id} "
-            f"scene={scene.uid} category={detection_type}: {collision_reason}")
-          continue
-      else:
-        source_obj_id = routed_obj.get('id')
-        if source_obj_id is not None:
-          # if object id is unique accross the message (appears once in tracked_id_counts),
-          # use it; otherwise, fall back to index-based id
-          if tracked_id_counts.get(source_obj_id, 0) == 1:
-            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
-          else:
-            log.warning(
-              f"Duplicate tracked external object id={source_obj_id} from source={source_id} "
-              f"scene={scene.uid} category={detection_type}; ignoring id hint for this message")
-            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
-        else:
-          routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
-      routed_objects.append(routed_obj)
-
-    if not routed_objects:
+    accepted, synthetic_intrinsics = self._externalPixelIntrinsics(
+      scene, source_id, jdata, pixel_objects, msg_when)
+    if not accepted:
       return True
 
-    routed_jdata = dict(jdata)
-    routed_jdata['objects'] = routed_objects
-    routed_jdata.pop('track', None)
-    routed_source = SimpleNamespace(name=source_id, uid=source_id, retrack=(source_track is not False))
-    scene.processSceneData(routed_jdata, routed_source, camera_pose,
-                           detection_type, when=msg_when)
+    # Attach after intrinsics resolution so legacy top-level calibration
+    # cached by ``_externalPixelIntrinsics`` is visible on this message's
+    # platform/frustum snapshot.
+    jdata['objects'] = self._attachPlatformCameras(
+      jdata['objects'], source_id, pose_state)
+
+    source_track = jdata.get('track')
+    observation_groups = self._externalObservationGroups(
+      jdata, camera_pose, synthetic_intrinsics)
+    category_groups = self._externalObservationGroupsByCategory(
+      observation_groups, detection_type)
+    for category, groups in category_groups.items():
+      self._ingestExternalObservationGroups(
+        scene, jdata, groups, source_id, category, source_track, msg_when)
     return True
+
+  @staticmethod
+  def _externalDetectionTypes(jdata, detection_type):
+    """Include observed categories as well as the external platform category."""
+    categories = {detection_type: None}
+    observations = list(jdata.get('objects', []))
+    for camera in jdata.get('cameras', []):
+      observations.extend(camera['objects'])
+    for observation in observations:
+      categories[observation.get('category', detection_type)] = None
+    return list(categories)
+
+  @staticmethod
+  def _externalObservationGroupsByCategory(observation_groups, detection_type):
+    """Keep each observation's category and camera frame on its tracker path."""
+    category_groups = {detection_type: []}
+    for observations, camera_pose, intrinsics, camera_id in observation_groups:
+      grouped = {}
+      for observation in observations:
+        category = observation.get('category', detection_type)
+        grouped.setdefault(category, []).append(observation)
+      for category, objects in grouped.items():
+        category_groups.setdefault(category, []).append(
+          (objects, camera_pose, intrinsics, camera_id))
+    return category_groups
+
+  @staticmethod
+  def _ensurePlatformObject(objects, source_id, detection_type):
+    """Ensure body observations include the platform at the body origin.
+
+    The platform is a scene object with ``id == source_id`` (trusted identity).
+    Adapters may already publish it; otherwise one is synthesized so pose-only
+    updates still materialize the platform on the object output path.
+    """
+    body_objects = [dict(obj) for obj in (objects or [])]
+    for obj in body_objects:
+      if obj.get('id') != source_id:
+        continue
+      if ('bounding_box_px' not in obj and 'translation' not in obj
+          and 'lat_long_alt' not in obj):
+        obj['translation'] = [0.0, 0.0, 0.0]
+      if 'category' not in obj:
+        obj['category'] = detection_type
+      # Identity local attitude so world rotation follows the source pose.
+      if 'rotation' not in obj:
+        obj['rotation'] = [0.0, 0.0, 0.0, 1.0]
+      return body_objects
+    body_objects.append({
+      'id': source_id,
+      'category': detection_type,
+      'translation': [0.0, 0.0, 0.0],
+      'rotation': [0.0, 0.0, 0.0, 1.0],
+    })
+    return body_objects
+
+  @staticmethod
+  def _platformCamerasFromState(pose_state):
+    """Project cached camera config onto the platform object (no observations)."""
+    if pose_state is None:
+      return None
+    cameras = getattr(pose_state, 'cameras', None)
+    if cameras is not None:
+      return deepcopy(cameras)
+    intrinsics = getattr(pose_state, 'intrinsics', None)
+    if intrinsics is None:
+      return None
+    camera = {
+      'id': 'default',
+      'mount': {
+        'translation': [0.0, 0.0, 0.0],
+        'rotation': [0.0, 0.0, 0.0, 1.0],
+      },
+      'intrinsics': deepcopy(intrinsics),
+    }
+    distortion = getattr(pose_state, 'distortion', None)
+    if distortion is not None:
+      camera['distortion'] = deepcopy(distortion)
+    return [camera]
+
+  @classmethod
+  def _attachPlatformCameras(cls, objects, source_id, pose_state):
+    """Attach mount/intrinsics to the platform object for Bar A frustum viz."""
+    cameras = cls._platformCamerasFromState(pose_state)
+    if cameras is None:
+      return objects
+    attached = []
+    for obj in objects:
+      if obj.get('id') != source_id:
+        attached.append(obj)
+        continue
+      platform = dict(obj)
+      platform['cameras'] = cameras
+      attached.append(platform)
+    return attached
+
+  @staticmethod
+  def _partitionExternalObjects(objects, start_index=0):
+    """Split message objects into pixel vs translation paths by index."""
+    pixel_objects = []
+    translation_objects = []
+    for index, obj in enumerate(objects):
+      if isinstance(obj.get('bounding_box_px'), dict):
+        pixel_objects.append((start_index + index, obj))
+      else:
+        translation_objects.append((start_index + index, obj))
+    return pixel_objects, translation_objects
+
+  @staticmethod
+  def _externalObservationGroups(jdata, source_pose, source_intrinsics):
+    """Pair body and camera observations with their scene poses and intrinsics."""
+    groups = [(jdata.get('objects', []), source_pose, source_intrinsics, None)]
+    for camera in jdata.get('cameras', []):
+      mount = CameraPose({
+        'translation': camera['mount']['translation'],
+        'rotation': camera['mount']['rotation'],
+        'scale': [1.0, 1.0, 1.0],
+      }, None)
+      camera_pose = CameraPose(source_pose.pose_mat @ mount.pose_mat, None)
+      intrinsics = ExternalSourcePoseCache._validateIntrinsics(
+        camera['intrinsics'], camera.get('distortion'))
+      groups.append((camera['objects'], camera_pose, intrinsics, camera['id']))
+    return groups
+
+  def _ingestExternalObservationGroups(self, scene, jdata, observation_groups,
+                                      source_id, detection_type, source_track,
+                                      msg_when):
+    """Route and ingest all observations as one scene update."""
+    all_objects = [
+      observation
+      for observations, _, _, _ in observation_groups
+      for observation in observations
+    ]
+    tracked_id_counts = self._countExternalObjectIds(all_objects)
+    moving_objects = []
+    already_tracked_objects = []
+    next_index = 0
+    for observation_group in observation_groups:
+      moving, already_tracked = self._ingestExternalObservationGroup(
+        scene, jdata, observation_group, source_id, detection_type,
+        source_track, tracked_id_counts, next_index, msg_when)
+      moving_objects.extend(moving)
+      already_tracked_objects.extend(already_tracked)
+      next_index += len(observation_group[0])
+
+    # Always run the tracker, even with zero observations: an accepted message
+    # with no detections is an empty measurement (mirroring how empty camera
+    # frames are processed), so departed objects age out and the published
+    # current-objects state clears instead of freezing until the next
+    # detection arrives. Pose-only updates still carry the platform object.
+    scene.finishProcessing(
+      detection_type, msg_when, moving_objects, already_tracked_objects)
+
+  def _ingestExternalObservationGroup(self, scene, jdata, observation_group,
+                                     source_id, detection_type, source_track,
+                                     tracked_id_counts, start_index, msg_when):
+    """Route and ingest observations belonging to one coordinate frame."""
+    observations, camera_pose, intrinsics, camera_id = observation_group
+    pixel_objects, translation_objects = self._partitionExternalObjects(
+      observations, start_index)
+    route_kwargs = {
+      'source_id': source_id,
+      'scene_uid': scene.uid,
+      'detection_type': detection_type,
+      'source_track': source_track,
+      'tracked_id_counts': tracked_id_counts,
+      'msg_when': msg_when,
+    }
+    routed_pixels = self._routeExternalPixelObjects(pixel_objects, **route_kwargs)
+    routed_translations = self._routeExternalObjects(
+      translation_objects, **route_kwargs)
+
+    moving, already_tracked = self._ingestExternalPixelObjects(
+      scene, routed_pixels, intrinsics, camera_pose, source_id,
+      detection_type, source_track, msg_when, camera_id=camera_id)
+    translated, trusted = self._ingestExternalTranslationCategories(
+      scene, jdata, routed_translations, camera_pose, source_id,
+      detection_type, source_track, msg_when)
+    moving.extend(translated)
+    already_tracked.extend(trusted)
+    return moving, already_tracked
+
+  def _routeExternalPixelObjects(self, pixel_objects, **route_kwargs):
+    """Discard untracked pixel observations; route the remaining pixel objects."""
+    if route_kwargs['source_track'] is False:
+      return []
+    return self._routeExternalObjects(pixel_objects, **route_kwargs)
+
+  def _ingestExternalTranslationCategories(self, scene, jdata,
+                                           routed_translations, camera_pose,
+                                           source_id, detection_type,
+                                           source_track, msg_when):
+    """Ingest platform and observed translations with their respective identity policies."""
+    platform = [obj for obj in routed_translations if obj.get('id') == source_id]
+    other_objects = [obj for obj in routed_translations if obj.get('id') != source_id]
+    moving_objects = []
+    already_tracked_objects = []
+    for observations, retrack in (
+        (platform, False), (other_objects, source_track is not False)):
+      if not observations:
+        continue
+      moving, already_tracked = self._ingestExternalTranslations(
+        scene, jdata, observations, camera_pose, source_id,
+        detection_type, retrack=retrack, msg_when=msg_when)
+      if moving is not None:
+        moving_objects.extend(moving)
+        already_tracked_objects.extend(already_tracked)
+    return moving_objects, already_tracked_objects
+
+  @staticmethod
+  def _ingestExternalTranslations(scene, jdata, routed_translations, camera_pose,
+                                  source_id, detection_type, *, retrack, msg_when):
+    """Create moving objects for routed body/camera-frame translations."""
+    routed_jdata = dict(jdata)
+    routed_jdata['objects'] = routed_translations
+    routed_jdata.pop('track', None)
+    routed_source = SimpleNamespace(
+      name=source_id,
+      uid=source_id,
+      retrack=retrack,
+    )
+    return scene.createMovingObjectsForSceneData(
+      routed_jdata, routed_source, camera_pose, detection_type, when=msg_when)
+
+  @staticmethod
+  def _countExternalObjectIds(objects):
+    """Count non-None object ids within one external message."""
+    tracked_id_counts = {}
+    for obj in objects:
+      source_obj_id = obj.get('id')
+      if source_obj_id is not None:
+        tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
+    return tracked_id_counts
+
+  def _externalPixelIntrinsics(self, scene, source_id, jdata, pixel_objects, msg_when):
+    """Resolve intrinsics for pixel detections, caching like pose reuse.
+
+    Returns ``(accepted, intrinsics)``. ``accepted`` is False when pixel
+    objects are present but neither the message nor the live pose-cache
+    entry provides usable intrinsics (reject the whole message rather than
+    partially ingesting co-packaged translation objects). Invalid intrinsics
+    that are not needed by this message are logged but do not block it.
+    ``intrinsics`` is None when there are no pixel objects.
+    """
+    if not pixel_objects:
+      # Opportunistically refresh cached calibration for later pixel messages.
+      if 'intrinsics' in jdata:
+        intrinsics, reason = self.external_source_pose_cache.resolveIntrinsics(
+          scene.uid, source_id, jdata.get('intrinsics'), jdata.get('distortion'),
+          msg_when)
+        if intrinsics is None:
+          log.warning(f"Ignoring unused external intrinsics: source={source_id} "
+                      f"scene={scene.uid}: {reason}")
+      return True, None
+
+    intrinsics, reason = self.external_source_pose_cache.resolveIntrinsics(
+      scene.uid, source_id, jdata.get('intrinsics'), jdata.get('distortion'),
+      msg_when)
+    if intrinsics is None:
+      log.warning(
+        f"Discarding external message with pixel detections: "
+        f"source={source_id} scene={scene.uid}: {reason}")
+      return False, None
+    return True, intrinsics
+
+  def _routeExternalObjects(self, indexed_objects, *, source_id, scene_uid,
+                            detection_type, source_track, tracked_id_counts,
+                            msg_when):
+    """Apply track=false identity claims or track=true synthetic ids."""
+    routed_objects = []
+    for index, obj in indexed_objects:
+      routed_obj = self._routeExternalObject(
+        index, obj, source_id=source_id, scene_uid=scene_uid,
+        detection_type=detection_type, source_track=source_track,
+        tracked_id_counts=tracked_id_counts, msg_when=msg_when)
+      if routed_obj is not None:
+        routed_objects.append(routed_obj)
+    return routed_objects
+
+  def _routeExternalObject(self, index, obj, *, source_id, scene_uid,
+                           detection_type, source_track, tracked_id_counts,
+                           msg_when):
+    """Route one external object; return None when the object is rejected."""
+    routed_obj = deepcopy(obj)
+    routed_obj['source_id'] = source_id
+    routed_obj.pop('track', None)
+    # Platform self-object always uses trusted identity (id == source_id).
+    if source_track is False or routed_obj.get('id') == source_id:
+      return self._routeUntrackedExternalObject(
+        routed_obj, source_id=source_id, scene_uid=scene_uid,
+        detection_type=detection_type, msg_when=msg_when)
+    return self._routeTrackedExternalObject(
+      index, routed_obj, source_id=source_id, scene_uid=scene_uid,
+      detection_type=detection_type, tracked_id_counts=tracked_id_counts)
+
+  def _routeUntrackedExternalObject(self, routed_obj, *, source_id, scene_uid,
+                                    detection_type, msg_when):
+    obj_id = routed_obj.get('id')
+    if obj_id is None:
+      log.warning(
+        f"Rejecting external-source object without id: source={source_id} "
+        f"scene={scene_uid} category={detection_type} track=false")
+      return None
+    ok, collision_reason = self.identity_claim_registry.claim(
+      scene_uid, detection_type, source_id, obj_id, msg_when)
+    if not ok:
+      log.warning(
+        f"Rejecting external-source object: id={obj_id} from source={source_id} "
+        f"scene={scene_uid} category={detection_type}: {collision_reason}")
+      return None
+    return routed_obj
+
+  @staticmethod
+  def _routeTrackedExternalObject(index, routed_obj, *, source_id, scene_uid,
+                                  detection_type, tracked_id_counts):
+    source_obj_id = routed_obj.get('id')
+    if source_obj_id is not None and tracked_id_counts.get(source_obj_id, 0) == 1:
+      routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
+      return routed_obj
+    if source_obj_id is not None:
+      log.warning(
+        f"Duplicate tracked external object id={source_obj_id} from source={source_id} "
+        f"scene={scene_uid} category={detection_type}; ignoring id hint for this message")
+    routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
+    return routed_obj
+
+  def _ingestExternalPixelObjects(self, scene, routed_pixel_objects,
+                                  synthetic_intrinsics, camera_pose,
+                                  source_id, detection_type, source_track, msg_when,
+                                  camera_id=None):
+    """Create moving objects from routed pixel detections.
+
+    Returns ``(pixel_moving_objects, already_tracked_objects)``.
+    """
+    if not routed_pixel_objects or synthetic_intrinsics is None:
+      return [], []
+
+    # Same camera-ingest gate: external pixel crops must not claim another
+    # scene already vetted the embedding provenance.
+    stripReidProvenance(routed_pixel_objects)
+    scene.convertPixelBoundingBoxesToMeters(
+      routed_pixel_objects,
+      synthetic_intrinsics.intrinsics,
+      synthetic_intrinsics.distortion,
+    )
+    pixel_camera = SimpleNamespace(
+      cameraID=source_id if camera_id is None else f'{source_id}:{camera_id}',
+      pose=CameraPose(camera_pose.pose_mat, synthetic_intrinsics),
+    )
+    if source_track is False:
+      # Caller should already have skipped routing; keep this guard so pixel
+      # detections never enter the trusted-identity merge path.
+      return [], []
+
+    created_pixel_objects = scene.createMovingObjectsForDetection(
+      detection_type, routed_pixel_objects, msg_when, pixel_camera)
+    return list(created_pixel_objects), []
 
   @staticmethod
   def _withRemoteChildParent(info, parent_uid):
@@ -894,6 +1392,7 @@ class SceneController:
     need_subscribe = set()
 
     self.scenes = self.cache_manager.allScenes()
+    self._addPTZSubscriptions(need_subscribe)
 
     # One wildcard covers configured children and dynamic agents on:
     # scenescape/external/{publisher_id}/{thing_type}

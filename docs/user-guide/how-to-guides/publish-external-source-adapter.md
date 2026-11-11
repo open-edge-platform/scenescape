@@ -63,8 +63,8 @@ fields and examples; do not invent alternate shapes.
    Prefer a hardware-rooted or MAC-based identifier. See
    [Choosing a `source_id`](../microservices/controller/data_formats.md#choosing-a-source_id-self-identification-for-agents).
 
-2. **Build the top-level message** with `timestamp`, `source_id`, and `objects`
-   (pose is optional once cached). See
+2. **Build the top-level message** following the canonical contract; camera-only
+   messages do not need an empty top-level `objects` array. See
    [External Source Top-Level Fields](../microservices/controller/data_formats.md#external-source-top-level-fields).
 
 3. **Decide the pose reference frame**:
@@ -75,34 +75,60 @@ fields and examples; do not invent alternate shapes.
      Details:
      [External Source Pose Fields](../microservices/controller/data_formats.md#external-source-pose-fields-pose).
 
-4. **Map each native observation** to an `objects[*]` entry with `category`
-   and `translation` in the **source's local frame** (relative to the source
-   origin described by `pose`). Include `id` whenever the top-level source
-   `track` value is `false`; when the top-level source `track` value is `true`
-   or omitted, `id` is optional. Optional `size`, `rotation`, `confidence`,
-   and `metadata` follow the same contract. See
-   [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
+4. **Map each native observation** to an `objects[*]` entry for body-relative
+   observations or to a camera entry's `objects[*]` for camera observations,
+   with `category` and exactly one location form:
+   - **Cartesian**: `translation` in the **source's local frame** (metres
+     relative to the source origin described by `pose` for top-level objects;
+     camera-local metres for observations nested under a camera).
+   - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
+     `translation`. For camera observations, use that camera entry's own
+     calibration and resolution. Do not put both `translation` and
+     `bounding_box_px` on one object. Prefer `track` true or omitted for
+     mounted-camera pixels so Scenescape can fuse them after the dual
+     transform; with `track=false` those pixels are discarded. For Cartesian
+     observations with `track=false`, include a persistent `id`. When `track`
+     is `true` or omitted, detection `id` is optional. Optional `size`,
+     `rotation`, `confidence`, and `metadata` follow the same contract. See
+     [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
+     For a mobile source with cameras, include a complete `cameras` array;
+     each camera carries its own calibration and detections.
+     See [Drone Coordinate and Camera Contract](../microservices/controller/data_formats.md#drone-coordinate-and-camera-contract).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
    top-level source `track` value applies to all objects in that message.
-   `track=false` preserves the source `id`, so keep those ids persistent and
-   unique within your source. See
+   When `track` is `true` or omitted, mounted-camera pixel detections are
+   dual-transformed into the scene and the controller assigns published track
+   ids. `track=false` preserves source `id` for Cartesian observations (keep
+   those ids persistent and unique within your source) and **discards** pixel
+   detections, matching camera input while tracking is off. See
    [Source-Identity Trust for Untracked Objects, with Collision Detection](../microservices/controller/data_formats.md#source-identity-trust-for-untracked-objects-with-collision-detection).
 
 6. **Resolve coordinate conventions in the converter**, not in the controller:
    - Quaternions are `(x, y, z, w)`.
    - Object `translation` is metres relative to the source local origin.
+   - Pixel boxes use camera pixel coordinates with `intrinsics` (and optional
+     `distortion`) from the message or the live pose-cache entry.
    - Pose places that origin in either WGS84 (`lat_long_alt`) or scene-local
      (`translation`), matching `reference_frame`.
 
-## Pose Reuse
+## Pose and Intrinsics Reuse
 
-After a successful pose is cached for `(bound_scene_uid, source_id)`, later messages may
-omit `pose` and reuse the cached transform. A message with `pose` and an empty
-`objects` array refreshes the cache without ingesting observations.
+Pose and optics on this path are ephemeral for every perceptual modality that
+publishes here: they live only in the Controller TTL cache and are never written
+to Manager (same policy as unlocked detector-topic `Cam` MQTT optics).
 
-If no usable transform is available, or a pose fails trust/geo checks, the
-controller drops the message and logs a rejection reason. See
+After a successful pose is cached for `(bound_scene_uid, source_id)`, later
+messages may omit `pose` and reuse the cached transform. Sensor `intrinsics`
+(and optional `distortion`) for pixel detections are stored on the same cache
+entry (top-level legacy fields or per-camera calibration), so later pixel
+messages may omit those fields too. Each camera entry includes the calibration
+needed to interpret that camera's observations. A message with `pose`, an empty
+top-level `objects` array, and cameras with empty observation arrays refreshes
+the source snapshot without ingesting observations.
+
+If no usable transform or intrinsics are available, or a pose fails trust/geo
+checks, the controller drops the message and logs a rejection reason. See
 [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).
 
 ## Minimal MQTT Publish Skeleton
@@ -186,7 +212,10 @@ or certificates in the converter. Topic path uses `SOURCE_ID`; optional
 2. Confirm messages arrive on
    `scenescape/external/{publisher_id}/{thing_type}` (MQTT client or broker logs).
 3. Watch `scenescape/data/scene/{scene_id}/{thing_type}` (or the 3D UI) for
-   ingested objects whose `id` matches what the converter published.
+   ingested objects. With `track=false`, Cartesian published `id` values should
+   match the converter's source ids, and pixel detections should not appear.
+   With `track=true` or omitted `track`, expect controller-assigned track ids
+   for fused detections (including mounted-camera pixels).
 4. If nothing appears, check Scene Controller logs for pose/identity rejection
    reasons listed under
    [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).
@@ -211,5 +240,5 @@ The adapter and this guide do **not** cover:
 - [ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md)
 - [Integrate Cameras and Sensors](./integrate-cameras-and-sensors.md)
 - Example MAVLink adapter:
-  [`tools/external_source_adapters/`](../../../tools/external_source_adapters/README.md)
+  [`tools/external_source_adapters/`](https://github.com/open-edge-platform/scenescape/blob/main/tools/external_source_adapters/README.md)
   (`mavlink_to_external_source.py`)

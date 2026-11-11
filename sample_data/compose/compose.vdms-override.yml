@@ -42,3 +42,8 @@ services:
         condition: service_started
     environment:
       REID_DATABASE: VDMS
+
+  reid-service:
+    depends_on:
+      reid:
+        condition: service_started

@@ -23,8 +23,12 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 60
     steps:
+      - name: "Pre-clean workspace"
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
       - name: "Checkout Repository"
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -35,7 +39,7 @@ jobs:
           system-prune: "true"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -52,3 +56,7 @@ jobs:
           GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           make build-all
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup

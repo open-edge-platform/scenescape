@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 
 FROM intel/scenescape-common-base AS scenescape-manager-builder
 
@@ -70,6 +70,9 @@ ARG CERTDOMAIN=scenescape.intel.com
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
+ENV EGL_PLATFORM=surfaceless
+# About 1 degree of pointing error at 3 m in a 1080p image.
+ENV PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX=12.0
 ARG FORCE_VAAPI
 
 # Upgrade base OS packages and install runtime dependencies in one layer
@@ -178,6 +181,10 @@ COPY ./manager/config/user_access_config.json $SCENESCAPE_HOME
 COPY --chown=$WSUSER:$WSUSER ./manager/config/webserver-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
+
+COPY --chmod=0755 ./tools/upload_scenes/upload-scenes /usr/local/lib/scenescape/upload_scenes/upload-scenes
+COPY --chmod=0644 ./tools/upload_scenes/uploader.py /usr/local/lib/scenescape/upload_scenes/uploader.py
+RUN ln -s /usr/local/lib/scenescape/upload_scenes/upload-scenes /usr/local/bin/upload-scenes
 
 RUN chown -R $WSUSER:$WSUSER /home/scenescape/ \
     && chown -R $WSUSER:$WSUSER /etc/apache2/ \

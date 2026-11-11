@@ -245,12 +245,16 @@ always use `retrack=False`, those MovingObjects are passed in `already_tracked_o
 `objects`); time chunking therefore resolves the bucket id from `already_tracked_objects` when
 `objects` is empty, so per-publisher bucketing still applies.
 
-### Camera-parameter cache refresh only applies to camera messages
+### Detector-topic MQTT optics are ephemeral (same policy as external pose cache)
 
-`CacheManager.refreshScenesForCamParams()` assumes every inbound message is a camera detection
-carrying an `id` camera identifier used to refresh cached intrinsics/distortion. External-source
-messages carry `source_id`, not a camera `id`, and have no camera parameters to refresh, so
-`handleMovingObjectMessage()` now skips this step for `DATA_EXTERNAL` messages.
+Unlocked `Cam` sensors (any perceptual modality registered as a camera) apply MQTT
+`extrinsics` / `intrinsics` / `distortion` / `resolution` only in
+`SceneModel.cameraSnapshot` — never via Manager PATCH.
+`CacheManager.refreshScenesForCamParams()` is a no-op stub retained for older call
+sites. External-source messages never used that path: they carry `source_id` and
+resolve pose/intrinsics through the TTL `(scene_uid, source_id)` cache only. Both
+ingest paths keep pose and optics **ephemeral** for every perceptual modality they
+serve; neither persists MQTT optics to Manager.
 
 ## Relationship to ADR 13 (Controller Breakdown) and Known Deviation
 
@@ -318,6 +322,33 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
   binder should drive **subscriptions** into ingest, not rewrite destination topics.
 - **Let the source-supplied `id` drive global track continuity by always retracking** (historical
   first revision). Superseded by default trusted identity plus collision detection.
+
+## Citizenship and related work (Cameras vs agents)
+
+Scenescape’s north star is a single scene-graph citizenship model (everything as
+an object / sub-scene). Until that output graph and materialized store exist:
+
+- **Registered perceptual sensors** that should behave as Cams (for example
+  handheld devices) use `scenescape/data/camera/{id}` with pose lock and
+  provenance — see ADR 18 on the handheld line of work.
+- **Dynamic agents** use this ADR’s `external/{publisher_id}/{thing_type}`
+  contract. The platform appears as a **scene object** (stable `id`
+  matching `source_id`, trusted identity even when detections use
+  `track=true` / omitted `track`), including on pose-only ticks — not via a
+  parallel retained `scenescape/data/source/...` product topic. Nested
+  ingest `cameras[]` encode mounts and camera-local observations: with
+  `track=true` / omitted `track`, pixel detections are dual-transformed
+  (platform pose ∘ mount) then fused by Scenescape tracking; with
+  `track=false`, pixel detections are discarded (Cartesian trusted-identity
+  observations still apply). Known camera config is also projected onto the
+  platform object’s `cameras` field so UI frustums derive from object-graph
+  state (Bar A).
+- An **internal** pose/intrinsics TTL cache may remain for transform reuse; it
+  is not a consumer MQTT API.
+
+Same-platform multi-camera observations in one external message share one
+ingest/tracker update when tracking is enabled. **Camera path ↔ external path**
+fusion of the same physical object remains Future Work below.
 
 ## Consequences
 
@@ -443,6 +474,16 @@ trust-domain follow-ons:
 - **Cache interpolation/quality gating.** The pose cache currently permits reuse of any
   non-expired cached transform; pose interpolation and stricter age/quality gating beyond the TTL
   are deferred.
+- **Explore unifying Cam and external calibration resolution (TODO).** Detector-topic
+  ingest resolves durable calibration from the configured `Cam` (Manager) and applies
+  unlocked MQTT pose/optics as an in-memory observation on that camera. External ingest
+  uses only the TTL `(scene_id, source_id)` pose cache (including intrinsics for pixel
+  detections) with no Manager `Cam` row. Soft-drop when calibration is unavailable and
+  the **ephemeral MQTT optics** policy are already aligned across modalities; the stores
+  still differ (`SceneModel` observation vs TTL cache, plus `pose_locked` /
+  `pose_provenance` only on the Cam path). Do **not** merge the paths yet; treat a shared
+  resolution abstraction (or documenting why they should stay separate) as an exploration
+  item once external pixel/Cartesian handling has more production soak.
 
 ## References
 

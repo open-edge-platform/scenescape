@@ -263,9 +263,13 @@ class CameraCalibrationApriltag:
     computed_pose_data = {"camera points": np.array(points_2d, dtype="float32"),
                           "map points": np.array(points_3d, dtype="float32"),
                           "resolution": (TILE_SIZE, TILE_SIZE)}
+    if getattr(self, "pixels_per_meter", None) is not None:
+      computed_pose_data["pixels per meter"] = self.pixels_per_meter
     camera_intrinsics = CameraIntrinsics(intrinsics=self.intrinsic_matrix_2d)
-    return CameraPose(pose=computed_pose_data,
-                      intrinsics=camera_intrinsics).pose_mat
+    # Retain the transform so callers can validate against RANSAC inliers only.
+    self.last_pose_transform = CameraPose(pose=computed_pose_data,
+                                          intrinsics=camera_intrinsics)
+    return self.last_pose_transform.pose_mat
 
   def get_camera_frustum(self):
     """! Creates 5 points, when connected by a line, looks like a camera view of the scene.

@@ -15,6 +15,7 @@ from http.client import HTTPConnection
 from http.server import HTTPServer
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 
@@ -22,11 +23,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from harnesses.black_box_harness.mock_manager import (
     _DISTORTION_KEYS,
-    _MAX_COPLANAR_DETERMINANT,
     _are_coplanar,
     _assets_from_object_classes,
     _build_rest_scene,
-    _calculate_determinant,
     _compute_extrinsics,
     _distortion_to_array,
     _pose_mat_to_extrinsics,
@@ -127,19 +126,35 @@ class TestDistortionToArray:
 
 
 # ---------------------------------------------------------------------------
-# _calculate_determinant / _are_coplanar
+# _are_coplanar
 # ---------------------------------------------------------------------------
 
 class TestCoplanarity:
   def test_four_coplanar_z0_points(self):
     points = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]
-    assert abs(_calculate_determinant(points)) <= _MAX_COPLANAR_DETERMINANT
     assert _are_coplanar(points)
 
   def test_four_non_coplanar_points(self):
     points = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    assert abs(_calculate_determinant(points)) > _MAX_COPLANAR_DETERMINANT
     assert not _are_coplanar(points)
+
+  @pytest.mark.parametrize("scale", [0.1, 0.01, 100.0])
+  def test_non_coplanar_is_scale_invariant(self, scale):
+    points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0.5]]) * scale
+    assert not _are_coplanar(points)
+    assert not _are_coplanar(points[:4])
+
+  def test_scaled_down_non_coplanar_selects_sqpnp(self):
+    map_points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0.5]]) * 0.1
+    rvec = np.array([0.3, -0.2, 0.1])
+    tvec = np.array([-0.1, -0.05, 0.8])
+    K = np.array([[964.24, 0, 400.0], [0, 964.63, 300.0], [0, 0, 1]])
+    cam_pts, _ = cv2.projectPoints(map_points, rvec, tvec, K, None)
+    ext = _compute_extrinsics(cam_pts.reshape(-1, 2).tolist(), map_points.tolist(),
+                              [964.24, 964.63, 400.0, 300.0])
+    rmat = cv2.Rodrigues(rvec)[0]
+    assert ext is not None
+    assert ext["translation"] == pytest.approx((-rmat.T @ tvec).tolist(), abs=1e-3)
 
   def test_five_coplanar_points(self):
     points = [[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0]]
@@ -149,8 +164,7 @@ class TestCoplanarity:
     points = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1]]
     assert not _are_coplanar(points)
 
-  def test_six_or_more_always_coplanar_result(self):
-    """arePointsCoplanar returns True for >=6 points (no check performed)."""
+  def test_collinear_points_are_coplanar(self):
     points = [[i, 0, 0] for i in range(6)]
     assert _are_coplanar(points)
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 
 # -------------- Controller Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-controller-builder
@@ -30,9 +30,12 @@ RUN pip3 install --no-cache-dir scikit-build-core \
 # Build main controller package
 COPY ./controller/src/controller /tmp/controller/controller
 COPY ./controller/src/setup.py /tmp/controller/setup.py
-RUN cd /tmp/controller \
-    && python3 setup.py bdist_wheel \
+COPY ./reid/src/reid /tmp/controller/reid
+RUN pip3 install --no-cache-dir build \
+    && cd /tmp/controller \
+    && python3 -m build --wheel \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
+    && cp -r reid /usr/local/lib/python3.11/site-packages/reid \
     && cd \
     && rm -rf /tmp/controller
 
@@ -101,6 +104,7 @@ RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.2
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/controller /usr/local/lib/${PY_LIB_DIR}/site-packages/controller
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/reid /usr/local/lib/${PY_LIB_DIR}/site-packages/reid
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
@@ -108,6 +112,8 @@ COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/reid-config.json $SCENESCAPE_HOME/reid-config.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/pose-adjustment-route.json $SCENESCAPE_HOME/pose-adjustment-route.json
+COPY --chown=$WSUSER:$WSUSER ./controller/config/ptz-consumer-config.json $SCENESCAPE_HOME/ptz-consumer-config.json
+COPY --chown=$WSUSER:$WSUSER ./deployment/positioning-assignments.json $SCENESCAPE_HOME/positioning-assignments.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 

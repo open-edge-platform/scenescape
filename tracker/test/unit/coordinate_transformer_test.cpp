@@ -9,19 +9,23 @@
  * pipeline: Euler→rotation matrix, lens undistortion, pose-transform, then
  * ray-plane intersection at z=0. Camera configs match tracker/config/scenes.json.
  *
- * FOOT point = bottom-center of bbox: (x + width/2, y + height)
  */
 
 #include "coordinate_transformer.hpp"
+#include "reid_sighting.hpp"
 #include "tracking_types.hpp"
 
 #include <gtest/gtest.h>
+#include <opencv2/calib3d.hpp>
+#include <rapidjson/document.h>
 
 #include <array>
 #include <cmath>
 #include <numbers>
 #include <optional>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace tracker {
@@ -301,6 +305,62 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Position) {
     }
 }
 
+TEST(TransformDetectionsTest, DistortedBboxMatchesTwoCornerControllerProjection) {
+    CameraTestConfig config = kCameraAtaqQcam1;
+    config.k1 = -0.25;
+    config.k2 = 0.08;
+    config.p1 = 0.015;
+    config.p2 = -0.01;
+    auto transformer = make_transformer(config);
+    const cv::Rect2f bbox(70.0f, 80.0f, 180.0f, 240.0f);
+
+    std::vector<cv::Point2f> corners = {{bbox.x, bbox.y},
+                                        {bbox.x + bbox.width, bbox.y + bbox.height}};
+    std::vector<cv::Point2f> normalized;
+    cv::undistortPoints(corners, normalized, transformer.getIntrinsicsMatrix(),
+                        transformer.getDistortionCoeffs());
+    const auto& top_left = normalized[0];
+    const auto& bottom_right = normalized[1];
+    const auto& pose = transformer.getPoseMatrix();
+    const auto camera = transformer.getCameraOrigin();
+    auto project = [&](double x, double y) {
+        const cv::Vec4d point = pose * cv::Vec4d(x, y, 1.0, 1.0);
+        const double t = -camera.z / (point[2] - camera.z);
+        return cv::Point2d(camera.x + t * (point[0] - camera.x),
+                           camera.y + t * (point[1] - camera.y));
+    };
+    const auto foot = project((top_left.x + bottom_right.x) / 2.0, bottom_right.y);
+    const auto bottom_left = project(top_left.x, bottom_right.y);
+    const auto bottom_right_world = project(bottom_right.x, bottom_right.y);
+    const auto top_left_world = project(top_left.x, top_left.y);
+    const double width = cv::norm(bottom_right_world - bottom_left);
+    const double camera_to_top_left =
+        std::hypot(camera.x - top_left_world.x, camera.y - top_left_world.y, camera.z);
+    const double height = std::sin(std::atan2(std::abs(camera.z), camera_to_top_left)) *
+                          cv::norm(top_left_world - bottom_left);
+    const cv::Point2d bearing = foot - cv::Point2d(camera.x, camera.y);
+    const cv::Point2d expected = foot + bearing * (width / (2.0 * cv::norm(bearing)));
+
+    auto result = transformer.transformDetections(
+        std::vector<Detection>{make_detection(bbox.x, bbox.y, bbox.width, bbox.height)});
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_NEAR(result[0].x, expected.x, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, expected.y, kWorldTolerance);
+    EXPECT_NEAR(result[0].width, width, kWorldTolerance);
+    EXPECT_NEAR(result[0].height, height, kWorldTolerance);
+
+    const auto second = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 2);
+    auto second_result = transformer.transformDetections(std::vector<Detection>{second});
+    auto batch = transformer.transformDetections(
+        std::vector<Detection>{make_detection(bbox.x, bbox.y, bbox.width, bbox.height), second});
+    ASSERT_EQ(second_result.size(), 1u);
+    ASSERT_EQ(batch.size(), 2u);
+    EXPECT_NEAR(batch[0].x, expected.x, kWorldTolerance);
+    EXPECT_NEAR(batch[0].y, expected.y, kWorldTolerance);
+    EXPECT_DOUBLE_EQ(batch[1].x, second_result[0].x);
+    EXPECT_DOUBLE_EQ(batch[1].y, second_result[0].y);
+}
+
 TEST(TransformDetectionsTest, MatchesPythonReference_Size) {
     // Verify world-space sizes match independently computed reference values
     auto transformer = make_transformer(kCameraAtaqQcam1);
@@ -320,6 +380,166 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Size) {
             << "Test " << tc.name << " world width mismatch";
         EXPECT_NEAR(result[0].height, tc.world_height_m, kWorldTolerance)
             << "Test " << tc.name << " world height mismatch";
+    }
+}
+
+TEST(TransformDetectionsTest, TransformsSensorFramePositionSizeAndRotationToWorld) {
+    auto camera_config = kCameraAtaqQcam1;
+    camera_config.translation = {10.0, 20.0, 3.0};
+    camera_config.rotation = {0.0, 0.0, 90.0};
+    auto transformer = make_transformer(camera_config);
+
+    Detection detection;
+    detection.id = 23;
+    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+    detection.rotation =
+        std::array<double, 4>{0.0, 0.0, std::sin(M_PI / 12.0), std::cos(M_PI / 12.0)};
+
+    const auto result = transformer.transformDetections(std::array{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0].id, 23);
+    EXPECT_NEAR(result[0].x, 8.0, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, 21.0, kWorldTolerance);
+    EXPECT_NEAR(result[0].z, 6.0, kWorldTolerance);
+    EXPECT_DOUBLE_EQ(result[0].length, 4.0);
+    EXPECT_DOUBLE_EQ(result[0].width, 5.0);
+    EXPECT_DOUBLE_EQ(result[0].height, 6.0);
+    EXPECT_NEAR(result[0].yaw, 2.0 * M_PI / 3.0, kRotationTolerance);
+    EXPECT_EQ(result[0].attributes.at("has_orientation"), "true");
+}
+
+TEST(TransformDetectionsTest, MatchesSciPySensorFrameReferences) {
+    struct SensorFrameTestCase {
+        const char* name;
+        CameraTestConfig camera;
+        std::array<double, 3> translation;
+        std::array<double, 3> size;
+        std::array<double, 4> rotation;
+        std::array<double, 3> expected_position;
+        double expected_yaw;
+    };
+
+    const CameraTestConfig identity_camera = {
+        "identity", 500.0, 500.0, 320.0,           240.0,           0.0,
+        0.0,        0.0,   0.0,   {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}};
+    const std::array test_cases = {
+        SensorFrameTestCase{
+            "identity_camera_yaw_pi_over_2",
+            identity_camera,
+            {1.0, 2.0, 3.0},
+            {4.0, 5.0, 6.0},
+            {0.0, 0.0, std::sin(std::numbers::pi / 4.0), std::cos(std::numbers::pi / 4.0)},
+            {1.0, 2.0, 3.0},
+            std::numbers::pi / 2.0},
+        SensorFrameTestCase{"lidar_style_rotation_on_tilted_camera_mount",
+                            kCameraAtaqQcam1,
+                            {1.25, -2.5, 0.75},
+                            {4.0, 1.8, 1.6},
+                            {0.0, -std::sin(0.35), 0.0, std::cos(0.35)},
+                            {5.1057880909623607, 1.7910990824901141, 3.8840183493068721},
+                            0.17925653649531559}};
+
+    for (const auto& test_case : test_cases) {
+        auto transformer = make_transformer(test_case.camera);
+        Detection detection;
+        detection.translation = test_case.translation;
+        detection.size = test_case.size;
+        detection.rotation = test_case.rotation;
+
+        const auto result = transformer.transformDetections(std::array{detection});
+
+        ASSERT_EQ(result.size(), 1u) << test_case.name;
+        EXPECT_NEAR(result[0].x, test_case.expected_position[0], 1e-6) << test_case.name;
+        EXPECT_NEAR(result[0].y, test_case.expected_position[1], 1e-6) << test_case.name;
+        EXPECT_NEAR(result[0].z, test_case.expected_position[2], 1e-6) << test_case.name;
+        EXPECT_DOUBLE_EQ(result[0].length, test_case.size[0]) << test_case.name;
+        EXPECT_DOUBLE_EQ(result[0].width, test_case.size[1]) << test_case.name;
+        EXPECT_DOUBLE_EQ(result[0].height, test_case.size[2]) << test_case.name;
+        EXPECT_NEAR(result[0].yaw, test_case.expected_yaw, kRotationTolerance) << test_case.name;
+        EXPECT_EQ(result[0].attributes.at("has_orientation"), "true") << test_case.name;
+    }
+}
+
+TEST(TransformDetectionsTest, MissingRotationDoesNotMarkOrientationObserved) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection;
+    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+
+    const auto result = transformer.transformDetections(std::array{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_FALSE(result[0].attributes.contains("has_orientation"));
+}
+
+TEST(TransformDetectionsTest, PixelDetectionRotationMarksOrientationObserved) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    auto detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f);
+    detection.rotation = std::array<double, 4>{0.0, 0.0, std::sin(0.25), std::cos(0.25)};
+
+    const auto result = transformer.transformDetections(std::array{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0].attributes.at("has_orientation"), "true");
+}
+
+TEST(TransformDetectionsTest, MixedPixelAndWorldSpaceDetectionsPreserveInputOrder) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    auto pixel_detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    Detection world_detection;
+    world_detection.id = 2;
+    world_detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    world_detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+    const std::array detections = {pixel_detection, world_detection};
+
+    const auto result = transformer.transformDetections(detections);
+
+    ASSERT_EQ(result.size(), 2u);
+    EXPECT_EQ(result[0].id, 1);
+    EXPECT_NEAR(result[0].x, kAtaqQcam1BboxTests.front().world_x, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, kAtaqQcam1BboxTests.front().world_y, kWorldTolerance);
+    EXPECT_EQ(result[1].id, 2);
+    const cv::Vec4d expected_position = transformer.getPoseMatrix() * cv::Vec4d(1.0, 2.0, 3.0, 1.0);
+    EXPECT_NEAR(result[1].x, expected_position[0], kWorldTolerance);
+    EXPECT_NEAR(result[1].y, expected_position[1], kWorldTolerance);
+    EXPECT_NEAR(result[1].z, expected_position[2], kWorldTolerance);
+}
+
+TEST(TransformDetectionsTest, InterleavedWorldSpaceDetectionsDoNotAffectPixelDetections) {
+    for (const int shift_type : {ObjectClassConfig::kShiftType1, ObjectClassConfig::kShiftType2}) {
+        auto transformer = make_transformer(kCameraAtaqQcam1, shift_type);
+        const auto pixel_a = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+        const auto pixel_b = make_detection(10.0f, 10.0f, 80.0f, 160.0f, 3);
+        Detection world_detection;
+        world_detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+        world_detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+        auto world_a = world_detection;
+        world_a.id = 0;
+        auto world_b = world_detection;
+        world_b.id = 2;
+
+        const auto alone_a = transformer.transformDetections(std::array{pixel_a});
+        const auto alone_b = transformer.transformDetections(std::array{pixel_b});
+        const auto mixed =
+            transformer.transformDetections(std::array{world_a, pixel_a, world_b, pixel_b});
+
+        ASSERT_EQ(alone_a.size(), 1u);
+        ASSERT_EQ(alone_b.size(), 1u);
+        ASSERT_EQ(mixed.size(), 4u) << "shift_type=" << shift_type;
+        for (int i = 0; i < 4; ++i) {
+            EXPECT_EQ(mixed[i].id, i) << "shift_type=" << shift_type;
+        }
+        for (const auto& [mixed_index, alone] :
+             {std::pair{1, &alone_a[0]}, std::pair{3, &alone_b[0]}}) {
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].x, alone->x) << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].y, alone->y) << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].length, alone->length)
+                << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].height, alone->height)
+                << "shift_type=" << shift_type;
+        }
     }
 }
 
@@ -513,10 +733,9 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
     EXPECT_EQ(result.size(), 1u);
 }
 
-// Expected TYPE_2 foot follows Controller CameraPose.projectBounds + MovingObject.camLoc:
-// baseAngle from the camera to the midpoint of the projected bottom corners, then the foot
-// pixel is raised by (height / 2) * (baseAngle / 90) before projecting.
-TEST(CoordinateTransformerTest, Type2FootMatchesControllerCamLoc) {
+// Zero distortion makes the pixel-space shift equal to the normalized one
+// see DistortedType2FootShiftsNormalizedBox.
+TEST(CoordinateTransformerTest, Type2FootMatchesPixelShiftWithoutDistortion) {
     // Zero footprint so the output position is the projected foot itself.
     const auto type1 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType1, 0.0);
     const auto type2 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType2, 0.0);
@@ -543,6 +762,50 @@ TEST(CoordinateTransformerTest, Type2FootMatchesControllerCamLoc) {
     const auto type1_foot = project(x + w / 2.0f, y + h);
     EXPECT_GT(std::hypot(result[0].x - type1_foot.x, result[0].y - type1_foot.y), 0.1)
         << "TYPE_2 should move the foot away from the TYPE_1 bottom-center projection";
+}
+
+TEST(CoordinateTransformerTest, DistortedType2FootShiftsNormalizedBox) {
+    CameraTestConfig config = kCameraAtaqQcam1;
+    config.k1 = -0.25;
+    config.k2 = 0.08;
+    config.p1 = 0.015;
+    config.p2 = -0.01;
+    const auto transformer = make_transformer(config, ObjectClassConfig::kShiftType2, 0.0);
+    const auto camera = transformer.getCameraOrigin();
+    const auto& pose = transformer.getPoseMatrix();
+    const auto project = [&](const cv::Point2f& point) {
+        const cv::Vec4d transformed = pose * cv::Vec4d(point.x, point.y, 1.0, 1.0);
+        const double t = -camera.z / (transformed[2] - camera.z);
+        return cv::Point2d(camera.x + t * (transformed[0] - camera.x),
+                           camera.y + t * (transformed[1] - camera.y));
+    };
+
+    const std::vector<Detection> detections = {make_detection(70.0f, 80.0f, 180.0f, 240.0f),
+                                               make_detection(900.0f, 350.0f, 300.0f, 300.0f)};
+    const auto result = transformer.transformDetections(detections);
+    ASSERT_EQ(result.size(), detections.size());
+
+    for (size_t i = 0; i < detections.size(); ++i) {
+        const auto& bbox = detections[i].bounding_box_px;
+        const std::vector<cv::Point2f> pixels = {{bbox.x, bbox.y},
+                                                 {bbox.x + bbox.width, bbox.y + bbox.height}};
+        std::vector<cv::Point2f> corners;
+        cv::undistortPoints(pixels, corners, transformer.getIntrinsicsMatrix(),
+                            transformer.getDistortionCoeffs());
+        const auto& top_left = corners[0];
+        const auto& bottom_right = corners[1];
+        const auto bl = project({top_left.x, bottom_right.y});
+        const auto br = project(bottom_right);
+        const double base_len =
+            std::hypot((bl.x + br.x) / 2.0 - camera.x, (bl.y + br.y) / 2.0 - camera.y);
+        const auto angle_fraction =
+            static_cast<float>(std::atan2(std::abs(camera.z), base_len) / (std::numbers::pi / 2.0));
+        const float height = bottom_right.y - top_left.y;
+        const auto expected = project({(top_left.x + bottom_right.x) / 2.0f,
+                                       bottom_right.y - (height / 2.0f) * angle_fraction});
+        EXPECT_NEAR(result[i].x, expected.x, kWorldTolerance);
+        EXPECT_NEAR(result[i].y, expected.y, kWorldTolerance);
+    }
 }
 
 TEST(CoordinateTransformerTest, FixedFootprintHalfOverridesProjectedWidthOffset) {
@@ -575,18 +838,151 @@ TEST(CoordinateTransformerTest, FixedFootprintHalfOverridesProjectedWidthOffset)
 // metadata_json passthrough tests
 //
 
-TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
+TEST(TransformDetectionsTest, MissingSightingContextPreservesOnlyNonReidFields) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
 
     Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
-    det.metadata_json = R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})";
+    det.metadata_json = R"({"age":{"label":"adult"}})";
+    det.reid_json = R"({"model_name":"test"})";
 
     auto result = transformer.transformDetections(std::vector<Detection>{det});
 
     ASSERT_EQ(result.size(), 1u);
-    ASSERT_TRUE(result[0].attributes.count("metadata_json"));
-    EXPECT_EQ(result[0].attributes.at("metadata_json"),
-              R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})");
+    EXPECT_EQ(result[0].attributes.count("metadata_json"), 0u);
+    EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
+    EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
+    EXPECT_EQ(result[0].attributes.at("metadata.age"), R"({"label":"adult"})");
+}
+
+TEST(TransformDetectionsTest, MetadataAndSightingShareDetectionPayload) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    detection.metadata_json = R"({"age":{"label":"adult"}})";
+    detection.reid_json = R"({"embedding_vector":[[1.25,2.5]],"confidence":0.8})";
+    detection.reid_confidence = 0.8;
+    DetectionBatch batch;
+    batch.camera_id = "cam-1";
+    batch.timestamp_iso = "2026-01-27T12:00:00Z";
+    batch.detections.push_back(detection);
+    ReidSightingIndex reid_sightings;
+    reid_sightings.reset("chunk-1");
+    const auto context = reid_sightings.add_batch(batch);
+
+    auto result = transformer.transformDetections(batch.detections, context);
+
+    ASSERT_EQ(result.size(), 1u);
+    const auto& attributes = result[0].attributes;
+    rapidjson::Document sighting;
+    EXPECT_EQ(attributes.at("metadata.reid"), "chunk-1:0");
+    ASSERT_FALSE(sighting.Parse(reid_sightings.take(attributes).c_str()).HasParseError());
+    EXPECT_DOUBLE_EQ(sighting["reid"]["embedding_vector"][0][0].GetDouble(), 1.25);
+    EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+    EXPECT_STREQ(sighting["timestamp"].GetString(), "2026-01-27T12:00:00Z");
+    EXPECT_FALSE(sighting.HasMember("chunk_id"));
+    EXPECT_EQ(attributes.at("metadata_provenance.reid"), "chunk-1");
+    EXPECT_EQ(attributes.at("metadata_transient.reid"), "1");
+    EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 100.0);
+    EXPECT_DOUBLE_EQ(std::stod(attributes.at("metadata_confidence.reid")), 0.8);
+    EXPECT_EQ(attributes.count("metadata_json"), 0u);
+    EXPECT_EQ(attributes.count("reid_sighting"), 0u);
+}
+
+TEST(TransformDetectionsTest, SensorFrameReidWithoutPixelBoxDoesNotCreateSighting) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection;
+    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+    detection.reid_json = R"({"embedding_vector":[[1,2]]})";
+    DetectionBatch batch;
+    batch.camera_id = "cam-1";
+    batch.timestamp_iso = "2026-01-27T12:00:00Z";
+    batch.detections.push_back(detection);
+    ReidSightingIndex reid_sightings;
+    reid_sightings.reset("chunk-1");
+    const auto context = reid_sightings.add_batch(batch);
+
+    const auto result = transformer.transformDetections(batch.detections, context);
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_TRUE(reid_sightings.take(result[0].attributes).empty());
+    EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
+    EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
+}
+
+TEST(TransformDetectionsTest, MismatchedSightingSpanIsRejectedBeforeParallelWork) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    DetectionBatch batch;
+    batch.detections.resize(64);
+    ReidSightingIndex index;
+    index.reset("chunk");
+    const auto context = index.add_batch(batch);
+    const auto detections = std::span<const Detection>(batch.detections);
+    const auto other_detections = batch.detections;
+
+    EXPECT_THROW(transformer.transformDetections(detections.first(32), context),
+                 std::invalid_argument);
+    EXPECT_THROW(transformer.transformDetections(other_detections, context), std::invalid_argument);
+    EXPECT_THROW(transformer.transformDetections(detections.subspan(1), context),
+                 std::invalid_argument);
+}
+
+TEST(TransformDetectionsTest, LegacyReidEncodingsAreWrappedWithoutDroppingTheVector) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    for (const auto& payload : {R"({"reid":[[1.25,2.5]]})", R"({"reid":"AACAPwAAAEA="})"}) {
+        Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+        rapidjson::Document original;
+        ASSERT_FALSE(original.Parse(payload).HasParseError());
+        parse_detection_metadata(original, detection);
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = "2026-01-27T12:00:00Z";
+        batch.detections.push_back(detection);
+        ReidSightingIndex reid_sightings;
+        reid_sightings.reset("chunk-1");
+        const auto context = reid_sightings.add_batch(batch);
+        auto result = transformer.transformDetections(batch.detections, context);
+        ASSERT_EQ(result.size(), 1u);
+        rapidjson::Document sighting;
+        ASSERT_FALSE(
+            sighting.Parse(reid_sightings.take(result[0].attributes).c_str()).HasParseError());
+        EXPECT_EQ(sighting["reid"]["embedding_vector"], original["reid"]);
+        EXPECT_EQ(result[0].attributes.count("metadata_json"), 0u);
+        EXPECT_EQ(result[0].attributes.count("reid_sighting"), 0u);
+    }
+}
+
+TEST(TransformDetectionsTest, EmbeddedNullSuffixIsRejectedAsInvalidJson) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    detection.metadata_json = R"({"age":{"label":"adult"}})" + std::string("\0junk", 5);
+
+    const auto result = transformer.transformDetections(std::vector<Detection>{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0].attributes.count("metadata.age"), 0u);
+}
+
+TEST(TransformDetectionsTest, IncompleteSightingContextDoesNotProduceInvalidSightings) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    detection.reid_json = R"({"embedding_vector":[[1,2]]})";
+    const std::vector<std::array<std::string, 3>> contexts = {
+        {"", "2026-01-27T12:00:00Z", "chunk-1"},
+        {"cam-1", "", "chunk-1"},
+        {"cam-1", "2026-01-27T12:00:00Z", ""}};
+    for (const auto& context : contexts) {
+        DetectionBatch batch;
+        batch.camera_id = context[0];
+        batch.timestamp_iso = context[1];
+        batch.detections.push_back(detection);
+        ReidSightingIndex index;
+        index.reset(context[2]);
+        const auto sightings = index.add_batch(batch);
+        auto result = transformer.transformDetections(batch.detections, sightings);
+        ASSERT_EQ(result.size(), 1u);
+        EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
+        EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
+    }
 }
 
 //

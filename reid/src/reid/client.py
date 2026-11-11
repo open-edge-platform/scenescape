@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Backend-neutral client for the baseline ReID gRPC contract."""
+
+import math
+
+from google.protobuf import json_format, struct_pb2
+
+
+SERVICE_NAME = "scenescape.reid.ReIDService"
+RPC_METHODS = ("Health", "FindMatches", "FindSchemaMetadata", "PurgeExpired", "IngestStats",
+               "CreateCollection", "EnrollPoi", "AppendPoiEmbeddings", "DeletePoi")
+
+
+class ReIDClient:
+  """Use a caller-owned gRPC channel; every call has a finite deadline."""
+
+  def __init__(self, channel, timeout=5.0):
+    if not math.isfinite(timeout) or timeout <= 0:
+      raise ValueError("timeout must be finite and positive")
+    self.timeout = timeout
+    self._methods = {
+        name: channel.unary_unary(
+            f"/{SERVICE_NAME}/{name}",
+            request_serializer=struct_pb2.Struct.SerializeToString,
+            response_deserializer=struct_pb2.Struct.FromString,
+        ) for name in RPC_METHODS
+    }
+
+  def call(self, method, request=None, metadata=None):
+    """Call a declared method and preserve grpc.RpcError status codes."""
+    message = struct_pb2.Struct()
+    json_format.ParseDict({} if request is None else request, message)
+    response = self._methods[method](message, timeout=self.timeout, metadata=metadata)
+    return json_format.MessageToDict(response, preserving_proto_field_name=True)
+
+  def health(self):
+    """Return process health and current backend readiness."""
+    return self.call("Health")
+
+  def find_matches(self, request):
+    """Query matching without enrolling descriptors."""
+    return self.call("FindMatches", request)
+
+  def find_schema_metadata(self, set_name=None):
+    """Read the configured or explicitly named descriptor-set metadata."""
+    request = {} if set_name is None else {"set_name": set_name}
+    return self.call("FindSchemaMetadata", request)
+
+  def purge_expired(self):
+    """Trigger TTL reclaim; this is not a general-gallery write interface."""
+    return self.call("PurgeExpired")
+
+  def ingest_stats(self):
+    """Read live-loop counters, or enabled=false when ingest is disabled."""
+    return self.call("IngestStats")
+
+  def create_collection(self, collection_name, dimensions, metric, authorization):
+    """Create a POI schema using a configured bearer token; general gallery is protected."""
+    return self.call(
+      "CreateCollection",
+      {"collection_name": collection_name, "dimensions": dimensions, "metric": metric},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )
+
+  def enroll_poi(self, collection_name, object_type, reid_vectors, severity, notes,
+                 enrolled_by, authorization):
+    """Enroll precomputed vectors and return the server-generated poi_id."""
+    return self.call(
+      "EnrollPoi",
+      {"collection_name": collection_name, "object_type": object_type,
+       "reid_vectors": reid_vectors, "severity": severity, "notes": notes,
+       "enrolled_by": enrolled_by},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )
+
+  def append_poi_embeddings(self, collection_name, poi_id, reid_vectors, enrolled_by,
+                            authorization):
+    """Append precomputed reference vectors to an existing POI."""
+    return self.call(
+      "AppendPoiEmbeddings",
+      {"collection_name": collection_name, "poi_id": poi_id,
+       "reid_vectors": reid_vectors, "enrolled_by": enrolled_by},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )
+
+  def delete_poi(self, collection_name, poi_id, deleted_by, authorization):
+    """Permanently remove a POI's searchable descriptors using the POI writer token."""
+    return self.call(
+      "DeletePoi",
+      {"collection_name": collection_name, "poi_id": poi_id, "deleted_by": deleted_by},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )

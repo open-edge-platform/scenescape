@@ -32,6 +32,10 @@ ObjectClassConfig parseAssetObject(const rapidjson::Value& asset) {
     config.footprint_half = (readNumber(asset, "x_size", kDefaultEdgeLength) +
                              readNumber(asset, "y_size", kDefaultEdgeLength)) /
                             4.0;
+
+    config.rotation_from_velocity = asset.HasMember("rotation_from_velocity") &&
+                                    asset["rotation_from_velocity"].IsBool() &&
+                                    asset["rotation_from_velocity"].GetBool();
     return config;
 }
 

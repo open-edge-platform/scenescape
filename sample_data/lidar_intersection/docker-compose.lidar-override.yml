@@ -34,7 +34,7 @@ services:
   # if a scene with this name already exists (e.g. on a restart without a
   # volume reset), so it's safe to run on every `make demo-lidar`.
   lidar-scene-init:
-    image: alpine:3.23
+    image: alpine:3.24
     networks:
       scenescape:
     depends_on:
@@ -83,7 +83,7 @@ services:
   # Only the `image/`/`velodyne/` subdirectories are mounted (not the full
   # `infrastructure-side/` tree).
   lidar-data-init:
-    image: python:3.11-slim
+    image: python:3.15-slim
     environment:
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
@@ -117,7 +117,7 @@ services:
   # generic model_download flow since PointPillars is built from source
   # (openvino_contrib), not downloaded from OMZ.
   lidar-model-init:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc1
     user: root
     entrypoint: ["/bin/bash", "/model_installer/install-pointpillars"]
     environment:
@@ -135,7 +135,7 @@ services:
     pids_limit: 1000
 
   lidar-stream:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true

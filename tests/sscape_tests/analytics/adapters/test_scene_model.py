@@ -4,11 +4,13 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from analytics.adapters.scene_model import AnalyticsScene
 from analytics.state import AnalyticsStateStore
 from scene_common.geometry import Point, Region
+from scene_common.scene_model import SceneModel
 
 
 def _scene():
@@ -109,13 +111,345 @@ class TestHydrateFromSceneData:
     assert scene._updateRegions.call_args_list[1].args == (scene.sensors, sensors)
 
 
+MODULE = 'analytics.adapters.scene_model'
+CORNERS_LLA = [[0, 0, 0], [1, 1, 1]]
+
+
+def _lla_scene():
+  scene = _scene()
+  scene.output_lla = True
+  scene.map_corners_lla = CORNERS_LLA
+  return scene
+
+
+class TestTrsXyzToLla:
+
+  def test_fresh_scene_returns_none(self):
+    assert _scene().trs_xyz_to_lla is None
+
+  @pytest.mark.parametrize('output_lla, corners', [
+    (False, CORNERS_LLA),
+    (True, None),
+  ])
+  def test_incomplete_inputs_return_none_without_computing(self, output_lla, corners):
+    scene = _scene()
+    scene.output_lla = output_lla
+    scene.map_corners_lla = corners
+
+    with patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints') as mock_calc:
+      assert scene.trs_xyz_to_lla is None
+
+    mock_calc.assert_not_called()
+
+  def test_result_is_cached_and_invalidate_recomputes(self):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+               return_value=np.eye(4)) as mock_calc:
+      first = scene.trs_xyz_to_lla
+      second = scene.trs_xyz_to_lla
+      assert mock_calc.call_count == 1
+      assert np.array_equal(first, second)
+
+      scene._invalidate_trs_xyz_to_lla()
+      _ = scene.trs_xyz_to_lla
+      assert mock_calc.call_count == 2
+
+  @pytest.mark.parametrize('exc', [ValueError('boom'), TypeError('boom'), IndexError('boom')])
+  def test_expected_failure_is_cached_and_logged_once(self, exc):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints', side_effect=exc) as mock_calc, \
+         patch(f'{MODULE}.log') as mock_log:
+      assert scene.trs_xyz_to_lla is None
+      assert scene.trs_xyz_to_lla is None
+      assert scene.trs_xyz_to_lla is None
+
+    assert mock_calc.call_count == 1
+    mock_log.error.assert_called_once()
+
+  def test_missing_map_mesh_is_handled_as_failure(self):
+    scene = _lla_scene()
+    assert scene.map_triangle_mesh is None
+
+    with patch(f'{MODULE}.log') as mock_log:
+      assert scene.trs_xyz_to_lla is None
+
+    mock_log.error.assert_called_once()
+
+  def test_invalidate_clears_cached_failure(self):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+               side_effect=ValueError('boom')) as mock_calc, \
+         patch(f'{MODULE}.log'):
+      assert scene.trs_xyz_to_lla is None
+      scene._invalidate_trs_xyz_to_lla()
+      assert scene.trs_xyz_to_lla is None
+
+    assert mock_calc.call_count == 2
+
+  def test_unexpected_error_is_not_swallowed(self):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+               side_effect=RuntimeError('unexpected')), \
+         pytest.raises(RuntimeError):
+      _ = scene.trs_xyz_to_lla
+
+  def test_hydration_recovers_after_failed_hydration(self):
+    scene = _scene()
+    data = {'name': 's', 'output_lla': True, 'map_corners_lla': CORNERS_LLA}
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.log'):
+      with patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+                 side_effect=ValueError('boom')):
+        scene._hydrateFromSceneData(data)
+        assert scene.trs_xyz_to_lla is None
+
+      with patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints', return_value=np.eye(4)):
+        scene._hydrateFromSceneData(data)
+        assert np.array_equal(scene.trs_xyz_to_lla, np.eye(4))
+
+  def test_hydration_with_lla_disabled_leaves_transform_none(self):
+    scene = _scene()
+
+    scene._hydrateFromSceneData({'name': 's', 'output_lla': False})
+
+    assert scene.trs_xyz_to_lla is None
+
+
 class TestUpdateCameras:
+
+  @staticmethod
+  def _camera_data(uid='cam1', translation=None, focal_length=500):
+    return {
+      'uid': uid, 'resolution': [640, 480],
+      'intrinsics': {'fx': focal_length, 'fy': focal_length, 'cx': 320, 'cy': 240},
+      'translation': translation or [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+    }
+
+  def test_refresh_preserves_live_pose_and_mqtt_optics(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data(), self._camera_data('static')])
+    scene.updateCameraPose('cam1', {
+      'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0],
+    })
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 550, 'fy': 560, 'cx': 320, 'cy': 240})
+    snapshot = scene.cameraSnapshot()
+    scene.updateCameras([
+      self._camera_data(translation=[5, 6, 7], focal_length=900),
+      self._camera_data('static', translation=[8, 9, 10]),
+    ])
+    camera = scene.cameras['cam1']
+    assert camera.pose_source == 'observation'
+    assert camera.pose_provenance['class'] == 'live'
+    assert camera.pose_provenance['origin'] == 'detector.extrinsics'
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    assert camera.pose.scale == pytest.approx([1.0, 1.0, 1.0])
+    assert camera.pose.quaternion_rotation == pytest.approx([1, 0, 0, 0])
+    assert not hasattr(camera, 'configured_pose')
+    # Live MQTT optics are retained; config fx=900 must not replace them.
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 550
+    assert camera.pose.intrinsics.intrinsics[1, 1] == 560
+    assert scene.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([8, 9, 10])
+    assert scene.cameras['static'].pose_source == 'configured'
+    assert scene.cameras['static'].pose_provenance['class'] == 'calibration'
+    assert snapshot.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
+  def test_retained_live_optics_are_not_aliased(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.updateCameraPose('cam1', {
+      'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0],
+    })
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 550, 'fy': 560, 'cx': 320, 'cy': 240})
+    previous_intrinsics = scene.cameras['cam1'].pose.intrinsics
+    scene.updateCameras([self._camera_data(focal_length=900)])
+    retained = scene.cameras['cam1'].pose.intrinsics
+    assert retained is not previous_intrinsics
+    previous_intrinsics.intrinsics[0, 0] = 1.0
+    assert retained.intrinsics[0, 0] == 550
+
+  def test_resolution_without_intrinsics_keeps_principal_point(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    previous = scene.cameras['cam1']
+    scene.cameraSnapshot('cam1', resolution=[1280, 720])
+    camera = scene.cameras['cam1']
+    assert camera is previous
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 500
+    assert camera.pose.intrinsics.intrinsics[0, 2] == 320
+    assert camera.pose.intrinsics.intrinsics[1, 2] == 240
+    assert camera.pose_provenance['class'] == 'calibration'
+
+  def test_optics_only_applies_when_unlocked(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 700, 'fy': 710, 'cx': 321, 'cy': 241},
+      distortion={'k1': 0.01})
+    camera = scene.cameras['cam1']
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 700
+    assert camera.pose.intrinsics.intrinsics[1, 1] == 710
+    assert camera.pose.intrinsics.distortion[0] == pytest.approx(0.01)
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+    assert camera.pose_provenance['class'] == 'calibration'
+
+  def test_extrinsics_and_optics_apply_together(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.cameraSnapshot(
+      'cam1',
+      extrinsics={'translation': [4, 5, 6], 'rotation': [1, 0, 0, 0]},
+      intrinsics={'fx': 600, 'fy': 610, 'cx': 300, 'cy': 200})
+    camera = scene.cameras['cam1']
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([4, 5, 6])
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 600
+    assert camera.pose_provenance['class'] == 'live'
+
+  def test_invalid_optics_are_ignored(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.cameraSnapshot('cam1', resolution=[0, 720])
+    assert scene.cameras['cam1'].pose.intrinsics.intrinsics[0, 2] == 320
+    scene.cameraSnapshot('cam1', intrinsics={'fx': 1})
+    assert scene.cameras['cam1'].pose.intrinsics.intrinsics[0, 0] == 500
+
+  def test_optics_only_ignored_when_pose_locked(self):
+    scene = SceneModel('policy', None)
+    data = self._camera_data()
+    data['pose_locked'] = True
+    scene.updateCameras([data])
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240})
+    assert scene.cameras['cam1'].pose.intrinsics.intrinsics[0, 0] == 500
+
+  @pytest.mark.parametrize('locked', [True, False])
+  def test_shared_pose_locked_transitions(self, locked):
+    scene = SceneModel('policy', None)
+    data = self._camera_data()
+    data['pose_locked'] = locked
+    scene.updateCameras([data])
+    initial = scene.cameraSnapshot()
+    observed = scene.cameraSnapshot('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    expected = [0, 0, 3] if locked else [10, 20, 3]
+    assert observed.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx(expected)
+    assert initial.cameras['cam1'].pose_source == 'configured'
+    assert initial.cameras['cam1'].pose_provenance['class'] == 'calibration'
+    if not locked:
+      assert observed.cameras['cam1'].pose_provenance['class'] == 'live'
+      assert observed.cameras['cam1'].pose_provenance['origin'] == 'detector.extrinsics'
+    else:
+      assert observed.cameras['cam1'].pose_provenance['class'] == 'calibration'
+    refreshed = self._camera_data(translation=[5, 6, 7], focal_length=900)
+    refreshed['pose_locked'] = locked
+    refreshed['pose_provenance'] = {
+      'class': 'calibration', 'origin': 'manager.rest',
+    }
+    scene.updateCameras([refreshed])
+    camera = scene.cameras['cam1']
+    expected = [5, 6, 7] if locked else [10, 20, 3]
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx(expected)
+    # Unlocked live observation retains MQTT/runtime optics; locked takes config.
+    assert camera.pose.intrinsics.intrinsics[0, 0] == (900 if locked else 500)
+    assert not hasattr(camera, 'configured_pose')
+    assert not hasattr(camera, 'dynamic_pose')
+    if locked:
+      assert camera.pose_provenance['class'] == 'calibration'
+      assert camera.pose_provenance['origin'] == 'manager.rest'
+    else:
+      assert camera.pose_provenance['class'] == 'live'
+      assert camera.pose_provenance['origin'] == 'detector.extrinsics'
+    invalid = {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]}
+    assert scene.cameraSnapshot('cam1', invalid).cameras['cam1'] is camera
+    assert scene.cameraSnapshot('cam1').cameras['cam1'] is camera
+    refreshed['pose_locked'] = True
+    scene.updateCameras([refreshed])
+    assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose_provenance['class'] == 'calibration'
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
+    refreshed['pose_locked'] = False
+    scene.updateCameras([refreshed])
+    assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose_provenance['class'] == 'calibration'
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
+
+  @pytest.mark.parametrize('locked', [None, '', 'unknown', []])
+  def test_shared_pose_locked_rejects_invalid_configuration_atomically(self, locked):
+    scene = SceneModel('policy', None)
+    scene.updateCameras([self._camera_data()])
+    previous = scene.cameras
+    with pytest.raises(ValueError, match='pose_locked'):
+      scene.updateCameras([self._camera_data('new'), {**self._camera_data(), 'pose_locked': locked}])
+    assert scene.cameras is previous
+
+  def test_snapshot_retains_pose_when_next_observation_arrives(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    snapshot = scene.cameraSnapshot()
+    scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    assert snapshot.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    assert not hasattr(scene.cameras['cam1'], 'configured_pose')
+
+  @pytest.mark.parametrize('observed', [False, True])
+  def test_invalid_observation_preserves_current_camera(self, observed):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    if observed:
+      scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    current = scene.cameras['cam1']
+    with pytest.raises(ValueError):
+      scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [0, 0, 0, 0]})
+    assert scene.cameras['cam1'] is current
+    assert current.pose_source == ('observation' if observed else 'configured')
+
+  def test_deleted_and_recreated_camera_does_not_inherit_live_pose(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    scene.updateCameras([])
+    scene.updateCameraPose('cam1', {'translation': [99, 99, 3], 'rotation': [1, 0, 0, 0]})
+    assert scene.cameras == {}
+    scene.updateCameras([self._camera_data()])
+    assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose_provenance['origin'] == 'unknown'
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
+  def test_update_camera_pose_accepts_origin_and_info_provenance(self):
+    scene = _scene()
+    stamped = self._camera_data()
+    stamped['pose_provenance'] = {
+      'class': 'calibration', 'origin': 'manager.mesh',
+    }
+    scene.updateCameras([stamped])
+    assert scene.cameras['cam1'].pose_provenance['origin'] == 'manager.mesh'
+    scene.updateCameraPose(
+      'cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]},
+      origin='external_source')
+    assert scene.cameras['cam1'].pose_provenance == {
+      'class': 'live', 'origin': 'external_source',
+    }
+    scene.updateCameras([self._camera_data(translation=[5, 6, 7])])
+    assert scene.cameras['cam1'].pose_provenance == {
+      'class': 'live', 'origin': 'external_source',
+    }
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx(
+      [10, 20, 3])
 
   def test_adds_new_camera(self):
     scene = _scene()
     stub_camera = SimpleNamespace(cameraID='cam1')
 
-    with patch('analytics.adapters.scene_model.Camera', return_value=stub_camera) as mock_camera:
+    with patch('scene_common.scene_model.Camera', return_value=stub_camera) as mock_camera:
       scene.updateCameras([{'uid': 'cam1', 'resolution': (640, 480)}])
 
     mock_camera.assert_called_once_with('cam1', {'uid': 'cam1', 'resolution': (640, 480)},
@@ -124,7 +458,7 @@ class TestUpdateCameras:
 
   def test_removes_deleted_camera(self):
     scene = _scene()
-    with patch('analytics.adapters.scene_model.Camera', return_value=SimpleNamespace(cameraID='cam1')):
+    with patch('scene_common.scene_model.Camera', return_value=SimpleNamespace(cameraID='cam1')):
       scene.updateCameras([{'uid': 'cam1', 'resolution': (640, 480)}])
 
     scene.updateCameras([])

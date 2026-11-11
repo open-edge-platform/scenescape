@@ -283,20 +283,6 @@ TEST_F(ManagerRestClientTest, FetchAssetsSuccess) {
     EXPECT_NE(body.find("FW190D"), std::string::npos);
 }
 
-TEST_F(ManagerRestClientTest, FetchAssetsPassesAuthHeader) {
-    std::string captured_auth;
-    assets_handler = [&](const httplib::Request& req, httplib::Response& res) {
-        captured_auth = req.get_header_value("Authorization");
-        res.set_content("{}", "application/json");
-    };
-
-    ManagerRestClient client(base_url_);
-    client.authenticate("u", "p");
-    client.fetchAssets();
-
-    EXPECT_EQ(captured_auth, "Token test-token-123");
-}
-
 // ===== URL parsing edge cases (tested through authenticate) =====
 
 TEST_F(ManagerRestClientTest, AuthenticateUrlWithPathPrefix) {

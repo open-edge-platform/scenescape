@@ -544,8 +544,10 @@ TEST_F(ApiSceneLoaderPipelineTest, LoadsObjectClassesFromAssets) {
 
     const std::string assets = R"({
         "results": [
-            {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5},
-            {"name": "FW190D", "shift_type": 2, "x_size": 1.0, "y_size": 1.0}
+            {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5,
+             "rotation_from_velocity": false},
+            {"name": "FW190D", "shift_type": 2, "x_size": 1.0, "y_size": 1.0,
+             "rotation_from_velocity": true}
         ]
     })";
     auto factory = make_mock_factory(make_api_response(), assets);
@@ -554,6 +556,10 @@ TEST_F(ApiSceneLoaderPipelineTest, LoadsObjectClassesFromAssets) {
     auto scenes = loader->load();
     ASSERT_EQ(scenes.size(), 1u);
     EXPECT_EQ(loader->objectClasses().size(), 2u);
+    const auto plane = lookupObjectClass(loader->objectClasses(), "FW190D");
+    EXPECT_EQ(plane.shift_type, ObjectClassConfig::kShiftType2);
+    EXPECT_TRUE(plane.rotation_from_velocity);
+    EXPECT_FALSE(lookupObjectClass(loader->objectClasses(), "person").rotation_from_velocity);
 }
 
 TEST_F(ApiSceneLoaderPipelineTest, AssetsFailureKeepsScenesAndEmptiesObjectClasses) {

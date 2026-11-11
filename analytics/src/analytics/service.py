@@ -3,14 +3,22 @@
 
 import orjson
 from collections import defaultdict
+from itertools import chain
 from pathlib import Path
 
 from analytics.adapters.scene_model import AnalyticsScene
 from analytics.event_publisher import publish_events
+from analytics.reid_identity import REID_DECISION_TOPIC, ReidIdentityMap
 from scene_common.cache_manager import CacheManager
 from scene_common.detections_builder import buildDetectionsList, computeCameraBounds
 from scene_common import log
 from scene_common.mqtt import PubSub
+from scene_common.options import (
+  POSE_CLASS_CALIBRATION,
+  POSE_CLASS_LIVE,
+  POSE_ORIGIN_UNKNOWN,
+  make_pose_provenance,
+)
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
@@ -35,6 +43,8 @@ class AnalyticsService:
     self.rewrite_all_time = rewrite_all_time
     self.regulate_cache = {}
     self.mqtt_auth = mqtt_auth
+    # track_id -> gid decisions from reid-service, applied to scene data.
+    self.reid_identities = ReidIdentityMap()
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
 
@@ -72,17 +82,51 @@ class AnalyticsService:
   # Publication
   # ------------------------------------------------------------------
 
-  def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
+  def publishDetections(self, scene, objects, ts, otype, jdata, camera_id, observation_scene=None):
     if not hasattr(scene, 'lastPubCount'):
       scene.lastPubCount = {}
     if not hasattr(scene, 'last_published_detection'):
       scene.last_published_detection = defaultdict(lambda: None)
-    self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
+    self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id, observation_scene)
     self.publishRegionDetections(scene, objects, otype, jdata)
     return
 
   def shouldPublish(self, last, now, max_delay):
     return last is None or now - last >= max_delay
+
+  @staticmethod
+  def _camera_state(camera):
+    pose = camera.pose
+    scale = pose.scale
+    if hasattr(scale, "tolist"):
+      scale = scale.tolist()
+    pose_locked = bool(getattr(camera, 'pose_locked', False))
+    provenance = getattr(camera, 'pose_provenance', None)
+    if not isinstance(provenance, dict) or 'class' not in provenance:
+      provenance = make_pose_provenance(POSE_CLASS_CALIBRATION, POSE_ORIGIN_UNKNOWN)
+    pose_class = provenance.get('class', POSE_CLASS_CALIBRATION)
+    # ADR 18: dynamic_pose is a deprecated alias of pose_provenance.class === "live".
+    # UI still gates on pose_locked separately; do not fold lock into this alias.
+    live = pose_class == POSE_CLASS_LIVE
+    return {
+      'id': camera.cameraID,
+      'translation': pose.translation.asNumpyCartesian.tolist(),
+      'rotation': pose.quaternion_rotation.tolist(),
+      'scale': list(scale),
+      'pose_locked': pose_locked,
+      'pose_provenance': {
+        'class': pose_class,
+        'origin': provenance.get('origin', POSE_ORIGIN_UNKNOWN),
+        **({'updated_at': provenance['updated_at']}
+           if provenance.get('updated_at') is not None else {}),
+      },
+      'dynamic_pose': live,
+    }
+
+  @staticmethod
+  def _serialize_cameras(scene):
+    return [AnalyticsService._camera_state(camera) for camera in scene.cameras.values()
+            if getattr(camera, 'pose', None) is not None]
 
   def calculateRate(self):
     now = get_epoch_time()
@@ -96,16 +140,32 @@ class AnalyticsService:
     self.regulate_last = now
     return self.regulate_rate
 
-  def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
+  def _prepare_observation_scene(self, scene_obj, jdata, camera_id):
+    """Return a scene snapshot with this message's effective camera pose."""
+    scene_uid = scene_obj.uid
+    if scene_uid not in self.regulate_cache:
+      self.regulate_cache[scene_uid] = {
+        'objects': {}, 'rate': {}, 'last': None,
+      }
+    message_camera_id = jdata.get('camera_id') or camera_id
+    return scene_obj.cameraSnapshot(
+      message_camera_id,
+      extrinsics=jdata.get('extrinsics'),
+      intrinsics=jdata.get('intrinsics'),
+      distortion=jdata.get('distortion'),
+      resolution=jdata.get('resolution'),
+    )
+
+  def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id,
+                                observation_scene=None):
     update_rate = self.calculateRate()
     scene_uid = scene_obj.uid
-
-    if scene_uid not in self.regulate_cache:
-      self.regulate_cache[scene_uid] = {'objects': {}, 'rate': {}, 'last': None}
+    if observation_scene is None:
+      observation_scene = self._prepare_observation_scene(scene_obj, jdata, camera_id)
     scene = self.regulate_cache[scene_uid]
 
     scene['objects'][otype] = buildDetectionsList(
-      msg_objects, scene_obj,
+      msg_objects, observation_scene,
       self.visibility_topic == 'unregulated',
       include_sensors=True, include_region_dwell=True,
     )
@@ -116,24 +176,15 @@ class AnalyticsService:
       for obj in jdata.get('objects', []):
         camera_ids.update(obj.get('visibility', []))
       scene_rate = jdata['rate']
-      configured_cameras = set(scene_obj.cameras.keys())
+      configured_cameras = set(observation_scene.cameras.keys())
       for cam_id in camera_ids:
         if cam_id in configured_cameras:
           scene['rate'][cam_id] = scene_rate
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1 / scene_obj.regulated_rate):
-      objects = []
-      is_regulated = self.visibility_topic == 'regulated'
-      msg_objects_lookup = {obj.gid: obj for obj in msg_objects} if is_regulated else {}
-
-      for key in scene['objects']:
-        for obj in scene['objects'][key]:
-          if is_regulated:
-            aobj = msg_objects_lookup.get(obj['id'], None)
-            if aobj is not None:
-              computeCameraBounds(scene_obj, aobj, obj)
-          objects.append(obj)
+      objects = self._reproject_cached_objects(
+        scene['objects'], scene_obj, observation_scene, otype, msg_objects)
 
       new_jdata = {
         'timestamp': jdata['timestamp'],
@@ -142,11 +193,33 @@ class AnalyticsService:
         'name': jdata['name'],
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
+        'cameras': self._serialize_cameras(observation_scene),
       }
+      if 'unique_detection_count' in jdata:
+        new_jdata['unique_detection_count'] = jdata['unique_detection_count']
       jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid), jstr)
       scene['last'] = now
     return
+
+  def _reproject_cached_objects(self, cached, scene, observation_scene, otype, msg_objects):
+    objects = list(chain.from_iterable(cached.values()))
+    if self.visibility_topic != 'regulated':
+      return objects
+    for category, detections in cached.items():
+      tracked = msg_objects if category == otype else scene.getTrackedObjects(category)
+      lookup = {obj.gid: obj for obj in tracked}
+      for detection in detections:
+        obj = lookup.get(detection['id'])
+        if obj is not None:
+          self._refresh_cached_visibility(obj, detection)
+          computeCameraBounds(observation_scene, obj, detection)
+    return objects
+
+  @staticmethod
+  def _refresh_cached_visibility(obj, detection):
+    if getattr(obj, '_visibility_from_producer', None) is False:
+      detection['visibility'] = getattr(obj, 'visibility', None) or []
 
   def publishRegionDetections(self, scene, objects, otype, jdata):
     current_time = get_epoch_time(jdata['timestamp'])
@@ -199,16 +272,33 @@ class AnalyticsService:
         log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
         return
 
+    # Swap Tracker ids for re-identified gids before regions/events/regulated
+    # output see the objects (the Controller did this in its scene output).
+    self.reid_identities.apply(
+      scene_id, detection_type, jdata.get('objects', []),
+      rename_object=scene.updateTrackedObjectId,
+    )
+    unique_count = self.reid_identities.uniqueDetectionCount(scene_id, detection_type)
+    if unique_count is not None:
+      jdata['unique_detection_count'] = unique_count
+
     scene.updateTrackedObjects(detection_type, jdata.get('objects', []))
     analytics_objects = scene.getTrackedObjects(detection_type)
     msg_when = get_epoch_time(jdata.get('timestamp'))
 
     # Prefer producer-supplied visibility; fill gaps before events so event
     # payloads and regulated output share the same camera ID lists.
-    scene._updateVisible(analytics_objects)
+    observation_scene = self._prepare_observation_scene(scene, jdata, None)
+    observation_scene._updateVisible(scene.getAllTrackedObjects())
     scene._updateEvents(detection_type, msg_when, analytics_objects,
                         publish_fn=self.pubsub.publish)
-    self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
+    self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None,
+                           observation_scene)
+    return
+
+  def handleReidDecisionMessage(self, client, userdata, message):
+    """Record a reid-service identity decision (scenescape/data/reid/+/+)."""
+    self.reid_identities.update(message.payload)
     return
 
   def handleSensorMessage(self, client, userdata, message):
@@ -282,6 +372,7 @@ class AnalyticsService:
         'volumetric': region.get('volumetric', False),
         'height': region.get('height', 1),
         'buffer_size': region.get('buffer_size', 0),
+        'type': region.get('roi_type', ''),
         'sectors': {
           'thresholds': color_ranges.get('sectors', []),
           'range_max': color_ranges.get('range_max', 0),
@@ -355,6 +446,8 @@ class AnalyticsService:
     self.updateSubscriptions()
     self.pubsub.addCallback(PubSub.formatTopic(PubSub.CMD_DATABASE), self.handleDatabaseMessage)
     log.info("Subscribed to", PubSub.formatTopic(PubSub.CMD_DATABASE))
+    self.pubsub.addCallback(REID_DECISION_TOPIC, self.handleReidDecisionMessage)
+    log.info("Subscribed to", REID_DECISION_TOPIC)
     for scene in getattr(self, 'scenes', []):
       self.publishTripwiresForScene(scene)
       self.publishRoisForScene(scene)

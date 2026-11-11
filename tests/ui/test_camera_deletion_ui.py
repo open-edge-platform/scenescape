@@ -18,7 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10403")
-def test_camera_deletion_main(params, record_xml_attribute):
+def test_camera_deletion_main(demo_scene, params, record_xml_attribute):
   """! Checks that a camera which is not attached to a scene can be deleted.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
@@ -27,6 +27,7 @@ def test_camera_deletion_main(params, record_xml_attribute):
   TEST_NAME = "NEX-T10403"
   exit_code = 1
 
+  browser = None
   try:
     log.info("Executing: " + TEST_NAME)
     browser = Browser()
@@ -69,7 +70,8 @@ def test_camera_deletion_main(params, record_xml_attribute):
     assert camera_name not in camera_names_list
     exit_code = 0
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return exit_code

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 
 # =========================
 # STAGE 1: BUILD STAGE
@@ -67,7 +67,8 @@ WORKDIR /tmp/apriltag/apriltag-dev/build
 RUN cmake ../apriltags/ && make -j$(nproc)
 
 WORKDIR /tmp/apriltag/apriltag-dev
-RUN python3 setup.py bdist_wheel && \
+RUN pip3 install --no-cache-dir build && \
+    python3 -m build --wheel && \
     cp build/*.so /tmp/apriltag_build/ && \
     cp dist/*.whl /output/
 
@@ -80,13 +81,15 @@ RUN mkdir -p third_party/netvlad && \
     echo -e "from setuptools import setup, find_packages\n\
 setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
 package_data={'': []}, include_package_data=True)" > setup.py && \
-    python3 setup.py bdist_wheel && \
+    pip3 install --no-cache-dir build && \
+    python3 -m build --wheel && \
     cp dist/*.whl /output/
 
 # Build reloc wheel
 RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install --no-cache-dir build && \
     cd /tmp/reloc && \
-    python3 setup.py bdist_wheel && \
+    python3 -m build --wheel && \
     cp dist/*.whl /output/
 
 # =========================
