@@ -153,14 +153,12 @@ CoordinateTransformer::eulerToRotationMatrix(const std::array<double, 3>& euler_
 }
 
 void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
-                                                   std::vector<cv::Point2d>& world,
-                                                   std::vector<uint8_t>& valid) const {
+                                                   std::vector<cv::Point2d>& world) const {
     const auto n = static_cast<int>(normalized.size());
     if (n == 0)
         return;
 
     world.resize(n);
-    valid.resize(n);
 
     // Cache pose matrix elements and camera origin for tight loop access
     const double p00 = pose_matrix_(0, 0), p01 = pose_matrix_(0, 1), p02 = pose_matrix_(0, 2);
@@ -203,7 +201,6 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
                 world[i] = cv::Point2d(start_x, start_y);
             }
         }
-        valid[i] = 1;
     }
 }
 
@@ -260,8 +257,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 
     // Phase 2: Parallel ray-plane projection of normalized rectangle points
     std::vector<cv::Point2d> world;
-    std::vector<uint8_t> valid;
-    batchNormalizedToWorld(normalized, world, valid);
+    batchNormalizedToWorld(normalized, world);
 
     // Phase 3: TYPE_2 shifts the foot in normalized space, matching Controller camLoc.
     if (shift_type_ == ObjectClassConfig::kShiftType2) {
@@ -287,18 +283,14 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         }
 
         std::vector<cv::Point2d> type2_world;
-        std::vector<uint8_t> type2_valid;
-        batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
+        batchNormalizedToWorld(type2_feet, type2_world);
         for (size_t k = 0; k < bbox_detection_number; ++k) {
-            if (type2_valid[k]) {
-                world[k * kPointsPerDetection] = type2_world[k];
-            }
+            world[k * kPointsPerDetection] = type2_world[k];
         }
     }
 
     // Phase 4: Assemble TrackedObjects from world-projected points
     std::vector<rv::tracking::TrackedObject> result(n);
-    std::vector<uint8_t> detection_valid(n);
 
     const double cam_x = camera_origin_.x;
     const double cam_y = camera_origin_.y;
@@ -324,16 +316,10 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             obj.height = (*detection.size)[2];
             applyDetectionRotation(detection, camera_rotation_, obj);
             addDetectionAttributes(detection, obj);
-            detection_valid[static_cast<size_t>(i)] = 1;
             continue;
         }
 
         const size_t base = bbox_projection_indices[detection_index] * kPointsPerDetection;
-
-        // Check all 4 projections succeeded
-        if (!valid[base] || !valid[base + 1] || !valid[base + 2] || !valid[base + 3]) {
-            continue;
-        }
 
         const auto& foot = world[base + 0];
         const auto& bl = world[base + 1];
@@ -375,21 +361,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             sightings->tag(detection_index, obj.attributes);
         }
         applyDetectionRotation(detection, camera_rotation_, obj);
-
-        detection_valid[i] = 1;
     }
-
-    // Compact: remove invalid detections (preserves ordering)
-    size_t write = 0;
-    for (size_t read = 0; read < n; ++read) {
-        if (detection_valid[read]) {
-            if (write != read) {
-                result[write] = std::move(result[read]);
-            }
-            ++write;
-        }
-    }
-    result.resize(write);
 
     return result;
 }
