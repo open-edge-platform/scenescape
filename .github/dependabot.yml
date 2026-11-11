@@ -121,6 +121,15 @@ updates:
         applies-to: version-updates
         patterns:
           - "*"
+    # lidar-data-init needs a Python with pypcd4 wheels (python-neo-lzf).
+    # Minor/major bumps (e.g. 3.11 -> 3.15) have broken the init container.
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          [
+            "version-update:semver-major",
+            "version-update:semver-minor",
+          ]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
