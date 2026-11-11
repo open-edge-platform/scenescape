@@ -1,74 +1,9 @@
 ---
 name: makefile
-description: Use when adding or reviewing SceneScape services or container images, or changing Makefiles, build targets, and build-and-publish CI.
+description: Makefile standards for Scenescape — build targets, conventions, and patterns.
 ---
 
 # Makefile Standards for Scenescape
-
-## New Service Build And Publish Gate
-
-Apply this gate when implementing or reviewing a new first-party service or
-container image, even when the change does not touch a Makefile or workflow.
-Look for new service directories, Dockerfiles, image build targets, or deployment
-references to new first-party images in the diff.
-
-### Implementation
-
-Keep local build coverage separate from the decision to publish:
-
-1. Ensure every new first-party service is built, directly or indirectly, by
-   `make build-all`, including experimental services. Register it in the root
-   `Makefile` `IMAGE_FOLDERS` or an existing `build-all` dependency path, and in
-   `CORE_IMAGE_FOLDERS` only if it belongs in the default core build.
-2. Read the service's Makefile and Dockerfile to identify the actual image name,
-   build target, dependencies, and tags. Do not infer the image name from the
-   directory name: `cluster_analytics` builds `scenescape-cluster-analytics`.
-3. Ask the user whether to include the new service in
-   `.github/workflows/build-and-publish.yml` or leave it unpublished, for example
-   because it is experimental. Do not automatically add publishing integration
-   or infer approval from adding a service or including it in `build-all`. Wait
-   for explicit approval before making those workflow changes. If publication
-   is declined, document the decision in the PR or service documentation and
-   keep the service covered by `make build-all`.
-
-Only if the user approves publishing integration:
-
-1. Add the image to `jobs.build.strategy.matrix.images` in
-   `.github/workflows/build-and-publish.yml`. The matrix is explicit, not generated
-   from the root Makefile.
-2. Add its matching branch in the workflow's `Build image` step, using the
-   service's build command. Matrix membership alone is insufficient: an unknown
-   image reaches the error branch. Check the `Build image scene_common` step's
-   dependency condition as well.
-3. Verify that the workflow's tag, push, digest, and signing steps cover the image
-   and any variants it produces. Preserve the publish opt-in and version guards;
-   do not dispatch a publishing run just to validate integration.
-
-Do not add third-party images or test-only/base images to release publishing
-automatically.
-
-### GitHub Pull Request Review
-
-Check `build-all` coverage and the full workflow, not only changed workflow
-lines. If a new service is missing release integration, always signal it in a
-review comment, including experimental services and documented intentional
-exclusions. Comment on its added Dockerfile, Makefile, or image definition when
-the workflow is not in the diff. Name the missing image and workflow location,
-explain the release impact, and ask for a publishing decision if it is not
-already documented. Describe workflow changes conditionally on approval. For a
-documented exclusion, acknowledge it as an informational note, not a requirement
-to publish. Do not modify code during a review-only request or automatically add
-publishing integration.
-
-Example comment, adapted to the actual omissions:
-
-> The new `<image>` service image is not included in
-> `.github/workflows/build-and-publish.yml`, so it will not be published with the
-> release. Should it be published, or is the omission intentional because the
-> service is experimental? If publishing is approved, add it to
-> `jobs.build.strategy.matrix.images` and add its matching `Build image` branch
-> using the service's build target. Either way, it must remain covered by
-> `make build-all`.
 
 ## Organization
 
