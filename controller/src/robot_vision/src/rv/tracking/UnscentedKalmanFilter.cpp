@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2015 OpenCV Foundation, all rights reserved.
 // SPDX-FileCopyrightText: (C) 2019 - 2023 Intel Corp.
-// SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/UnscentedKalmanFilter.hpp"
