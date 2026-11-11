@@ -460,6 +460,22 @@ def test_from_tracked_object_draws_the_last_tracking_radius_gate(monkeypatch):
   assert result.association_window == {'method': 'euclidean', 'shape': 'circle', 'radius_m': pytest.approx(6.0)}
 
 
+def test_from_tracked_object_publishes_vertical_velocity():
+  tracked_object = _make_tracked_object("uuid-vz", vx=0.3, vy=-0.1, vz=0.45)
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+  tracker.association_config = normalize_association_config({'method': 'euclidean'})
+  tracker.tracking_radius_m = 2.0
+
+  result = tracker.from_tracked_object(
+    tracked_object, [_make_sscape_object("uuid-vz", has_detection_rotation=False)])
+
+  assert result.velocity.x == pytest.approx(0.3)
+  assert result.velocity.y == pytest.approx(-0.1)
+  assert result.velocity.z == pytest.approx(0.45)
+
+
 def test_build_association_window_mahalanobis_is_ellipse():
   # Diagonal covariance → axis-aligned ellipse; a track without measured z: χ²(0.99,2) ≈ 9.21
   cov = np.diag([1.0, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0])

@@ -393,15 +393,49 @@ TEST(MultiModelKalmanEstimatorTest, TrackKeepsZMeasuredOnceMeasured)
     estimator.predict(timestamp);
     estimator.correct(measured);
     EXPECT_TRUE(estimator.currentState().zMeasured) << "measured-z update";
+    const double zAfterMeasured = estimator.currentState().z;
 
     timestamp += std::chrono::milliseconds(100);
     estimator.predict(timestamp);
     estimator.correct(planar);
     EXPECT_TRUE(estimator.currentState().zMeasured) << "planar update after a measured one";
+    // Planar detections omit z from the UKF update so they do not pull sticky measured-z height to the floor.
+    EXPECT_NEAR(estimator.currentState().z, zAfterMeasured, 0.15) << "planar must not collapse measured z";
 
     timestamp += std::chrono::milliseconds(500);
     estimator.predict(timestamp);
     EXPECT_TRUE(estimator.currentState().zMeasured) << "coast";
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, PlanarCorrectAfterMeasuredDoesNotPullZ)
+{
+  // Explicit height regression: measured z at 1.2 m, then planar ground points at z = 0 for several frames.
+  rv::tracking::TrackedObject planar;
+  planar.x = 1.0;
+  planar.y = 2.0;
+  planar.z = 0.0;
+  planar.length = planar.width = 0.5;
+  planar.height = 1.8;
+  rv::tracking::TrackedObject measured = planar;
+  measured.z = 1.2;
+  measured.zMeasured = true;
+
+  rv::tracking::MultiModelKalmanEstimator estimator;
+  auto timestamp = std::chrono::system_clock::now();
+  estimator.initialize(measured, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  ASSERT_TRUE(estimator.currentState().zMeasured);
+  EXPECT_NEAR(estimator.currentState().z, 1.2, 1e-6);
+
+  for (int frame = 0; frame < 5; ++frame)
+  {
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    planar.x = 1.0 + 0.1 * (frame + 1);
+    estimator.correct(planar);
+    EXPECT_TRUE(estimator.currentState().zMeasured) << "frame " << frame;
+    EXPECT_NEAR(estimator.currentState().z, 1.2, 0.2) << "frame " << frame;
+    EXPECT_NEAR(estimator.currentState().vz, 0.0, 0.15) << "frame " << frame;
   }
 }
 

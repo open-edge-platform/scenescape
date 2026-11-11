@@ -9,7 +9,6 @@
 #include "rv/tracking/Classification.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
 
-#include <numeric>
 #include <vector>
 
 namespace rv {
@@ -26,14 +25,24 @@ predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat 
   return measurement;
 }
 
-// Measurement components a prepared detection observes: yaw only with a usable orientation.
+// Measurement components a prepared detection observes: omit z without measured z (ground-plane
+// detections must not pull a sticky measured-z track back to the floor), and yaw without orientation.
 std::vector<int> observedMeasurementRows(const TrackedObject &measurement)
 {
-  std::vector<int> rows(TrackedObject::MeasurementSize);
-  std::iota(rows.begin(), rows.end(), 0);
-  if (!orientation::hasOrientation(measurement))
+  std::vector<int> rows;
+  rows.reserve(TrackedObject::MeasurementSize);
+  rows.push_back(MeasurementIndex::X);
+  rows.push_back(MeasurementIndex::Y);
+  if (measurement.zMeasured)
   {
-    rows.pop_back(); // measurementVector() ends with yaw
+    rows.push_back(MeasurementIndex::Z);
+  }
+  rows.push_back(MeasurementIndex::LENGTH);
+  rows.push_back(MeasurementIndex::WIDTH);
+  rows.push_back(MeasurementIndex::HEIGHT);
+  if (orientation::hasOrientation(measurement))
+  {
+    rows.push_back(MeasurementIndex::YAW);
   }
   return rows;
 }

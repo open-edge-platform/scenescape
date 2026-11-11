@@ -903,3 +903,102 @@ class TestNonPlanarTracking(unittest.TestCase):
     obj.vx = 0.5
     obj.vz = 0.5
     self.assertFalse(obj.isDynamic())
+
+  def test_planar_correct_after_measured_does_not_pull_z(self):
+    """Planar UKF updates omit z once the track has sticky measured z."""
+    planar = create_object_at_location(x=1.0, y=2.0, z=0.0)
+    measured = create_object_at_location(x=1.0, y=2.0, z=1.2)
+    measured.zMeasured = True
+
+    estimator = tracking.MultiModelKalmanEstimator()
+    timestamp = datetime.now()
+    estimator.initialize(
+      measured, timestamp, process_noise=1e-5, measurement_noise=1e-3,
+      motion_models=[tracking.MotionModel.CV])
+    self.assertTrue(estimator.current_state().zMeasured)
+    self.assertAlmostEqual(estimator.current_state().z, 1.2, places=6)
+
+    for frame in range(5):
+      timestamp = timestamp + timedelta(milliseconds=100)
+      estimator.predict(timestamp)
+      planar.x = 1.0 + 0.1 * (frame + 1)
+      estimator.correct(planar)
+      state = estimator.current_state()
+      self.assertTrue(state.zMeasured)
+      self.assertAlmostEqual(state.z, 1.2, delta=0.2)
+      self.assertAlmostEqual(state.vz, 0.0, delta=0.15)
+
+  def test_sticky_measured_z_keeps_height_through_planar_handover(self):
+    classification_data = tracking.ClassificationData(['Person'])
+    tracker = tracking.MultipleObjectTracker(
+      self._tracker_config(), tracking.DistanceType.Euclidean, 2.0)
+    initial_timestamp = datetime.now()
+    tracker.track([], initial_timestamp)
+
+    step = 0.1
+    vz = 0.5
+    climb_s = 3.0
+    planar_frames = 10
+    last_t = step
+    for t in np.arange(step, climb_s, step):
+      last_t = float(t)
+      timestamp = initial_timestamp + timedelta(seconds=last_t)
+      obj = create_object_at_location(
+        x=1.4 * last_t, y=0.0, z=vz * last_t,
+        classification=classification_data.classification('Person', 1.0))
+      obj.zMeasured = True
+      tracker.track([obj], timestamp)
+
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    self.assertTrue(tracks[0].zMeasured)
+    z_at_handover = tracks[0].z
+    vz_at_handover = tracks[0].vz
+    self.assertGreater(z_at_handover, 1.0)
+    track_id = tracks[0].id
+
+    for frame in range(planar_frames):
+      t = climb_s + step * (frame + 1)
+      timestamp = initial_timestamp + timedelta(seconds=t)
+      planar = create_object_at_location(
+        x=1.4 * t, y=0.0, z=0.0,
+        classification=classification_data.classification('Person', 1.0))
+      planar.zMeasured = False
+      tracker.track([planar], timestamp)
+
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    self.assertEqual(tracks[0].id, track_id)
+    self.assertTrue(tracks[0].zMeasured)
+    # Planar corrects omit z, so height coasts with vz instead of falling to the ground point.
+    self.assertAlmostEqual(
+      tracks[0].z, z_at_handover + vz_at_handover * planar_frames * step, delta=0.45)
+    self.assertGreater(tracks[0].z, 1.0)
+
+  def test_vertical_speed_alone_uses_dynamic_coast_timeout(self):
+    def run_coast(climbing):
+      config = self._tracker_config()
+      config.non_measurement_frames_dynamic = 3
+      config.non_measurement_frames_static = 20
+      tracker = tracking.MultipleObjectTracker(config, tracking.DistanceType.Euclidean, 2.0)
+      timestamp = datetime.now()
+      tracker.track([], timestamp)
+      step = 0.1
+      for t in np.arange(step, 2.0, step):
+        timestamp = timestamp + timedelta(seconds=step)
+        obj = create_object_at_location(
+          x=0.0, y=0.0, z=(1.2 * float(t) if climbing else 0.0))
+        obj.zMeasured = climbing
+        tracker.track([obj], timestamp)
+      self.assertEqual(len(tracker.get_tracks()), 1)
+      if climbing:
+        self.assertTrue(tracker.get_tracks()[0].isDynamic())
+      else:
+        self.assertFalse(tracker.get_tracks()[0].isDynamic())
+      for _ in range(5):
+        timestamp = timestamp + timedelta(milliseconds=100)
+        tracker.track([], timestamp)
+      return len(tracker.get_tracks())
+
+    self.assertEqual(run_coast(True), 0)
+    self.assertEqual(run_coast(False), 1)
