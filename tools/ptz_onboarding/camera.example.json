@@ -1,0 +1,35 @@
+{
+  "_license": "SPDX-FileCopyrightText: (C) 2026 Intel Corporation; SPDX-License-Identifier: Apache-2.0",
+  "camera_uid": "replace-with-manager-camera-uid",
+  "manager_url": "https://manager.example/api/v1",
+  "manager_auth": "/absolute/path/to/controller.auth",
+  "autocalibration_url": "https://autocalibration.example:8443/v1",
+  "ca_cert": "/absolute/path/to/scenescape-ca.pem",
+  "mqtt": {
+    "host": "broker.example",
+    "port": 1883,
+    "max_clock_skew_s": 0.1,
+    "auth": "/absolute/path/to/browser.auth"
+  },
+  "onvif": {
+    "host": "camera.example",
+    "port": 80,
+    "auth": "/absolute/path/to/camera-account.json",
+    "profile_token": null
+  },
+  "motion": {
+    "pan_range": [],
+    "tilt_range": [],
+    "home": [],
+    "approach": ["decreasing", "increasing"],
+    "approach_offset": [],
+    "lens_pan": [],
+    "lens_tilt": [],
+    "pan_path": [],
+    "tilt_path": [],
+    "settle_s": 3,
+    "timeout_s": 60,
+    "tolerance": 0.001
+  },
+  "max_rms_px": 12
+}
