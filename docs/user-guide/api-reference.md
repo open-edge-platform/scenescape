@@ -1,4 +1,14 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # API Reference
+
+## Model Context Protocol
+
+Manager exposes authenticated read-only tools at `POST /mcp`. See the
+[MCP integration guide](mcp.md) for authentication, tool contracts, and examples.
 
 ## Camera Pose Lock
 
