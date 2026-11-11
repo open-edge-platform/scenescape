@@ -4,7 +4,7 @@
 # ---------------------------
 # Stage 1: Build RESTler and Python deps
 # ---------------------------
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
 
 # Install Python and pip (using the .NET SDK image's underlying Debian)
 RUN apt-get update && \
@@ -19,6 +19,44 @@ COPY src ./src
 COPY restler ./restler
 COPY build-restler.py .
 
+# Fix upstream coverage lookup for sequences with multiple prerequisites.
+RUN python3 - <<'PY'
+from pathlib import Path
+
+path = Path("src/driver/SpecCoverage.fs")
+source = path.read_text()
+replacements = (
+    ('Seq.take idx |> String.concat ""', 'Seq.take idx |> String.concat "_"'),
+    ('sprintf "%s%s" firstRendering prefixRendering',
+     'if String.IsNullOrEmpty prefixRendering then firstRendering '
+     'else sprintf "%s__%s" firstRendering prefixRendering'),
+)
+for old, new in replacements:
+    if source.count(old) == 1:
+        source = source.replace(old, new, 1)
+    elif source.count(old) != 0 or source.count(new) != 1:
+        raise RuntimeError("RESTler coverage source changed; review rendering-ID compatibility fix")
+path.write_text(source)
+
+path = Path("src/driver/Program.fs")
+source = path.read_text()
+old = 'logFiles |> Array.iter (fun filePath -> File.Copy(filePath, taskWorkingDirectory ++ Path.GetFileName(filePath)))'
+new = '''logFiles |> Array.iter (fun filePath ->
+                let targetPath = taskWorkingDirectory ++ Path.GetFileName(filePath)
+                let targetPath =
+                    if File.Exists targetPath then
+                        taskWorkingDirectory ++ (sprintf "%s-driver%s"
+                            (Path.GetFileNameWithoutExtension filePath)
+                            (Path.GetExtension filePath))
+                    else targetPath
+                File.Copy(filePath, targetPath))'''
+if source.count(old) == 1:
+    source = source.replace(old, new, 1)
+elif source.count(old) != 0 or source.count(new) != 1:
+    raise RuntimeError("RESTler log-copy source changed; review collision handling")
+path.write_text(source)
+PY
+
 # Build RESTler output into /build
 RUN python3 build-restler.py --dest_dir /build
 
@@ -28,7 +66,7 @@ RUN python3 -m compileall -b /build/engine
 # ---------------------------
 # Stage 2: Runtime
 # ---------------------------
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
 
 # Install CA certs and Python (since RESTler needs Python)
 RUN apt-get update && \
