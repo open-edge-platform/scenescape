@@ -15,7 +15,6 @@ import zipfile
 import json
 import pytest
 import re
-from numbers import Number
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -112,19 +111,16 @@ class SceneImportTest(UserInterfaceTest):
     return
 
   def readJSONFromZip(self):
-    data = None
     with zipfile.ZipFile(self.zipFile, 'r') as zip_ref:
       json_files = [f for f in zip_ref.namelist() if f.endswith('.json')]
       if not json_files:
-        print("No JSON file found inside the zip archive.")
-        return data
+        raise ValueError(f"No JSON file found inside {self.zipFile}")
       with zip_ref.open(json_files[0]) as json_file:
-        data = json.load(json_file)
-    return data
+        return json.load(json_file)
 
   def tolerant_dict_equivalence(self, dict1, dict2, tol=1e-9):
     # Numeric comparison (int or float) with tolerance
-    if isinstance(dict1, Number) and isinstance(dict2, Number):
+    if isinstance(dict1, (int, float)) and isinstance(dict2, (int, float)):
       return float(dict1) == pytest.approx(float(dict2), abs=tol)
 
     # Dict comparison: subset-based (dict2 keys must match in dict1)
