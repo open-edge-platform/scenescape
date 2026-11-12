@@ -56,6 +56,16 @@ RECEIVED_MESSAGE_METRICS = (
 # to the received total; later drops (e.g. queue full) were already counted.
 REJECTED_REASON_PREFIX = "rejected_"
 
+# Dropped-counter reasons that are counted once per (camera message, category)
+# dispatch instead of once per message: the controller's busy-tracker drop and
+# the tracker service's full-queue / worker-limit drops happen after the split by
+# category.  Other reasons (rejected_*, fell_behind, ptz_dwell) count messages.
+PER_CATEGORY_DROP_REASONS = (
+    "tracker_busy",
+    "dropped_queue_full",
+    "dropped_max_workers",
+)
+
 # Default warning threshold for the dropped-frame ratio (1%).
 DEFAULT_DROPPED_FRAME_THRESHOLD = 0.01
 
@@ -294,20 +304,31 @@ def _counter_total(metric_values: Dict[str, Dict[str, Any]], names: Tuple[str, .
   return total
 
 
-def _rejected_total(metric_values: Dict[str, Dict[str, Any]]) -> int:
-  """Sum the dropped messages that were rejected before acceptance."""
+def _dropped_total(metric_values: Dict[str, Dict[str, Any]], reasons) -> int:
+  """Sum the dropped counts whose reason satisfies the ``reasons`` predicate."""
   total = 0
   for name in DROPPED_FRAME_METRICS:
     stats = (metric_values.get(name) or {}).get("stats") or {}
     for reason, value in (stats.get("by_reason") or {}).items():
-      if reason.startswith(REJECTED_REASON_PREFIX):
+      if reasons(reason):
         total += int(value or 0)
   return total
+
+
+def _rejected_total(metric_values: Dict[str, Dict[str, Any]]) -> int:
+  """Sum the dropped messages that were rejected before acceptance."""
+  return _dropped_total(metric_values, lambda reason: reason.startswith(REJECTED_REASON_PREFIX))
+
+
+def _per_category_total(metric_values: Dict[str, Dict[str, Any]]) -> int:
+  """Sum the drops counted once per (camera message, category) dispatch."""
+  return _dropped_total(metric_values, lambda reason: reason in PER_CATEGORY_DROP_REASONS)
 
 
 def check_dropped_frames(
     metric_values: Dict[str, Dict[str, Any]],
     threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
+    categories: int = 1,
 ) -> Dict[str, Any]:
   """Verify how many messages the tracker/controller dropped during the run.
 
@@ -317,25 +338,41 @@ def check_dropped_frames(
   dropped.  Both services count dropped messages per camera, so the ratio is
   independent of the camera count.
 
+  Drops that happen after the split by category (see
+  :data:`PER_CATEGORY_DROP_REASONS`) are counted once per category, while the
+  received counters count messages.  Those drops are divided by ``categories``
+  so the ratio is the share of messages lost, not inflated by the category
+  count.  This assumes every message carries every category.  Drops without a
+  reason breakdown are taken as already counting messages.
+
   Args:
       metric_values: Output of :func:`collect_metric_values`.
       threshold:     Ratio above which the run is flagged (default 1%).
+      categories:    Number of object categories each message is split into
+                     (default 1, no normalisation).
 
   Returns:
-      Mapping with ``dropped`` (int), ``received`` (int), ``ratio`` (float;
-      1.0 when messages were dropped but none received, 0.0 when neither),
-      ``threshold`` (float) and ``exceeded`` (bool).
+      Mapping with ``dropped`` (int, raw counter total), ``dropped_messages``
+      (float, ``dropped`` expressed in messages), ``received`` (int),
+      ``categories`` (int), ``ratio`` (float; 1.0 when messages were dropped but
+      none received, 0.0 when neither), ``threshold`` (float) and ``exceeded``
+      (bool).
   """
+  categories = max(1, int(categories))
   dropped = _counter_total(metric_values, DROPPED_FRAME_METRICS)
+  per_category = _per_category_total(metric_values)
+  dropped_messages = (dropped - per_category) + per_category / categories
   received = _counter_total(metric_values, RECEIVED_MESSAGE_METRICS) + _rejected_total(metric_values)
 
   if received > 0:
-    ratio = dropped / received
+    ratio = dropped_messages / received
   else:
     ratio = 1.0 if dropped > 0 else 0.0
   return {
       "dropped": dropped,
+      "dropped_messages": dropped_messages,
       "received": received,
+      "categories": categories,
       "ratio": ratio,
       "threshold": threshold,
       "exceeded": ratio > threshold,

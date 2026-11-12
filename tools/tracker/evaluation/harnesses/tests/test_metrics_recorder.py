@@ -314,3 +314,71 @@ class TestCheckDroppedFrames:
     result = metrics_recorder.check_dropped_frames(self._values(5), threshold=0.001)
     assert result["exceeded"] is True
 
+
+class TestCheckDroppedFramesCategories:
+  """Drops counted per category dispatch are normalised to messages."""
+
+  def _values(self, by_reason, messages=1600, metric="scenescape_controller_mqtt_messages"):
+    dropped_metric = (
+        "tracker.mqtt.dropped" if metric == "tracker.mqtt.messages"
+        else "scenescape_controller_mqtt_messages_dropped"
+    )
+    return {
+        dropped_metric: {
+            "kind": "sum", "unit": "1",
+            "stats": {"total": sum(by_reason.values()), "by_reason": by_reason, "delta": {}},
+        },
+        metric: {"kind": "sum", "unit": "1", "stats": {"total": messages, "delta": {}}},
+    }
+
+  def test_per_category_drops_are_divided_by_categories(self):
+    result = metrics_recorder.check_dropped_frames(
+        self._values({"tracker_busy": 96}), categories=2)
+    assert result["dropped"] == 96
+    assert result["dropped_messages"] == pytest.approx(48)
+    assert result["categories"] == 2
+    assert result["ratio"] == pytest.approx(0.03)
+
+  def test_single_category_leaves_the_ratio_unchanged(self):
+    result = metrics_recorder.check_dropped_frames(self._values({"tracker_busy": 96}))
+    assert result["ratio"] == pytest.approx(0.06)
+
+  def test_per_message_reasons_are_not_divided(self):
+    result = metrics_recorder.check_dropped_frames(
+        self._values({"fell_behind": 40, "ptz_dwell": 8, "tracker_busy": 16}), categories=2)
+    assert result["dropped_messages"] == pytest.approx(56)
+    assert result["ratio"] == pytest.approx(0.035)
+
+  def test_tracker_service_queue_drops_are_divided_rejections_are_not(self):
+    values = self._values(
+        {"rejected_lag": 100, "dropped_queue_full": 40, "dropped_max_workers": 20},
+        messages=900, metric="tracker.mqtt.messages")
+    result = metrics_recorder.check_dropped_frames(values, categories=2)
+    # 100 rejected messages + 60 per-category drops / 2 = 130 of 900 + 100 received.
+    assert result["dropped_messages"] == pytest.approx(130)
+    assert result["received"] == 1000
+    assert result["ratio"] == pytest.approx(0.13)
+
+  def test_drops_without_reason_breakdown_are_taken_as_messages(self):
+    values = {
+        "scenescape_controller_mqtt_messages_dropped": {
+            "kind": "sum", "unit": "1", "stats": {"total": 20, "delta": {}},
+        },
+        "scenescape_controller_mqtt_messages": {
+            "kind": "sum", "unit": "1", "stats": {"total": 1000, "delta": {}},
+        },
+    }
+    result = metrics_recorder.check_dropped_frames(values, categories=2)
+    assert result["ratio"] == pytest.approx(0.02)
+
+  def test_category_count_below_one_is_clamped(self):
+    result = metrics_recorder.check_dropped_frames(
+        self._values({"tracker_busy": 16}), categories=0)
+    assert result["categories"] == 1
+    assert result["ratio"] == pytest.approx(0.01)
+
+  def test_category_normalisation_can_move_a_run_below_the_threshold(self):
+    values = self._values({"tracker_busy": 18})
+    assert metrics_recorder.check_dropped_frames(values)["exceeded"] is True
+    assert metrics_recorder.check_dropped_frames(values, categories=2)["exceeded"] is False
+

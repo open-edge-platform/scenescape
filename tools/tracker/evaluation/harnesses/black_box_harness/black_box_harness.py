@@ -47,6 +47,10 @@ realistic frame rate.  ``maxlag``/``max_lag_s=1e15`` only suppresses the
 tracker's lag-rejection check; it does not affect the wall-clock timer that
 drives the time-chunk scheduler.
 
+Frames of different cameras that share a timestamp have no delay between them,
+so by default they reach the broker as a burst.  ``same_timestamp_stagger_ms``
+spaces them out instead (see below).
+
 Topics (from scene_common.mqtt.PubSub templates)
 -------------------------------------------------
 * Publish  →  scenescape/data/camera/{camera_id}
@@ -66,6 +70,14 @@ Optional:
                            outputs to arrive (default 5.0).
   broker_port     (int):   host port to bind the broker on (default 0 =
                            choose a free port automatically).
+  same_timestamp_stagger_ms (float): spread the frames that share one timestamp
+                           over time: the k-th frame of a same-timestamp group is
+                           published no earlier than k * stagger after the first
+                           (default 0 = publish them back-to-back).  Use it for
+                           the Controller without time chunking, whose one-slot
+                           queue per category drops frames of a burst; choose a
+                           value above the per-frame processing time and keep
+                           (cameras - 1) * stagger below the frame interval.
   enable_metrics  (bool):  run an OTEL Collector sidecar to capture the
                            tracker/controller OTLP metrics (default False).
   metrics_collector_image (str): OTEL Collector image (required when
@@ -309,6 +321,30 @@ def _sort_by_camera_order(
   return result
 
 
+def _stagger_offsets(frames: List[Dict[str, Any]], stagger_s: float) -> List[float]:
+  """Return the extra publish delay in seconds of each frame.
+
+  The k-th frame (0-based) of a run of consecutive frames with the same
+  timestamp is delayed by ``k * stagger_s``; frames without a timestamp and the
+  first frame of each run are not delayed.
+  """
+  offsets: List[float] = []
+  index = 0
+  previous_ts = None
+  for frame in frames:
+    ts = frame.get("timestamp")
+    index = index + 1 if ts is not None and ts == previous_ts else 0
+    offsets.append(index * stagger_s)
+    previous_ts = ts
+  return offsets
+
+
+def _count_categories(frames: List[Dict[str, Any]]) -> int:
+  """Return the number of distinct object categories across *frames* (at least 1)."""
+  categories = {category for frame in frames for category in frame.get("objects") or {}}
+  return max(1, len(categories))
+
+
 def _merge_outputs_by_timestamp(
     outputs: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
@@ -374,6 +410,8 @@ class BlackBoxHarness(TrackerHarness):
     self._drain_timeout: float              = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s: float             = DEFAULT_STARTUP_WAIT
     self._camera_order: Optional[List[str]] = None
+    self._same_timestamp_stagger_s: float   = 0.0
+    self._category_count: int               = 1
     self._object_classes: List[Dict[str, Any]] = []
     self._broker_image: str                 = ""
     self._broker_port: int                  = 0
@@ -443,6 +481,10 @@ class BlackBoxHarness(TrackerHarness):
     self._startup_wait_s = float(config.get("startup_wait_s", DEFAULT_STARTUP_WAIT))
     if "camera_order" in config:
       self._camera_order = list(config["camera_order"])
+    stagger_ms = float(config.get("same_timestamp_stagger_ms", 0.0))
+    if stagger_ms < 0:
+      raise ValueError(f"same_timestamp_stagger_ms must be >= 0, got: {stagger_ms}")
+    self._same_timestamp_stagger_s = stagger_ms / 1000.0
     if "object_classes" in config:
       classes = config["object_classes"]
       if not isinstance(classes, list):
@@ -512,6 +554,7 @@ class BlackBoxHarness(TrackerHarness):
 
     try:
       input_frames: List[Dict[str, Any]] = list(inputs)
+      self._category_count = _count_categories(input_frames)
       self._write_inputs(input_frames, tmp_dir)
 
       host_port = self._broker_port if self._broker_port > 0 else _free_port()
@@ -563,6 +606,8 @@ class BlackBoxHarness(TrackerHarness):
     self._drain_timeout       = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s      = DEFAULT_STARTUP_WAIT
     self._camera_order        = None
+    self._same_timestamp_stagger_s = 0.0
+    self._category_count      = 1
     self._object_classes      = []
     self._output_folder       = None
     self._enable_metrics      = False
@@ -970,15 +1015,19 @@ class BlackBoxHarness(TrackerHarness):
     """Report dropped messages and warn when the drop ratio is too high."""
     try:
       values = metrics_recorder.collect_metric_values(metrics_file)
-      result = metrics_recorder.check_dropped_frames(values)
+      result = metrics_recorder.check_dropped_frames(values, categories=self._category_count)
     except Exception as exc:
       print(f"[BlackBoxHarness] Warning: dropped-message check failed: {exc}")
       return
 
+    per_category = (
+        f"; per-category drops divided by {result['categories']} categories"
+        if result["categories"] > 1 else ""
+    )
     print(
-        f"[BlackBoxHarness] Dropped messages: {result['dropped']} "
+        f"[BlackBoxHarness] Dropped messages: {result['dropped']} counted "
         f"({result['ratio'] * 100:.2f}% of {result['received']} "
-        "received messages)"
+        f"received messages{per_category})"
     )
     if result["exceeded"]:
       print(
@@ -993,7 +1042,9 @@ class BlackBoxHarness(TrackerHarness):
     """Publish input frames and collect tracker outputs.
 
     Paces publication using the inter-frame timestamp deltas so the
-    tracker experiences a realistic frame cadence.  Frames are always
+    tracker experiences a realistic frame cadence.  Frames sharing a
+    timestamp are published back-to-back unless ``same_timestamp_stagger_ms``
+    spreads them out.  Frames are always
     published with their original dataset timestamps; both the Controller
     (``--maxlag 1e15``) and the Tracker service (``max_lag_s: 1e15``) are
     configured to accept historical timestamps, so no rewriting is needed.
@@ -1039,10 +1090,11 @@ class BlackBoxHarness(TrackerHarness):
 
     session_start_wall: Optional[float] = None
     session_start_data: Optional[float] = None
+    stagger_offsets = _stagger_offsets(frames, self._same_timestamp_stagger_s)
 
     published_count = 0
     publish_start = time.monotonic()
-    for frame in frames:
+    for frame, stagger_offset in zip(frames, stagger_offsets):
       ts_str = frame.get("timestamp")
       if ts_str:
         frame_ts = _parse_ts(ts_str)
@@ -1051,7 +1103,7 @@ class BlackBoxHarness(TrackerHarness):
           session_start_data = frame_ts
         else:
           data_offset = frame_ts - session_start_data
-          expected_wall = session_start_wall + data_offset
+          expected_wall = session_start_wall + data_offset + stagger_offset
           sleep_for = expected_wall - time.monotonic()
           if sleep_for > 0:
             time.sleep(sleep_for)
