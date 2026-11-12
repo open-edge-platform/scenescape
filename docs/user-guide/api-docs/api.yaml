@@ -2534,7 +2534,32 @@ components:
           maxLength: 15
         transform:
           type: object
-          additionalProperties: {}
+          description: Computed pose transform returned in responses. Use transform1 through transform16 to update the pose.
+          readOnly: true
+          properties:
+            translation:
+              type: array
+              items:
+                type: number
+              minItems: 3
+              maxItems: 3
+            rotation:
+              type: array
+              description: Euler rotation in degrees.
+              items:
+                type: number
+              minItems: 3
+              maxItems: 3
+            scale:
+              type: array
+              items:
+                type: number
+              minItems: 3
+              maxItems: 3
+          required:
+            - translation
+            - rotation
+            - scale
         name:
           type: string
           readOnly: true
