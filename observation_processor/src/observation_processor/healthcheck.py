@@ -9,11 +9,13 @@ import sys
 import grpc
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
+from observation_processor.grpc_tls import create_channel
+
 
 def main():
   port = os.getenv("OBSERVATION_PROCESSOR_SERVICE_PORT", "50052")
   try:
-    with grpc.insecure_channel(f"localhost:{port}") as channel:
+    with create_channel(f"localhost:{port}") as channel:
       response = health_pb2_grpc.HealthStub(channel).Check(
           health_pb2.HealthCheckRequest(service=""), timeout=3)
   except grpc.RpcError:

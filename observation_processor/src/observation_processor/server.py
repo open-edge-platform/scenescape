@@ -20,9 +20,11 @@ from scene_common import log
 from scene_common.mqtt import PubSub
 from observation_processor.conditioning import InvalidRequestError, process_detections
 from observation_processor.grpc_api import observation_processor_pb2_grpc
+from observation_processor.grpc_tls import bind_server_port, insecure_requested
 from observation_processor.scene_provider import (
-  CameraNotCalibratedError, CameraNotFoundError, InvalidAssetPriorError,
-  SceneMeshMissingError, SceneNotFoundError, SceneProvider, StoreUnavailableError,
+  CameraNotCalibratedError, CameraNotFoundError, CameraResolutionUnsupportedError,
+  InvalidAssetPriorError, SceneMeshMissingError, SceneNotFoundError, SceneProvider,
+  StoreUnavailableError,
 )
 
 SERVICE_NAME = "scenescape.observation_processor.v1.ObservationProcessorService"
@@ -49,7 +51,8 @@ class ObservationProcessorServicer(
       context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
     except (SceneNotFoundError, CameraNotFoundError):
       context.abort(grpc.StatusCode.NOT_FOUND, "scene or camera was not found in the scene")
-    except (CameraNotCalibratedError, InvalidAssetPriorError, SceneMeshMissingError) as exc:
+    except (CameraNotCalibratedError, CameraResolutionUnsupportedError,
+            InvalidAssetPriorError, SceneMeshMissingError) as exc:
       context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
     except StoreUnavailableError:
       context.abort(grpc.StatusCode.UNAVAILABLE, "configuration store or cache is unavailable")
@@ -181,7 +184,7 @@ def main():
                              str(DEFAULT_READY_INTERVAL_SECONDS)))
   provider = SceneProvider.from_env()
   server, health_servicer = create_server(ObservationProcessorServicer(provider))
-  server.add_insecure_port(f"[::]:{port}")
+  bind_server_port(server, port)
   server.start()
   start_readiness_monitor(provider, health_servicer, interval)
   start_database_watcher(
@@ -190,7 +193,8 @@ def main():
     auth=provider.auth,
     rootcert=provider.rootcert,
   )
-  log.info(f"observation-processor-service gRPC listening on :{port}")
+  transport = "insecure" if insecure_requested() else "TLS"
+  log.info(f"observation-processor-service gRPC listening on :{port} ({transport})")
   server.wait_for_termination()
 
 

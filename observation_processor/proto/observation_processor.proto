@@ -25,11 +25,13 @@ import "google/protobuf/timestamp.proto";
 //
 // Errors are reported with gRPC status codes and apply to the whole frame:
 //   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
-//                        or bounding_box_px; non-finite box values or a negative box size.
+//                        or bounding_box_px; non-finite box values or a negative box size;
+//                        or more detections than the configured per-request limit.
 //   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-//   FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
-//                        non-finite or non-positive dimensions; or the mode is
-//                        CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+//   FAILED_PRECONDITION  the camera is not calibrated; camera resolution exceeds the amodal
+//                        bake limit; a requested category's asset has non-finite or
+//                        non-positive dimensions; or the mode is CONDITIONING_MODE_FULL and
+//                        the scene has no mesh (use CONDITIONING_MODE_AUTO).
 //   UNAVAILABLE          the static data store is unreachable; retryable.
 //   INTERNAL             projection or conditioning failed.
 // On an error the client keeps its legacy projection for the frame, as the in-process
@@ -60,7 +62,7 @@ message ProcessDetectionsRequest {
 // One 2D camera detection: the per-detection input of the frustum Gaussian library
 // (frustum_gaussian.from_scenescape_detections) plus the per-object pipeline options.
 // The size prior always comes from the object-library asset of `category`. `axis_aware_sizing`
-// defaults to true; `project_to_map` defaults to the asset flag. Set either field to override
+// defaults to false; `project_to_map` defaults to the asset flag. Set either field to override
 // its default for this detection only.
 message CameraDetection {
   // Field 4 was a per-detection size prior override; the asset is the only source.

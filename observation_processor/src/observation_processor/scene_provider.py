@@ -41,6 +41,8 @@ DEFAULT_ROOTCERT = "/run/secrets/certs/scenescape-ca.pem"
 DEFAULT_MEDIA_ROOT = "/workspace/media"
 DEFAULT_NUM_LAYERS = 4
 MAX_SCENE_MESH_BYTES = 100 * 1024 * 1024
+# Cap amodal depth-map bake cost (width * height). 4K UHD is the hard ceiling.
+DEFAULT_MAX_CAMERA_PIXELS = 3840 * 2160
 MESH_DOWNLOAD_CHUNK_SIZE = 64 * 1024
 DEFAULT_WORLD_UP = (0.0, 0.0, 1.0)
 DISTORTION_KEYS = ("k1", "k2", "p1", "p2", "k3", "k4", "k5", "k6",
@@ -116,6 +118,24 @@ class InvalidAssetPriorError(ValueError):
 
 class SceneMeshMissingError(Exception):
   """The scene has no GLB mesh (image-based map or no map at all)."""
+
+
+class CameraResolutionUnsupportedError(Exception):
+  """Camera image size exceeds the amodal depth-map bake limit."""
+
+
+def max_camera_pixels() -> int:
+  """Maximum width*height accepted when baking an amodal reasoner."""
+  raw = os.getenv("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS")
+  if raw is None or not raw.strip():
+    return DEFAULT_MAX_CAMERA_PIXELS
+  try:
+    value = int(raw)
+  except ValueError as exc:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS must be an integer") from exc
+  if value <= 0:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS must be positive")
+  return value
 
 
 def pose_mat_from_pose(translation, rotation, scale):
@@ -360,8 +380,8 @@ class SceneProvider:
     for record in self._cache[("cameras", scene_id)]:
       try:
         self.get_reasoner(scene_id, record["uid"])
-      except CameraNotCalibratedError as exc:
-        log.warning(f"SceneProvider: skipping uncalibrated camera {record['uid']}: {exc}")
+      except (CameraNotCalibratedError, CameraResolutionUnsupportedError) as exc:
+        log.warning(f"SceneProvider: skipping camera {record['uid']}: {exc}")
 
   def invalidate(self) -> None:
     """Schedule a full refresh, retaining the previous snapshot until it succeeds."""
@@ -582,6 +602,12 @@ class SceneProvider:
     with self._lock:
       reasoners = self._reasoners
     camera = self.get_camera(scene_id, camera_id)
+    pixels = camera.width * camera.height
+    limit = max_camera_pixels()
+    if pixels > limit:
+      raise CameraResolutionUnsupportedError(
+        f"camera {camera_id} resolution {camera.width}x{camera.height} "
+        f"({pixels} pixels) exceeds the amodal bake limit of {limit} pixels")
     mesh = self.get_world_mesh(scene_id)
     key = (camera.cache_key(), id(mesh), self.num_layers)
     cache_id = (scene_id, camera_id)

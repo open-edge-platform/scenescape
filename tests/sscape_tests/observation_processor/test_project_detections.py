@@ -15,8 +15,9 @@ from observation_processor.conditioning import InvalidRequestError, UNOBSERVABLE
 from observation_processor.grpc_api import observation_processor_pb2 as pb
 from observation_processor.server import ObservationProcessorServicer
 from observation_processor.scene_provider import (
-  CameraInfo, CameraNotCalibratedError, CameraNotFoundError, InvalidAssetPriorError,
-  SceneMeshMissingError, SceneNotFoundError, SceneProvider, StoreUnavailableError,
+  CameraInfo, CameraNotCalibratedError, CameraNotFoundError,
+  CameraResolutionUnsupportedError, InvalidAssetPriorError, SceneMeshMissingError,
+  SceneNotFoundError, SceneProvider, StoreUnavailableError,
 )
 
 
@@ -271,6 +272,22 @@ def test_invalid_mode(process_frame, frame):
     process_frame(frame)
 
 
+def test_too_many_detections_rejects_whole_frame(process_frame, frame, monkeypatch):
+  monkeypatch.setenv("OBSERVATION_PROCESSOR_MAX_DETECTIONS", "1")
+  extra = frame.detections.add()
+  extra.CopyFrom(frame.detections[0])
+  with pytest.raises(InvalidRequestError, match="at most 1 detections"):
+    process_frame(frame)
+
+
+def test_oversized_camera_rejects_mesh_conditioning(process_frame, frame,
+                                                   projection_configuration, monkeypatch):
+  monkeypatch.setenv("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS", "100")
+  frame.mode = pb.CONDITIONING_MODE_FULL
+  with pytest.raises(CameraResolutionUnsupportedError, match="amodal bake limit"):
+    process_frame(frame)
+
+
 @pytest.mark.parametrize("field", ["scene_id", "camera_id"])
 def test_unknown_scene_or_camera(process_frame, frame, field):
   setattr(frame, field, "missing")
@@ -402,6 +419,14 @@ def test_invalid_asset_does_not_silently_use_pedestrian_prior(process_frame, fra
     CameraNotCalibratedError("camera calibration is invalid"),
     grpc.StatusCode.FAILED_PRECONDITION, "camera calibration is invalid",
     id="camera-not-calibrated"),
+  pytest.param(
+    CameraResolutionUnsupportedError(
+      "camera camera resolution 4096x2160 (8847360 pixels) exceeds the amodal bake limit "
+      "of 8294400 pixels"),
+    grpc.StatusCode.FAILED_PRECONDITION,
+    "camera camera resolution 4096x2160 (8847360 pixels) exceeds the amodal bake limit "
+    "of 8294400 pixels",
+    id="camera-resolution-unsupported"),
   pytest.param(
     InvalidAssetPriorError(
       "asset category 'person' has invalid size dimensions: x_size must be finite and positive"),

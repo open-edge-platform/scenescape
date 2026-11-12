@@ -30,6 +30,10 @@ secrets:
     file: ${SECRETSDIR}/calibration.auth
   observation_processor.auth:
     file: ${SECRETSDIR}/observation_processor.auth
+  observation-processor-cert:
+    file: ${SECRETSDIR}/certs/scenescape-observation-processor.crt
+  observation-processor-key:
+    file: ${SECRETSDIR}/certs/scenescape-observation-processor.key
   autocalibration-cert:
     file: ${SECRETSDIR}/certs/scenescape-autocalibration.crt
   autocalibration-key:
@@ -544,6 +548,8 @@ services:
       OBSERVATION_PROCESSOR_REST_URL: https://web.scenescape.intel.com/api/v1
       OBSERVATION_PROCESSOR_AUTH: /run/secrets/observation_processor.auth
       OBSERVATION_PROCESSOR_ROOTCERT: /run/secrets/certs/scenescape-ca.pem
+      OBSERVATION_PROCESSOR_CERT: /run/secrets/certs/scenescape-observation-processor.crt
+      OBSERVATION_PROCESSOR_KEY: /run/secrets/certs/scenescape-observation-processor.key
       OBSERVATION_PROCESSOR_MEDIA_ROOT: /workspace/media
       OBSERVATION_PROCESSOR_BROKER: broker.scenescape.intel.com
       OBSERVATION_PROCESSOR_READY_INTERVAL_SECONDS: "10"
@@ -554,6 +560,10 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: observation-processor-cert
+        target: certs/scenescape-observation-processor.crt
+      - source: observation-processor-key
+        target: certs/scenescape-observation-processor.key
       - observation_processor.auth
     restart: always
     pids_limit: 1000

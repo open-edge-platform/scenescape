@@ -31,10 +31,11 @@ Start the Scene Controller and Observation Processor profiles:
 make deploy DEPLOY_PROFILES="controller observation-processor"
 ```
 
-The service listens on port `50052` inside the Compose network, using the
-network address `observation-processor.scenescape.intel.com`. The optional
-profile starts the gRPC service but does not currently route Scene Controller
-detections to it.
+The service listens on port `50052` inside the Compose network with TLS, using
+the network address `observation-processor.scenescape.intel.com`. `make
+init-secrets` generates the `scenescape-observation-processor` server
+certificate mounted by the Compose profile. The optional profile starts the
+gRPC service but does not currently route Scene Controller detections to it.
 
 For deployment credentials, environment variables, and a sample request, see
 the [Observation Processor service README](../../../../../observation_processor/README.md).

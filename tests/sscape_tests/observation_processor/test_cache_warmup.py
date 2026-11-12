@@ -267,6 +267,17 @@ def test_uncalibrated_camera_does_not_prevent_mesh_warmup(configuration):
   reasoner.assert_not_called()
 
 
+def test_oversized_camera_does_not_prevent_mesh_warmup(configuration, monkeypatch):
+  provider, rest, scene, camera, load, reasoner = configuration
+  camera["resolution"] = [3840, 2160]
+  monkeypatch.setenv("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS", "100")
+  provider.warm()
+  assert not provider.needs_refresh
+  load.assert_called_once()
+  reasoner.assert_not_called()
+  assert provider.get_world_mesh("scene") is not None
+
+
 @pytest.mark.parametrize("error", [
   SceneMeshMissingError("invalid mesh"), StoreUnavailableError("offline"),
   OSError("unreadable mesh"), ValueError("invalid geometry"), RuntimeError("bake failed"),

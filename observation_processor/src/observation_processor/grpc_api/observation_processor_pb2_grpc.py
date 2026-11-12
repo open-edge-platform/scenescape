@@ -42,11 +42,13 @@ class ObservationProcessorServiceStub(object):
 
   Errors are reported with gRPC status codes and apply to the whole frame:
   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
-  or bounding_box_px; non-finite box values or a negative box size.
+  or bounding_box_px; non-finite box values or a negative box size;
+  or more detections than the configured per-request limit.
   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-  FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
-  non-finite or non-positive dimensions; or the mode is
-  CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+  FAILED_PRECONDITION  the camera is not calibrated; camera resolution exceeds the amodal
+  bake limit; a requested category's asset has non-finite or
+  non-positive dimensions; or the mode is CONDITIONING_MODE_FULL and
+  the scene has no mesh (use CONDITIONING_MODE_AUTO).
   UNAVAILABLE          the static data store is unreachable; retryable.
   INTERNAL             projection or conditioning failed.
   On an error the client keeps its legacy projection for the frame, as the in-process
@@ -79,11 +81,13 @@ class ObservationProcessorServiceServicer(object):
 
   Errors are reported with gRPC status codes and apply to the whole frame:
   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
-  or bounding_box_px; non-finite box values or a negative box size.
+  or bounding_box_px; non-finite box values or a negative box size;
+  or more detections than the configured per-request limit.
   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-  FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
-  non-finite or non-positive dimensions; or the mode is
-  CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+  FAILED_PRECONDITION  the camera is not calibrated; camera resolution exceeds the amodal
+  bake limit; a requested category's asset has non-finite or
+  non-positive dimensions; or the mode is CONDITIONING_MODE_FULL and
+  the scene has no mesh (use CONDITIONING_MODE_AUTO).
   UNAVAILABLE          the static data store is unreachable; retryable.
   INTERNAL             projection or conditioning failed.
   On an error the client keeps its legacy projection for the frame, as the in-process
@@ -125,11 +129,13 @@ class ObservationProcessorService(object):
 
   Errors are reported with gRPC status codes and apply to the whole frame:
   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
-  or bounding_box_px; non-finite box values or a negative box size.
+  or bounding_box_px; non-finite box values or a negative box size;
+  or more detections than the configured per-request limit.
   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-  FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
-  non-finite or non-positive dimensions; or the mode is
-  CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+  FAILED_PRECONDITION  the camera is not calibrated; camera resolution exceeds the amodal
+  bake limit; a requested category's asset has non-finite or
+  non-positive dimensions; or the mode is CONDITIONING_MODE_FULL and
+  the scene has no mesh (use CONDITIONING_MODE_AUTO).
   UNAVAILABLE          the static data store is unreachable; retryable.
   INTERNAL             projection or conditioning failed.
   On an error the client keeps its legacy projection for the frame, as the in-process

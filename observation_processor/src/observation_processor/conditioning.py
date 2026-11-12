@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -24,10 +25,25 @@ PRIOR_KEYS = ("mu_x", "mu_y", "mu_z", "sigma_x", "sigma_y", "sigma_z")
 MIN_DEPTH_VARIANCE = 1e-4
 MESH_FOOT_VARIANCE = 0.05 ** 2
 UNOBSERVABLE_SIGMA = 1e8
+DEFAULT_MAX_DETECTIONS = 512
 
 
 class InvalidRequestError(ValueError):
   """The frame does not satisfy the published request contract."""
+
+
+def max_detections() -> int:
+  """Maximum detections accepted in one ProcessDetections request."""
+  raw = os.getenv("OBSERVATION_PROCESSOR_MAX_DETECTIONS")
+  if raw is None or not raw.strip():
+    return DEFAULT_MAX_DETECTIONS
+  try:
+    value = int(raw)
+  except ValueError as exc:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_DETECTIONS must be an integer") from exc
+  if value <= 0:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_DETECTIONS must be positive")
+  return value
 
 
 @dataclass
@@ -55,6 +71,10 @@ def validate_request(request: pb.ProcessDetectionsRequest) -> None:
   if request.mode not in (pb.CONDITIONING_MODE_AUTO, pb.CONDITIONING_MODE_FULL,
                           pb.CONDITIONING_MODE_FRUSTUM_ONLY):
     raise InvalidRequestError("unknown conditioning mode")
+  limit = max_detections()
+  if len(request.detections) > limit:
+    raise InvalidRequestError(
+      f"at most {limit} detections are allowed per request")
   for index, detection in enumerate(request.detections):
     _validate_detection(detection, index)
 

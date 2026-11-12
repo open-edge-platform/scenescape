@@ -36,22 +36,26 @@ refresh fails.
 ## gRPC API
 
 The service exposes `scenescape.observation_processor.v1.ObservationProcessorService`
-with the unary `ProcessDetections` RPC and the standard gRPC health service. The
-request includes a scene ID, camera ID, timestamp, conditioning mode, and an
-ordered list of detections. The response contains one measurement status per
-detection and, when requested, frustum and amodal diagnostics.
+with the unary `ProcessDetections` RPC and the standard gRPC health service over
+TLS (the Compose profile mounts the `scenescape-observation-processor` server
+certificate). The request includes a scene ID, camera ID, timestamp, conditioning
+mode, and an ordered list of detections. Requests are rejected when they exceed
+the configured detection-count limit; cameras whose resolution exceeds the amodal
+bake pixel limit cannot use mesh conditioning. The response contains one
+measurement status per detection and, when requested, frustum and amodal
+diagnostics.
 
 The protobuf contract is maintained in
 [`observation_processor.proto`](../../../../observation_processor/proto/observation_processor.proto).
 Errors apply to the whole frame:
 
-| Status                | Meaning                                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `INVALID_ARGUMENT`    | Required request data is missing or invalid.                                                                 |
-| `NOT_FOUND`           | The scene or camera is unknown or not associated.                                                            |
-| `FAILED_PRECONDITION` | Camera calibration is invalid, an asset has invalid size dimensions, or `FULL` mode requires a missing mesh. |
-| `UNAVAILABLE`         | No warmed configuration is available or the configuration store cannot be reached.                           |
-| `INTERNAL`            | Projection or conditioning failed.                                                                           |
+| Status                | Meaning                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_ARGUMENT`    | Required request data is missing or invalid, or the detection list exceeds the configured limit.                                      |
+| `NOT_FOUND`           | The scene or camera is unknown or not associated.                                                                                     |
+| `FAILED_PRECONDITION` | Camera calibration is invalid, resolution exceeds the amodal bake limit, an asset has invalid sizes, or `FULL` mode needs a GLB mesh. |
+| `UNAVAILABLE`         | No warmed configuration is available or the configuration store cannot be reached.                                                    |
+| `INTERNAL`            | Projection or conditioning failed.                                                                                                    |
 
 See the [build guide](get-started/build-from-source.md) for building and
 starting the optional Compose service. Service configuration variables and a
