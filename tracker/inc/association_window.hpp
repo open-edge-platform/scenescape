@@ -45,9 +45,8 @@ inline AssociationWindow buildAssociationWindow(const AssociationConfig& config,
         return window;
     }
 
-    const double chi2
-      = rv::tracking::position_gate::positionChi2(config.gate_probability,
-                                                  rv::tracking::position_gate::trackCanGateZ(track));
+    const double chi2 = rv::tracking::position_gate::positionChi2(
+        config.gate_probability, rv::tracking::position_gate::trackCanGateZ(track));
     const double s00 = track.predictedMeasurementCov(0, 0);
     const double s01 = track.predictedMeasurementCov(0, 1);
     const double s11 = track.predictedMeasurementCov(1, 1);
