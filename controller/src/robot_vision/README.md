@@ -36,8 +36,8 @@ Controller and the Tracker service do not read them from their configuration fil
 | `default_measurement_noise` / `mDefaultMeasurementNoise` | `0.2`      | Measurement noise `r`; initial variance of position, size |
 | `init_state_covariance` / `mInitStateCovariance`         | `1.0`      | Initial velocity variance `p`; caps the other states      |
 
-The state is x, y, vx, vy, ax, ay, z, length, width, height, yaw and yaw rate; a detection measures x, y, z, length,
-width, height and yaw. Units are m, rad and s.
+The state is x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw and yaw rate; a detection measures x, y, z,
+length, width, height and yaw. Units are m, rad and s.
 
 **Process noise.** Before every predict, each motion model gets its own process noise from its velocity and the time
 step `dt` (at least 1 ms), with `q_v = max(1000 * q, 1e-3)`:
@@ -45,6 +45,7 @@ step `dt` (at least 1 ms), with `q_v = max(1000 * q, 1e-3)`:
 - Position, z and size get no direct noise: the position uncertainty grows only through the velocity.
 - Velocity: `q_v * (1 + speed) * dt` along the direction of motion, `q_v / 100 * dt` across it. Below 1 mm/s the
   along-track direction is world x.
+- Vertical velocity: `q_v * dt` in every model, independent of the direction of motion.
 - Acceleration: CA gets the same 2×2 block as the velocity.
 - Turn rate: CTRV gets `q_v * dt`.
 - Yaw: `q / 100 * dt`.
@@ -58,16 +59,17 @@ turn the process noise off.
 **Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values. A
 detection without a usable orientation does not observe yaw: its update leaves the yaw row out.
 
-**Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, `p` for velocity,
-and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. A new track
-starts at rest, so `p` sets how fast it picks up an object that enters already moving: with the production `p = 1` a car
-entering at 8 m/s keeps one track through a 2 m Euclidean gate at 10 fps.
+**Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, `p` for vx, vy
+and vz, and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. A new
+track starts at rest, so `p` sets how fast it picks up an object that enters already moving: with the production
+`p = 1` a car entering at 8 m/s keeps one track through a 2 m Euclidean gate at 10 fps.
 
-**Sigma points.** The unscented filter uses α = 1, β = 2 and κ = 3 − n for the n = 12 states. The sigma points then
-sit at √3 σ, which matches a Gaussian's fourth moment along each axis; the centre weight is negative (−3), so the
+**Sigma points.** The unscented filter uses α = 1, β = 2 and κ = 3 − n for the n = 13 states. The sigma points then
+sit at √3 σ, which matches a Gaussian's fourth moment along each axis; the centre weight is negative (−10/3), so the
 predicted mean extrapolates from the centre point instead of averaging the points, and with β = 2 the covariance stays
-positive semi-definite. Only CTRV is nonlinear. At 10 fps κ makes no measurable difference; with a turn-rate uncertainty
-of 1 rad over one step CTRV's predicted mean speed is 1 % off the exact value, where κ = 0 is 38 % too fast.
+positive semi-definite. Only CTRV is nonlinear. At 10 fps κ makes no measurable difference; with a turn-rate
+uncertainty of 1 rad over one step CTRV's predicted mean speed is 1 % off the exact value, where κ = 0 is 41 % too
+fast.
 
 Earlier versions added `q` times the identity to all twelve states at every predict, independent of `dt`, and started
 from `p` times the identity. Values tuned for them do not carry over.
@@ -107,27 +109,23 @@ run.coast(1.0);
 For several objects, pass the same id to `truth()` and as the third `FilterRun` argument. The files are described in
 [Input files](../../../tools/tracker/evaluation/visualization/README.md#input-files).
 
-To record association, run the full tracker with `TrackerRun` ([test/support/TrackerRun.hpp](test/support/TrackerRun.hpp)).
-It calls `MultipleObjectTracker::track()` once per frame like the Tracker Service, with production filter and track
-lifecycle settings, and records the detections and the reliable tracks under their tracker ids. Each track's estimator
-config holds the association gate, which the zoom videos draw:
+### Vertical motion and paired runs
+
+`Trajectory::climb(vz, seconds)` and `segment(acceleration, yawRate, vz, seconds)` add a constant vertical rate per
+segment (`speed` stays the horizontal speed), and `Sensor::zNoise` adds z noise without changing the x/y noise. A planar
+case gets a 3D twin without changing its definition: `VerticalProfile().climb(...).apply(truth)` lays a vertical motion
+over any truth, `atHeight(truth, z)` places it at a constant height. `runScenario` runs the filter and returns the
+estimates and model probabilities; its `Sensor` is taken by value, so two runs with the same sensor see the same noise
+(`seeded(sensor, seed)` repeats a scenario with other noise).
 
 ```cpp
-#include "support/ScenarioRecorder.hpp"
-
-ScenarioRecorder recorder(std::string(association.method));
-recorder.truth(person1, 1);
-recorder.truth(person2, 2);
-auto observations = observe(person1, camera, 1);  // detections carry their ground-truth object id
-const auto more = observe(person2, camera, 2);
-observations.insert(observations.end(), more.begin(), more.end());
-TrackerRun run(positionMahalanobisAssociation(), 10.0, productionTrackerConfig(), &recorder);  // or euclideanAssociation()
-run.play(sampleTimes(person1), withoutBetween(observations, 5.0, 5.8));  // a frame per time; no detections 5 s-5.8 s
-run.identityErrors({1, 2});  // 0 when every object kept one track of its own
+const auto planar = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.3, 6.0).sample(10.0);
+const Sensor camera{.positionNoise = 0.3};
+const auto flat = runScenario(planar, camera);
+const auto climbing = runScenario(VerticalProfile().climb(0.5, 4.0).apply(planar), camera);  // 3rd argument: RunOptions
+const auto metrics = climbing.metrics();             // horizontal/vertical max and rms error, final speed and vz error
+const auto diff = maxDifference(flat, climbing);     // largest |x|, |y|, |z|, |vx|, |vy|, |vz|, |yaw|, |probability|
 ```
-
-`AssociationScenarioTests.cpp` records every scenario with both methods, in `<case>` directories named after the
-method, so the two runs can be compared side by side.
 
 ### Plots and videos
 
