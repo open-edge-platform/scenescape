@@ -373,6 +373,12 @@
         "expected_body": {
           "uid": "${CAMERA_UID_MINIMAL}",
           "name": "Camera_Partial_Update_No_Res",
+          "pose_locked": false,
+          "calibration_origin": "manager.rest",
+          "pose_provenance": {
+            "class": "calibration",
+            "origin": "manager.rest"
+          },
           "intrinsics": {
             "fx": 1000.0,
             "fy": 1000.0,
@@ -382,8 +388,14 @@
           "transform_type": "3d-2d point correspondence",
           "translation": [0.0, 0.0, 0.0],
           "rotation": [-0.0, 0.0, 0.0],
+          "pose_matrix": [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+          ],
           "scale": [1.0, 1.0, 1.0],
-          "resolution": [640, 480],
+          "resolution": [1280, 720],
           "scene": "${CAMERA_SCENE_UID}",
           "cv_subsystem": "AUTO",
           "undistort": false,
