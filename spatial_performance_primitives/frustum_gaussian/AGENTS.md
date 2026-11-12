@@ -26,20 +26,14 @@ The interface boundary is the `FrustumObservation` struct. Everything downstream
 ## Repository layout
 
 ```
-include/frustum_gaussian/
-    types.hpp        — all public structs (BoundingBox, Intrinsics, ShapePrior,
-                       DetectorNoise, FrustumObservation)
-    frustum.hpp      — public API declarations
-src/
-    frustum.cpp      — single-detection kernel: project_frustum(), transform_to_world()
-    batch.cpp        — batched kernel: project_frustum_batch(), TBB parallelism
-python/              — pybind11 bindings
-tests/               — unit + integration tests
-benchmarks/
-    bench_batch_variants.py   — N=1-100 Python benchmark (NumPy / serial / opt)
-    REPORT.md                 — benchmark results and analysis
-README.md            — quick-start, math summary, build
-ALGORITHM.md         — full algorithm derivation, architecture, deployment scenarios
+cpp/
+    include/frustum_gaussian/  — types.hpp, frustum.hpp
+    src/                       — frustum.cpp, batch.cpp
+    tests/                     — native GoogleTest suite
+python/frustum_gaussian/       — pybind11 / pure-Python package
+tests/                         — Python unit tests
+README.md                      — quick-start, math summary, build, latency table
+ALGORITHM.md                   — full algorithm derivation and deployment notes
 ```
 
 ---
@@ -56,7 +50,7 @@ ALGORITHM.md         — full algorithm derivation, architecture, deployment sce
 3. **`PARALLEL_THRESHOLD = 64` — do not lower without re-benchmarking.**
    Validated on Intel Core Ultra X7 368H. Below 64 the TBB thread-wake cost (~2-4 µs)
    dominates the parallel work, making the optimized variant _slower_ than serial.
-   See `benchmarks/REPORT.md` for the full N=1-100 dataset.
+   See the latency summary in `README.md` (full `benchmarks/` tree was not vendored).
 
 4. **Use `atan` for angular subtenses — not the small-angle approximation.**
    For FOV > ~50° the small-angle form (α ≈ Δu/f) introduces 3-5% depth error at image
@@ -185,8 +179,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DFG_BUILD_TESTS=ON
 cmake --build build -j$(nproc)
 ctest --test-dir build --output-on-failure
 
-# Benchmark (N=1-100, 20 000 reps)
-python3 benchmarks/bench_batch_variants.py --reps 20000 --warmup 500
+# Latency numbers: see README.md § Benchmarks (scripts not vendored here)
 ```
 
 ---

@@ -1,12 +1,12 @@
-# scene-projection — Quick Start
+# observation_conditioning — Quick Start
 
-`scene-projection` (Phase 2) takes per-object depth observations from **frustum-gaussian** and a
+`observation_conditioning` takes per-object depth observations from **frustum-gaussian** and a
 **static scene mesh**, then conditions each object's depth Gaussian on the geometry — resolving
 floor contact, occlusion, and walls/backings. The core entry point is the `AmodalReasoner` class:
 you build it once per camera (it bakes a depth map from the mesh), then call `generate()` per frame.
 
-For the math and design, see [`amodal_reasoner_algorithm.md`](docs/amodal_reasoner_algorithm.md). This guide is just the "how to
-run it" summary.
+For the math and design, see [`amodal_reasoner_algorithm.md`](amodal_reasoner_algorithm.md). This
+guide is just the "how to run it" summary.
 
 ---
 
@@ -19,11 +19,11 @@ virtualenv:
 pip install numpy "open3d>0.19.0" scipy pytest
 ```
 
-The package uses `src/` as its import root, so run from the `scene-projection/` directory (the demos
-do `PYTHONPATH=.`):
+Put `spatial_performance_primitives/` on `PYTHONPATH` (the Observation Processor image and unit
+suite do this), then import the package:
 
 ```python
-from src.amodal_reasoner import AmodalReasoner
+from observation_conditioning import AmodalReasoner
 ```
 
 ---
@@ -50,9 +50,7 @@ tracking (Assumptions §2 in the algorithm doc).
 | `width`, `height`         | `int`          | image size in pixels (depth-map resolution)                                                   |
 | `rwc_z_up`                | `(3,)`         | world-up unit vector                                                                          |
 
-> A convenience builder for experiments lives in `tests/helpers.py`
-> (`create_camera_intrinsics`, `create_camera_extrinsics`); for real cameras supply your calibrated
-> `K` and pose.
+For real cameras supply your calibrated `K` and pose.
 
 ### c) Observations (`gaus_rays`) — **world frame**, one batch of `N` objects
 
@@ -102,7 +100,7 @@ updated_centroid = gaus_rays["mu"] + gaus_rays["ray"] * updated_depth[:, None]
 #   frame = [r, e_h, e_v];  Λ = frameᵀ Σ frame;  Λ[0,0] = updated_var;  Σ' = frame Λ frameᵀ
 ```
 
-(See `generate()`'s debug block in `src/amodal_reasoner.py` for the exact reconstruction.)
+(See `generate()`'s debug block in `amodal_reasoner.py` for the exact reconstruction.)
 
 ---
 
@@ -111,7 +109,7 @@ updated_centroid = gaus_rays["mu"] + gaus_rays["ray"] * updated_depth[:, None]
 ```python
 import numpy as np
 import open3d as o3d
-from src.amodal_reasoner import AmodalReasoner
+from observation_conditioning import AmodalReasoner
 
 # --- scene (static, world frame) ---
 legacy = o3d.io.read_triangle_mesh("scene.glb")
@@ -174,44 +172,18 @@ print(updated_depth, updated_var)
 
 ---
 
-## 6. Debugging & visualization
+## 6. Debugging
 
 Set `reasoner.debug = True` **before** `generate()` to record intermediates into `reasoner.trace`
-(probe rays, occlusion flags, Gaussian ellipsoids, total-occlusion fractions, etc.). Two offscreen
-renderers consume the trace:
-
-```bash
-python src/visual_demo.py  --visual all            # random objects in raw_5.glb
-python src/stairs_demo.py  --scenario total        # staircase + occlusion scenarios
-```
-
-Each supports `--visual {occlusion,pindrop,wall,gaussian,rays,all}`,
-`--view {persp,top,side,all}`, `--webrtc` (interactive viewer), and `--out-dir` (PNGs default to
-`demo/`).
-
-### Example renders
-
-**Occlusion** — probe rays fanned from the camera to each object (green = clear, red = occluded),
-in perspective and top-down views:
-
-| Perspective                                          | Top-down                                              |
-| ---------------------------------------------------- | ----------------------------------------------------- |
-| ![occlusion, perspective](docs/images/occlusion.png) | ![occlusion, top-down](docs/images/occlusion_top.png) |
-
-**Wall detection** — candidate wall hits and the centroid→top spectrum fan:
-
-![wall visualization](docs/images/wall.png)
-
-**Gaussian ellipsoids on stairs** — prior (orange) vs depth-updated (blue) Gaussians; the object
-fully hidden behind the staircase is pulled _in front_ of it:
-
-![stairs Gaussian](docs/images/stairs_gaussian.png)
+(probe rays, occlusion flags, Gaussian ellipsoids, total-occlusion fractions, etc.). Standalone
+visual demo scripts from the upstream package are not vendored in this tree; use the unit tests
+under `tests/` and the Observation Processor loopback tests for regression coverage.
 
 ---
 
 ## 7. Where to look next
 
-- [`amodal_reasoner_algorithm.md`](docs/amodal_reasoner_algorithm.md) — full algorithm (Steps 0–10) and the **Future Work** list.
-- `src/amodal_reasoner.py` — `AmodalReasoner` (the pipeline).
-- `src/intersection_map.py` — `DepthMap` (`populate`, `query`, `cast_np`).
-- `src/constants.py` — per-class shape `PRIORS` and `PLANE_DECISION_NML_WEIGHT`.
+- [`amodal_reasoner_algorithm.md`](amodal_reasoner_algorithm.md) — full algorithm (Steps 0–10) and the **Future Work** list.
+- `amodal_reasoner.py` — `AmodalReasoner` (the pipeline).
+- `intersection_map.py` — `DepthMap` (`populate`, `query`, `cast_np`).
+- `constants.py` — per-class shape `PRIORS` and `PLANE_DECISION_NML_WEIGHT`.

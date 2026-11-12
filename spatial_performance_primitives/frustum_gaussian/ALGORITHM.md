@@ -1,7 +1,6 @@
 # Frustum-Gaussian: Algorithm and Architecture
 
-> **See also:** [README](README.md) — quick-start, API reference, build instructions  
-> **Benchmarks:** [benchmarks/REPORT.md](benchmarks/REPORT.md) — performance measurement across N = 1–100 detections
+> **See also:** [README](README.md) — quick-start, API reference, build instructions, latency summary
 
 ---
 
@@ -381,7 +380,7 @@ The following table characterizes expected `N` values and the resulting executio
 | 4 | 16–40 | 64–160 | TBB throughout |
 | 8+ | any | 65+ | TBB throughout |
 
-The `PARALLEL_THRESHOLD = 64` is the empirically validated switch point on Intel Core Ultra hardware. See [benchmarks/REPORT.md](benchmarks/REPORT.md) for the full characterization.
+The `PARALLEL_THRESHOLD = 64` is the empirically validated switch point on Intel Core Ultra hardware. See the latency summary in [README](README.md#benchmarks).
 
 ### 4.2 Typical scene-class shape priors
 
@@ -457,10 +456,7 @@ The `ray` field is rotated (not translated) — it remains a direction vector.
 
 ## 7. References
 
-- [README](README.md) — quick-start, C++ and Python APIs, build instructions
-- [benchmarks/REPORT.md](benchmarks/REPORT.md) — full performance characterization, N = 1–100
-- SceneScape-ng Phase 2 integration: `controller/multiview_projection.py`
-- SceneScape-ng Phase 3a fuser: `controller/fuser.py`
+- [README](README.md) — quick-start, C++ and Python APIs, build instructions, latency summary
+- Observation Processor service — consumes this library plus `observation_conditioning`
 - Eigen3 — [https://eigen.tuxfamily.org](https://eigen.tuxfamily.org)
 - Intel oneTBB — [https://github.com/oneapi-src/oneTBB](https://github.com/oneapi-src/oneTBB)
-$$

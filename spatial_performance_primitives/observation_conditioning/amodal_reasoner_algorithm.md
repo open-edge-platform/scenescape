@@ -13,18 +13,19 @@ Amodal Projection cases to consider: [Scratch Note Powerpoint](https://intel-my.
 
 This algorithm is a concrete **Observation Conditioning Engine (OCE)** / scene-conditioning path
 for frustum-Gaussian observations. Projection kernels generate observations; this second layer
-conditions them for physical plausibility; STP commits canonical belief.
+conditions them for physical plausibility; STP commits canonical belief. Section numbers below
+refer to the upstream SceneScape V2 architecture notes (not vendored in this repository).
 
-| Algo concept                                                                     | Architecture section                                                                                                                                                                                                                                                                                          |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 1 `frustum-gaussian` / `FrustumObservation`                                | [§12.2–12.3](../architecture/SceneScape-V2-Architecture.md#122-projection-kernel-boundary), [§29.4](../architecture/SceneScape-V2-Architecture.md#294-frustum-gaussian-projection), [Appendix C](../architecture/SceneScape-V2-Architecture.md#appendix-c--observation-projection-and-frustum-gaussian-notes) |
-| Part 2 scene-projection / surface-contact conditioning                           | [§12.5](../architecture/SceneScape-V2-Architecture.md#125-scene-projection-and-conditioning), **[§12.6 OCE](../architecture/SceneScape-V2-Architecture.md#126-observation-conditioning-engine)** (primary)                                                                                                    |
-| Mesh / support / depth-normal maps as scene context                              | [§7 SceneField](../architecture/SceneScape-V2-Architecture.md#7-scenefield-and-scenefield-belief-lifecycle)                                                                                                                                                                                                   |
-| Shape prior / upright-axis / temporal size feedback into `project_frustum_batch` | [§11 Shape Prior Resolution](../architecture/SceneScape-V2-Architecture.md#11-shape-extent-and-shape-prior-resolution)                                                                                                                                                                                        |
-| `FREE_3D` multi-camera depth                                                     | [§12.7](../architecture/SceneScape-V2-Architecture.md#127-multi-camera-and-multi-source-fusion)                                                                                                                                                                                                               |
-| Occlusion / partial vs total visibility (Steps 8, 9.5)                           | [§17](../architecture/SceneScape-V2-Architecture.md#17-observability-negative-evidence-and-occlusion-reasoning)                                                                                                                                                                                               |
-| Downstream tracker consumption of conditioned obs                                | [§15.3](../architecture/SceneScape-V2-Architecture.md#153-prior-state-conditioned-tracking)                                                                                                                                                                                                                   |
-| Boundary: conditioned output stays evidence                                      | [§12.6 / §12.8](../architecture/SceneScape-V2-Architecture.md#126-observation-conditioning-engine); STP commit [§14](../architecture/SceneScape-V2-Architecture.md#14-scene-transformation-pipeline-stp)                                                                                                      |
+| Algo concept                                                                     | Architecture section           |
+| -------------------------------------------------------------------------------- | ------------------------------ |
+| Phase 1 `frustum-gaussian` / `FrustumObservation`                                | §12.2–12.3, §29.4, Appendix C  |
+| Part 2 scene-projection / surface-contact conditioning                           | §12.5, **§12.6 OCE** (primary) |
+| Mesh / support / depth-normal maps as scene context                              | §7 SceneField                  |
+| Shape prior / upright-axis / temporal size feedback into `project_frustum_batch` | §11 Shape Prior Resolution     |
+| `FREE_3D` multi-camera depth                                                     | §12.7                          |
+| Occlusion / partial vs total visibility (Steps 8, 9.5)                           | §17                            |
+| Downstream tracker consumption of conditioned obs                                | §15.3                          |
+| Boundary: conditioned output stays evidence                                      | §12.6 / §12.8; STP commit §14  |
 
 ---
 
@@ -39,11 +40,11 @@ The `scene-projection` library is a dedicated second component that consumes the
   camera along $\hat{r}$). This is the primary depth-resolution
   mechanism for the majority of tracked objects and is far more powerful than the shape prior
   alone.
-  See also [§12.5 Scene Projection and Conditioning](../architecture/SceneScape-V2-Architecture.md#125-scene-projection-and-conditioning) and [§12.6 Observation Conditioning Engine](../architecture/SceneScape-V2-Architecture.md#126-observation-conditioning-engine).
+  See also §12.5 Scene Projection and Conditioning and §12.6 Observation Conditioning Engine.
 - **`FREE_3D` passthrough** — Objects with no assumed surface contact (drones, suspended items,
   objects of unknown posture) are passed through unconditioned. Their depth is resolved by
   multi-camera ray intersection and/or velocity-bounded temporal filtering.
-  See also [§12.7 Multi-Camera and Multi-Source Fusion](../architecture/SceneScape-V2-Architecture.md#127-multi-camera-and-multi-source-fusion).
+  See also §12.7 Multi-Camera and Multi-Source Fusion.
 - (Future work) **Upright-axis flag** — A per-class learnable flag indicating whether the object's longest
   dimension is approximately vertical. When validated from sufficient unoccluded observations,
   it tightens $\sigma_z$ conditioning after the surface hit. This is a learned refinement, not
@@ -52,13 +53,13 @@ The `scene-projection` library is a dedicated second component that consumes the
   frames), size refinement from unoccluded traversals, and maximum observed extent are
   maintained in tracker state and fed back as tightened shape priors on subsequent calls to
   `project_frustum_batch`.
-  See also [§11 Shape, Extent, and Shape Prior Resolution](../architecture/SceneScape-V2-Architecture.md#11-shape-extent-and-shape-prior-resolution).
+  See also §11 Shape, Extent, and Shape Prior Resolution.
 
 ---
 
 ## 2. Interface (input from frustum-gaussian)
 
-See also [§12.2 Projection Kernel Boundary](../architecture/SceneScape-V2-Architecture.md#122-projection-kernel-boundary) and [Appendix C](../architecture/SceneScape-V2-Architecture.md#appendix-c--observation-projection-and-frustum-gaussian-notes) for the architectural projection-kernel contract (`depth_lo` / `depth_hi` / `ray` / `score` and related fields).
+See also §12.2 Projection Kernel Boundary and Appendix C for the architectural projection-kernel contract (`depth_lo` / `depth_hi` / `ray` / `score` and related fields).
 
 ### C++
 
@@ -108,7 +109,7 @@ struct FrustumObservation {
 
 ## Step 0: Depth Map and Normal Map Creation
 
-See also [§7 SceneField](../architecture/SceneScape-V2-Architecture.md#7-scenefield-and-scenefield-belief-lifecycle): these depth/normal maps are a camera-view projection of SceneField geometry, support surfaces, and observability context.
+See also §7 SceneField: these depth/normal maps are a camera-view projection of SceneField geometry, support surfaces, and observability context.
 
 The depth map is a dense array that maps each pixel in the camera view to a scene hit.
 Building it is a one-time "loading" cost up front; afterwards every lookup is $O(1)$.
@@ -164,7 +165,7 @@ $$
 **2. Back-project each pixel to a camera-frame ray.** A pixel maps to a point on the virtual
 image plane at $(x, y, f)$, which — with the camera center as origin — is also the ray direction.
 
-![virtual image plane](virtual_plane.png)
+_(Virtual image-plane figure was not vendored into this tree.)_
 (Credit: https://visionbook.mit.edu/imaging_geometry.html)
 
 Since we start from pixel indices $(n, m)$, we invert the intrinsics to recover camera
@@ -475,7 +476,7 @@ _The math here is purposely kept minimal as this is a well known problem already
 
 #### Step 7: Determining if FREE_3D (Floating)
 
-See also [§12.7 Multi-Camera and Multi-Source Fusion](../architecture/SceneScape-V2-Architecture.md#127-multi-camera-and-multi-source-fusion): `FREE_3D` objects skip surface-contact conditioning; depth is left for multi-view / temporal fusion.
+See also §12.7 Multi-Camera and Multi-Source Fusion: `FREE_3D` objects skip surface-contact conditioning; depth is left for multi-view / temporal fusion.
 
 To determine if the object we have detected is floating we use the vertical-negative-offset on edge and over edge rays intersections.
 
@@ -495,7 +496,7 @@ Where 1 is a boolean indicating **FREE_3D**.
 
 #### Step 8: Determining Occlusion
 
-See also [§17.2 Observability Model](../architecture/SceneScape-V2-Architecture.md#172-observability-model) and [§17.4 Occlusion Reasoning](../architecture/SceneScape-V2-Architecture.md#174-occlusion-reasoning).
+See also §17.2 Observability Model and §17.4 Occlusion Reasoning.
 
 To determine an occlusion we are using depth discontinuities between $h_a$ and $h_b$. Given that the ground may be slanted and not occluding the expected distance between $h_a$ and $h_b$ will vary. Moreover, in the standard case we can expect that $h_b$ < $h_a$.
 
@@ -770,7 +771,7 @@ $$
 
 #### Step 9.5: Partial vs total occlusion (visibility fraction)
 
-See also [§17.4 Occlusion Reasoning](../architecture/SceneScape-V2-Architecture.md#174-occlusion-reasoning): visibility fraction distinguishes partial occlusion (persist behind occluder) from total silhouette blockage (reinterpret nearer surface as wall).
+See also §17.4 Occlusion Reasoning: visibility fraction distinguishes partial occlusion (persist behind occluder) from total silhouette blockage (reinterpret nearer surface as wall).
 
 Occlusion (Step 8) and wall (Step 9) locate the nearest surface along the ray, but not **whether
 the object is in front of or behind it**. A nearer surface is ambiguous: it is an **occluder**
@@ -919,9 +920,9 @@ routine (`scipy.stats.truncnorm`) rather than the raw $\phi/\Phi$ expressions ab
 ($\mu' = d_e,\ \sigma'^2 = \sigma_d^2$).
 
 The conditioned Gaussian remains **observation evidence**, not canonical belief. See
-[§12.6 Observation Conditioning Engine](../architecture/SceneScape-V2-Architecture.md#126-observation-conditioning-engine)
+§12.6 Observation Conditioning Engine
 (output contract) and
-[§15.3 Prior-State-Conditioned Tracking](../architecture/SceneScape-V2-Architecture.md#153-prior-state-conditioned-tracking)
+§15.3 Prior-State-Conditioned Tracking
 (tracker consumes OCE-conditioned observations before STP commit).
 
 ---

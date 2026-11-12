@@ -3,7 +3,7 @@
 A fast C++/Python library that converts 2D bounding box detections and oriented 3D bounding boxes into Gaussian observations suitable for multi-camera object tracking.
 
 > **How it works:** [ALGORITHM.md](ALGORITHM.md) — projection derivation, depth bounds, object modes, pipeline architecture
-> **Performance:** [benchmarks/REPORT.md](benchmarks/REPORT.md) — latency and throughput across N = 1–100 detections
+> **Performance:** see the summary table under **Benchmarks** below (full `benchmarks/` tree was not vendored into this repository)
 
 ## Concept
 
@@ -303,10 +303,7 @@ default and writes HTML and XML reports under
 
 ### Benchmarks
 
-```bash
-python3 benchmarks/bench_batch_variants.py --reps 20000 --warmup 500
-```
-
+Standalone `benchmarks/` scripts from the upstream package are not vendored here.
 Expected throughput on a 16-core Intel Core Ultra 7 at Release with oneTBB:
 
 | N detections | Latency | Throughput |
