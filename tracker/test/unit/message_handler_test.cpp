@@ -237,7 +237,7 @@ TEST_F(MessageHandlerTest, HandleMessage_BuffersDetections) {
     ASSERT_EQ(camera_map.size(), 1);
     ASSERT_TRUE(camera_map.count("cam1") == 1);
 
-    const auto& batch = camera_map.at("cam1");
+    const auto& batch = camera_map.at("cam1").latest;
     EXPECT_EQ(batch.camera_id, "cam1");
     EXPECT_EQ(batch.timestamp_iso, "2026-01-27T12:00:00.000Z");
     ASSERT_EQ(batch.detections.size(), 1);
@@ -264,7 +264,7 @@ TEST_F(MessageHandlerTest, BufferedData_ContainsCorrectDetectionInfo) {
     ASSERT_EQ(buffer_data.size(), 1);
 
     TrackingScope expected_scope{"test-scene-001", "person"};
-    const auto& batch = buffer_data.at(expected_scope).at("cam1");
+    const auto& batch = buffer_data.at(expected_scope).at("cam1").latest;
 
     EXPECT_EQ(batch.camera_id, "cam1");
     EXPECT_EQ(batch.timestamp_iso, "2026-01-27T12:00:00.000Z");
@@ -297,7 +297,8 @@ TEST_F(MessageHandlerTest, HandleMessage_ParsesWorldSpaceDetection) {
     mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
 
     const auto buffer_data = test_buffer_.pop_all();
-    const auto& detections = buffer_data.at({"test-scene-001", "vehicle"}).at("cam1").detections;
+    const auto& detections =
+        buffer_data.at({"test-scene-001", "vehicle"}).at("cam1").latest.detections;
     ASSERT_EQ(detections.size(), 1);
     const auto& detection = detections.front();
     EXPECT_FALSE(detection.bounding_box_px.area() > 0.0f);
@@ -328,7 +329,7 @@ TEST_F(MessageHandlerTest, HandleMessage_SkipsInvalidGeometryWithoutSchemaValida
         mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
 
         const auto buffered = test_buffer_.pop_all();
-        const auto& batch = buffered.at({"test-scene-001", "person"}).at("cam1");
+        const auto& batch = buffered.at({"test-scene-001", "person"}).at("cam1").latest;
         EXPECT_TRUE(batch.detections.empty()) << detection;
     }
 }
@@ -393,7 +394,7 @@ TEST_F(MessageHandlerTest, EmptyObjects_AfterNonEmpty_CreatesEmptyBatchForPrevio
         auto first_data = test_buffer_.pop_all();
         ASSERT_EQ(first_data.size(), 1u);
         ASSERT_EQ(first_data.count(person_scope), 1u);
-        EXPECT_EQ(first_data.at(person_scope).at("cam1").detections.size(), 1u);
+        EXPECT_EQ(first_data.at(person_scope).at("cam1").latest.detections.size(), 1u);
     }
 
     // Empty message: should produce an empty batch for "person" (enables track aging)
@@ -406,7 +407,7 @@ TEST_F(MessageHandlerTest, EmptyObjects_AfterNonEmpty_CreatesEmptyBatchForPrevio
         auto buffer_data = test_buffer_.pop_all();
         ASSERT_EQ(buffer_data.size(), 1u);
         ASSERT_EQ(buffer_data.count(person_scope), 1u);
-        const auto& batch = buffer_data.at(person_scope).at("cam1");
+        const auto& batch = buffer_data.at(person_scope).at("cam1").latest;
         EXPECT_EQ(batch.camera_id, "cam1");
         EXPECT_TRUE(batch.detections.empty()); // Empty batch enables Kalman filter time-step
     }
@@ -434,8 +435,8 @@ TEST_F(MessageHandlerTest, EmptyObjects_AfterNonEmpty_CreatesEmptyBatchForPrevio
         ASSERT_EQ(buffer_data.size(), 2u);
         ASSERT_EQ(buffer_data.count(person_scope), 1u);
         ASSERT_EQ(buffer_data.count(car_scope), 1u);
-        EXPECT_TRUE(buffer_data.at(person_scope).at("cam1").detections.empty());
-        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").detections.empty());
+        EXPECT_TRUE(buffer_data.at(person_scope).at("cam1").latest.detections.empty());
+        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").latest.detections.empty());
     }
 
     // --- Scenario 3: partial message with two known scopes ---
@@ -453,8 +454,9 @@ TEST_F(MessageHandlerTest, EmptyObjects_AfterNonEmpty_CreatesEmptyBatchForPrevio
         ASSERT_EQ(buffer_data.size(), 2u);
         ASSERT_EQ(buffer_data.count(person_scope), 1u);
         ASSERT_EQ(buffer_data.count(car_scope), 1u);
-        EXPECT_FALSE(buffer_data.at(person_scope).at("cam1").detections.empty()); // has detections
-        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").detections.empty());     // empty batch
+        EXPECT_FALSE(
+            buffer_data.at(person_scope).at("cam1").latest.detections.empty()); // has detections
+        EXPECT_TRUE(buffer_data.at(car_scope).at("cam1").latest.detections.empty()); // empty batch
     }
 }
 
@@ -526,7 +528,7 @@ TEST_F(MessageHandlerTest, BufferedData_PreservesTimestamp) {
     ASSERT_EQ(buffer_data.size(), 1);
 
     TrackingScope expected_scope{"test-scene-001", "person"};
-    const auto& batch = buffer_data.at(expected_scope).at("cam1");
+    const auto& batch = buffer_data.at(expected_scope).at("cam1").latest;
     EXPECT_EQ(batch.timestamp_iso, expected_timestamp);
 }
 
@@ -662,7 +664,7 @@ TEST_F(MessageHandlerTest, BufferKeepsLatest_WhenSameCameraSendsMultiple) {
 
     // Buffer should have only one entry per scope+camera (keep-latest semantics)
     ASSERT_EQ(buffer_data.size(), 1);
-    const auto& batch = buffer_data.at(expected_scope).at("cam1");
+    const auto& batch = buffer_data.at(expected_scope).at("cam1").latest;
 
     // Should have the LATEST detection (id=2)
     ASSERT_EQ(batch.detections.size(), 1);
@@ -705,7 +707,7 @@ TEST_P(MalformedDetectionTest, SkipsMalformedDetectionAndNoPublish) {
         auto buffer_data = test_buffer_.pop_all();
         TrackingScope scope{"test-scene-001", "person"};
         ASSERT_TRUE(buffer_data.count(scope));
-        EXPECT_TRUE(buffer_data.at(scope).at("cam1").detections.empty());
+        EXPECT_TRUE(buffer_data.at(scope).at("cam1").latest.detections.empty());
     } else {
         // Category itself was invalid (not an array) -> nothing buffered
         EXPECT_EQ(handler.getBufferedCount(), 0);
@@ -884,7 +886,7 @@ TEST_F(MessageHandlerTest, SchemaValidation_AcceptsWorldSpaceDetection) {
     EXPECT_EQ(handler.getRejectedCount(), 0);
     EXPECT_EQ(handler.getBufferedCount(), 1);
     const auto buffered = test_buffer_.pop_all();
-    EXPECT_EQ(buffered.at({"test-scene-001", "vehicle"}).at("cam1").detections.size(), 1);
+    EXPECT_EQ(buffered.at({"test-scene-001", "vehicle"}).at("cam1").latest.detections.size(), 1);
 }
 
 TEST_F(MessageHandlerTest, SchemaValidation_ZeroNormRotationKeepsDetectionWithoutOrientation) {
@@ -910,7 +912,8 @@ TEST_F(MessageHandlerTest, SchemaValidation_ZeroNormRotationKeepsDetectionWithou
     EXPECT_EQ(handler.getRejectedCount(), 0);
     EXPECT_EQ(handler.getBufferedCount(), 1);
     const auto buffered = test_buffer_.pop_all();
-    const auto& detections = buffered.at({"test-scene-001", "vehicle"}).at("cam1").detections;
+    const auto& detections =
+        buffered.at({"test-scene-001", "vehicle"}).at("cam1").latest.detections;
     ASSERT_EQ(detections.size(), 1);
     EXPECT_TRUE(detections.front().translation.has_value());
     EXPECT_TRUE(detections.front().size.has_value());
@@ -1171,7 +1174,7 @@ TEST_F(MessageHandlerTest, Detection_MetadataJson_ParsedWhenPresent) {
 
     auto buffer_data = test_buffer_.pop_all();
     TrackingScope expected_scope{"test-scene-001", "person"};
-    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+    const auto& det = buffer_data.at(expected_scope).at("cam1").latest.detections[0];
 
     EXPECT_FALSE(det.metadata_json.empty());
     rapidjson::Document doc;
@@ -1202,7 +1205,7 @@ TEST_F(MessageHandlerTest, Detection_MetadataJson_IgnoredWhenNotObject) {
 
     auto buffer_data = test_buffer_.pop_all();
     TrackingScope expected_scope{"test-scene-001", "person"};
-    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+    const auto& det = buffer_data.at(expected_scope).at("cam1").latest.detections[0];
 
     EXPECT_TRUE(det.metadata_json.empty());
 }
@@ -1228,7 +1231,7 @@ TEST_F(MessageHandlerTest, Detection_Confidence_ParsedWhenPresent) {
 
     auto buffer_data = test_buffer_.pop_all();
     TrackingScope expected_scope{"test-scene-001", "person"};
-    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+    const auto& det = buffer_data.at(expected_scope).at("cam1").latest.detections[0];
 
     ASSERT_TRUE(det.confidence.has_value());
     EXPECT_NEAR(*det.confidence, 0.87, 1e-9);
@@ -1251,7 +1254,7 @@ TEST_F(MessageHandlerTest, Detection_Confidence_AbsentWhenNotProvided) {
 
     auto buffer_data = test_buffer_.pop_all();
     TrackingScope expected_scope{"test-scene-001", "person"};
-    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+    const auto& det = buffer_data.at(expected_scope).at("cam1").latest.detections[0];
 
     EXPECT_FALSE(det.confidence.has_value());
 }
@@ -1274,7 +1277,7 @@ TEST_F(MessageHandlerTest, Detection_Confidence_IgnoredWhenNotNumber) {
 
     auto buffer_data = test_buffer_.pop_all();
     TrackingScope expected_scope{"test-scene-001", "person"};
-    const auto& det = buffer_data.at(expected_scope).at("cam1").detections[0];
+    const auto& det = buffer_data.at(expected_scope).at("cam1").latest.detections[0];
 
     EXPECT_FALSE(det.confidence.has_value());
 }
