@@ -12,6 +12,7 @@
 #include <rv/tracking/TrackTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/PositionGate.hpp>
 #include <rv/Utils.hpp>
 #include <rv/tracking/CameraUtils.hpp>
 #include <chrono>
@@ -77,7 +78,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("x", &rv::tracking::TrackedObject::x, "Position 'x' in meters.")
     .def_readwrite("y", &rv::tracking::TrackedObject::y, "Position 'y' in meters.")
     .def_readwrite("z", &rv::tracking::TrackedObject::z, "Position 'z' in meters.")
-    .def_readwrite("zMeasured", &rv::tracking::TrackedObject::zMeasured,
+    .def_readwrite("z_measured", &rv::tracking::TrackedObject::z_measured,
      "True when Z came from a measured 3D pose (translation), not ground-plane projection.")
     .def_readwrite("length", &rv::tracking::TrackedObject::length, "Object's length in meters.")
     .def_readwrite("width", &rv::tracking::TrackedObject::width, "Object's width in meters.")
@@ -229,15 +230,15 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
      "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
-     "Standard euclidean distance that considers x and y coordinates.")
+     "Euclidean distance on x and y, on x, y and z when both sides have z_measured.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
      "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
      "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
-     "Squared Mahalanobis distance on the (x, y, z) position block using predicted measurement covariance.")
+     "Squared Mahalanobis distance on the (x, y, z) block of the predicted measurement covariance when both sides have z_measured, else on the (x, y) block at the same gate probability; the threshold is chi2(p, 3).")
     .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
-     "Detection birth clustering: XY if either side lacks zMeasured; XYZ when both measured.")
+     "Detection birth clustering: XY if either side lacks z_measured; XYZ when both measured.")
     .export_values();
 
   py::class_<rv::tracking::TrackManagerConfig>(tracking, "TrackManagerConfig", "Holds all the configuration parameters used by the TrackManager.")
@@ -459,6 +460,15 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
      tracking.def("chi2_threshold", &rv::chi2Threshold,
                   "Chi-squared gate threshold for position innovation gating (df=2 XY, df=3 XYZ).",
                   py::arg("gate_probability"), py::arg("degrees_of_freedom") = 2);
+
+     tracking.def("gates_z",
+                  py::overload_cast<const rv::tracking::TrackedObject &, const rv::tracking::TrackedObject &>(
+                    &rv::tracking::position_gate::gatesZ),
+                  "True when both sides measured z (association / birth use XYZ).",
+                  py::arg("track"), py::arg("detection"));
+     tracking.def("position_chi2", &rv::tracking::position_gate::positionChi2,
+                  "Chi-squared gate for the position subspace: df=3 when include_z, else df=2.",
+                  py::arg("gate_probability"), py::arg("include_z"));
 
      tracking.def("angle_difference",
         &rv::angleDifference,

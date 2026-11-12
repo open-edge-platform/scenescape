@@ -26,7 +26,7 @@ Each `TrackingWorker` gets this geometry from a `DetectionProjector`
 ([`detection_projector.hpp`](../inc/detection_projector.hpp)). The default
 `CameraModelProjector` projects every camera batch with that camera's
 `CoordinateTransformer` and skips batches from unknown cameras. A projector sets
-geometry only: position, size, `zMeasured`, measurement noise when known, and
+geometry only: position, size, `z_measured`, measurement noise when known, and
 world yaw from a supplied rotation. Its `ProjectedDetections` hold one object per
 detection plus a `has_geometry` flag, which is 0 for a detection without a
 measurement. `toTrackerInputs` then attaches the detection's own data (id,
@@ -365,12 +365,15 @@ world orientation is reduced to Z-yaw and marked with `has_orientation`.
 This also applies to bounding-box detections, whose rotation was previously
 ignored by the tracker; supplied orientation can now change their published rotation.
 
-Translation detections keep their measured z and are marked `zMeasured`;
+Translation detections keep their measured z and are marked `z_measured`;
 pixel boxes are projected to z = 0. The filter estimates vertical velocity, so
 tracks publish `translation[2]` and `velocity[2] = vz`. Track-to-detection
-association gates in XYZ (χ² with 3 degrees of freedom for
-`position_mahalanobis`); the published `association_window` ellipse is the XY
-block with 2 degrees of freedom. Birth clustering across cameras uses XY distance
+association gates z only when the detection and the track both have measured z
+(a track keeps `z_measured` once an update measured it): XYZ with χ² of 3 degrees
+of freedom for `position_mahalanobis`, XY with 2 otherwise; `euclidean` uses the
+XY or XYZ distance by the same rule. The published `association_window` ellipse
+is the XY shadow of the track's gate, with 3 degrees of freedom for a track with
+measured z and 2 without. Birth clustering across cameras uses XY distance
 unless both detections have measured z, so stacked 3D detections stay separate
 while a pixel box and a 3D detection of the same object still fuse. Pixel boxes
 report the ground point and 3D detectors usually report the box centre, so a

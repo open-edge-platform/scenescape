@@ -316,8 +316,8 @@ struct PositionCovariance
   // Reported position covariance = reportedScale * covariance; the drawn error does not change. 1: calibrated; below 1
   // the sensor claims to be more precise than it is (0.25 reports half the true sigma), above 1 less precise.
   double reportedScale = 1.0;
-  bool reported = true;   // false: the same noise, but detections carry no R, so the tracker uses its default R
-  bool zMeasured = false; // sets TrackedObject::zMeasured, e.g. for a sensor that measures depth
+  bool reported = true;    // false: the same noise, but detections carry no R, so the tracker uses its default R
+  bool z_measured = false; // sets TrackedObject::z_measured, e.g. for a sensor that measures depth
   // Reported variance of every axis the sensor does not model (zero variance); keep it the tracker's
   // mDefaultMeasurementNoise, which also applies to detections without R.
   double defaultNoise = kProductionMeasurementNoise;
@@ -375,7 +375,7 @@ inline PositionCovariance depthCamera(const cv::Vec3d &position, double angularS
               const double acrossSigma = angularSigma * range;
               return alongSigma * alongSigma * along + acrossSigma * acrossSigma * (cv::Matx33d::eye() - along);
             },
-          .zMeasured = true};
+          .z_measured = true};
 }
 
 struct Sensor
@@ -391,6 +391,10 @@ struct Sensor
   // Position noise drawn from a covariance, reported as the detection's R; replaces positionNoise and zNoise.
   std::optional<PositionCovariance> positionCovariance;
   std::mt19937 covarianceRng{3}; // own generator: the size and yaw noise match a sensor without positionCovariance
+  // When false (and zNoise == 0), detections stay planar: association uses XY only; UKF still
+  // corrects z until a track gains sticky measured height, then later planar updates omit z.
+  // zNoise > 0 implies a ranging sensor and sets detection.z_measured even if this stays false.
+  bool z_measured = false; // detections from this sensor set TrackedObject::z_measured
 };
 
 // Lets a test repeat a scenario with different noise; seed 1 reproduces the defaults.
@@ -505,6 +509,7 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
   {
     auto detection = makeDetection(sample);
     std::optional<cv::Matx33d> trueCovariance;
+    bool z_measured = sensor.z_measured || sensor.zNoise > 0.0;
     if (sensor.positionCovariance)
     {
       trueCovariance = sensor.positionCovariance->covariance(sample);
@@ -512,14 +517,15 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
       detection.x += error[0];
       detection.y += error[1];
       detection.z += error[2];
-      detection.zMeasured = sensor.positionCovariance->zMeasured;
+      z_measured = z_measured || sensor.positionCovariance->z_measured;
     }
+    detection.z_measured = z_measured;
     if (sensor.positionNoise > 0.0)
     {
       detection.x += sensor.positionNoise * noise(sensor.rng);
       detection.y += sensor.positionNoise * noise(sensor.rng);
     }
-    if (sensor.zNoise > 0.0)
+    if (z_measured && sensor.zNoise > 0.0)
     {
       detection.z += sensor.zNoise * zNoiseDistribution(sensor.zRng);
     }

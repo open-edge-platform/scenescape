@@ -22,7 +22,7 @@ namespace tracker {
 /**
  * @brief Source of world-space geometry for camera detections.
  *
- * A projector sets geometry only: position, size, zMeasured, measurement noise when known and,
+ * A projector sets geometry only: position, size, z_measured, measurement noise when known and,
  * from a supplied rotation, world yaw with attributes["has_orientation"]. The detection's own
  * data (id, metadata, confidence, ReID) is attached afterwards by toTrackerInputs(), the same
  * way for every projector.
