@@ -86,13 +86,44 @@ def _is_number(value):
   except (TypeError, ValueError, OverflowError):
     return False
 
+def _parse_number_string(value):
+  """Parse a numeric list written as text, including NumPy's default repr."""
+  text = value.strip()
+  if not text or len(text) > 100000:
+    return None
+  if text[0] in '[(' and text[-1] in '])':
+    try:
+      parsed = json.loads(text)
+    except json.JSONDecodeError:
+      parsed = None
+    if isinstance(parsed, list):
+      return parsed
+    text = text[1:-1].strip()
+  if not text:
+    return None
+  return [part for part in text.replace(',', ' ').split() if part]
+
+def _coerce_number_sequence(value):
+  """Return list-like input, or None when value cannot be a number list."""
+  if isinstance(value, str):
+    return _parse_number_string(value)
+  if isinstance(value, (list, tuple)):
+    return value
+  if isinstance(value, Mapping) or isinstance(value, (bytes, bytearray)):
+    return None
+  if hasattr(value, 'tolist'):
+    converted = value.tolist()
+    return converted if isinstance(converted, list) else None
+  return None
+
 def _number_list(value, field, lengths=None):
   """Return value as a list of floats or raise a ValidationError for field."""
-  if not isinstance(value, (list, tuple)) or not all(_is_number(item) for item in value) \
-     or (lengths is not None and len(value) not in lengths):
+  sequence = _coerce_number_sequence(value)
+  if sequence is None or not all(_is_number(item) for item in sequence) \
+     or (lengths is not None and len(sequence) not in lengths):
     count = " or ".join(str(n) for n in lengths) + " " if lengths else ""
     raise serializers.ValidationError({field: f"must be a list of {count}numbers"})
-  return [float(item) for item in value]
+  return [float(item) for item in sequence]
 
 def _normalized_rotation(transform_type, rotation):
   if transform_type != QUATERNION:
@@ -622,8 +653,12 @@ class CamSerializer(NonNullSerializer):
     self.create_camera_instance(obj)
 
     camera = obj.scene.scenescapeScene.cameraWithID(obj.sensor_id)
-    return getattr(camera.pose, 'euler_rotation', None) \
+    rotation = getattr(camera.pose, 'euler_rotation', None) \
       if camera and hasattr(camera, 'pose') else None
+    if rotation is None:
+      return None
+    # Pose stores a NumPy vector; archives and REST must round-trip a JSON list.
+    return rotation.tolist() if hasattr(rotation, 'tolist') else list(rotation)
 
   def get_pose_matrix(self, obj):
     if not obj.scene:
