@@ -10,7 +10,7 @@ On Scenescape, RESTler is used satisfy the CT631 SDL task, which specifies fuzz 
 
 This directory contains the following:
 
-- `fuzzing_openapi.yaml`: a curated manager API spec. The canonical manager spec is `docs/user-guide/api-docs/api.yaml`; the fuzzing spec intentionally excludes `/auth` and `/import-scene`.
+- `fuzzing_openapi.yaml`: a curated manager API spec. The canonical manager spec is `docs/user-guide/api-docs/api.yaml`. Both `/auth` and `/import-scene/` are in that token spec; this fuzzing grammar leaves them out. `/auth` is called separately to obtain the token, and `/import-scene/` is a multipart ZIP upload. `/save-geospatial-snapshot/` is not in the token spec: it is a browser session endpoint.
 - `run_fuzzing.sh`: script that will run inside the RESTler container. Sets up the environment, then compiles the grammar and executes the fuzzing run.
 - `run_service_fuzzing.sh`: shared runner for service-specific campaigns.
 - `run_autocalibration_fuzzing.sh`: runner for the Auto Camera Calibration API.
