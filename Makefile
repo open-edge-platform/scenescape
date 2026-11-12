@@ -446,7 +446,7 @@ setup-pytest:
 			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
 	fi
 	@if [ ! -f "$(RV_BUILD_STAMP)" ] \
-		|| [ -n "$$(find $(RV_BUILD_INPUTS) -type f -not -path '*/__pycache__/*' -newer $(RV_BUILD_STAMP) -print -quit)" ] \
+		|| [ -n "$$(find $(RV_BUILD_INPUTS) -type d -name __pycache__ -prune -o -newer "$(RV_BUILD_STAMP)" -print -quit)" ] \
 		|| ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
 		for pkg in libopencv-dev libeigen3-dev; do \
