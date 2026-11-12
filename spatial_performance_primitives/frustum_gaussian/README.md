@@ -3,7 +3,7 @@
 A fast C++/Python library that converts 2D bounding box detections and oriented 3D bounding boxes into Gaussian observations suitable for multi-camera object tracking.
 
 > **How it works:** [ALGORITHM.md](ALGORITHM.md) — projection derivation, depth bounds, object modes, pipeline architecture
-> **Performance:** see the summary table under **Benchmarks** below (full `benchmarks/` tree was not vendored into this repository)
+> **Performance:** see the summary table under **Benchmarks** below
 
 ## Concept
 
@@ -41,7 +41,7 @@ target_link_libraries(my_target PRIVATE frustum_gaussian_core)
 ```cpp
 #include <frustum_gaussian/frustum.hpp>
 
-fg::Intrinsics K(fx, fy, cx, cy, width, height);
+fg::Intrinsics K(fx, fy, cx, cy, width, height);benchmarks
 fg::ShapePrior prior(0.5f, 0.5f, 1.7f,   // mu_x, mu_y, mu_z (meters)
                      0.1f, 0.1f, 0.15f);  // sigma_x, sigma_y, sigma_z (meters)
 
@@ -315,8 +315,7 @@ Expected throughput on a 16-core Intel Core Ultra 7 at Release with oneTBB:
 
 ## Pipeline fit
 
-This library is the **per-camera projection kernel** in a broader Gaussian splat-like
-tracking system. Its outputs feed a planned chain of downstream components:
+This library is the **per-camera projection kernel**. Typical downstream use:
 
 ```
 2D detector                     3D detector (LiDAR / stereo / monocular-3D DNN)
@@ -324,11 +323,12 @@ tracking system. Its outputs feed a planned chain of downstream components:
               └──────────────────────────────────┘
                            ← this library →
                     └─▶ transform_to_world[_batch]()
-                            └─▶ scene-projection layer   (surface conditioning, FREE_3D)
-                                    └─▶ information-form multi-camera fuser
-                                                └─▶ volumetric tracker
+                            └─▶ observation_conditioning   (mesh / FREE_3D)
+                                    └─▶ multi-camera fuser / tracker
 ```
 
-The `mu`, `Sigma`, `ray`, `depth_lo`, `depth_hi`, and `score` fields are the interface contract with the scene-projection layer, which decides how to apply terrain or surface constraints depending on each object's class and posture.
+The `mu`, `Sigma`, `ray`, `depth_lo`, `depth_hi`, and `score` fields are the interface
+contract with [`observation_conditioning`](../observation_conditioning/), which applies
+scene-mesh constraints (or passes FREE_3D detections through) before fusion/tracking.
 
-For the full architectural rationale, object mode discussion, and deployment scenarios see [ALGORITHM.md](ALGORITHM.md).
+For algorithm details and deployment notes see [ALGORITHM.md](ALGORITHM.md).

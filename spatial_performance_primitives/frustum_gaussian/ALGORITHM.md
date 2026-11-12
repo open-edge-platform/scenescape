@@ -320,20 +320,19 @@ set to `EDGE_ALL`.
 
 ## 3. Downstream consumers
 
-This library is a **pure projection kernel**: it converts 2D bounding boxes (or 3D oriented bounding boxes) into 3D Gaussian observations and stops there. Decisions about object modes, surface constraints, and temporal integration are the responsibility of the Phase 2 tracking layer.
+This library is a **pure projection kernel**: it converts 2D bounding boxes (or 3D oriented bounding boxes) into 3D Gaussian observations and stops there. Mesh conditioning, track association, and multi-camera fusion live elsewhere.
 
-### 3.1 Phase 2 — scene-projection library (planned)
+### 3.1 `observation_conditioning` (mesh conditioning)
 
-The outputs of `project_frustum_batch` are consumed by a dedicated Phase 2 library (`scene-projection`, to be developed as a separate optimized component) that applies scene-specific constraints:
+World-frame frustum outputs are consumed by sibling package
+[`observation_conditioning`](../observation_conditioning/), which applies scene-mesh
+constraints:
 
-- **Surface-contact conditioning:** For objects in contact with a known surface (floor, shelf, ground), the center ray is intersected with the scene mesh or terrain model and the Gaussian is conditioned on the resulting contact-point z-coordinate. This is the primary depth-resolution mechanism for the majority of tracked objects and is far more powerful than the shape prior alone.
-- **FREE_3D passthrough:** Objects with no assumed surface contact (drones, suspended items, objects of unknown posture) are passed through unconditioned. Their depth is resolved by multi-camera ray intersection and/or velocity-bounded temporal filtering.
-- **Upright-axis flag:** A per-class learnable flag indicating whether the object's longest dimension is approximately vertical. When validated from sufficient unoccluded observations, this tightens σ_z conditioning after the surface hit. It is a learned refinement, not an a priori assumption — the default is to leave σ_z at the prior width.
-- **Temporal constraints:** Velocity bounds (derived from world-coordinate displacement across frames), size refinement from unoccluded traversals, and maximum observed extent are maintained in tracker state and fed back as tightened shape priors on subsequent calls to `project_frustum_batch`.
+- **Surface-contact conditioning:** For objects in contact with a known surface (floor, shelf, ground), the center ray is intersected with the scene mesh and the Gaussian depth is conditioned on the hit. This is the primary depth-resolution mechanism for most ground-contact objects.
+- **FREE_3D passthrough:** Objects with no assumed surface contact (drones, suspended items, unknown posture) are passed through unconditioned; depth is left for multi-camera fusion and/or temporal filtering.
+- **Upright-axis / temporal refinements (future):** Optional tightening of σ_z or shape priors from tracker state can be fed back on later `project_frustum_batch` calls; this kernel stays stateless.
 
-The `depth_lo`, `depth_hi`, `ray`, and `score` fields in `FrustumObservation` are the primary interface between this library and the Phase 2 layer. See §6 for the full field reference.
-
-> **Note:** The Phase 2 scene-projection library does not exist yet. Its interface, parallelism strategy, and surface-intersection kernel will require the same performance characterization applied to this library. A separate benchmarking effort is needed.
+The `depth_lo`, `depth_hi`, `ray`, and `score` fields in `FrustumObservation` are the primary interface into that conditioning step. See §6 for the full field reference.
 
 ---
 
@@ -347,7 +346,7 @@ flowchart TD
         B["<b>project_frustum_batch</b>(boxes, K, priors)<br/><i>frustum-gaussian kernel</i>"]
         B3["<b>project_frustum_3d</b> / <b>from_3d_annotations</b><br/><i>frustum-gaussian kernel</i>"]
         C["transform_to_world[_batch](result, pose_mat)"]
-        D["Phase 2: scene-projection library<br/>surface conditioning / FREE_3D passthrough"]
+        D["observation_conditioning<br/>surface conditioning / FREE_3D passthrough"]
         A  -- "N bounding boxes + class labels" --> B
         A3 -- "N oriented 3D BBs\n{translation, rotation, dimension}" --> B3
         B  -- "N × FrustumObservation" --> C
@@ -355,13 +354,13 @@ flowchart TD
         C  -- "N × world-frame Gaussian" --> D
     end
 
-    D -- "per-camera observations\n(repeated for every camera)" --> E
+    D -- "per-camera measurements\n(repeated for every camera)" --> E
 
-    subgraph fuser ["Phase 3a — Multi-camera information-form fuser"]
+    subgraph fuser ["Multi-camera information-form fuser"]
         E["Λ += Σ⁻¹,  ξ += Σ⁻¹μ  (accumulate)\nΣ_fused = Λ⁻¹,  μ_fused = Λ⁻¹ξ  (recover)\nAssociate: Mahalanobis distance"]
     end
 
-    E --> F["Volumetric tracker (Phase 3b)"]
+    E --> F["Tracker"]
 ```
 
 `project_frustum_batch` sits at the innermost loop boundary. Its latency directly determines the minimum camera-frame processing delay and therefore the maximum supportable camera count at a given frame rate.
@@ -384,11 +383,11 @@ The `PARALLEL_THRESHOLD = 64` is the empirically validated switch point on Intel
 
 ### 4.2 Typical scene-class shape priors
 
-These are the initial class-level priors passed to `project_frustum_batch`. The Phase 2
-scene-projection library determines whether surface-contact conditioning applies; this
+These are the initial class-level priors passed to `project_frustum_batch`. Downstream
+`observation_conditioning` decides whether surface-contact conditioning applies; this
 library treats all classes identically.
 
-| Class | μ_x (m) | μ_y (m) | μ_z (m) | σ_z (m) | Depth range | Phase 2 mode |
+| Class | μ_x (m) | μ_y (m) | μ_z (m) | σ_z (m) | Depth range | Conditioning mode |
 |-------|---------|---------|---------|---------|-------------|-------------|
 | Pedestrian | 0.55 | 0.55 | 1.70 | 0.15 | 5–20 m | Scene-projected |
 | Cyclist | 0.65 | 1.10 | 1.60 | 0.10 | 5–30 m | Scene-projected |
@@ -460,3 +459,4 @@ The `ray` field is rotated (not translated) — it remains a direction vector.
 - Observation Processor service — consumes this library plus `observation_conditioning`
 - Eigen3 — [https://eigen.tuxfamily.org](https://eigen.tuxfamily.org)
 - Intel oneTBB — [https://github.com/oneapi-src/oneTBB](https://github.com/oneapi-src/oneTBB)
+$$
