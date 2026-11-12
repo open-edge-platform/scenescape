@@ -23,8 +23,8 @@ from observation_processor.grpc_api import observation_processor_pb2_grpc
 from observation_processor.grpc_tls import bind_server_port, insecure_requested
 from observation_processor.scene_provider import (
   CameraNotCalibratedError, CameraNotFoundError, CameraResolutionUnsupportedError,
-  InvalidAssetPriorError, SceneMeshMissingError, SceneNotFoundError, SceneProvider,
-  StoreUnavailableError,
+  InvalidAssetPriorError, SceneMeshMissingError, SceneMeshTooLargeError,
+  SceneNotFoundError, SceneProvider, StoreUnavailableError,
 )
 
 SERVICE_NAME = "scenescape.observation_processor.v1.ObservationProcessorService"
@@ -52,7 +52,7 @@ class ObservationProcessorServicer(
     except (SceneNotFoundError, CameraNotFoundError):
       context.abort(grpc.StatusCode.NOT_FOUND, "scene or camera was not found in the scene")
     except (CameraNotCalibratedError, CameraResolutionUnsupportedError,
-            InvalidAssetPriorError, SceneMeshMissingError) as exc:
+            InvalidAssetPriorError, SceneMeshMissingError, SceneMeshTooLargeError) as exc:
       context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
     except StoreUnavailableError:
       context.abort(grpc.StatusCode.UNAVAILABLE, "configuration store or cache is unavailable")

@@ -105,8 +105,11 @@ publishing obsolete data. Broker reconnects also schedule a refresh to recover
 missed events. Database events wake the readiness worker immediately; periodic
 probes and failed-refresh retries use `OBSERVATION_PROCESSOR_READY_INTERVAL_SECONDS`.
 Scene meshes are read from the shared media volume when mounted, with an
-authenticated HTTPS download as fallback. Fallback downloads are restricted
-to the Manager's origin, do not follow redirects, and are limited to 100 MiB.
+authenticated HTTPS download as fallback. Local and downloaded meshes are size-
+checked before they are fully loaded (100 MiB). Fallback downloads are restricted
+to the Manager's origin and do not follow redirects. A mesh that fails to warm
+for one scene is logged and skipped (the previous mesh is kept when available);
+`AUTO` falls back to `FRUSTUM_ONLY` for that scene while other scenes continue.
 
 ## ProcessDetections
 
@@ -114,10 +117,11 @@ The typed unary RPC is defined in [`proto/observation_processor.proto`](proto/ob
 It accepts a scene ID, camera ID, protobuf acquisition timestamp, conditioning
 mode and an ordered list of raw-pixel bounding boxes with categories.
 
-- `AUTO`: use full conditioning for GLB scenes, frustum-only otherwise.
+- `AUTO`: use full conditioning when a usable GLB mesh is available; otherwise
+  frustum-only (for example when the mesh is missing, unreadable, or too large).
 - `FULL`: native C++ frustum projection followed by amodal mesh conditioning.
 - `FRUSTUM_ONLY`: skip amodal conditioning; per-object `project_to_map` can still
-  intersect the scene mesh.
+  intersect the scene mesh when one is available.
 
 Headless OpenCV (the same version used by the other services) undistorts box
 corners using the stored camera calibration. Supported distortion vectors have
@@ -151,13 +155,13 @@ perform cold mesh loads as part of a refresh.
 Empty detection lists are valid; scene, camera and mode are still checked.
 Errors apply to the whole frame:
 
-| gRPC status           | Cause                                                                                                                                     |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `INVALID_ARGUMENT`    | Missing fields, invalid timestamp/mode, nonfinite or negative box values, values outside the native float32 range, or too many detections |
-| `NOT_FOUND`           | Unknown scene or camera, including a camera outside the scene                                                                             |
-| `FAILED_PRECONDITION` | Invalid camera calibration, camera resolution above the amodal bake limit, invalid asset sizes, or FULL mode without a mesh               |
-| `UNAVAILABLE`         | No successfully warmed configuration snapshot available                                                                                   |
-| `INTERNAL`            | Projection or conditioning failure                                                                                                        |
+| gRPC status           | Cause                                                                                                                                              |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_ARGUMENT`    | Missing fields, invalid timestamp/mode, nonfinite or negative box values, values outside the native float32 range, or too many detections          |
+| `NOT_FOUND`           | Unknown scene or camera, including a camera outside the scene                                                                                      |
+| `FAILED_PRECONDITION` | Invalid camera calibration, camera resolution above the amodal bake limit, invalid asset sizes, FULL mode without a usable mesh, or mesh too large |
+| `UNAVAILABLE`         | No successfully warmed configuration snapshot available                                                                                            |
+| `INTERNAL`            | Projection or conditioning failure                                                                                                                 |
 
 Clients decide whether to retain their legacy projection after a frame error;
 this service never silently substitutes it.

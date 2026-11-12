@@ -21,10 +21,11 @@ measurement, and optionally conditions depth against the scene mesh.
 
 The `mode` field selects the processing path:
 
-- `AUTO`: use full mesh conditioning when the scene has a GLB mesh; otherwise
-  return frustum-only measurements.
+- `AUTO`: use full mesh conditioning when a usable GLB mesh is available;
+  otherwise return frustum-only measurements (including when the mesh is
+  present but unreadable or too large).
 - `FULL`: project detections and condition them against the scene mesh. The
-  request fails with `FAILED_PRECONDITION` if the scene has no GLB mesh.
+  request fails with `FAILED_PRECONDITION` if no usable GLB mesh is available.
 - `FRUSTUM_ONLY`: skip amodal mesh conditioning. Per-detection `project_to_map`
   can still use the mesh when one is available.
 
@@ -49,13 +50,13 @@ The protobuf contract is maintained in
 [`observation_processor.proto`](../../../../observation_processor/proto/observation_processor.proto).
 Errors apply to the whole frame:
 
-| Status                | Meaning                                                                                                                               |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `INVALID_ARGUMENT`    | Required request data is missing or invalid, or the detection list exceeds the configured limit.                                      |
-| `NOT_FOUND`           | The scene or camera is unknown or not associated.                                                                                     |
-| `FAILED_PRECONDITION` | Camera calibration is invalid, resolution exceeds the amodal bake limit, an asset has invalid sizes, or `FULL` mode needs a GLB mesh. |
-| `UNAVAILABLE`         | No warmed configuration is available or the configuration store cannot be reached.                                                    |
-| `INTERNAL`            | Projection or conditioning failed.                                                                                                    |
+| Status                | Meaning                                                                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_ARGUMENT`    | Required request data is missing or invalid, or the detection list exceeds the configured limit.                                                                          |
+| `NOT_FOUND`           | The scene or camera is unknown or not associated.                                                                                                                         |
+| `FAILED_PRECONDITION` | Camera calibration is invalid, resolution exceeds the amodal bake limit, mesh exceeds the size limit, an asset has invalid sizes, or `FULL` mode needs a usable GLB mesh. |
+| `UNAVAILABLE`         | No warmed configuration is available or the configuration store cannot be reached.                                                                                        |
+| `INTERNAL`            | Projection or conditioning failed.                                                                                                                                        |
 
 See the [build guide](get-started/build-from-source.md) for building and
 starting the optional Compose service. Service configuration variables and a

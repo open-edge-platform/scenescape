@@ -17,7 +17,7 @@ from observation_processor.server import ObservationProcessorServicer
 from observation_processor.scene_provider import (
   CameraInfo, CameraNotCalibratedError, CameraNotFoundError,
   CameraResolutionUnsupportedError, InvalidAssetPriorError, SceneMeshMissingError,
-  SceneNotFoundError, SceneProvider, StoreUnavailableError,
+  SceneMeshTooLargeError, SceneNotFoundError, SceneProvider, StoreUnavailableError,
 )
 
 
@@ -319,6 +319,28 @@ def test_full_requires_mesh(process_frame, frame, projection_configuration):
     process_frame(frame)
 
 
+def test_auto_falls_back_to_frustum_when_mesh_unusable(process_frame, frame,
+                                                      projection_configuration):
+  projection_configuration.provider._world_meshes.clear()
+  with patch.object(SceneProvider, "get_world_mesh",
+                    side_effect=SceneMeshTooLargeError("too large")):
+    frame.mode = pb.CONDITIONING_MODE_AUTO
+    response = process_frame(frame)
+  assert response.mode == pb.CONDITIONING_MODE_FRUSTUM_ONLY
+  assert response.measurements[0].depth_source == pb.DEPTH_SOURCE_FRUSTUM
+  assert not response.measurements[0].HasField("amodal")
+
+
+def test_full_rejects_oversized_mesh(process_frame, frame, projection_configuration):
+  projection_configuration.provider._world_meshes.clear()
+  with patch.object(SceneProvider, "get_world_mesh",
+                    side_effect=SceneMeshTooLargeError(
+                      "scene mesh exceeds maximum size of 4 bytes")):
+    frame.mode = pb.CONDITIONING_MODE_FULL
+    with pytest.raises(SceneMeshTooLargeError, match="exceeds maximum size"):
+      process_frame(frame)
+
+
 def test_pending_refresh_serves_requests_without_cold_loading(process_frame, frame,
                                                             projection_configuration):
   projection_configuration.provider.invalidate()
@@ -436,6 +458,10 @@ def test_invalid_asset_does_not_silently_use_pedestrian_prior(process_frame, fra
   pytest.param(
     SceneMeshMissingError("scene has no mesh"), grpc.StatusCode.FAILED_PRECONDITION,
     "scene has no mesh", id="scene-mesh-missing"),
+  pytest.param(
+    SceneMeshTooLargeError("scene mesh exceeds maximum size of 4 bytes"),
+    grpc.StatusCode.FAILED_PRECONDITION,
+    "scene mesh exceeds maximum size of 4 bytes", id="scene-mesh-too-large"),
   pytest.param(
     StoreUnavailableError("Manager is unreachable"), grpc.StatusCode.UNAVAILABLE,
     "configuration store or cache is unavailable", id="store-unavailable"),

@@ -14,6 +14,8 @@ import frustum_gaussian as fg
 import numpy as np
 
 from observation_processor.grpc_api import observation_processor_pb2 as pb
+from scene_common import log
+
 from observation_processor.scene_provider import (
   CameraInfo, CameraNotCalibratedError, SceneMeshMissingError, SceneProvider,
 )
@@ -284,12 +286,17 @@ def process_detections(request: pb.ProcessDetectionsRequest,
   scene = snapshot.get_scene(request.scene_id)
   camera = snapshot.get_camera(request.scene_id, request.camera_id)
   coefficients = camera.distortion_coefficients
-  has_mesh = snapshot.scene_has_mesh(scene)
   mode = request.mode
-  if mode == pb.CONDITIONING_MODE_AUTO:
-    mode = pb.CONDITIONING_MODE_FULL if has_mesh else pb.CONDITIONING_MODE_FRUSTUM_ONLY
-  if mode == pb.CONDITIONING_MODE_FULL and not has_mesh:
-    raise SceneMeshMissingError("FULL conditioning requires a GLB scene mesh")
+  if mode == pb.CONDITIONING_MODE_FULL:
+    has_mesh = snapshot.has_usable_mesh(request.scene_id, require_mesh=True)
+  else:
+    has_mesh = snapshot.has_usable_mesh(request.scene_id, require_mesh=False)
+    if mode == pb.CONDITIONING_MODE_AUTO:
+      mode = pb.CONDITIONING_MODE_FULL if has_mesh else pb.CONDITIONING_MODE_FRUSTUM_ONLY
+      if not has_mesh and snapshot.scene_has_mesh(scene):
+        log.warning(
+          f"observation-processor: scene {request.scene_id} declares a GLB mesh "
+          "but it is unusable; AUTO selected FRUSTUM_ONLY")
   response = pb.ProcessDetectionsResponse(
     scene_id=request.scene_id, camera_id=request.camera_id, timestamp=request.timestamp, mode=mode)
   if not request.detections:

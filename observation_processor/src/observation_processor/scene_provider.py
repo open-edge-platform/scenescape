@@ -75,27 +75,6 @@ def _http_origin(url):
   return scheme, hostname.lower(), port
 
 
-def _read_mesh_response(reply, url):
-  if reply.status_code != 200:
-    raise StoreUnavailableError(f"download {url}: HTTP {reply.status_code}")
-  content_length = reply.headers.get("Content-Length")
-  if content_length is not None:
-    try:
-      declared_size = int(content_length)
-    except ValueError as exc:
-      raise StoreUnavailableError("scene mesh has invalid Content-Length") from exc
-    if declared_size < 0 or declared_size > MAX_SCENE_MESH_BYTES:
-      raise StoreUnavailableError(
-        f"scene mesh exceeds maximum download size of {MAX_SCENE_MESH_BYTES} bytes")
-  content = bytearray()
-  for chunk in reply.iter_content(chunk_size=MESH_DOWNLOAD_CHUNK_SIZE):
-    if len(content) + len(chunk) > MAX_SCENE_MESH_BYTES:
-      raise StoreUnavailableError(
-        f"scene mesh exceeds maximum download size of {MAX_SCENE_MESH_BYTES} bytes")
-    content.extend(chunk)
-  return bytes(content)
-
-
 class StoreUnavailableError(Exception):
   """The Manager REST API is unreachable; the request is retryable."""
 
@@ -120,8 +99,63 @@ class SceneMeshMissingError(Exception):
   """The scene has no GLB mesh (image-based map or no map at all)."""
 
 
+class SceneMeshTooLargeError(Exception):
+  """The scene GLB exceeds the configured maximum mesh size."""
+
+
 class CameraResolutionUnsupportedError(Exception):
   """Camera image size exceeds the amodal depth-map bake limit."""
+
+
+# Geometry problems that should not abort a multi-scene warm().
+_MESH_WARM_ERRORS = (
+  SceneMeshTooLargeError, SceneMeshMissingError, StoreUnavailableError,
+  OSError, ValueError, RuntimeError,
+)
+
+
+def _append_mesh_chunk(content: bytearray, chunk: bytes) -> None:
+  if len(content) + len(chunk) > MAX_SCENE_MESH_BYTES:
+    raise SceneMeshTooLargeError(
+      f"scene mesh exceeds maximum size of {MAX_SCENE_MESH_BYTES} bytes")
+  content.extend(chunk)
+
+
+def _read_mesh_file(path: str) -> bytes:
+  """Read a local mesh, checking size before and while loading."""
+  try:
+    size = os.path.getsize(path)
+  except OSError as exc:
+    raise StoreUnavailableError(f"scene mesh is unreadable: {path}") from exc
+  if size < 0 or size > MAX_SCENE_MESH_BYTES:
+    raise SceneMeshTooLargeError(
+      f"scene mesh exceeds maximum size of {MAX_SCENE_MESH_BYTES} bytes")
+  content = bytearray()
+  with open(path, "rb") as handle:
+    while True:
+      chunk = handle.read(MESH_DOWNLOAD_CHUNK_SIZE)
+      if not chunk:
+        break
+      _append_mesh_chunk(content, chunk)
+  return bytes(content)
+
+
+def _read_mesh_response(reply, url):
+  if reply.status_code != 200:
+    raise StoreUnavailableError(f"download {url}: HTTP {reply.status_code}")
+  content_length = reply.headers.get("Content-Length")
+  if content_length is not None:
+    try:
+      declared_size = int(content_length)
+    except ValueError as exc:
+      raise StoreUnavailableError("scene mesh has invalid Content-Length") from exc
+    if declared_size < 0 or declared_size > MAX_SCENE_MESH_BYTES:
+      raise SceneMeshTooLargeError(
+        f"scene mesh exceeds maximum size of {MAX_SCENE_MESH_BYTES} bytes")
+  content = bytearray()
+  for chunk in reply.iter_content(chunk_size=MESH_DOWNLOAD_CHUNK_SIZE):
+    _append_mesh_chunk(content, chunk)
+  return bytes(content)
 
 
 def max_camera_pixels() -> int:
@@ -376,12 +410,28 @@ class SceneProvider:
     if not self.scene_has_mesh(scene):
       return
     scene_id = scene["uid"]
-    self.get_world_mesh(scene_id)
+    try:
+      self.get_world_mesh(scene_id)
+    except _MESH_WARM_ERRORS as exc:
+      previous = self._previous_world_meshes.get(scene_id)
+      if previous is not None:
+        with self._lock:
+          self._world_meshes[scene_id] = previous
+        log.warning(
+          f"SceneProvider: mesh warm failed for scene {scene_id} ({exc}); "
+          "retaining previous mesh")
+      else:
+        log.warning(
+          f"SceneProvider: mesh warm failed for scene {scene_id} ({exc}); "
+          "continuing without mesh (AUTO falls back to FRUSTUM_ONLY)")
+        return
     for record in self._cache[("cameras", scene_id)]:
       try:
         self.get_reasoner(scene_id, record["uid"])
       except (CameraNotCalibratedError, CameraResolutionUnsupportedError) as exc:
         log.warning(f"SceneProvider: skipping camera {record['uid']}: {exc}")
+      except _MESH_WARM_ERRORS as exc:
+        log.warning(f"SceneProvider: skipping reasoner for camera {record['uid']}: {exc}")
 
   def invalidate(self) -> None:
     """Schedule a full refresh, retaining the previous snapshot until it succeeds."""
@@ -499,6 +549,38 @@ class SceneProvider:
     map_url = scene.get("map") or ""
     return map_url.lower().endswith(".glb")
 
+  def has_usable_mesh(self, scene_id, require_mesh=False) -> bool:
+    """Return whether a loadable scene mesh is available for conditioning.
+
+    When ``require_mesh`` is false (AUTO / FRUSTUM_ONLY), size and parse
+    failures are logged and treated as no mesh so callers can fall back to
+    frustum-only projection. Transient store errors still propagate.
+    """
+    scene = self.get_scene(scene_id)
+    if not self.scene_has_mesh(scene):
+      if require_mesh:
+        raise SceneMeshMissingError("FULL conditioning requires a GLB scene mesh")
+      return False
+    try:
+      self.get_world_mesh(scene_id)
+      return True
+    except SceneMeshTooLargeError:
+      if require_mesh:
+        raise
+      log.warning(
+        f"SceneProvider: scene {scene_id} mesh exceeds size limit; "
+        "using FRUSTUM_ONLY")
+      return False
+    except (SceneMeshMissingError, OSError, ValueError, RuntimeError) as exc:
+      if require_mesh:
+        if isinstance(exc, SceneMeshMissingError):
+          raise
+        raise SceneMeshMissingError(str(exc)) from exc
+      log.warning(
+        f"SceneProvider: scene {scene_id} mesh is unusable ({exc}); "
+        "using FRUSTUM_ONLY")
+      return False
+
   def get_world_mesh(self, scene_id):
     """Scene mesh as an open3d tensor TriangleMesh in the world frame.
 
@@ -539,8 +621,7 @@ class SceneProvider:
     """Mesh file content: shared media volume first, HTTP download fallback."""
     path = self._local_media_path(map_url)
     if path is not None:
-      with open(path, "rb") as handle:
-        return handle.read()
+      return _read_mesh_file(path)
     return self._download(map_url)
 
   def _local_media_path(self, map_url):

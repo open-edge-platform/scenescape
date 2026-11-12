@@ -12,7 +12,8 @@ import pytest
 from grpc_health.v1 import health_pb2
 
 from observation_processor.scene_provider import (
-  MAX_SCENE_MESH_BYTES, SceneMeshMissingError, SceneProvider, StoreUnavailableError,
+  MAX_SCENE_MESH_BYTES, SceneMeshMissingError, SceneMeshTooLargeError, SceneProvider,
+  StoreUnavailableError, _read_mesh_file,
 )
 from observation_processor.server import (
   SERVICE_NAME, _probe_readiness, start_database_watcher, start_readiness_monitor,
@@ -81,7 +82,7 @@ def test_mesh_download_rejects_oversized_content_length(configuration, monkeypat
   response = Mock(status_code=200, headers={"Content-Length": "5"})
   client = _download_client(response)
   with patch.object(provider, "_client", return_value=client):
-    with pytest.raises(StoreUnavailableError, match="exceeds maximum download size"):
+    with pytest.raises(SceneMeshTooLargeError, match="exceeds maximum size"):
       provider._download("/media/scene.glb")
   response.iter_content.assert_not_called()
   response.close.assert_called_once()
@@ -94,9 +95,73 @@ def test_mesh_download_caps_stream_when_content_length_is_missing(configuration,
   response.iter_content.return_value = iter((b"1234", b"5", b"not-read"))
   client = _download_client(response)
   with patch.object(provider, "_client", return_value=client):
-    with pytest.raises(StoreUnavailableError, match="exceeds maximum download size"):
+    with pytest.raises(SceneMeshTooLargeError, match="exceeds maximum size"):
       provider._download("/media/scene.glb")
   response.close.assert_called_once()
+
+
+def test_local_mesh_rejects_oversized_file_before_read(tmp_path, monkeypatch):
+  monkeypatch.setattr("observation_processor.scene_provider.MAX_SCENE_MESH_BYTES", 4)
+  mesh = tmp_path / "scene.glb"
+  mesh.write_bytes(b"12345")
+  with pytest.raises(SceneMeshTooLargeError, match="exceeds maximum size"):
+    _read_mesh_file(str(mesh))
+
+
+def test_mesh_warm_failure_retains_previous_mesh(configuration):
+  provider, rest, scene, camera, load, reasoner = configuration
+  provider.warm()
+  previous = provider.get_world_mesh("scene")
+  provider.invalidate()
+  load.side_effect = SceneMeshMissingError("invalid mesh")
+  with patch.object(SceneProvider, "_mesh_bytes", return_value=b"replacement mesh"):
+    assert _probe_readiness(provider, True)
+  assert not provider.needs_refresh
+  assert provider.get_world_mesh("scene") is previous
+
+
+def test_mesh_warm_failure_without_previous_continues_without_mesh(configuration):
+  provider, rest, scene, camera, load, reasoner = configuration
+  load.side_effect = SceneMeshTooLargeError("too large")
+  with patch.object(SceneProvider, "_mesh_bytes", return_value=b"huge mesh"):
+    provider.warm()
+  assert not provider.needs_refresh
+  assert not provider._world_meshes
+  assert not provider.has_usable_mesh("scene")
+  reasoner.assert_not_called()
+
+
+def test_multi_scene_warm_continues_when_one_mesh_fails(configuration):
+  provider, rest, scene, camera, load, reasoner = configuration
+  other = {"uid": "other", "map": "/media/other.glb"}
+
+  def scenes(*args):
+    result = Mock(statusCode=200)
+    result.get.return_value = [scene, other]
+    return result
+
+  def cameras(filter_args=None):
+    result = Mock(statusCode=200)
+    scene_uid = (filter_args or {}).get("scene")
+    result.get.return_value = [camera] if scene_uid == "scene" else [
+      dict(camera, uid="other-camera")]
+    return result
+
+  rest.getScenes.side_effect = scenes
+  rest.getCameras.side_effect = cameras
+
+  def load_mesh(record, data):
+    if record["uid"] == "other":
+      raise SceneMeshMissingError("other mesh broken")
+    return object()
+
+  load.side_effect = load_mesh
+  provider.warm()
+  assert not provider.needs_refresh
+  assert "scene" in provider._world_meshes
+  assert "other" not in provider._world_meshes
+  assert provider.has_usable_mesh("scene")
+  assert not provider.has_usable_mesh("other")
 
 
 def test_startup_preloads_geometry_and_first_access_is_cached(configuration):
@@ -201,9 +266,19 @@ def test_deleted_camera_does_not_carry_over_reasoner(configuration):
   assert load.call_count == 1
 
 
-def test_failed_initial_warmup_remains_unavailable(configuration):
+def test_failed_initial_mesh_warmup_still_publishes_frustum_only_snapshot(configuration):
   provider, rest, scene, camera, load, reasoner = configuration
   load.side_effect = RuntimeError("bake failed")
+  assert _probe_readiness(provider, False)
+  assert provider.has_snapshot
+  assert not provider.needs_refresh
+  assert not provider._world_meshes
+  assert not provider.has_usable_mesh("scene")
+
+
+def test_failed_initial_configuration_warmup_remains_unavailable(configuration):
+  provider, rest, scene, camera, load, reasoner = configuration
+  rest.getScenes.side_effect = StoreUnavailableError("offline")
   assert not _probe_readiness(provider, False)
   assert not provider.has_snapshot
   assert provider.needs_refresh
@@ -278,23 +353,23 @@ def test_oversized_camera_does_not_prevent_mesh_warmup(configuration, monkeypatc
   assert provider.get_world_mesh("scene") is not None
 
 
-@pytest.mark.parametrize("error", [
-  SceneMeshMissingError("invalid mesh"), StoreUnavailableError("offline"),
-  OSError("unreadable mesh"), ValueError("invalid geometry"), RuntimeError("bake failed"),
-])
-def test_failed_refresh_keeps_previous_snapshot_and_retries(configuration, error):
+def test_failed_configuration_refresh_keeps_previous_snapshot_and_retries(configuration):
   provider, rest, scene, camera, load, reasoner = configuration
   provider.warm()
   previous = provider.get_world_mesh("scene")
   provider.invalidate()
-  load.side_effect = error
-  with patch.object(SceneProvider, "_mesh_bytes", return_value=b"replacement mesh"):
-    assert _probe_readiness(provider, True)
+  rest.getScenes.side_effect = StoreUnavailableError("offline")
+  assert _probe_readiness(provider, True)
   assert provider.needs_refresh
   assert provider.get_world_mesh("scene") is previous
+  rest.getScenes.side_effect = None
+  scenes = Mock(statusCode=200)
+  scenes.get.return_value = [scene]
+  rest.getScenes.return_value = scenes
   load.side_effect = lambda scene, data: object()
   with patch.object(SceneProvider, "_mesh_bytes", return_value=b"replacement mesh"):
     assert _probe_readiness(provider, True)
+  assert not provider.needs_refresh
   assert provider.get_world_mesh("scene") is not previous
 
 
