@@ -120,7 +120,9 @@ demo DLSPS reaches on the Scenescape network.
    replace it.
 
 If DLSPS is unreachable or rejects the pipeline, the camera is still saved and a
-warning is shown; save the camera again to retry.
+warning is shown; save the camera again to retry. The camera page shows the live
+DLSPS state of the pipeline (and the DLSPS error, if any) beneath the
+**Pipeline** selector.
 
 ## Without the Feature Flag
 
@@ -181,5 +183,6 @@ make demo-mlops-flow-close
 ```
 
 This stops the camera pipelines that Scenescape started, then stops DLSPS, the
-Queuing camera streams and Scenescape and removes the Scenescape volumes. ViPPET
-keeps running.
+Queuing camera streams, the virtual ONVIF cameras and Scenescape and removes the
+Scenescape volumes. ViPPET keeps running. `make demo-close` does the same for
+this demo.

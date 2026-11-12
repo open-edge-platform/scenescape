@@ -97,8 +97,9 @@ MLOPS_FLOW_SCENES_DIR := $(BUILD_DIR)/mlops_flow_scenes
 # Unmodified ONVIF WSDL/XSD files served to the virtual ONVIF cameras
 MLOPS_FLOW_ONVIF_SCHEMAS_DIR := $(BUILD_DIR)/onvif-schemas
 # Run in the web container before shutdown so camera pipelines don't keep running in DLSPS
-MLOPS_FLOW_STOP_INSTANCES = from manager.models import Cam; from manager.pipeline_runtime import stop_dlsps_instance; \
-	[stop_dlsps_instance(i) for i in Cam.objects.exclude(dlsps_instance_id=None).values_list('dlsps_instance_id', flat=True)]
+MLOPS_FLOW_STOP_INSTANCES = from manager.pipeline_runtime import stop_all_camera_instances; stop_all_camera_instances()
+# Content of .scenescape-demo for this demo, so demo-close knows to stop its extra services
+MLOPS_FLOW_DEMO_MARKER := mlops-flow
 
 # Test variables
 TESTS_FOLDER := tests
@@ -924,7 +925,7 @@ check-mlops-flow:
 demo-mlops-flow: check-mlops-flow $(DEMO_BUILD:build=build-core)
 	@$(MAKE) deploy DEPLOY_PROFILES=controller DEPLOY_COMPOSE_ARGS="$(MLOPS_FLOW_COMPOSE_ARGS)" DEPLOY_FROM_DEMO=true \
 		VIPPET_NETWORK=$(VIPPET_NETWORK)
-	@touch .scenescape-demo
+	@echo $(MLOPS_FLOW_DEMO_MARKER) > .scenescape-demo
 	@$(MAKE) convert-dls-videos
 	@$(MLOPS_FLOW_DIR)/fetch-onvif-schemas.sh $(MLOPS_FLOW_ONVIF_SCHEMAS_DIR)
 	$(MLOPS_FLOW_SERVICES_COMPOSE) up -d
@@ -964,9 +965,13 @@ demo-close:
 		echo "    docker compose \$$(cat .scenescape-profile 2>/dev/null) down"; \
 		exit 1; \
 	fi
-	@$(MAKE) video-source-down
-	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
-	@rm -f .scenescape-profile .scenescape-demo
+	@if [ "$$(cat .scenescape-demo)" = "$(MLOPS_FLOW_DEMO_MARKER)" ]; then \
+		$(MAKE) demo-mlops-flow-close; \
+	else \
+		$(MAKE) video-source-down && \
+		docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v && \
+		rm -f .scenescape-profile .scenescape-demo; \
+	fi
 
 .PHONY: demo-k8s
 demo-k8s: check-reid-backend

@@ -83,19 +83,24 @@ must also be reachable from the DLSPS container.
 The **Pipeline** selector is available on the camera create, management and
 calibration pages. Each stored pipeline can be assigned to at most one camera,
 so the selector offers only unassigned pipelines plus the camera's current one.
-When the camera is saved:
+When the camera is saved, Manager makes its DLSPS instance match the selected
+pipeline:
 
-| Change                                   | DLSPS action                                        |
-| ---------------------------------------- | --------------------------------------------------- |
-| Pipeline selected                        | Start an instance                                   |
-| Pipeline changed                         | Stop the old instance, start a new one              |
-| Pipeline cleared                         | Stop the instance                                   |
-| Pipeline unchanged, no instance recorded | Start an instance (retries an earlier failed start) |
-| Pipeline unchanged, instance recorded    | No action                                           |
+| Situation                                                             | DLSPS action                           |
+| --------------------------------------------------------------------- | -------------------------------------- |
+| Pipeline selected, no instance running                                | Start an instance                      |
+| Pipeline, its string or the Camera ID changed                         | Stop the old instance, start a new one |
+| Pipeline cleared                                                      | Stop the instance                      |
+| Recorded instance failed, ended, or is unknown to DLSPS               | Start a new one if a pipeline is set   |
+| Recorded instance runs the selected pipeline and is queued or running | No action                              |
 
 Instances are started with automatic restarts enabled (up to 5 attempts, 30
-seconds apart) on pipeline error or end of stream. The UUID of the running
-instance is shown read-only beneath the **Pipeline** selector.
+seconds apart) on pipeline error or end of stream. Beneath the **Pipeline**
+selector, the camera pages show the UUID of the recorded instance and its live
+DLSPS state (for example `QUEUED`, `RUNNING` or `ERROR`) with the DLSPS error
+message, if any. DLSPS checks a pipeline after accepting it, so a rejected
+pipeline shows as `ERROR` there a few seconds after the save; saving the camera
+again reports the error and starts a new instance.
 
 Before starting an instance, Manager sets `cameraid` on every
 `sscape_post_inference_data_publish` element to the camera's ID, replacing any
@@ -109,16 +114,24 @@ Related events:
 - Deleting a pipeline clears the camera's selection only; the running instance
   is stopped the next time the camera is saved.
 
-If DLSPS is unreachable or rejects the pipeline, the camera is still saved and
-a warning is shown; save the camera again to retry. If stopping the old instance
-fails, it is kept recorded and no new instance is started, to avoid running two
-instances for one camera.
+A camera never runs two instances. Before starting a replacement, Manager waits
+up to 10 seconds (`DLSPS_STOP_TIMEOUT_S` in the `web` environment) for DLSPS to
+report that the old instance has ended. If it has not ended by then, if it is
+still `QUEUED` (DLSPS cannot stop queued instances), or if DLSPS is unreachable,
+the old instance stays recorded, no new one is started, and a warning asks you
+to save the camera again. If DLSPS rejects a start, the camera is still saved
+with a warning; saving it again retries. An instance of a deleted camera that
+cannot be stopped right away is retried on later camera saves and syncs, up to
+10 times.
 
 Limitations:
 
 - Instances are not recreated automatically if DLSPS restarts; save the camera
-  with its pipeline cleared and then selected again.
+  again to start a new one.
 - Sync and DLSPS calls run while the page request is processed, so they can
-  take several seconds when ViPPET has many pipelines or a service is slow.
+  take several seconds when ViPPET has many pipelines, an instance is being
+  stopped, or a service is slow.
+- If the page request fails after DLSPS started an instance, Manager does not
+  record it; stop such an instance through the DLSPS REST API.
 - This mechanism is independent of the camera-settings based pipelines described
   in [How to Configure Deep Learning Streamer Video Pipeline](./how-to-configure-dlstreamer-video-pipeline.md).

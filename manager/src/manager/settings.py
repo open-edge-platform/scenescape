@@ -200,6 +200,8 @@ ENABLE_MLOPS_FLOW = _env_flag('ENABLE_MLOPS_FLOW')
 MLOPS_FLOW_DISABLED_HINT = ("Disabled: start Manager with --enable-mlops-flow (or set "
                             "ENABLE_MLOPS_FLOW=true) to enable the experimental MLOps Flow "
                             "(ViPPET and DL Streamer Pipeline Server).")
+# Seconds a camera save waits for DLSPS to confirm that a replaced or cleared pipeline stopped.
+DLSPS_STOP_TIMEOUT_S = float(os.environ.get("DLSPS_STOP_TIMEOUT_S", "10"))
 
 MODEL_ROOT = os.path.join(BASE_DIR, 'models')
 MODEL_URL = '/models/'

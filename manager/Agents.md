@@ -323,15 +323,29 @@ docker compose exec manager python manage.py showmigrations
 - Starting a pipeline is asynchronous: poll `get_pipeline_status` to detect `ERROR` after start
 - Pipeline strings are executed as-is; use trusted server-side templates only because elements can
   access files and networks inside the DLSPS container, and restrict exposing APIs to administrators
-- `manager.pipeline_runtime.apply_camera_pipeline()` runs after a camera is saved on the create,
-  update and calibrate pages: selecting/changing the `Cam.pipeline` starts an instance with
-  `restart_config` enabled (stopping the previous one), clearing it stops the instance, and an
-  unchanged selection without a recorded instance is retried. The id is stored in
-  `Cam.dlsps_instance_id`; the camera row is locked (`select_for_update`) during DLSPS calls.
-  DLSPS failures never block the save; they are logged and shown as `messages` warnings
-- Editing an assigned pipeline's string (UI or ViPPET sync) restarts the camera's instance; a
-  `post_delete` signal on `Cam` stops the instance after commit. Deleting a `Pipeline` does not
-  call DLSPS. Instances are not reconciled after a DLSPS restart
+- `manager.pipeline_runtime.reconcile_camera_pipeline()` runs after a camera is saved on the
+  create, update and calibrate pages, and for the cameras of a pipeline whose string changed (UI
+  edit or ViPPET sync). Under a `select_for_update` lock it compares the desired state (selected
+  pipeline bound to the current `sensor_id`, sha256 in `Cam.dlsps_pipeline_digest`) with the
+  recorded `Cam.dlsps_instance_id` and its live DLSPS status: a dead (ERROR/COMPLETED/ABORTED/404)
+  instance is forgotten (ERROR is reported), a live one with another digest is stopped, and a
+  missing one is started with `restart_config` enabled. Never decide from `form.changed_data`
+- Stops are confirmed: `DELETE` only requests a stop and is rejected (409) for QUEUED instances,
+  so `_stop_and_confirm` polls the status until it is terminal or 404, for up to
+  `settings.DLSPS_STOP_TIMEOUT_S` (default 10). An unconfirmed stop keeps the recorded instance and
+  starts nothing, so a camera never runs two instances. DLSPS itself reports ABORTED as soon as it
+  accepts the stop and its worker exits about a second later, while a replacement validates for
+  several seconds before processing frames. DLSPS failures never block the save; they are logged
+  and shown as `messages` warnings
+- `Cam.RUNTIME_FIELDS` (`dlsps_instance_id`, `dlsps_pipeline_digest`) are written only by
+  `pipeline_runtime` (`_set_runtime`, a queryset update). `Cam.save()` without `update_fields`
+  skips them for existing rows, so a stale form or REST save cannot overwrite a newer handle
+- A `post_delete` signal on `Cam` stops the instance after commit; unconfirmed stops are stored in
+  `PendingDLSPSStop` and retried (bounded, `MAX_PENDING_STOP_ATTEMPTS`) by `retry_pending_stops()`
+  on later reconciles and syncs. Deleting a `Pipeline` does not call DLSPS. Instances are not
+  recreated after a DLSPS restart until the camera is saved
+- Camera pages show the live instance state via the `dlsps_instance_status` template tag
+  (`templatetags/pipeline_tags.py`, 2 s timeout, `UNKNOWN` when DLSPS is unreachable)
 
 ### MLOps Flow feature flag
 

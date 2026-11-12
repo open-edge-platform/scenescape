@@ -41,8 +41,8 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from manager.api import IsAdminOrReadOnly
 from manager import osm_query, osm_roi
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
-from manager.pipeline_runtime import PipelineSyncError, apply_camera_pipeline, \
-  restart_pipeline_cameras, sync_vippet_pipelines
+from manager.pipeline_runtime import PipelineSyncError, reconcile_camera_pipeline, \
+  reconcile_pipeline_cameras, sync_vippet_pipelines
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, Pipeline, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -395,7 +395,7 @@ class CamCreateView(SuperUserCheck, CreateView):
   def form_valid(self, form):
     form.instance.type = 'camera'
     response = super(CamCreateView, self).form_valid(form)
-    _apply_camera_pipeline(self.request, self.object, form)
+    _reconcile_camera_pipeline(self.request, self.object)
     return response
 
   # Return 400 Bad Request when form validation fails
@@ -433,7 +433,7 @@ class CamUpdateView(SuperUserCheck, UpdateView):
 
   def form_valid(self, form):
     response = super().form_valid(form)
-    _apply_camera_pipeline(self.request, self.object, form)
+    _reconcile_camera_pipeline(self.request, self.object)
     return response
 
   def get_success_url(self):
@@ -636,7 +636,7 @@ class PipelineUpdateView(MlopsFlowSuperUserCheck, UpdateView):
   def form_valid(self, form):
     response = super().form_valid(form)
     if 'pipeline' in form.changed_data:
-      _add_warnings(self.request, restart_pipeline_cameras(self.object))
+      _add_warnings(self.request, reconcile_pipeline_cameras(self.object))
     return response
 
 
@@ -687,9 +687,8 @@ def _add_warnings(request, warnings):
     messages.warning(request, warning)
 
 
-def _apply_camera_pipeline(request, cam, form):
-  _add_warnings(request, apply_camera_pipeline(
-    cam.pk, pipeline_changed='pipeline' in form.changed_data))
+def _reconcile_camera_pipeline(request, cam):
+  _add_warnings(request, reconcile_camera_pipeline(cam.pk))
 
 
 # Scene Child CRUD
@@ -871,7 +870,7 @@ def cameraCalibrate(request, sensor_id):
           })
 
       instance = form.save()
-      _apply_camera_pipeline(request, instance, form)
+      _reconcile_camera_pipeline(request, instance)
       return redirect(sceneDetail, scene_id=instance.scene_id)
     else:
       log.warning('Form not valid!')

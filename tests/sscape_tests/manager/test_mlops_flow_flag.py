@@ -15,8 +15,10 @@ from manager.forms import CamCalibrateForm, CamCreateForm, CamUpdateForm
 from manager.models import Cam, Pipeline, Scene
 from manager.pipeline_runtime import (
   PipelineSyncError,
-  apply_camera_pipeline,
-  restart_pipeline_cameras,
+  describe_camera_instance,
+  reconcile_camera_pipeline,
+  reconcile_pipeline_cameras,
+  retry_pending_stops,
   sync_vippet_pipelines,
 )
 from manager.settings import _env_flag
@@ -200,8 +202,10 @@ class MlopsFlowDisabledTests(TestCase):
 
   def test_runtime_entry_points_are_inert(self):
     camera = self.make_camera(pipeline=self.first)
-    self.assertEqual(apply_camera_pipeline(camera.pk, pipeline_changed=True), [])
-    self.assertEqual(restart_pipeline_cameras(self.first), [])
+    self.assertEqual(reconcile_camera_pipeline(camera.pk), [])
+    self.assertEqual(reconcile_pipeline_cameras(self.first), [])
+    self.assertIsNone(describe_camera_instance(camera))
+    retry_pending_stops()
     with self.assertRaisesRegex(PipelineSyncError, '--enable-mlops-flow'):
       sync_vippet_pipelines()
     camera.refresh_from_db()

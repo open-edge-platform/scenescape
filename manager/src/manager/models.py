@@ -846,10 +846,26 @@ class Pipeline(models.Model):
     return self.name
 
 
+class PendingDLSPSStop(models.Model):
+  """DLSPS instance of a deleted camera that could not be confirmed stopped yet."""
+
+  instance_id = models.UUIDField(unique=True)
+  attempts = models.PositiveIntegerField(default=0)
+  last_error = models.TextField(blank=True, default="")
+  created_at = models.DateTimeField(auto_now_add=True)
+
+  def __str__(self):
+    return str(self.instance_id)
+
+
 class Cam(Sensor):
   DEFAULT_INTRINSICS = {"fx":570.0,"fy":570.0,"cx":320.0,"cy":240.0}
+  # Written only by manager.pipeline_runtime (under a row lock); ordinary saves leave them alone.
+  RUNTIME_FIELDS = frozenset({'dlsps_instance_id', 'dlsps_pipeline_digest'})
 
   dlsps_instance_id = models.UUIDField(null=True, blank=True, editable=False)
+  # sha256 of the camera-bound pipeline string the recorded DLSPS instance was started with.
+  dlsps_pipeline_digest = models.CharField(max_length=64, null=True, blank=True, editable=False)
   pipeline = models.ForeignKey(Pipeline, null=True, blank=True, on_delete=models.SET_NULL,
                                related_name="cameras",
                                help_text="Selecting a pipeline starts it on DL Streamer Pipeline Server for this camera; changing or clearing it stops the running instance.")
@@ -1064,6 +1080,17 @@ class Cam(Sensor):
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
 
+  def _fields_without_runtime_state(self):
+    """Loaded concrete fields except the DLSPS runtime state.
+
+    A camera loaded before a concurrent pipeline start must not overwrite the instance that start
+    recorded, so full saves of existing rows skip the runtime fields.
+    """
+    deferred = self.get_deferred_fields()
+    return [f.name for f in self._meta.concrete_fields
+            if not f.primary_key and f.name not in self.RUNTIME_FIELDS
+            and f.attname not in deferred]
+
   def save(self, *args, **kwargs):
     # Normalize positional save() args so update_fields is only read and modified via kwargs
     for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
@@ -1079,6 +1106,9 @@ class Cam(Sensor):
       kwargs["update_fields"] = set(update_fields) | {
         "transforms", "scene_x", "scene_y", "scene_z"
       }
+    if kwargs.get("update_fields") is None and not self._state.adding \
+        and not kwargs.get("force_insert"):
+      kwargs["update_fields"] = self._fields_without_runtime_state()
 
     super().save(*args, **kwargs)
 
@@ -1117,8 +1147,8 @@ def stop_deleted_camera_pipeline(sender, instance, **kwargs):
   if instance_id is None or not settings.ENABLE_MLOPS_FLOW:
     return
   # Deferred import: pipeline_runtime imports this module.
-  from manager.pipeline_runtime import stop_dlsps_instance
-  transaction.on_commit(lambda: stop_dlsps_instance(instance_id))
+  from manager.pipeline_runtime import stop_deleted_camera_instance
+  transaction.on_commit(lambda: stop_deleted_camera_instance(instance_id))
 
 
 class SingletonSensor(Sensor):
