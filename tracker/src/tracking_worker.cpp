@@ -99,9 +99,8 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
     return detail::to_json_string(merged);
 }
 
-/**
- * @brief Build TrackManagerConfig from TrackingConfig.
- */
+} // namespace
+
 rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& config) {
     rv::tracking::TrackManagerConfig rv_config;
 
@@ -111,16 +110,15 @@ rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& conf
     rv_config.mNonMeasurementTimeStatic = config.non_measurement_time_static_s;
     rv_config.mSuspendedTrackMaxAgeSecs = 60.0;
 
-    // Kalman filter noise parameters and motion models shared with the Scene Controller
-    rv_config.mDefaultProcessNoise = rv::tracking::kProductionProcessNoise;
-    rv_config.mDefaultMeasurementNoise = rv::tracking::kProductionMeasurementNoise;
-    rv_config.mInitStateCovariance = rv::tracking::kProductionInitStateCovariance;
+    // Kalman filter noise settings (defaults: the production constants) and the motion models
+    // shared with the Scene Controller
+    rv_config.mDefaultProcessNoise = config.filter.process_noise;
+    rv_config.mDefaultMeasurementNoise = config.filter.base_measurement_noise;
+    rv_config.mInitStateCovariance = config.filter.init_state_covariance;
     rv_config.mMotionModels = rv::tracking::kProductionMotionModels;
 
     return rv_config;
 }
-
-} // namespace
 
 std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state) {
     const double speed = std::hypot(vx, vy);
@@ -424,7 +422,8 @@ std::vector<Track> TrackingWorker::match_and_convert(
                                       : omp_get_max_threads();
         ScopedOpenMpThreadLimit openmp_thread_limit(thread_limit);
         tracker_.track(std::move(objects_per_camera), timestamp, association_config_.distanceType(),
-                       association_config_.costThreshold(), 0.5, association_config_.max_radius_m);
+                       association_config_.costThreshold(), 0.5, association_config_.max_radius_m,
+                       association_config_.birth_cluster_radius_m);
 
         // Get reliable tracks and map RobotVision int IDs to UUID strings
         rv_tracks = tracker_.getReliableTracks();

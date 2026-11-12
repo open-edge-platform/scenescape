@@ -17,7 +17,8 @@ from scene_common.transform import CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
-from controller.ilabs_tracking import normalize_association_config, warn_association_config
+from controller.ilabs_tracking import (normalize_association_config, normalize_filter_config,
+                                       warn_association_config)
 from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -96,6 +97,14 @@ def _parseAssociationConfig(tracker_config):
     return normalize_association_config()
   warn_association_config(association_config)
   return association_config
+
+
+def _parseFilterConfig(tracker_config):
+  """Normalized top-level ``filter`` block (q, r, P0) of a tracker config; the production constants when it is absent.
+
+  Each invalid field is logged and takes its own default; a block that is not an object takes all defaults.
+  """
+  return normalize_filter_config(tracker_config.get("filter"))
 
 
 def _parseTrustedSources(value):
@@ -249,6 +258,7 @@ class SceneController:
           self.tracker_config_data["persist_attributes"] = {}
 
       self.tracker_config_data["association"] = _parseAssociationConfig(tracker_config)
+      self.tracker_config_data["filter"] = _parseFilterConfig(tracker_config)
     return
 
   def extractReidConfigData(self, reid_config_file):

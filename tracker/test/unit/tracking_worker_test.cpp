@@ -12,9 +12,11 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <cstdint>
 #include <format>
 #include <functional>
 #include <memory>
@@ -1799,6 +1801,41 @@ TEST_F(TrackingWorkerTest, AssociationConfigDefaultsToPositionMahalanobis) {
               rv::tracking::DistanceType::PositionMahalanobis);
     EXPECT_NEAR(worker.associationConfig().costThreshold(), rv::chi2Threshold(0.99, 3), 1e-6);
     EXPECT_DOUBLE_EQ(worker.associationConfig().max_radius_m, 10.0);
+}
+
+// Filter settings
+
+std::uint64_t bits(double value) {
+    return std::bit_cast<std::uint64_t>(value);
+}
+
+TEST(BuildTrackerConfigTest, DefaultsAreTheProductionConstantsBitForBit) {
+    const auto config = build_tracker_config(TrackingConfig{});
+    EXPECT_EQ(bits(config.mDefaultProcessNoise), bits(rv::tracking::kProductionProcessNoise));
+    EXPECT_EQ(bits(config.mDefaultMeasurementNoise),
+              bits(rv::tracking::kProductionMeasurementNoise));
+    EXPECT_EQ(bits(config.mInitStateCovariance),
+              bits(rv::tracking::kProductionInitStateCovariance));
+    EXPECT_EQ(config.mMotionModels, rv::tracking::kProductionMotionModels);
+}
+
+TEST(BuildTrackerConfigTest, TakesTheConfiguredFilterValuesAndKeepsTheLifecycle) {
+    TrackingConfig tracking;
+    tracking.filter = {
+        .process_noise = 2e-4, .base_measurement_noise = 0.5, .init_state_covariance = 16.0};
+    tracking.max_unreliable_time_s = 2.0;
+    tracking.non_measurement_time_dynamic_s = 0.7;
+    tracking.non_measurement_time_static_s = 1.7;
+
+    const auto config = build_tracker_config(tracking);
+
+    EXPECT_EQ(config.mDefaultProcessNoise, 2e-4);
+    EXPECT_EQ(config.mDefaultMeasurementNoise, 0.5);
+    EXPECT_EQ(config.mInitStateCovariance, 16.0);
+    EXPECT_EQ(config.mMotionModels, rv::tracking::kProductionMotionModels);
+    EXPECT_EQ(config.mMaxUnreliableTime, 2.0);
+    EXPECT_EQ(config.mNonMeasurementTimeDynamic, 0.7);
+    EXPECT_EQ(config.mNonMeasurementTimeStatic, 1.7);
 }
 
 // Projector whose geometry comes from a callback, standing in for any DetectionProjector.

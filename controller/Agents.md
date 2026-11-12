@@ -200,7 +200,7 @@ User-facing switch steps: `docs/user-guide/other-topics/how-to-enable-reidentifi
 }
 ```
 
-Optional keys: `effective_object_update_rate` (Immediate mode, `config/tracker-config-immediate.json`) and `persist_attributes`. The Kalman filter noise settings are not configurable here; both the Controller and the Tracker service use `rv.tracking.PRODUCTION_*` (see "Kalman filter settings" in `src/robot_vision/README.md`).
+Optional keys: `effective_object_update_rate` (Immediate mode, `config/tracker-config-immediate.json`) and `persist_attributes`. The optional top-level `filter` block (`process_noise`, `base_measurement_noise`, `init_state_covariance`) sets the Kalman filter noise settings at startup; without it both the Controller and the Tracker service use `rv.tracking.PRODUCTION_*` (see "Kalman filter settings" in `src/robot_vision/README.md`), and `association.birth_cluster_radius_m` sets the birth-clustering radius.
 
 ## Extending ReID Vector Database Backends
 

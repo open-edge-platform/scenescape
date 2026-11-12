@@ -155,7 +155,7 @@ Calibrate **α** offline from evaluation datasets (grid search maximizing AssA s
 | ------------ | --------------------------------------------------------------------------------------------------------------- |
 | API          | `MultiModelKalmanEstimator::correct(measurement, R_optional)`; default R from `TrackManagerConfig` when omitted |
 | Integration  | Set measurement covariance on `TrackedObject` before `setMeasurement` in tracker worker / controller            |
-| Filter knobs | Global `filter.process_noise`, `filter.base_measurement_noise` in tracker config                                |
+| Filter knobs | Global `filter.process_noise`, `filter.base_measurement_noise`, `filter.init_state_covariance` in tracker config |
 | Later        | Fuse classification/confidence across multi-cam matches; deprecate `tracking_radius` in manager API/docs        |
 
 ### 5.5 Configuration model (target after Phase 3)
@@ -175,10 +175,13 @@ Calibrate **α** offline from evaluation datasets (grid search maximizing AssA s
   },
   "filter": {
     "process_noise": 1e-4,
-    "base_measurement_noise": 0.2
+    "base_measurement_noise": 0.2,
+    "init_state_covariance": 1.0
   }
 }
 ```
+
+`association.birth_cluster_radius_m` (default 2 m, Euclidean) sets the radius that groups new detections of one object seen by different cameras; independent of `method` and `max_radius_m`, and when set it wins over the Controller's `tracking_radius` gate. The `filter` block is global and read at startup in both services (Controller top level, Tracker `tracking.filter`); an absent block runs robot_vision's production constants bit for bit. See [how-to-configure-tracker](../user-guide/microservices/controller/how-to-configure-tracker.md#kalman-filter-settings).
 
 Phase 1 default without an `association` block: `method: position_mahalanobis`, `max_radius_m: 10.0` (no `measurement_uncertainty` block required). The shipped configs keep `euclidean` until the Phase 1 evaluation; `tracker-config-mahalanobis.json` (Controller) and `tracker-mahalanobis.json` (Tracker service) select Phase 1. Environment overrides follow tracker service `TRACKER_*` conventions.
 

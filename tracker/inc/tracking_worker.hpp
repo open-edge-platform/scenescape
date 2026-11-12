@@ -40,6 +40,14 @@ using PublishCallback = std::function<void(
     const std::string& scene_id, const std::string& scene_name, const std::string& category,
     const std::string& timestamp, const std::vector<Track>& tracks)>;
 
+/**
+ * @brief Build the RobotVision tracker config from the service config.
+ *
+ * Lifecycle timings and the filter settings (q, r, P0) come from the config; the motion models are
+ * the production set shared with the Scene Controller.
+ */
+rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& config);
+
 constexpr double kRotationSpeedThresholdOn = 1.0;
 constexpr double kRotationSpeedThresholdOff = 0.5;
 
