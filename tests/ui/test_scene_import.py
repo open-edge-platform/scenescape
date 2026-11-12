@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -17,7 +15,6 @@ import zipfile
 import json
 import pytest
 import re
-from numbers import Number
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -47,8 +44,8 @@ SCENE_EXISTS = '3'
 ORPHANED_CAMERA = '4'
 
 class SceneImportTest(UserInterfaceTest):
-  def __init__(self, testName, request, recordXMLAttribute, zipFile, expected, waitTime):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, zipFile, expected, waitTime):
+    super().__init__(testName, request, None)
     self.sceneName = self.params['scene']
     self.sceneUID = self.params['scene_id']
     self.waitTime = waitTime
@@ -114,19 +111,16 @@ class SceneImportTest(UserInterfaceTest):
     return
 
   def readJSONFromZip(self):
-    data = None
     with zipfile.ZipFile(self.zipFile, 'r') as zip_ref:
       json_files = [f for f in zip_ref.namelist() if f.endswith('.json')]
       if not json_files:
-        print("No JSON file found inside the zip archive.")
-        return data
+        raise ValueError(f"No JSON file found inside {self.zipFile}")
       with zip_ref.open(json_files[0]) as json_file:
-        data = json.load(json_file)
-    return data
+        return json.load(json_file)
 
   def tolerant_dict_equivalence(self, dict1, dict2, tol=1e-9):
     # Numeric comparison (int or float) with tolerance
-    if isinstance(dict1, Number) and isinstance(dict2, Number):
+    if isinstance(dict1, (int, float)) and isinstance(dict2, (int, float)):
       return float(dict1) == pytest.approx(float(dict2), abs=tol)
 
     # Dict comparison: subset-based (dict2 keys must match in dict1)
@@ -209,10 +203,7 @@ class SceneImportTest(UserInterfaceTest):
       # Validate nested components recursively
       self.validate_scene(child)
 
-  def checkForMalfunctions(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
+  def checkForMalfunctions(self, result_recorder):
     try:
       waitTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id="+")
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Video Analytics not ready"
@@ -291,10 +282,9 @@ class SceneImportTest(UserInterfaceTest):
 
         self.validate_scene(self.sceneData)
 
-      self.exitCode = 0
+      result_recorder.success()
 
     finally:
-      self.recordTestResult()
       if self.expected == EMPTY_ZIP:
         if os.path.exists(self.zipFile):
           os.remove(self.zipFile)
@@ -304,29 +294,30 @@ class SceneImportTest(UserInterfaceTest):
 @pytest.mark.parametrize(
   "zipFile, expected, waitTime",
   [
-    ("Retail-import.zip", '0', TEST_WAIT_TIME), # Standard scene with tripwire, sensor, region and cameras
-    ("Empty.zip", '1', TEST_WAIT_TIME), # Empty zip file
-    ("Retail-import.zip", '3', TEST_WAIT_TIME), # Duplicate scene
-    ("Parent.zip", '0', TEST_WAIT_TIME), # Local scene hierarchy
-    ("Invalid.zip", '2', TEST_WAIT_TIME), # Malformed JSON
-    ("Retail-import.zip", '4', TEST_WAIT_TIME), # Orphaned cameras and sensor
-    ("Intersection-Demo.zip", '0', TEST_WAIT_TIME * 6) #Intersection demo
+    ("Retail-import.zip", SUCCESS, TEST_WAIT_TIME), # Standard scene with tripwire, sensor, region and cameras
+    ("Empty.zip", EMPTY_ZIP, TEST_WAIT_TIME), # Empty zip file
+    ("Retail-import.zip", SCENE_EXISTS, TEST_WAIT_TIME), # Duplicate scene
+    ("Parent.zip", SUCCESS, TEST_WAIT_TIME), # Local scene hierarchy
+    ("Invalid.zip", INVALID_ZIP, TEST_WAIT_TIME), # Malformed JSON
+    ("Retail-import.zip", ORPHANED_CAMERA, TEST_WAIT_TIME), # Orphaned cameras and sensor
+    ("Intersection-Demo.zip", SUCCESS, TEST_WAIT_TIME * 6) # Intersection demo
   ]
 )
-def test_scene_import(scenescape_env, request, record_xml_attribute, zipFile, expected, waitTime):
-  test = SceneImportTest(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
+def test_scene_import(scenescape_env, request, result_recorder, zipFile, expected, waitTime):
+  """! Imports a scene archive via the UI and verifies the outcome.
+  Successful imports must recreate every camera, tripwire, region, sensor and child
+  scene from the archive; invalid, empty or duplicate archives must show the matching error.
+  @param    scenescape_env          Fixture providing the running SceneScape stack.
+  @param    request                 Pytest request providing the test parameters.
+  @param    result_recorder         Fixture recording the test result.
+  @param    zipFile                 Archive under tests/ui/test_media to import.
+  @param    expected                Expected outcome code (SUCCESS, EMPTY_ZIP, ...).
+  @param    waitTime                Seconds to wait for UI actions to settle.
+  """
+  test = SceneImportTest(TEST_NAME, request, zipFile, expected, waitTime)
   try:
-    test.checkForMalfunctions()
+    test.checkForMalfunctions(result_recorder)
   finally:
     browser = getattr(test, "browser", None)
     if browser is not None:
       browser.quit()
-
-  assert test.exitCode == 0
-  return
-
-def main():
-  return test_scene_import(None, None, None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)

@@ -3,15 +3,16 @@
 
 """Diagnostic evaluator for per-frame location comparison and error analysis.
 
-Computes per-frame location metrics (LOC_T_X, LOC_T_Y, DIST_T) between
+Computes per-frame location metrics (LOC_T_X, LOC_T_Y, LOC_T_Z, DIST_T) between
 matched output tracks and ground-truth tracks using bipartite assignment
-that minimizes mean Euclidean distance over overlapping frames.
+that minimizes mean Euclidean distance over overlapping frames. Matching and
+DIST_T use x, y and z by default; set_space() restricts them to the ground plane
+or the height.
 """
 
 from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
 import sys
-import math
 
 import numpy as np
 import pandas as pd
@@ -23,7 +24,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_evaluator import TrackerEvaluator
-from utils.tracks import match_tracks
+from utils.tracks import match_tracks, position_distance, space_axes
 
 
 class DiagnosticEvaluator(TrackerEvaluator):
@@ -36,13 +37,18 @@ class DiagnosticEvaluator(TrackerEvaluator):
   Supported Metrics:
     - LOC_T_X: Per-frame X position of each matched (output, GT) track pair
     - LOC_T_Y: Per-frame Y position of each matched (output, GT) track pair
+    - LOC_T_Z: Per-frame Z position of each matched (output, GT) track pair
     - DIST_T: Per-frame Euclidean distance error between each matched pair
+
+  The space ("xyz" by default, "xy" or "z", see set_space()) selects the axes
+  of the matching and of DIST_T; LOC_T_X/Y/Z are per axis. Positions without a
+  z are measured in the plane.
 
   evaluate_metrics() returns summary scalars only. Detailed per-frame data
   is written to CSV files in the output folder.
   """
 
-  SUPPORTED_METRICS = ['LOC_T_X', 'LOC_T_Y', 'DIST_T']
+  SUPPORTED_METRICS = ['LOC_T_X', 'LOC_T_Y', 'LOC_T_Z', 'DIST_T']
 
   def __init__(self):
     """Initialize DiagnosticEvaluator."""
@@ -50,10 +56,27 @@ class DiagnosticEvaluator(TrackerEvaluator):
     self._output_folder: Path = None
     self._processed: bool = False
 
-    # Per-track data: {track_id: {frame_num: (x, y)}}
+    # Per-track data: {track_id: {frame_num: (x, y, z)}}
     self._output_tracks: Dict[str, Dict[int, tuple]] = {}
     self._gt_tracks: Dict[str, Dict[int, tuple]] = {}
     self._base_fps: Optional[float] = None
+    self._space: str = 'xyz'
+
+  def set_space(self, space: str) -> 'DiagnosticEvaluator':
+    """Set the axes of the track matching and of DIST_T.
+
+    Args:
+      space: "xyz" (default), "xy" for the ground plane or "z" for the height.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If space is not supported.
+    """
+    space_axes(space)
+    self._space = space
+    return self
 
   def configure_metrics(self, metrics: List[str]) -> 'DiagnosticEvaluator':
     """Configure which metrics to evaluate.
@@ -120,7 +143,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
     """Process tracker outputs and ground-truth for evaluation.
 
     Parses both inputs into per-track dictionaries keyed by string track ID,
-    mapping frame numbers to (x, y) positions.
+    mapping frame numbers to (x, y, z) positions.
 
     Args:
       tracker_outputs: Iterator of tracker output dictionaries in canonical
@@ -153,6 +176,8 @@ class DiagnosticEvaluator(TrackerEvaluator):
         - DIST_T_mean: Overall mean Euclidean distance (if DIST_T configured)
         - LOC_T_X_mae: Overall mean absolute X error (if LOC_T_X configured)
         - LOC_T_Y_mae: Overall mean absolute Y error (if LOC_T_Y configured)
+        - LOC_T_Z_mae: Overall mean absolute Z error (if LOC_T_Z configured);
+          NaN when no matched pair has a z
 
     Raises:
       RuntimeError: If evaluation fails or no data has been processed.
@@ -166,14 +191,12 @@ class DiagnosticEvaluator(TrackerEvaluator):
         "No metrics configured. Call configure_metrics() first."
       )
 
-    matches = match_tracks(self._output_tracks, self._gt_tracks)
+    matches = match_tracks(self._output_tracks, self._gt_tracks, self._space)
 
-    loc_x_rows = []
-    loc_y_rows = []
+    location_rows = {axis: [] for axis in range(3)}
     dist_rows = []
     all_distances = []
-    all_x_errors = []
-    all_y_errors = []
+    axis_errors = {axis: [] for axis in range(3)}
 
     for output_id, gt_id in matches:
       out_track = self._output_tracks[output_id]
@@ -184,48 +207,44 @@ class DiagnosticEvaluator(TrackerEvaluator):
         out_pos = out_track.get(frame)
         gt_pos = gt_track.get(frame)
 
-        out_x = out_pos[0] if out_pos else float('nan')
-        out_y = out_pos[1] if out_pos else float('nan')
-        gt_x = gt_pos[0] if gt_pos else float('nan')
-        gt_y = gt_pos[1] if gt_pos else float('nan')
+        # NaN where a position or its z is missing.
+        out_values = [self._axis_value(out_pos, axis) for axis in range(3)]
+        gt_values = [self._axis_value(gt_pos, axis) for axis in range(3)]
 
         if out_pos and gt_pos:
-          dist = math.sqrt((out_x - gt_x) ** 2 + (out_y - gt_y) ** 2)
+          dist = position_distance(out_pos, gt_pos, self._space)
           all_distances.append(dist)
-          all_x_errors.append(abs(out_x - gt_x))
-          all_y_errors.append(abs(out_y - gt_y))
+          for axis in range(3):
+            if not np.isnan(out_values[axis] + gt_values[axis]):
+              axis_errors[axis].append(abs(out_values[axis] - gt_values[axis]))
         else:
           dist = float('nan')
 
-        loc_x_rows.append({
-          'frame_id': frame, 'track_id': output_id, 'gt_id': gt_id,
-          'value_track': out_x, 'value_gt': gt_x
-        })
-        loc_y_rows.append({
-          'frame_id': frame, 'track_id': output_id, 'gt_id': gt_id,
-          'value_track': out_y, 'value_gt': gt_y
-        })
+        for axis in range(3):
+          location_rows[axis].append({
+            'frame_id': frame, 'track_id': output_id, 'gt_id': gt_id,
+            'value_track': out_values[axis], 'value_gt': gt_values[axis]
+          })
         dist_rows.append({
           'frame_id': frame, 'track_id': output_id, 'gt_id': gt_id,
           'distance': dist
         })
 
     if self._output_folder:
-      self._write_outputs(loc_x_rows, loc_y_rows, dist_rows)
+      self._write_outputs(*location_rows.values(), dist_rows)
 
     results = {'num_matches': float(len(matches))}
     if 'DIST_T' in self._metrics:
       results['DIST_T_mean'] = (
         float(np.mean(all_distances)) if all_distances else 0.0
       )
-    if 'LOC_T_X' in self._metrics:
-      results['LOC_T_X_mae'] = (
-        float(np.mean(all_x_errors)) if all_x_errors else 0.0
-      )
-    if 'LOC_T_Y' in self._metrics:
-      results['LOC_T_Y_mae'] = (
-        float(np.mean(all_y_errors)) if all_y_errors else 0.0
-      )
+    for axis, name in enumerate('XYZ'):
+      if f'LOC_T_{name}' in self._metrics:
+        # Z has no samples for planar data: NaN, not a perfect 0.0.
+        empty = float('nan') if name == 'Z' else 0.0
+        results[f'LOC_T_{name}_mae'] = (
+          float(np.mean(axis_errors[axis])) if axis_errors[axis] else empty
+        )
     return results
 
   def reset(self) -> 'DiagnosticEvaluator':
@@ -240,9 +259,15 @@ class DiagnosticEvaluator(TrackerEvaluator):
     self._output_tracks = {}
     self._gt_tracks = {}
     self._base_fps = None
+    self._space = 'xyz'
     return self
 
   # --- Private helpers ---
+
+  @staticmethod
+  def _axis_value(position, axis):
+    """Coordinate `axis` (x=0, y=1, z=2) of a position; NaN if it lacks it."""
+    return position[axis] if position and len(position) > axis else float('nan')
 
   def _parse_inputs(self, tracker_outputs, ground_truth):
     """Parse tracker outputs and ground truth onto a shared time grid.
@@ -274,23 +299,17 @@ class DiagnosticEvaluator(TrackerEvaluator):
     ingest_frames(tracker_output_list, self._output_tracks, reference, camera_fps)
     ingest_frames(gt_frames, self._gt_tracks, reference, camera_fps)
 
-  def _write_outputs(self, loc_x_rows, loc_y_rows, dist_rows):
+  def _write_outputs(self, loc_x_rows, loc_y_rows, loc_z_rows, dist_rows):
     """Write CSV files and plots for configured metrics."""
-    if 'LOC_T_X' in self._metrics:
-      df = pd.DataFrame(loc_x_rows,
-                         columns=['frame_id', 'track_id', 'gt_id',
-                                  'value_track', 'value_gt'])
-      df.to_csv(self._output_folder / 'LOC_T_X.csv', index=False)
-      if not df.empty:
-        self._plot_location_metric(df, 'LOC_T_X', 'X Position')
-
-    if 'LOC_T_Y' in self._metrics:
-      df = pd.DataFrame(loc_y_rows,
-                         columns=['frame_id', 'track_id', 'gt_id',
-                                  'value_track', 'value_gt'])
-      df.to_csv(self._output_folder / 'LOC_T_Y.csv', index=False)
-      if not df.empty:
-        self._plot_location_metric(df, 'LOC_T_Y', 'Y Position')
+    for name, rows in (('X', loc_x_rows), ('Y', loc_y_rows), ('Z', loc_z_rows)):
+      metric = f'LOC_T_{name}'
+      if metric in self._metrics:
+        df = pd.DataFrame(rows,
+                           columns=['frame_id', 'track_id', 'gt_id',
+                                    'value_track', 'value_gt'])
+        df.to_csv(self._output_folder / f'{metric}.csv', index=False)
+        if not df.empty:
+          self._plot_location_metric(df, metric, f'{name} Position')
 
     if 'DIST_T' in self._metrics:
       df = pd.DataFrame(dist_rows,

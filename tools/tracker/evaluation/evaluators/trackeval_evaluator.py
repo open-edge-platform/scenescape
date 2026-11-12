@@ -19,6 +19,7 @@ import shutil
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_evaluator import TrackerEvaluator
+from utils.tracks import SPACE_AXES, add_space_arguments, space_axes
 
 # TrackEval imports
 from trackeval.datasets.mot_challenge_2d_box import MotChallenge2DBox
@@ -41,7 +42,11 @@ class MotChallenge3DPoint(MotChallenge2DBox):
   - Detections are 3D points (x, y, z) instead of 2D bounding boxes (x, y, w, h)
   - Similarity is Euclidean distance-based instead of IoU-based
   - Empty detection arrays are (0, 3) instead of (0, 4)
+
+  The distance uses the axes of `space` ("xyz" by default, "xy" or "z").
   """
+
+  space = "xyz"
 
   def _load_raw_file(self, tracker, seq, is_gt):
     """Load a file (gt or tracker) in the MOT Challenge 3D point format.
@@ -185,8 +190,9 @@ class MotChallenge3DPoint(MotChallenge2DBox):
       NxM array of similarity scores (0-1, where 1 is perfect match)
     """
     # Euclidean distance-based similarity (0.5 similarity threshold corresponds to 1m distance)
+    axes = list(SPACE_AXES[self.space])
     similarity_scores = self._calculate_euclidean_similarity(
-      gt_dets_t, tracker_dets_t, zero_distance=ZERO_DISTANCE
+      gt_dets_t[:, axes], tracker_dets_t[:, axes], zero_distance=ZERO_DISTANCE
     )
     return similarity_scores
 
@@ -231,6 +237,23 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._camera_fps: float = 30.0
     self._base_fps: Optional[float] = None
     self._uuid_to_id_map: Dict[str, int] = {}
+    self._space: str = "xyz"
+
+  def set_space(self, space: str) -> 'TrackEvalEvaluator':
+    """Set the axes of the position distance behind every similarity and match.
+
+    Args:
+      space: "xyz" (default), "xy" for the ground plane or "z" for the height.
+
+    Returns:
+      Self for method chaining.
+
+    Raises:
+      ValueError: If space is not supported.
+    """
+    space_axes(space)
+    self._space = space
+    return self
 
   def configure_metrics(self, metrics: List[str]) -> 'TrackEvalEvaluator':
     """Configure which metrics to evaluate.
@@ -461,6 +484,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
 
       # Create dataset instance
       dataset = MotChallenge3DPoint(dataset_config)
+      dataset.space = self._space
 
       # Determine which metric classes to instantiate
       metrics_list = []
@@ -582,6 +606,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._camera_fps = 30.0
     self._base_fps = None
     self._uuid_to_id_map = {}
+    self._space = "xyz"
 
     return self
 
@@ -622,6 +647,7 @@ def main(argv: Optional[List[str]] = None) -> int:
   parser.add_argument("--output", type=Path, help="output directory (default: <input>/metrics)")
   parser.add_argument("--fps", type=float,
                       help="frame rate for matching timestamps (default: from the ground truth)")
+  add_space_arguments(parser)
   args = parser.parse_args(argv)
 
   metrics = [name for name in args.metrics.split(",") if name]
@@ -636,6 +662,7 @@ def main(argv: Optional[List[str]] = None) -> int:
   evaluator = TrackEvalEvaluator()
   try:
     evaluator.configure_metrics(metrics)
+    evaluator.set_space(args.space)
     fps = args.fps if args.fps is not None else ground_truth_fps(ground_truth_path)
     evaluator.set_base_fps(fps)
   except ValueError as error:
