@@ -394,8 +394,8 @@ build-sources-image: sources.Dockerfile
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
 		--build-arg no_proxy=$(no_proxy) \
-		--rm -t $(SOURCES_IMAGE):$(VERSION) . \
-	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
+		--rm -t intel/$(SOURCES_IMAGE):$(VERSION) . \
+	&& docker tag intel/$(SOURCES_IMAGE):$(VERSION) intel/$(SOURCES_IMAGE):latest
 	@echo "DONE ==> Building the image with 3rd party sources"
 
 # ======================= Model Installer ============================
