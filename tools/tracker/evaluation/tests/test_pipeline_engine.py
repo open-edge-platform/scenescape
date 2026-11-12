@@ -777,6 +777,42 @@ class TestConfigureEvaluators:
 
     mock_evaluator.set_base_fps.assert_not_called()
 
+  def test_space_is_passed_to_the_evaluator(self, engine, temp_output_dir):
+    """A 'space' in the evaluator config is applied with set_space(); without one it is left alone."""
+    from unittest.mock import MagicMock
+
+    with_space, without_space = MagicMock(), MagicMock()
+    engine._evaluators = [with_space, without_space]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {'config': {}},
+      'evaluators': [
+        {'class': 'evaluators.mock_ev.MockEv', 'config': {'space': 'xy'}},
+        {'class': 'evaluators.mock_ev.MockEv', 'config': {}},
+      ]
+    }
+
+    engine._configure_evaluators()
+
+    with_space.set_space.assert_called_once_with('xy')
+    without_space.set_space.assert_not_called()
+
+  def test_space_needs_an_evaluator_that_supports_it(self, engine, temp_output_dir):
+    """An evaluator without set_space() rejects a 'space' instead of ignoring it."""
+    from unittest.mock import MagicMock
+
+    engine._evaluators = [MagicMock(spec=['configure_metrics', 'set_output_folder'])]
+    engine._dataset = None
+    engine._output_path = Path(temp_output_dir)
+    engine._config = {
+      'dataset': {'config': {}},
+      'evaluators': [{'class': 'evaluators.mock_ev.MockEv', 'config': {'space': 'z'}}]
+    }
+
+    with pytest.raises(ValueError, match="does not support 'space'"):
+      engine._configure_evaluators()
+
   def test_set_base_fps_called_on_multiple_evaluators(self, engine, temp_output_dir):
     """set_base_fps is called on all evaluators with the same camera_fps."""
     from unittest.mock import MagicMock
