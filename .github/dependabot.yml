@@ -60,6 +60,7 @@ updates:
       - "/positioning"
       - "/reid"
       - "/sample_data/sample_app"
+      - "/sample_data/vippet_dlsps2"
       - "/scene_common"
       - "/tests/security/fuzzing"
       - "/tools/v2x"
