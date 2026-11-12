@@ -196,8 +196,8 @@ def build_association_window(association_config, measurement_covariance=None,
   # published object every frame; numpy.linalg.eigh made this call 5x slower.
   mean = 0.5 * (s00 + s11)
   spread = math.hypot(0.5 * (s00 - s11), s01)
-  # The XY shadow of the track's gate: the S_xy ellipse at the chi² df its pairs are gated with.
-  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"], 3 if z_measured else 2))
+  # The XY shadow of the track's gate: position_chi2 picks df from sticky measured z.
+  chi2 = float(rv.tracking.position_chi2(config["gate_probability"], z_measured))
 
   return {
     "method": method,

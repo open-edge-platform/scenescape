@@ -414,4 +414,5 @@ TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
 
   auto tracks = objectTracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U) << "planar + measured-Z at same XY should birth-cluster via XY distance";
+  EXPECT_TRUE(tracks[0].zMeasured) << "birth fusion must OR zMeasured like track updates";
 }

@@ -12,6 +12,7 @@
 #include <rv/tracking/TrackTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/PositionGate.hpp>
 #include <rv/Utils.hpp>
 #include <rv/tracking/CameraUtils.hpp>
 #include <chrono>
@@ -418,6 +419,15 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
      tracking.def("chi2_threshold", &rv::chi2Threshold,
                   "Chi-squared gate threshold for position innovation gating (df=2 XY, df=3 XYZ).",
                   py::arg("gate_probability"), py::arg("degrees_of_freedom") = 2);
+
+     tracking.def("gates_z",
+                  py::overload_cast<const rv::tracking::TrackedObject &, const rv::tracking::TrackedObject &>(
+                    &rv::tracking::position_gate::gatesZ),
+                  "True when both sides measured z (association / birth use XYZ).",
+                  py::arg("track"), py::arg("detection"));
+     tracking.def("position_chi2", &rv::tracking::position_gate::positionChi2,
+                  "Chi-squared gate for the position subspace: df=3 when include_z, else df=2.",
+                  py::arg("gate_probability"), py::arg("include_z"));
 
      tracking.def("angle_difference",
         &rv::angleDifference,

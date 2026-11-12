@@ -8,6 +8,7 @@
 #include "rv/tracking/CPModel.hpp"
 #include "rv/tracking/Classification.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
+#include "rv/tracking/PositionGate.hpp"
 
 #include <vector>
 
@@ -25,18 +26,14 @@ predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat 
   return measurement;
 }
 
-// Measurement components a prepared detection observes: omit z without measured z (ground-plane
-// detections must not pull a sticky measured-z track back to the floor), and yaw without orientation.
+// Measurement components a prepared detection observes: position via position_gate (omit z without
+// measured z so planar ground points do not pull sticky measured height to the floor), and yaw
+// without orientation.
 std::vector<int> observedMeasurementRows(const TrackedObject &measurement)
 {
   std::vector<int> rows;
   rows.reserve(TrackedObject::MeasurementSize);
-  rows.push_back(MeasurementIndex::X);
-  rows.push_back(MeasurementIndex::Y);
-  if (measurement.zMeasured)
-  {
-    rows.push_back(MeasurementIndex::Z);
-  }
+  position_gate::appendPositionMeasurementRows(rows, measurement.zMeasured);
   rows.push_back(MeasurementIndex::LENGTH);
   rows.push_back(MeasurementIndex::WIDTH);
   rows.push_back(MeasurementIndex::HEIGHT);

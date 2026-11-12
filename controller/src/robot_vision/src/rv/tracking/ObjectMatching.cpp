@@ -15,6 +15,7 @@
 #include "rv/apollo/secure_matrix.hpp"
 #include "rv/tracking/Classification.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
+#include "rv/tracking/PositionGate.hpp"
 
 namespace rv {
 namespace tracking {
@@ -40,7 +41,7 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
 {
   const double dx = measurement.x - track.x;
   const double dy = measurement.y - track.y;
-  if (!(measurement.zMeasured && track.zMeasured))
+  if (!position_gate::gatesZ(track, measurement))
   {
     return std::hypot(dx, dy);
   }
@@ -222,15 +223,14 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   return cache;
 }
 
-/// A pair gates z only when the detection and the track both measured it (chi2 with 3 DOF); otherwise x and y only
-/// (2 DOF). match() takes one threshold, chi2(p, 3), so the 2-DOF d^2 is scaled by xy_scale = chi2(p, 3) / chi2(p, 2):
-/// both gates then pass at the same probability p.
+/// Cost against match()'s single threshold chi2(p, 3). When position_gate::gatesZ is false, d² is on x/y only and
+/// scaled by xy_scale so both subspaces pass at the same p (see position_gate::xyCostScaleForChi2Threshold3).
 double positionMahalanobisCostFromCache(const TrackedObject &measurement, const PositionMahalanobisTrackCache &cache,
                                         double max_radius_m, double xy_scale)
 {
   const double dx = measurement.x - cache.pred_x;
   const double dy = measurement.y - cache.pred_y;
-  if (!(measurement.zMeasured && cache.zMeasured))
+  if (!position_gate::gatesZ(cache.zMeasured, measurement.zMeasured))
   {
     if (std::hypot(dx, dy) > max_radius_m || !cache.validXy)
     {
@@ -288,9 +288,8 @@ void match(const std::vector<TrackedObject> &tracks,
 
   if (distanceType == DistanceType::PositionMahalanobis)
   {
-    // threshold is chi2(p, 3); the x/y-only pairs are scaled to the same p (see positionMahalanobisCostFromCache).
-    const double gateProbability = std::clamp(rv::chi2Cdf3(threshold), 1e-9, 1.0 - 1e-9);
-    const double xy_scale = threshold / rv::chi2Threshold(gateProbability, 2);
+    // threshold is chi2(p, 3); x/y-only pairs are scaled to the same p.
+    const double xy_scale = position_gate::xyCostScaleForChi2Threshold3(threshold);
 
     // Invert the 3x3 position covariance once per track, not once per (track, detection).
     std::vector<PositionMahalanobisTrackCache> track_caches(tracks.size());

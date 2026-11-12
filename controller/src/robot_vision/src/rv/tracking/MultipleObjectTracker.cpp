@@ -422,6 +422,10 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
       auto &fusedObject = newObjects[newObjectIndex];
       fuseGeometry(members, objectsPerCamera, fusedObject);
       applyOrientingYaw(members, objectsPerCamera, fusedObject);
+      // Same sticky rule as track↔detection fusion: any measured-z camera marks the birth seed.
+      fusedObject.zMeasured = std::any_of(members.begin(), members.end(), [&](const auto &match) {
+        return objectsPerCamera[match.first][match.second].zMeasured;
+      });
       metadata_fusion::fuseMetadata(members, objectsPerCamera, fusedObject);
     }
 

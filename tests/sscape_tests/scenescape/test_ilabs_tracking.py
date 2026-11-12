@@ -502,17 +502,17 @@ def _mahalanobis_window(s00, s01, s11, gate_probability=0.99, z_measured=False):
 
 
 def test_build_association_window_uses_the_track_degrees_of_freedom():
-  """chi2(p, 2) for a track without measured z (x/y gate), chi2(p, 3) once it has measured z."""
+  """position_chi2: df=2 without measured z, df=3 once the track has measured z."""
   planar = _mahalanobis_window(1.0, 0.0, 0.25)
-  assert planar['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99, 2) * 1.0))
-  assert planar['semi_minor_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99, 2) * 0.25))
+  assert planar['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, False) * 1.0))
+  assert planar['semi_minor_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, False) * 0.25))
   measured = _mahalanobis_window(1.0, 0.0, 0.25, z_measured=True)
-  assert measured['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99, 3) * 1.0))
-  assert measured['semi_minor_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99, 3) * 0.25))
+  assert measured['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, True) * 1.0))
+  assert measured['semi_minor_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, True) * 0.25))
 
 
-@pytest.mark.parametrize('z_measured, df', [(False, 2), (True, 3)])
-def test_from_tracked_object_draws_the_window_with_the_track_degrees_of_freedom(z_measured, df):
+@pytest.mark.parametrize('z_measured', [False, True])
+def test_from_tracked_object_draws_the_window_with_the_track_degrees_of_freedom(z_measured):
   tracked_object = _make_tracked_object("uuid-3")
   tracked_object.zMeasured = z_measured
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
@@ -525,7 +525,7 @@ def test_from_tracked_object_draws_the_window_with_the_track_degrees_of_freedom(
 
   # measurement_covariance is 0.25 * I.
   assert result.association_window['semi_major_m'] == pytest.approx(
-    math.sqrt(rv.tracking.chi2_threshold(0.99, df) * 0.25))
+    math.sqrt(rv.tracking.position_chi2(0.99, z_measured) * 0.25))
 
 
 def _angle_difference_modulo_pi(a, b):

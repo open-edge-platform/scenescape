@@ -13,6 +13,7 @@
 #include <rv/Utils.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
+#include <rv/tracking/PositionGate.hpp>
 #include <rv/tracking/TrackManager.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
@@ -23,6 +24,31 @@ TEST(ObjectMatchingTest, Chi2ThresholdMatchesExpectedQuantile)
   EXPECT_NEAR(rv::chi2Threshold(0.99, 2), 9.21034, 1e-3);
   EXPECT_NEAR(rv::chi2Threshold(0.99, 3), 11.3449, 1e-3);
   EXPECT_NEAR(rv::chi2Threshold(0.95, 3), 7.81473, 1e-3);
+}
+
+TEST(ObjectMatchingTest, PositionGateCentralizesXyVersusXyz)
+{
+  rv::tracking::TrackedObject planar;
+  rv::tracking::TrackedObject measured;
+  measured.zMeasured = true;
+
+  EXPECT_FALSE(rv::tracking::position_gate::gatesZ(planar, measured));
+  EXPECT_FALSE(rv::tracking::position_gate::gatesZ(measured, planar));
+  EXPECT_TRUE(rv::tracking::position_gate::gatesZ(measured, measured));
+  EXPECT_FALSE(rv::tracking::position_gate::trackCanGateZ(planar));
+  EXPECT_TRUE(rv::tracking::position_gate::trackCanGateZ(measured));
+  EXPECT_EQ(rv::tracking::position_gate::positionDof(false), 2);
+  EXPECT_EQ(rv::tracking::position_gate::positionDof(true), 3);
+  EXPECT_NEAR(rv::tracking::position_gate::positionChi2(0.99, false), rv::chi2Threshold(0.99, 2), 1e-9);
+  EXPECT_NEAR(rv::tracking::position_gate::positionChi2(0.99, true), rv::chi2Threshold(0.99, 3), 1e-9);
+
+  std::vector<int> rows;
+  rv::tracking::position_gate::appendPositionMeasurementRows(rows, false);
+  EXPECT_EQ(rows, (std::vector<int>{rv::tracking::MeasurementIndex::X, rv::tracking::MeasurementIndex::Y}));
+  rows.clear();
+  rv::tracking::position_gate::appendPositionMeasurementRows(rows, true);
+  EXPECT_EQ(rows, (std::vector<int>{rv::tracking::MeasurementIndex::X, rv::tracking::MeasurementIndex::Y,
+                                    rv::tracking::MeasurementIndex::Z}));
 }
 
 TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
