@@ -8,23 +8,20 @@ This demo shows the Scenescape MLOps flow:
    Server 2.0 (DLSPS) with automatic restarts enabled, and the detections appear in
    the Queuing scene. Changing or clearing the selection stops the running instance.
 
-ViPPET and DLSPS run outside Scenescape. This demo deploys Scenescape configured
-to use them, plus the Queuing sample camera streams.
+ViPPET runs outside Scenescape. This demo deploys Scenescape configured to use
+it, a DLSPS 2.0 instance that runs the camera pipelines, and the Queuing sample
+camera streams.
 
 ## Prerequisites
 
-- ViPPET running on the same host with DL Streamer Pipeline Server 2.0 enabled.
-  In the ViPPET directory run:
+- ViPPET running on the same host. In the ViPPET directory run:
 
   ```bash
-  make build run DLSPS2=1
+  make build run
   ```
 
-  DLSPS must provide the Scenescape GStreamer elements
-  (`sscape_timestamp_capture`, `sscape_post_inference_data_publish`) and trust
-  the Scenescape root CA (`manager/secrets/certs/scenescape-ca.pem` of this
-  repository, read from `/run/secrets/certs/scenescape-ca.pem` or the path in
-  `ROOT_CA`), because the Scenescape MQTT broker only accepts TLS connections.
+  The demo starts its own DLSPS 2.0, so ViPPET's optional `DLSPS2=1` backend is
+  not needed.
 
 - Scenescape images built (`make build-core`) and the super user password set:
 
@@ -40,15 +37,25 @@ From the repository root:
 make demo-vippet-dlsps2
 ```
 
-The target checks that ViPPET's Docker network exists (and warns if the
-`vippet` or `dlstreamer-pipeline-server` container is not running yet; Scenescape
-reaches them by name once they start), then:
+The target checks that ViPPET's Docker network and its shared models directory
+exist (it warns if the `vippet` container is not running yet; Scenescape reaches
+it by name once it starts), then:
 
 - deploys Scenescape with
   [compose.scenescape-override.yml](./compose.scenescape-override.yml): the
   pipeline integration flag (`ENABLE_MLOPS_FLOW=true`), `VIPPET_URL`,
-  `DLSPS_URL`, and the `web`, `broker` and `ntpserv` services joined to
-  ViPPET's network;
+  `DLSPS_URL`, the `web`, `broker` and `ntpserv` services joined to
+  ViPPET's network, and the broker published on host port `1883` (TLS; set
+  `BROKER_PORT` to change it);
+- starts DLSPS 2.0 with [compose.dlsps2.yml](./compose.dlsps2.yml) as container
+  `dlsps2-pipeline-server` on the Scenescape network
+  (`http://dlsps.scenescape.intel.com:8080`, REST API also on host port `8080`).
+  It loads the Scenescape GStreamer elements
+  (`sscape_timestamp_capture`, `sscape_post_inference_data_publish`) from
+  `dlstreamer-pipeline-server/user_scripts/gstplugins`, trusts the Scenescape
+  root CA (the MQTT broker only accepts TLS), and mounts ViPPET's
+  `shared/models` read-only at `/models`, the model path used in ViPPET
+  pipeline strings;
 - starts the Queuing video loopers with
   [compose.queuing-cams-override.yml](./compose.queuing-cams-override.yml) as
   `rtsp://mediaserver:8554/queuing-cam1` and `rtsp://mediaserver:8554/queuing-cam2`,
@@ -57,13 +64,16 @@ reaches them by name once they start), then:
 
 The defaults can be changed with these variables:
 
-| Variable                  | Default                                                 |
-| ------------------------- | ------------------------------------------------------- |
-| `VIPPET_NETWORK`          | `visual-pipeline-and-platform-evaluation-tool_default`  |
-| `VIPPET_URL`              | `http://vippet:7860/api/v1`                             |
-| `DLSPS_URL`               | `http://dlstreamer-pipeline-server:8080`                |
-| `VIPPET_DLSPS2_RTSP_PORT` | `18554` (ViPPET's own media server already uses `8554`) |
-| `DEMO_REBUILD_IMAGES`     | `true`; set to `false` to skip rebuilding images        |
+| Variable                  | Default                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| `VIPPET_NETWORK`          | `visual-pipeline-and-platform-evaluation-tool_default`       |
+| `VIPPET_SHARED_DIR`       | Detected from the `/models` mount of the `vippet` container  |
+| `VIPPET_URL`              | `http://vippet:7860/api/v1`                                  |
+| `DLSPS_URL`               | `http://dlsps.scenescape.intel.com:8080`                     |
+| `DLSPS2_IMAGE`            | `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-2.0-rc1` |
+| `DLSPS2_REST_SERVER_PORT` | `8080` (host port of the DLSPS REST API)                     |
+| `VIPPET_DLSPS2_RTSP_PORT` | `18554` (ViPPET's own media server already uses `8554`)      |
+| `DEMO_REBUILD_IMAGES`     | `true`; set to `false` to skip rebuilding images             |
 
 ## Create the Camera Pipelines in ViPPET
 
@@ -81,9 +91,10 @@ The defaults can be changed with these variables:
 4. Repeat for the second camera with `queuing-cam2` and `cameraid=atag-qcam2`,
    saved as `Queuing qcam2` with the same tag.
 
-`cameraid` must match the Scenescape camera ID, so detections are attributed to
-the right camera. The MQTT broker defaults to `broker.scenescape.intel.com:1883`,
-which resolves to the Scenescape broker on ViPPET's network.
+Manager sets `cameraid` to the ID of the camera the pipeline is assigned to
+when it starts the pipeline, replacing the value in the string. The MQTT broker
+defaults to `broker.scenescape.intel.com:1883`, the Scenescape broker, which the
+demo DLSPS reaches on the Scenescape network.
 
 ## Run the Pipelines from Scenescape
 
@@ -118,23 +129,45 @@ enable the integration. Enable it with one of:
 
 ## Troubleshooting
 
-- `make demo-vippet-dlsps2` reports a missing network: start ViPPET with
-  `make build run DLSPS2=1`, or set `VIPPET_NETWORK` to the network ViPPET runs
-  on (`docker network ls`).
-- Camera saves warn that DLSPS failed: check that `dlstreamer-pipeline-server`
-  runs on ViPPET's network (`docker ps`).
-- A pipeline starts but no detections appear: check the DLSPS logs with
-  `docker logs dlstreamer-pipeline-server`.
-  - RTSP errors behind an HTTP proxy: add `mediaserver` to `no_proxy` before
-    starting ViPPET.
-  - MQTT connection errors: DLSPS does not trust the Scenescape root CA (see
-    [Prerequisites](#prerequisites)).
+- `make demo-vippet-dlsps2` reports a missing network or models directory:
+  start ViPPET with `make build run`, or set `VIPPET_NETWORK` to the network
+  ViPPET runs on (`docker network ls`) and `VIPPET_SHARED_DIR` to
+  `<ViPPET directory>/shared`.
+- Camera saves warn that DLSPS failed: check that `dlsps2-pipeline-server` is
+  running and healthy (`docker ps`).
+- A pipeline starts but no detections appear: check its state with
+  `curl http://localhost:8080/pipelines/status` and the DLSPS logs with
+  `docker logs dlsps2-pipeline-server`.
+- The pipeline runs but every camera message has `"objects": {}`: the model
+  has no label names, so detections are reported by class number (for example
+  `"1"`) and `detection-labels=person` drops them. Use a model from ViPPET's
+  catalogue, or add the labels to the uploaded model's `model.xml`, inside the
+  top-level `<rt_info>`, and save the camera again to restart its pipeline. For
+  an SSD model such as `person-detection-retail-0013`:
+
+  ```xml
+  <model_info>
+    <labels value="background person" />
+    <model_type value="detection_output" />
+  </model_info>
+  ```
+
 - ViPPET was restarted while the demo was running: restart the demo
   (`make demo-vippet-dlsps2-close`, then `make demo-vippet-dlsps2`) so the
   Scenescape containers rejoin ViPPET's network.
 
 This override exposes the Scenescape broker and NTP server to all containers on
-ViPPET's network. Use it for demos only.
+ViPPET's network, and the broker to the host network. Use it for demos only.
+
+To watch the camera detections from the host:
+
+```bash
+mosquitto_sub -h localhost -p 1883 --cafile manager/secrets/certs/scenescape-ca.pem \
+  --insecure -t 'scenescape/data/camera/#' -v
+```
+
+`--insecure` skips the host name check, because the broker certificate is
+issued for `broker.scenescape.intel.com`.
 
 ## Stop the Demo
 
@@ -142,6 +175,6 @@ ViPPET's network. Use it for demos only.
 make demo-vippet-dlsps2-close
 ```
 
-This stops the camera pipelines that Scenescape started on DLSPS, then stops the
+This stops the camera pipelines that Scenescape started, then stops DLSPS, the
 Queuing camera streams and Scenescape and removes the Scenescape volumes. ViPPET
-and DLSPS keep running.
+keeps running.

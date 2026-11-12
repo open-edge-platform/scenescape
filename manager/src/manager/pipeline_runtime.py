@@ -8,6 +8,7 @@ to superusers because DLSPS executes the stored GStreamer strings as-is. Nothing
 ViPPET or DLSPS unless the MLOps flow is enabled (``settings.ENABLE_MLOPS_FLOW``).
 """
 
+import re
 import unicodedata
 import uuid
 from dataclasses import dataclass, field
@@ -33,6 +34,11 @@ VIPPET_ID_SEPARATOR = "/"
 MAX_PIPELINE_NAME_LENGTH = Pipeline._meta.get_field('name').max_length
 MAX_FILTER_TAGS = 20
 MAX_FILTER_TAG_LENGTH = 100
+PUBLISH_ELEMENT = "sscape_post_inference_data_publish"
+# The publish element followed by its "key=value" properties (values may be double-quoted).
+_PUBLISH_ELEMENT_RE = re.compile(
+  rf'(?<![\w-]){PUBLISH_ELEMENT}(?![\w-])(?:\s+[\w-]+=(?:"(?:[^"\\]|\\.)*"|[^\s!"]+))*')
+_CAMERAID_PROPERTY_RE = re.compile(r'\s+cameraid=(?:"(?:[^"\\]|\\.)*"|[^\s!"]+)')
 
 
 class PipelineSyncError(Exception):
@@ -301,11 +307,27 @@ def _stop_camera_instance(client: DLSPSClient, cam: Cam) -> bool:
   return True
 
 
+def bind_pipeline_to_camera(pipeline_string: str, sensor_id: str) -> str:
+  """Set ``cameraid`` on every Scenescape publish element to the camera's sensor id.
+
+  Pipelines imported from ViPPET do not know which Scenescape camera they run for, and the
+  publish element sends nothing until ``cameraid`` is set. Any existing value is replaced.
+  """
+  escaped = sensor_id.replace('\\', '\\\\').replace('"', '\\"')
+
+  def bind(match: re.Match) -> str:
+    element = _CAMERAID_PROPERTY_RE.sub('', match.group(0))
+    return f'{element} cameraid="{escaped}"'
+
+  return _PUBLISH_ELEMENT_RE.sub(bind, pipeline_string)
+
+
 def _start_camera_instance(client: DLSPSClient, cam: Cam) -> List[str]:
   pipeline = cam.pipeline
   try:
-    instance_id = uuid.UUID(client.create_pipeline(pipeline.pipeline,
-                                                   restart_config=RESTART_CONFIG))
+    instance_id = uuid.UUID(client.create_pipeline(
+      bind_pipeline_to_camera(pipeline.pipeline, cam.sensor_id),
+      restart_config=RESTART_CONFIG))
   except (DLSPSError, ValueError) as e:
     log.error(f"Failed to start DLSPS pipeline '{pipeline.name}' for camera {cam.sensor_id}: {e}")
     return [f"Camera '{cam.name}': failed to start pipeline '{pipeline.name}' on DLSPS. "

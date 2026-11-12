@@ -19,6 +19,7 @@ from manager.pipeline_runtime import (
   PipelineSyncError,
   TagFilter,
   apply_camera_pipeline,
+  bind_pipeline_to_camera,
   parse_tag_filter,
   stop_dlsps_instance,
   sync_vippet_pipelines,
@@ -281,6 +282,15 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     self.assertTrue(RESTART_CONFIG.enabled)
     self.assertEqual(Cam.objects.get(sensor_id='new-cam').dlsps_instance_id, NEW_ID)
 
+  def test_start_binds_publish_element_to_camera(self):
+    shared = Pipeline.objects.create(
+      name='Shared', pipeline='src ! sscape_post_inference_data_publish name=dp ! fakesink')
+    self.make_camera(pipeline=shared, scene=self.scene, sensor_id='qcam1')
+    apply_camera_pipeline(Cam.objects.get(sensor_id='qcam1').pk, pipeline_changed=False)
+    self.dlsps.create_pipeline.assert_called_once_with(
+      'src ! sscape_post_inference_data_publish name=dp cameraid="qcam1" ! fakesink',
+      restart_config=RESTART_CONFIG)
+
   def test_create_without_pipeline_does_not_contact_dlsps(self):
     data = {'sensor_id': 'plain-cam', 'name': 'Plain', 'scene': self.scene.pk}
     self.assertEqual(self.client.post(reverse('cam_create'), data).status_code, 302)
@@ -423,6 +433,30 @@ class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
         stop_dlsps_instance(OLD_ID)
     self.dlsps_cls.side_effect = ValueError('no url')
     stop_dlsps_instance(OLD_ID)
+
+
+class BindPipelineToCameraTests(SimpleTestCase):
+
+  def test_adds_cameraid_to_publish_element(self):
+    self.assertEqual(
+      bind_pipeline_to_camera('a ! sscape_post_inference_data_publish ! gvametapublish', 'c1'),
+      'a ! sscape_post_inference_data_publish cameraid="c1" ! gvametapublish')
+
+  def test_replaces_existing_cameraid_and_keeps_other_properties(self):
+    self.assertEqual(
+      bind_pipeline_to_camera(
+        'a ! sscape_post_inference_data_publish cameraid="old cam" name=dp publish-image=true',
+        'c1'),
+      'a ! sscape_post_inference_data_publish name=dp publish-image=true cameraid="c1"')
+
+  def test_escapes_quotes_in_sensor_id(self):
+    self.assertEqual(bind_pipeline_to_camera('sscape_post_inference_data_publish', 'a"b'),
+                     'sscape_post_inference_data_publish cameraid="a\\"b"')
+
+  def test_leaves_pipelines_without_publish_element_unchanged(self):
+    pipeline = ('src ! my_sscape_post_inference_data_publish ! '
+                'sscape_post_inference_data_publish_x ! fakesink')
+    self.assertEqual(bind_pipeline_to_camera(pipeline, 'c1'), pipeline)
 
 
 class TagFilterParsingTests(SimpleTestCase):

@@ -63,7 +63,7 @@ SPDX-License-Identifier: Apache-2.0
       Pipeline integration is disabled; pipelines are shown read-only.
     </p>
   {% endif %}
-  <table class="table table-fluid">
+  <table class="table table-fluid pipeline-table">
     <thead>
       <tr>
         <th>Name</th>
@@ -82,7 +82,13 @@ SPDX-License-Identifier: Apache-2.0
           <td class="text-muted">
             {{ pipeline.vippet_pipeline_id|default_if_none:"Not assigned" }}
           </td>
-          <td><pre>{{ pipeline.pipeline }}</pre></td>
+          <td class="pipeline-string-cell">
+            <pre
+              tabindex="0"
+              aria-label="Pipeline string of {{ pipeline.name }}"
+            >
+{{ pipeline.pipeline }}</pre>
+          </td>
           {% if user.is_superuser and ENABLE_MLOPS_FLOW %}
             <td>
               <a

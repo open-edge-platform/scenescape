@@ -90,6 +90,11 @@ Instances are started with automatic restarts enabled (up to 5 attempts, 30
 seconds apart) on pipeline error or end of stream. The UUID of the running
 instance is shown read-only beneath the **Pipeline** selector.
 
+Before starting an instance, Manager sets `cameraid` on every
+`sscape_post_inference_data_publish` element to the camera's ID, replacing any
+value in the stored string, so detections are published for the camera the
+pipeline is assigned to.
+
 Related events:
 
 - Editing the string of an assigned pipeline restarts that camera's instance.

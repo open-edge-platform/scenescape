@@ -4,15 +4,17 @@
 # ViPPET + DL Streamer Pipeline Server 2.0 demo: Scenescape side.
 # Merged with docker-compose.yml by `make demo-vippet-dlsps2`; see README.md.
 #
-# ViPPET and its DLSPS 2.0 container run outside this stack (ViPPET's own
-# `make run DLSPS2=1`) on the "<ViPPET dir>_default" Docker network. This
-# override joins that network so:
-#   - Manager (web) reaches http://vippet:7860 and
-#     http://dlstreamer-pipeline-server:8080 by name, and
-#   - pipelines running in DLSPS can publish to broker.scenescape.intel.com
-#     and query ntpserv.
+# ViPPET runs outside this stack (its own `make run`) on the
+# "<ViPPET dir>_default" Docker network. This override:
+#   - enables the pipeline integration in Manager and points it at ViPPET
+#     (http://vippet:7860, reached by joining ViPPET's network) and at the
+#     demo DLSPS 2.0 from compose.dlsps2.yml (on the Scenescape network);
+#   - joins the broker and NTP server to ViPPET's network, so pipelines that
+#     ViPPET runs itself (validation, previews) can publish to Scenescape;
+#   - publishes the broker on host port BROKER_PORT (default 1883), so MQTT
+#     clients outside Docker can watch the pipeline output.
 # Demo only: it exposes the broker and NTP server to every container on
-# ViPPET's network.
+# ViPPET's network, and the broker to the host network.
 
 networks:
   vippet:
@@ -26,12 +28,14 @@ services:
     environment:
       - ENABLE_MLOPS_FLOW=true
       - VIPPET_URL=${VIPPET_URL:-http://vippet:7860/api/v1}
-      - DLSPS_URL=${DLSPS_URL:-http://dlstreamer-pipeline-server:8080}
+      - DLSPS_URL=${DLSPS_URL:-http://dlsps.scenescape.intel.com:8080}
       # Keep ViPPET / DLSPS traffic off any corporate HTTP proxy.
-      - no_proxy=${no_proxy:-${NO_PROXY:-}},.scenescape.intel.com,vippet,dlstreamer-pipeline-server
-      - NO_PROXY=${NO_PROXY:-${no_proxy:-}},.scenescape.intel.com,vippet,dlstreamer-pipeline-server
+      - no_proxy=${no_proxy:-${NO_PROXY:-}},.scenescape.intel.com,vippet
+      - NO_PROXY=${NO_PROXY:-${no_proxy:-}},.scenescape.intel.com,vippet
 
   broker:
+    ports:
+      - "${BROKER_PORT:-1883}:1883"
     networks:
       vippet:
         aliases:

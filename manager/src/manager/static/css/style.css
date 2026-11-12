@@ -1129,3 +1129,19 @@ ul.errorlist {
 .pipeline-actions .form-control {
   margin-left: 0.5rem;
 }
+
+/* Long pipeline strings scroll inside their cell so the row actions stay visible */
+.pipeline-string-cell {
+  width: 100%;
+  max-width: 0;
+}
+
+.pipeline-string-cell pre {
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.pipeline-table td:not(.pipeline-string-cell) {
+  white-space: nowrap;
+}

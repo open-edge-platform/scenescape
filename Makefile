@@ -73,16 +73,29 @@ DEMO_REBUILD_IMAGES ?= true
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
 LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
 LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
-# ViPPET + DLSPS 2.0 demo: ViPPET (make run DLSPS2=1) runs externally on VIPPET_NETWORK
+# ViPPET + DLSPS 2.0 demo: ViPPET (its own make run) runs externally on VIPPET_NETWORK; the demo starts DLSPS 2.0
 VIPPET_DLSPS2_DIR := sample_data/vippet_dlsps2
 VIPPET_NETWORK ?= visual-pipeline-and-platform-evaluation-tool_default
+# ViPPET's host "shared" directory; the demo DLSPS mounts its models/ at the path
+# ViPPET pipeline strings use. Detected from the running "vippet" container when not set.
+VIPPET_SHARED_DIR ?= $(patsubst %/models,%,$(shell docker inspect vippet \
+	--format '{{range .Mounts}}{{if eq .Destination "/models"}}{{.Source}}{{end}}{{end}}' 2>/dev/null))
 VIPPET_DLSPS2_COMPOSE_ARGS = -f docker-compose.yml -f $(VIPPET_DLSPS2_DIR)/compose.scenescape-override.yml
-VIPPET_DLSPS2_CAMS_COMPOSE = SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape VIPPET_NETWORK=$(VIPPET_NETWORK) \
-	VIDEOSOURCE_PORT=$(VIPPET_DLSPS2_RTSP_PORT) \
-	docker compose --project-directory . -f $(QUEUING_VIDEO_COMPOSE_FILE) -f $(VIPPET_DLSPS2_DIR)/compose.queuing-cams-override.yml
+# Host IP the virtual ONVIF cameras advertise: the source address of WS-Discovery multicast,
+# i.e. the interface sensor-manager probes from
+VIPPET_DLSPS2_HOST_IP ?= $(shell ip route get 239.255.255.250 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+# Queuing camera streams, their virtual ONVIF cameras, and the DLSPS 2.0 that runs the camera pipelines
+VIPPET_DLSPS2_SERVICES_COMPOSE = SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape VIPPET_NETWORK=$(VIPPET_NETWORK) \
+	VIDEOSOURCE_PORT=$(VIPPET_DLSPS2_RTSP_PORT) VIPPET_SHARED_DIR=$(or $(VIPPET_SHARED_DIR),/vippet-shared-dir-not-found) \
+	ONVIF_HOST_IP=$(or $(VIPPET_DLSPS2_HOST_IP),127.0.0.1) ONVIF_RTSP_PORT=$(VIPPET_DLSPS2_RTSP_PORT) \
+	ONVIF_SCHEMAS_DIR=$(VIPPET_DLSPS2_ONVIF_SCHEMAS_DIR) \
+	docker compose --project-directory . -f $(QUEUING_VIDEO_COMPOSE_FILE) -f $(VIPPET_DLSPS2_DIR)/compose.queuing-cams-override.yml \
+	-f $(VIPPET_DLSPS2_DIR)/compose.dlsps2.yml -f $(VIPPET_DLSPS2_DIR)/compose.onvif-cams.yml
 # Host port of the demo RTSP server; ViPPET's own mediamtx already publishes 8554
 VIPPET_DLSPS2_RTSP_PORT ?= 18554
 VIPPET_DLSPS2_SCENES_DIR := $(BUILD_DIR)/vippet_dlsps2_scenes
+# Unmodified ONVIF WSDL/XSD files served to the virtual ONVIF cameras
+VIPPET_DLSPS2_ONVIF_SCHEMAS_DIR := $(BUILD_DIR)/onvif-schemas
 # Run in the web container before shutdown so camera pipelines don't keep running in DLSPS
 VIPPET_DLSPS2_STOP_INSTANCES = from manager.models import Cam; from manager.pipeline_runtime import stop_dlsps_instance; \
 	[stop_dlsps_instance(i) for i in Cam.objects.exclude(dlsps_instance_id=None).values_list('dlsps_instance_id', flat=True)]
@@ -151,7 +164,8 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
-	@echo "  demo-vippet-dlsps2          Start Scenescape connected to a running ViPPET + DLSPS 2.0 with the Queuing camera streams"
+	@echo "  demo-vippet-dlsps2          Start Scenescape + DLSPS 2.0 + the Queuing camera streams (also as virtual ONVIF cameras),"
+	@echo "                              connected to a running ViPPET"
 	@echo "  demo-vippet-dlsps2-close    Stop the ViPPET + DLSPS 2.0 demo and remove its volumes (ViPPET keeps running)"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
@@ -920,17 +934,27 @@ demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
 check-vippet-dlsps2:
 	@CONTAINERS=$$(docker network inspect -f '{{range .Containers}}{{.Name}} {{end}}' $(VIPPET_NETWORK) 2>/dev/null) || { \
 		echo "Error: Docker network '$(VIPPET_NETWORK)' not found."; \
-		echo "Start ViPPET with DL Streamer Pipeline Server 2.0 first (in the ViPPET directory: make build run DLSPS2=1),"; \
+		echo "Start ViPPET first (in the ViPPET directory: make build run),"; \
 		echo "or set VIPPET_NETWORK to the network ViPPET runs on."; \
 		exit 1; \
 	}; \
-	for c in vippet dlstreamer-pipeline-server; do \
-		case " $$CONTAINERS " in *" $$c "*) ;; *) \
-			echo "Warning: container '$$c' is not running on network '$(VIPPET_NETWORK)'."; \
-			echo "         Scenescape starts anyway; pipeline sync / camera pipelines work once ViPPET runs with"; \
-			echo "         DL Streamer Pipeline Server 2.0 enabled (make build run DLSPS2=1)." ;; \
-		esac; \
-	done
+	case " $$CONTAINERS " in *" vippet "*) ;; *) \
+		echo "Warning: container 'vippet' is not running on network '$(VIPPET_NETWORK)';"; \
+		echo "         Sync with ViPPET works once it runs." ;; \
+	esac; \
+	if [ ! -d "$(VIPPET_SHARED_DIR)/models" ]; then \
+		echo "Error: ViPPET's shared models directory not found (VIPPET_SHARED_DIR='$(VIPPET_SHARED_DIR)')."; \
+		echo "Start ViPPET, or set VIPPET_SHARED_DIR to <ViPPET directory>/shared."; \
+		exit 1; \
+	fi; \
+	if [ -z "$(VIPPET_DLSPS2_HOST_IP)" ]; then \
+		echo "Error: could not detect the host IP for the virtual ONVIF cameras (no route to 239.255.255.250)."; \
+		echo "Set VIPPET_DLSPS2_HOST_IP to the IP of the interface ViPPET's sensor-manager discovers cameras on."; \
+		exit 1; \
+	fi; \
+	if [ -z "$$(docker ps -q --filter name=^sensor-manager$$)" ]; then \
+		echo "Warning: ViPPET's sensor-manager is not running; the virtual ONVIF cameras are discovered once it runs."; \
+	fi
 
 .PHONY: demo-vippet-dlsps2
 demo-vippet-dlsps2: check-vippet-dlsps2 $(DEMO_BUILD:build=build-core)
@@ -938,14 +962,19 @@ demo-vippet-dlsps2: check-vippet-dlsps2 $(DEMO_BUILD:build=build-core)
 		VIPPET_NETWORK=$(VIPPET_NETWORK)
 	@touch .scenescape-demo
 	@$(MAKE) convert-dls-videos
-	$(VIPPET_DLSPS2_CAMS_COMPOSE) up -d
+	@$(VIPPET_DLSPS2_DIR)/fetch-onvif-schemas.sh $(VIPPET_DLSPS2_ONVIF_SCHEMAS_DIR)
+	$(VIPPET_DLSPS2_SERVICES_COMPOSE) up -d
+	@# Re-bind the schema cache, which may have been recreated since the container started
+	$(VIPPET_DLSPS2_SERVICES_COMPOSE) up -d --force-recreate --no-deps onvif-cams
 	@rm -rf $(VIPPET_DLSPS2_SCENES_DIR) && mkdir -p $(VIPPET_DLSPS2_SCENES_DIR)/Queuing
 	@cp $(VIDEO_SOURCE_DIR)/Queuing/Queuing.zip $(VIPPET_DLSPS2_SCENES_DIR)/Queuing/
 	@$(MAKE) demo-scenes DEMO_SCENES_DIR=$(VIPPET_DLSPS2_SCENES_DIR)
 	@echo ""
-	@echo "Scenescape is connected to ViPPET (http://vippet:7860) and DLSPS 2.0 (http://dlstreamer-pipeline-server:8080)."
+	@echo "Scenescape is connected to ViPPET (http://vippet:7860) and runs camera pipelines on DLSPS 2.0"
+	@echo "  (container dlsps2-pipeline-server, http://dlsps.scenescape.intel.com:8080; models from $(VIPPET_SHARED_DIR))."
 	@echo "Queuing camera streams: rtsp://mediaserver:8554/queuing-cam1 and rtsp://mediaserver:8554/queuing-cam2"
 	@echo "  (from the host: rtsp://localhost:$(VIPPET_DLSPS2_RTSP_PORT)/queuing-cam1)"
+	@echo "Virtual ONVIF cameras (any credentials): $(VIPPET_DLSPS2_HOST_IP):18081 = queuing-cam1, $(VIPPET_DLSPS2_HOST_IP):18082 = queuing-cam2"
 	@echo "Next steps: sample_data/vippet_dlsps2/README.md"
 	@echo "To stop the demo, run: make demo-vippet-dlsps2-close"
 
@@ -956,7 +985,7 @@ demo-vippet-dlsps2-close:
 		VIPPET_NETWORK=$(VIPPET_NETWORK) docker compose $$(cat .scenescape-profile) exec -T -w /home/scenescape/Scenescape web \
 			./manage.py shell -c "$(VIPPET_DLSPS2_STOP_INSTANCES)" >/dev/null; \
 	fi
-	-$(VIPPET_DLSPS2_CAMS_COMPOSE) down
+	-$(VIPPET_DLSPS2_SERVICES_COMPOSE) down
 	@if [ -f .scenescape-profile ]; then \
 		VIPPET_NETWORK=$(VIPPET_NETWORK) docker compose $$(cat .scenescape-profile) down -v; \
 	fi
