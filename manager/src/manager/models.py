@@ -345,8 +345,9 @@ class Scene(models.Model):
       self.rotation_z = 0.0
       mesh, _ = extractMeshFromGLB(self.map.path, rotation=np.array([self.rotation_x, self.rotation_y, self.rotation_z]))
       width, height, depth = getMeshSize(mesh)
-      min_bound = mesh.get_axis_aligned_bounding_box().min_bound.numpy()
-      self.translation_x, self.translation_y, self.translation_z = (float(-v) for v in min_bound)
+      self.translation_x = width/2
+      self.translation_y = height/2
+      self.translation_z = depth/2
       return width, height, depth
     return None
 
@@ -375,12 +376,18 @@ class Scene(models.Model):
     return self.map_corners_lla
 
   def saveThumbnail(self):
+    previous_thumbnail = self.thumbnail.name if self.thumbnail else ''
     img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
     self.scale = pixels_per_meter
     img = Image.fromarray(np.uint8(img_data))
     with ContentFile(b'') as imgfile:
       img.save(imgfile, format='PNG')
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
+    if previous_thumbnail and previous_thumbnail != self.thumbnail.name:
+      # On commit only: a rollback restores the row, which still needs the old file
+      transaction.on_commit(partial(
+        _delete_unreferenced_mapping_file, self.thumbnail.storage, previous_thumbnail,
+        self._state.db or "default"))
     return
 
   def replaceMapFromZip(self, glb_from_zip):
@@ -404,7 +411,12 @@ class Scene(models.Model):
         self.map.save(os.path.basename(glb_file), File(f), save=False)
       self.saveThumbnail()
     elif ext == ".glb":
-      # No auto-align here: it would overwrite the rotation/translation the form just saved.
+      # Note: autoAlignSceneMap() only performs alignment for uploaded GLB files.
+      # For generated meshes (_from_generate_mesh == True) and explicit transforms
+      # (_explicit_mesh_transform == True) autoAlignSceneMap() returns early.
+      # Only auto-align if a new GLB file was uploaded
+      if self._original_map != self.map:
+        self.autoAlignSceneMap()
       self.saveThumbnail()
     else:
       self.thumbnail = None
@@ -727,8 +739,14 @@ class SceneMappingArtifact(models.Model):
     ]
 
 
+def glb_preview_name(glb_name):
+  """Storage name of the cached top-view preview that sits next to a stored GLB."""
+  return f"{os.path.splitext(glb_name)[0]}_preview.png"
+
+
 def _delete_unreferenced_mapping_file(storage, name, using):
-  if Scene.objects.using(using).filter(Q(map=name) | Q(thumbnail=name)).exists():
+  scene_files = Q(map=name) | Q(thumbnail=name) | Q(base_map=name) | Q(glb_map=name)
+  if Scene.objects.using(using).filter(scene_files).exists():
     return
   if SceneSourceMap.objects.using(using).filter(Q(file=name) | Q(thumbnail=name)).exists():
     return
@@ -744,17 +762,21 @@ def _delete_unreferenced_mapping_file(storage, name, using):
 def delete_mapping_files_after_commit(sender, instance, using, **kwargs):
   """Cascade deletions must not remove shared files or survive a rollback."""
   fields = {
-    Scene: ("map", "thumbnail"),
+    Scene: ("map", "thumbnail", "base_map", "glb_map"),
     SceneSourceMap: ("file", "thumbnail"),
     SceneMappingArtifact: ("bundle",),
   }
   for field in fields[sender]:
     stored_file = getattr(instance, field)
     if stored_file:
-      transaction.on_commit(
-        partial(_delete_unreferenced_mapping_file, stored_file.storage, stored_file.name, using),
-        using=using,
-      )
+      names = [stored_file.name]
+      if field == "glb_map":
+        names.append(glb_preview_name(stored_file.name))
+      for name in names:
+        transaction.on_commit(
+          partial(_delete_unreferenced_mapping_file, stored_file.storage, name, using),
+          using=using,
+        )
 
 
 class ChildScene(models.Model):

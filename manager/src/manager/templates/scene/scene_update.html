@@ -32,6 +32,17 @@ SPDX-License-Identifier: Apache-2.0
     <div class="card-body">
       <form enctype="multipart/form-data" method="post" id="scene_update_form">
         {% csrf_token %}
+        <input
+          type="hidden"
+          name="glb_state_token"
+          id="id_glb_state_token"
+          value="{{ glb_state_token }}"
+        />
+        {% if stale_form_notice %}
+          <div class="alert alert-warning" role="alert">
+            {{ stale_form_notice }}
+          </div>
+        {% endif %}
         {% if form.non_field_errors %}
           <div class="alert alert-danger" role="alert">
             {% for error in form.non_field_errors %}

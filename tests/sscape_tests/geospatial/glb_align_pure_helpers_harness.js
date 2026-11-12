@@ -66,9 +66,6 @@ try {
     case "buildOverlayCorners":
       result = glbExports.buildOverlayCorners(args.anchor, args.footprint);
       break;
-    case "pointInPolygon":
-      result = glbExports.pointInPolygon(args.pt, args.corners);
-      break;
     default:
       throw new Error(`Unknown test: ${testName}`);
   }

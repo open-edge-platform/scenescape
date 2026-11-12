@@ -689,13 +689,11 @@ class MeshGenerator:
       glb_exported_bytes = aligned_mesh.export(file_type='glb')
 
       log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
-      before = None
-      try:
-        # One transaction: the GLB unapply and the mesh save commit or roll back together
-        with transaction.atomic():
-          glb_alignment.lock_scene_row(scene)
-          scene.refresh_from_db()
-          before = glb_alignment.stored_file_names(scene, ('map', 'base_map'))
+      # One transaction: the GLB unapply and the mesh save commit or roll back together
+      with transaction.atomic():
+        glb_alignment.lock_scene_row(scene)
+        scene.refresh_from_db()
+        with glb_alignment.discard_files_on_failure(scene):
           if scene.use_glb_map:
             # Restores the pre-GLB base map and clears use_glb_map before the mesh overwrites scene.map
             glb_alignment.unapply_glb_map(scene)
@@ -705,10 +703,6 @@ class MeshGenerator:
           scene._original_map = None
           scene._from_generate_mesh = True
           scene.save()
-      except Exception:
-        if before is not None:
-          glb_alignment.discard_failed_apply_files(scene, before)
-        raise
 
       log.info(f"Saved generated mesh to scene {scene.name}")
       return mesh_transform

@@ -615,11 +615,12 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
   def _scene_form_data(self, **overrides):
     """Scene update form data built from the stored scene, then overrides.
 
-    The pose and corners are the stored values, so the form is not stale.
+    The values and the state token are the stored ones, as in a form rendered just now.
     """
     self.scene.refresh_from_db()
     data = {
       'name': self.scene.name,
+      'glb_state_token': glb_alignment.scene_state_token(self.scene),
       'map_type': 'geospatial_map',
       'output_lla': 'True',
       'map_corners_lla': json.dumps(self.scene.map_corners_lla),
@@ -698,7 +699,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
       self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self.scene.glb_anchor,
     )
 
-    # Request 2: the stale form still carries the pre-apply pose and corners
+    # Request 2: the stale form still carries the state token of the pre-apply scene
     resp = self.client.post(reverse('scene_update', args=[self.scene.id]), data=stale_form)
 
     self.assertEqual(resp.status_code, 409)
@@ -708,6 +709,74 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
        self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self.scene.glb_anchor),
       applied,
     )
+
+  def test_stale_form_rerenders_current_values_that_save_on_retry(self):
+    """The 409 page shows the stored values and a current token, so saving it again succeeds."""
+    self._commit_glb()
+    stale_form = self._scene_form_data(name='geo_renamed')
+    with self.captureOnCommitCallbacks(execute=True):
+      self.assertEqual(self._apply_glb().status_code, 200)
+    self.scene.refresh_from_db()
+
+    resp = self.client.post(reverse('scene_update', args=[self.scene.id]), data=stale_form)
+
+    self.assertEqual(resp.status_code, 409)
+    self.assertTrue(resp.context['stale_form_notice'])
+    self.assertEqual(resp.context['glb_state_token'], glb_alignment.scene_state_token(self.scene))
+    self.assertEqual(resp.context['form'].initial['rotation_z'], self.scene.rotation_z)
+    retry = self._scene_form_data(name='geo_renamed', glb_state_token=resp.context['glb_state_token'])
+    self.assertEqual(self.client.post(reverse('scene_update', args=[self.scene.id]), data=retry).status_code, 302)
+
+  def test_form_edit_of_pose_and_corners_is_saved(self):
+    """An intended edit of the pose and corners is not taken for a stale form."""
+    with open(os.path.join(self.media_root, 'edit_map.glb'), 'wb') as f:
+      f.write(self._read_test_glb())
+    Scene.objects.filter(pk=self.scene.pk).update(map='edit_map.glb')
+    new_corners = localFootprintCornersLLA(
+      center_lat=37.39, center_lng=-121.97, heading_deg=0.0, width_m=80.0, height_m=80.0,
+    ).tolist()
+
+    resp = self._post_scene_form(rotation_z=15.0, translation_x=2.5, map_corners_lla=json.dumps(new_corners))
+
+    self.assertEqual(resp.status_code, 302)
+    self.scene.refresh_from_db()
+    self.assertEqual(self.scene.rotation_z, 15.0)
+    self.assertEqual(self.scene.translation_x, 2.5)
+    self.assertEqual(self.scene.map_corners_lla, new_corners)
+
+  def test_form_without_state_token_is_not_checked(self):
+    """A post without a token (not rendered by the edit page) is saved as before."""
+    self._commit_glb()
+    stale_form = self._scene_form_data(name='geo_renamed', glb_state_token='')
+    with self.captureOnCommitCallbacks(execute=True):
+      self.assertEqual(self._apply_glb().status_code, 200)
+
+    resp = self.client.post(reverse('scene_update', args=[self.scene.id]), data=stale_form)
+
+    self.assertEqual(resp.status_code, 302)
+
+  def test_edit_page_carries_the_current_state_token(self):
+    """The rendered form includes the token of the stored scene."""
+    self._commit_glb()
+
+    resp = self.client.get(reverse('scene_update', args=[self.scene.id]))
+
+    token = glb_alignment.scene_state_token(self.scene)
+    self.assertContains(resp, 'name="glb_state_token"')
+    self.assertEqual(resp.context['glb_state_token'], token)
+
+  def test_edit_page_repairs_a_missing_preview(self):
+    """A saved GLB without a cached preview gets one when the edit page loads."""
+    self._commit_glb()
+    preview = glb_alignment.glb_preview_path(self.scene.glb_map.path)
+    if os.path.exists(preview):
+      os.remove(preview)
+    with patch.object(glb_alignment, 'generateOrthoView',
+                      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0)):
+      resp = self.client.get(reverse('scene_update', args=[self.scene.id]))
+
+    self.assertEqual(resp.status_code, 200)
+    self.assertTrue(os.path.exists(preview))
 
   def test_failure_between_glb_commit_and_form_save_rolls_back_everything(self):
     """A failure after the GLB commit and before the form save leaves the row, files and staged GLB as before."""

@@ -13,6 +13,8 @@ const FRAME_UNAPPLIED = "#c62828";
 const GLB_ACCEPTED_VIEW_KEY = "glbAcceptedView";
 const MAP_EMPTY_HINT =
   "Set the map location and save the scene before aligning a 3D model.";
+const PREVIEW_MISSING_HINT =
+  "The preview of the saved 3D model could not be generated.";
 
 function pointInPolygon(pt, corners) {
   const x = pt.lng;
@@ -251,7 +253,10 @@ class GlbAlignment {
   _drawSavedOverlay() {
     if (!this.mapReady || this.staged) return;
     if (!this.saved || !this.saved.anchor || !this.saved.footprint_m) return;
-    if (!this.saved.preview_url) return;
+    if (!this.saved.preview_url) {
+      this.ui.status.textContent = PREVIEW_MISSING_HINT;
+      return;
+    }
     try {
       const corners = buildOverlayCorners(
         this.saved.anchor,
@@ -509,7 +514,7 @@ class GlbAlignment {
 
       this.saved.anchor = sent;
       this.saved.preview_url = response.preview_url ?? null;
-      this._applySceneFields(response.scene_fields);
+      this._applyServerState(response);
       this.dirty = JSON.stringify(this.anchor) !== JSON.stringify(sent);
       this._updateControlsVisibility();
       this.ui.status.textContent = "Position saved";
@@ -519,6 +524,14 @@ class GlbAlignment {
       this.saving = false;
       this._updateLocks();
     }
+  }
+
+  // Mirrors the state of a server-side GLB write into the scene-edit form: the values it changed
+  // and the state token that Save Scene Updates posts back to detect an out-of-date page.
+  _applyServerState(response) {
+    this._applySceneFields(response?.scene_fields);
+    const token = byId("id_glb_state_token");
+    if (token && response?.state_token) token.value = response.state_token;
   }
 
   // Mirrors server-side GLB changes (pose, scale, corners) into the scene-edit form so that
@@ -587,13 +600,9 @@ class GlbAlignment {
 
       this.saved.use_glb_map = response.use_glb_map;
       this.saved.preview_url = response.preview_url ?? null;
-      this._applySceneFields(response.scene_fields);
-      // The preview image changes with the applied state, so the overlay is redrawn, not just re-framed.
-      if (this.saved.preview_url) {
-        this._drawSavedOverlay();
-      } else if (this.mapReady) {
-        this._strategy().removeOverlay();
-      }
+      this._applyServerState(response);
+      // The overlay is redrawn from the response so its frame always matches the applied state.
+      this._drawSavedOverlay();
       this.ui.status.textContent = this.saved.use_glb_map
         ? "3D model applied to scene map"
         : "3D model overlay only";
@@ -622,7 +631,7 @@ class GlbAlignment {
         { method: "DELETE" },
       );
 
-      this._applySceneFields(response?.scene_fields);
+      this._applyServerState(response);
       this.saved = null;
       this.anchor = null;
       this.dirty = false;

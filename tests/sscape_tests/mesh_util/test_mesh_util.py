@@ -701,35 +701,20 @@ class TestGetPosedMeshFootprint:
         legacy_mesh, [0, 0, 0], [0, 0, 0]
       )
 
-  def test_negative_wrong_rotation_length(self):
-    """Test ValueError for bad rotation length."""
+  @pytest.mark.parametrize("rotation, translation, scale, message", [
+    ([0, 0], [0, 0, 0], None, "Rotation must be length"),
+    ([0, 0, 0, 0, 0], [0, 0, 0], None, "Rotation must be length"),
+    ([0, 0, 0], [0, 0], None, "Translation must be length 3"),
+    ([0, 0, 0], [0, 0, 0, 0], None, "Translation must be length 3"),
+    ([0, 0, 0], [0, 0, 0], [1, 1], "Scale must be length 3"),
+    ([0, 0, 0], [0, 0, 0], [1, 1, 1, 1], "Scale must be length 3"),
+  ])
+  def test_negative_wrong_vector_length(self, rotation, translation, scale, message):
+    """Test ValueError for bad rotation, translation and scale lengths."""
     mesh = create_centered_box_mesh(10, 10, 10)
 
-    with pytest.raises(ValueError, match="Rotation must be length"):
-      getPosedMeshFootprint(mesh, [0, 0], [0, 0, 0])
-
-    with pytest.raises(ValueError, match="Rotation must be length"):
-      getPosedMeshFootprint(mesh, [0, 0, 0, 0, 0], [0, 0, 0])
-
-  def test_negative_wrong_translation_length(self):
-    """Test ValueError for bad translation length."""
-    mesh = create_centered_box_mesh(10, 10, 10)
-
-    with pytest.raises(ValueError, match="Translation must be length 3"):
-      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0])
-
-    with pytest.raises(ValueError, match="Translation must be length 3"):
-      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0, 0, 0])
-
-  def test_negative_wrong_scale_length(self):
-    """Test ValueError for bad scale length."""
-    mesh = create_centered_box_mesh(10, 10, 10)
-
-    with pytest.raises(ValueError, match="Scale must be length 3"):
-      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0, 0], scale=[1, 1])
-
-    with pytest.raises(ValueError, match="Scale must be length 3"):
-      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0, 0], scale=[1, 1, 1, 1])
+    with pytest.raises(ValueError, match=message):
+      getPosedMeshFootprint(mesh, rotation, translation, scale=scale)
 
   def test_positive_mesh_not_mutated(self):
     """Test that input mesh is not mutated."""

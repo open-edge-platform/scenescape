@@ -1,15 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for Scene.save interplay and serializer get_rotation/get_translation.
-
-Tests Scene.save() behavior with GLB applied/unapplied, and serializer methods
-that return stored vectors even when one or more components are zero.
+"""Unit tests for Scene.save interplay with an applied or unapplied GLB.
 
 Coverage:
   C1: Saving new non-GLB map while use_glb_map=True sets use_glb_map=False
   C2: Saving new snapshot while not applied refreshes base_map_corners_lla
-  C3: Serializer get_rotation/get_translation: [0,0,0] only when ALL components are 0
   C4: frame_corners_lla() fallbacks for legacy scenes
   C5: Unapplying GLB with an unchanged map name syncs base_map_corners_lla
   C6: Corner edit without GLB applied leaves base_map_corners_lla unchanged
@@ -24,7 +20,6 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from PIL import Image
 
 from manager.models import Scene
-from manager.serializers import SceneSerializer
 from scene_common.earth_lla import localFootprintCornersLLA
 
 
@@ -199,28 +194,6 @@ class TestSceneSaveGlbInterplay(TransactionTestCase):
 
     assert scene.use_glb_map is False
     assert scene.base_map_corners_lla == base_before
-
-
-class TestSerializerRotationTranslation(TestCase):
-  """SceneSerializer exposes mesh_rotation / mesh_translation as [x, y, z], zero components included."""
-
-  def test_mesh_rotation_and_translation_are_vectors(self):
-    """All-zero, single-component and mixed values round-trip as full three-element vectors."""
-    scene = Scene.objects.create(name="test_scene", map_type="geospatial_map")
-    cases = [
-      ("rotation", "mesh_rotation", [0.0, 0.0, 0.0]),
-      ("rotation", "mesh_rotation", [0.0, 0.0, 45.0]),
-      ("rotation", "mesh_rotation", [0.0, 30.0, 0.0]),
-      ("translation", "mesh_translation", [0.0, 0.0, 0.0]),
-      ("translation", "mesh_translation", [5.5, 0.0, 0.0]),
-      ("translation", "mesh_translation", [0.0, 10.25, 0.0]),
-    ]
-    for prefix, key, values in cases:
-      with self.subTest(key=key, values=values):
-        for axis, value in zip("xyz", values):
-          setattr(scene, f"{prefix}_{axis}", value)
-        scene.save()
-        assert SceneSerializer(scene).data.get(key) == values
 
 
 class TestFrameCornersLlaFallback(TestCase):

@@ -478,6 +478,14 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     context = super().get_context_data(**kwargs)
     context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
     context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    if self.request.method == 'GET':
+      # A saved GLB without a cached preview (stored before previews were cached) is repaired here
+      glb_alignment.ensure_glb_preview(self.object)
+    # The form carries the state it was rendered with; a re-render of a posted form keeps the posted one
+    posted_token = self.request.POST.get('glb_state_token') if self.request.method == 'POST' else None
+    context.setdefault(
+      'glb_state_token',
+      posted_token or glb_alignment.scene_state_token(Scene.objects.get(pk=self.object.pk)))
     return context
 
   def get_queryset(self):
@@ -514,22 +522,27 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
       glb_alignment.move_glb_anchor(scene, self._parse_glb_anchor(glb_anchor), save=False)
 
   def _save_form_with_glb(self, form):
-    """Save the scene form and its GLB change with one save; reject a stale pose first.
+    """Save the scene form and its GLB change with one save; reject an out-of-date form first.
 
     The caller holds the transaction and the scene row lock.
     """
     stored = Scene.objects.select_for_update().get(pk=form.instance.pk)
-    glb_alignment.reject_stale_form_pose(stored, form.cleaned_data)
-    before = glb_alignment.stored_file_names(stored, ('glb_map',))
-    try:
+    glb_alignment.reject_stale_form(stored, self.request.POST.get('glb_state_token'))
+    with glb_alignment.discard_files_on_failure(form.instance):
       # glb-alignment.js posts a staged GLB (token + anchor) or a moved saved GLB (anchor);
       # they are persisted in the same transaction as the form, like the Accept and Save position buttons
       self._save_glb_changes(
         form, self.request.POST.get('glb_token'), self.request.POST.get('glb_anchor'))
       self.object = form.save()
-    except Exception:
-      glb_alignment.discard_failed_apply_files(form.instance, before)
-      raise
+
+  def _render_current_scene(self, notice):
+    """Re-render the edit page with the stored values, so a retry does not repost the stale ones."""
+    self.object = Scene.objects.get(pk=self.object.pk)
+    form = self.get_form_class()(instance=self.object)
+    context = self.get_context_data(
+      form=form, stale_form_notice=notice,
+      glb_state_token=glb_alignment.scene_state_token(self.object))
+    return self.render_to_response(context, status=409)
 
   def form_valid(self, form):
     # Check if a generated map filename was provided
@@ -541,9 +554,9 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
       with transaction.atomic():
         self._save_form_with_glb(form)
     except glb_alignment.GlbAlignmentError as e:
-      form.add_error(None, e.message)
       if e.status == 409:
-        return self.render_to_response(self.get_context_data(form=form), status=409)
+        return self._render_current_scene(e.message)
+      form.add_error(None, e.message)
       return self.form_invalid(form)
     return HttpResponseRedirect(self.get_success_url())
 
@@ -1327,8 +1340,8 @@ class GeospatialGlb(APIView):
         anchor = data.get('anchor')
         if not token or not anchor:
           return JsonResponse({'error': 'token and anchor are required'}, status=400)
-        result = glb_alignment.commit_glb(scene, token, anchor)
-      return JsonResponse(result)
+        glb_alignment.commit_glb(scene, token, anchor)
+      return JsonResponse(glb_alignment.write_response(scene))
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:
@@ -1347,7 +1360,13 @@ class GeospatialGlb(APIView):
         return JsonResponse({'error': 'Request body must be a JSON object'}, status=400)
 
       with transaction.atomic():
-        return self._move_or_apply_locked(scene_uid, data)
+        scene = glb_alignment.get_geospatial_scene(scene_uid, lock=True)
+        # A move followed by a failed apply rolls back together, files included
+        with glb_alignment.discard_files_on_failure(scene):
+          error = self._move_or_apply(scene, data)
+      if error:
+        return error
+      return self._write_alignment_response(scene)
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:
@@ -1355,9 +1374,9 @@ class GeospatialGlb(APIView):
       log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
-  def _move_or_apply_locked(self, scene_uid, data):
-    """MOVE and/or APPLY/UNAPPLY under the scene row lock; the caller holds the transaction."""
-    scene = glb_alignment.get_geospatial_scene(scene_uid, lock=True)
+  @staticmethod
+  def _move_or_apply(scene, data):
+    """MOVE and/or APPLY/UNAPPLY a locked scene; returns an error response or None."""
     if not scene.glb_map:
       return JsonResponse({'error': 'No stored GLB'}, status=404)
 
@@ -1376,9 +1395,14 @@ class GeospatialGlb(APIView):
     if new_use_glb is not None:
       glb_alignment.set_glb_applied(scene, new_use_glb)
       scene.refresh_from_db()
+    return None
 
-    response = glb_alignment.saved_alignment(scene)
+  @staticmethod
+  def _write_alignment_response(scene):
+    """Alignment plus the scene-edit form values and state token the page must mirror."""
+    response = glb_alignment.write_response(scene)
     response['scene_fields'] = glb_alignment.scene_form_fields(scene)
+    response['state_token'] = glb_alignment.scene_state_token(scene)
     return JsonResponse(response)
 
   def delete(self, request, scene_uid):
@@ -1389,7 +1413,12 @@ class GeospatialGlb(APIView):
         if not scene.glb_map:
           return JsonResponse({'error': 'No stored GLB'}, status=404)
         glb_alignment.remove_glb_map(scene)
-      return JsonResponse({'success': True, 'scene_fields': glb_alignment.scene_form_fields(scene)})
+      scene.refresh_from_db()
+      return JsonResponse({
+        'success': True,
+        'scene_fields': glb_alignment.scene_form_fields(scene),
+        'state_token': glb_alignment.scene_state_token(scene),
+      })
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:

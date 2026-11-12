@@ -1310,6 +1310,14 @@ paths:
                   preview_url:
                     type: string
                     nullable: true
+                  scene_fields:
+                    type: object
+                    description: >-
+                      Scene pose, scale, and map_corners_lla values after the change, for a client that
+                      mirrors them into a scene form
+                  state_token:
+                    type: string
+                    description: Digest of the scene map, pose, corners, and GLB state after the change
         "400":
           description: Scene is not a geospatial_map or invalid anchor provided
         "401":
@@ -1341,7 +1349,9 @@ paths:
         - cookieAuth: []
       responses:
         "200":
-          description: 'GLB deleted successfully; body is {"success": true}'
+          description: >-
+            GLB deleted successfully; body is {"success": true, "scene_fields": {...},
+            "state_token": "..."}
         "400":
           description: Scene is not a geospatial_map
         "401":

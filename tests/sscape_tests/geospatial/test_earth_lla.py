@@ -429,67 +429,27 @@ class TestLocalFootprintCornersLLA:
     equator = localFootprintCornersLLA(0.0, center_lng, heading_deg, width_m, height_m, alt)
     assert np.ptp(corners[:, 1]) / np.ptp(equator[:, 1]) == pytest.approx(2.0, rel=1e-2)
 
-  def test_negative_nan_inputs(self):
-    """Test ValueError for NaN inputs."""
-    with pytest.raises(ValueError, match="must be finite"):
-      localFootprintCornersLLA(
-        float('nan'), 0.0, 0.0, 100.0, 100.0
-      )
-    with pytest.raises(ValueError, match="must be finite"):
-      localFootprintCornersLLA(
-        45.0, float('nan'), 0.0, 100.0, 100.0
-      )
-    with pytest.raises(ValueError, match="must be finite"):
-      localFootprintCornersLLA(
-        45.0, 0.0, float('nan'), 100.0, 100.0
-      )
-    with pytest.raises(ValueError, match="must be finite"):
-      localFootprintCornersLLA(
-        45.0, 0.0, 0.0, float('nan'), 100.0
-      )
-    with pytest.raises(ValueError, match="must be finite"):
-      localFootprintCornersLLA(
-        45.0, 0.0, 0.0, 100.0, float('nan')
-      )
-
-  def test_negative_inf_inputs(self):
-    """Test ValueError for inf inputs."""
-    with pytest.raises(ValueError, match="must be finite"):
-      localFootprintCornersLLA(
-        float('inf'), 0.0, 0.0, 100.0, 100.0
-      )
-    with pytest.raises(ValueError, match="must be finite"):
-      localFootprintCornersLLA(
-        45.0, 0.0, 0.0, 100.0, float('inf')
-      )
-
-  def test_negative_latitude_out_of_bounds(self):
-    """Test ValueError for |lat| > 90."""
-    with pytest.raises(ValueError, match="Latitude must be in"):
-      localFootprintCornersLLA(91.0, 0.0, 0.0, 100.0, 100.0)
-    with pytest.raises(ValueError, match="Latitude must be in"):
-      localFootprintCornersLLA(-91.0, 0.0, 0.0, 100.0, 100.0)
-
-  def test_negative_longitude_out_of_bounds(self):
-    """Test ValueError for |lng| > 180."""
-    with pytest.raises(ValueError, match="Longitude must be in"):
-      localFootprintCornersLLA(45.0, 181.0, 0.0, 100.0, 100.0)
-    with pytest.raises(ValueError, match="Longitude must be in"):
-      localFootprintCornersLLA(45.0, -181.0, 0.0, 100.0, 100.0)
-
-  def test_negative_width_zero(self):
-    """Test ValueError for width <= 0."""
-    with pytest.raises(ValueError, match="Width must be positive"):
-      localFootprintCornersLLA(45.0, 0.0, 0.0, 0.0, 100.0)
-    with pytest.raises(ValueError, match="Width must be positive"):
-      localFootprintCornersLLA(45.0, 0.0, 0.0, -50.0, 100.0)
-
-  def test_negative_height_zero(self):
-    """Test ValueError for height <= 0."""
-    with pytest.raises(ValueError, match="Height must be positive"):
-      localFootprintCornersLLA(45.0, 0.0, 0.0, 100.0, 0.0)
-    with pytest.raises(ValueError, match="Height must be positive"):
-      localFootprintCornersLLA(45.0, 0.0, 0.0, 100.0, -50.0)
+  @pytest.mark.parametrize("args, message", [
+    ((float('nan'), 0.0, 0.0, 100.0, 100.0), "must be finite"),
+    ((45.0, float('nan'), 0.0, 100.0, 100.0), "must be finite"),
+    ((45.0, 0.0, float('nan'), 100.0, 100.0), "must be finite"),
+    ((45.0, 0.0, 0.0, float('nan'), 100.0), "must be finite"),
+    ((45.0, 0.0, 0.0, 100.0, float('nan')), "must be finite"),
+    ((float('inf'), 0.0, 0.0, 100.0, 100.0), "must be finite"),
+    ((45.0, 0.0, 0.0, 100.0, float('inf')), "must be finite"),
+    ((91.0, 0.0, 0.0, 100.0, 100.0), "Latitude must be in"),
+    ((-91.0, 0.0, 0.0, 100.0, 100.0), "Latitude must be in"),
+    ((45.0, 181.0, 0.0, 100.0, 100.0), "Longitude must be in"),
+    ((45.0, -181.0, 0.0, 100.0, 100.0), "Longitude must be in"),
+    ((45.0, 0.0, 0.0, 0.0, 100.0), "Width must be positive"),
+    ((45.0, 0.0, 0.0, -50.0, 100.0), "Width must be positive"),
+    ((45.0, 0.0, 0.0, 100.0, 0.0), "Height must be positive"),
+    ((45.0, 0.0, 0.0, 100.0, -50.0), "Height must be positive"),
+  ])
+  def test_negative_invalid_inputs(self, args, message):
+    """Test ValueError for non-finite, out-of-range and non-positive inputs."""
+    with pytest.raises(ValueError, match=message):
+      localFootprintCornersLLA(*args)
 
 
 class TestFootprintAnchorFromCornersLLA:

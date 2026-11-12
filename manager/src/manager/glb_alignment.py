@@ -3,17 +3,20 @@
 
 """Stage an uploaded GLB and render a top-down preview for geospatial alignment."""
 
+import hashlib
+import json
 import math
 import os
+import shutil
 import time
 import uuid
+from contextlib import contextmanager
 from functools import partial
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.db import transaction
-from django.db.models import Q
 import numpy as np
 from PIL import Image
 from scipy.spatial.transform import Rotation
@@ -26,7 +29,7 @@ from scene_common.earth_lla import (
 from scene_common.glb_top_view import generateOrthoView
 from scene_common.mesh_util import extractMeshFromGLB, getPosedMeshFootprint
 
-from .models import Cam, Scene, SingletonSensor
+from .models import Cam, Scene, SingletonSensor, _delete_unreferenced_mapping_file, glb_preview_name
 from .validators import validate_glb
 
 STAGING_SUBDIR = 'glb_staging'
@@ -37,11 +40,10 @@ SCENE_FORM_GLB_FIELDS = (
   'scale', 'rotation_x', 'rotation_y', 'rotation_z',
   'translation_x', 'translation_y', 'translation_z', 'map_corners_lla',
 )
-# Pose and corner fields a scene-edit form posts; a mismatch with the stored row means a stale form.
-POSE_CHECK_FIELDS = (
-  'rotation_x', 'rotation_y', 'rotation_z',
-  'translation_x', 'translation_y', 'translation_z', 'map_corners_lla',
-)
+# Stored files that apply, unapply, commit and move write; a failed write discards the new ones.
+GLB_STORED_FILES = ('map', 'base_map', 'glb_map', 'thumbnail')
+# State a GLB write changes; the scene-edit form carries its token to detect an out-of-date page.
+STATE_TOKEN_FIELDS = SCENE_FORM_GLB_FIELDS + ('use_glb_map', 'glb_anchor')
 # Staged GLBs are z-up (generated meshes and most exports), so no X rotation is applied
 ALIGN_ROTATION_X = 0.0
 
@@ -60,7 +62,10 @@ class GlbAlignmentError(Exception):
 
 
 def purge_stale_files():
-  """Delete staged files older than STAGING_TTL_SECONDS."""
+  """Delete staged files older than STAGING_TTL_SECONDS.
+
+  Best effort: runs when a GLB is staged or committed, not on a timer.
+  """
   if not os.path.isdir(staging_dir()):
     return
   cutoff = time.time() - STAGING_TTL_SECONDS
@@ -319,20 +324,14 @@ def remove_stored_file(storage, name):
     pass
 
 
-def _delete_map_if_unreferenced(storage, name):
-  """Delete a replaced map file unless a scene row still references it."""
-  if Scene.objects.filter(Q(map=name) | Q(base_map=name) | Q(glb_map=name)).exists():
-    return
-  remove_stored_file(storage, name)
-
-
-def _delete_replaced_map_after_commit(scene, name):
-  """Schedule deletion of a map file that scene.map no longer points to.
+def _delete_replaced_file_after_commit(scene, name):
+  """Schedule deletion of a stored file that a scene field no longer points to.
 
   Runs on commit only: a rollback restores the row, which still needs the file.
   """
   if name:
-    transaction.on_commit(partial(_delete_map_if_unreferenced, scene.map.storage, name))
+    transaction.on_commit(partial(
+      _delete_unreferenced_mapping_file, scene.map.storage, name, scene._state.db or 'default'))
 
 
 def stored_file_names(scene, fields):
@@ -340,47 +339,63 @@ def stored_file_names(scene, fields):
   return {field: getattr(scene, field).name or '' for field in fields}
 
 
-def discard_failed_apply_files(scene, before):
-  """Delete files written by a rolled-back apply, unapply or mesh save; restore the names.
+@contextmanager
+def discard_files_on_failure(scene):
+  """Delete the files a failed write stored on the scene and restore the stored names.
 
-  @param before  names from stored_file_names() taken before the write
+  Take it after the row is locked and the scene is current: the names seen on entry are
+  the ones that stay valid. A new file is never referenced by the rolled-back row.
   """
-  for field, name_before in before.items():
-    stored_file = getattr(scene, field)
-    if stored_file.name and stored_file.name != name_before:
-      remove_stored_file(stored_file.storage, stored_file.name)
-    setattr(scene, field, name_before)
+  before = stored_file_names(scene, GLB_STORED_FILES)
+  try:
+    yield
+  except Exception:
+    for field, name_before in before.items():
+      stored_file = getattr(scene, field)
+      if stored_file.name and stored_file.name != name_before:
+        remove_stored_file(stored_file.storage, stored_file.name)
+        if field == 'glb_map':
+          remove_stored_file(stored_file.storage, glb_preview_name(stored_file.name))
+      setattr(scene, field, name_before)
+    raise
+
+
+@contextmanager
+def locked_scene_write(scene):
+  """Atomic scene write: the row is locked and the files a failed write stored are discarded.
+
+  The write sets the map pose itself, so the upload auto-align must not run on its save.
+  """
+  scene._explicit_mesh_transform = True
+  with transaction.atomic():
+    lock_scene_row(scene)
+    with discard_files_on_failure(scene):
+      yield
 
 
 def _remove_replaced_glb(storage, glb_name):
   """Delete a replaced GLB and its cached preview; runs on commit."""
   remove_stored_file(storage, glb_name)
-  remove_stored_file(storage, f'{os.path.splitext(glb_name)[0]}_preview.png')
+  remove_stored_file(storage, glb_preview_name(glb_name))
 
 
-def _same_value(posted, stored):
-  """True when a posted form value equals the stored value; floats compare with a tiny tolerance."""
-  if isinstance(posted, (list, tuple)) or isinstance(stored, (list, tuple)):
-    return (isinstance(posted, (list, tuple)) and isinstance(stored, (list, tuple))
-            and len(posted) == len(stored)
-            and all(_same_value(p, s) for p, s in zip(posted, stored)))
-  if posted is None or stored is None:
-    return posted is None and stored is None
-  try:
-    return math.isclose(float(posted), float(stored), rel_tol=1e-9, abs_tol=1e-9)
-  except (TypeError, ValueError):
-    return posted == stored
+def scene_state_token(scene):
+  """Digest of the scene map, pose, corners and GLB state that a GLB write changes."""
+  state = [getattr(scene, name) for name in STATE_TOKEN_FIELDS]
+  state += [scene.map.name, scene.glb_map.name]
+  return hashlib.sha256(json.dumps(state, sort_keys=True, default=str).encode()).hexdigest()
 
 
-def reject_stale_form_pose(stored, posted):
-  """Raise 409 when a posted pose or corner value differs from the locked scene row.
+def reject_stale_form(stored, posted_token):
+  """Raise 409 when the form was rendered before the locked scene row changed.
 
   A form loaded before a GLB apply, unapply or move would otherwise write the old pose back.
-  @param stored  scene row locked by the caller
-  @param posted  form.cleaned_data
+  A form without a token is not checked.
+  @param stored        scene row locked by the caller
+  @param posted_token  scene_state_token() the form carried
   """
-  if not all(_same_value(posted.get(name), getattr(stored, name)) for name in POSE_CHECK_FIELDS):
-    raise GlbAlignmentError(409, 'Scene pose changed since the form was loaded; reload and try again')
+  if posted_token and posted_token != scene_state_token(stored):
+    raise GlbAlignmentError(409, 'Scene map or pose changed since the form was loaded; the form now shows the current values')
 
 
 def _apply_pose_and_map(scene, glb_path=None):
@@ -397,7 +412,7 @@ def _apply_pose_and_map(scene, glb_path=None):
   previous_map = scene.map.name
   with scene.glb_map.storage.open(scene.glb_map.name, 'rb') as f:
     scene.map.save(f'{scene.name}.glb', File(f), save=False)
-  _delete_replaced_map_after_commit(scene, previous_map)
+  _delete_replaced_file_after_commit(scene, previous_map)
 
   # Compute pose from glb_anchor and frame_corners_lla
   frame_corners = scene.base_map_corners_lla or scene.map_corners_lla
@@ -440,17 +455,15 @@ def apply_glb_map(scene):
   if scene.use_glb_map:
     raise GlbAlignmentError(400, 'GLB is already applied')
 
-  before = stored_file_names(scene, ('map', 'base_map'))
   try:
-    with transaction.atomic():
-      lock_scene_row(scene)
+    with locked_scene_write(scene):
       # Save current snapshot as base if not already saved
       if scene.map:
         base_ext = os.path.splitext(scene.map.name)[1].lower()
         previous_base = scene.base_map.name
         with scene.map.storage.open(scene.map.name, 'rb') as f:
           scene.base_map.save(f'base_{scene.name}{base_ext}', File(f), save=False)
-        _delete_replaced_map_after_commit(scene, previous_base)
+        _delete_replaced_file_after_commit(scene, previous_base)
         scene.base_scale = scene.scale
         if not scene.base_map_corners_lla:
           scene.base_map_corners_lla = scene.map_corners_lla
@@ -460,10 +473,8 @@ def apply_glb_map(scene):
       scene.use_glb_map = True
       scene.save()
   except GlbAlignmentError:
-    discard_failed_apply_files(scene, before)
     raise
   except Exception as e:
-    discard_failed_apply_files(scene, before)
     log.error(f'Failed to apply GLB: {e}')
     raise GlbAlignmentError(500, 'Failed to apply GLB')
 
@@ -480,10 +491,8 @@ def unapply_glb_map(scene):
   if not scene.use_glb_map:
     raise GlbAlignmentError(400, 'GLB is not currently applied')
 
-  before = stored_file_names(scene, ('map', 'base_map'))
   try:
-    with transaction.atomic():
-      lock_scene_row(scene)
+    with locked_scene_write(scene):
       previous_map = scene.map.name
       if scene.base_map and scene.base_map.storage.exists(scene.base_map.name):
         base_ext = os.path.splitext(scene.base_map.name)[1]
@@ -491,30 +500,29 @@ def unapply_glb_map(scene):
           scene.map.save(f'{scene.name}{base_ext}', File(f), save=False)
       else:
         scene.map = ''  # None crashes Scene.save() on the map-name check
-      _delete_replaced_map_after_commit(scene, previous_map)
+      _delete_replaced_file_after_commit(scene, previous_map)
 
       scene.scale = scene.base_scale
       scene.map_corners_lla = scene.base_map_corners_lla
       scene.resetRotation()
       scene.resetTranslation()
+      _delete_replaced_file_after_commit(scene, scene.thumbnail.name)
       scene.thumbnail = None
       scene.use_glb_map = False
 
       # The base file is removed on commit only: a rollback restores base_map, which still needs it
-      _delete_replaced_map_after_commit(scene, scene.base_map.name)
+      _delete_replaced_file_after_commit(scene, scene.base_map.name)
       scene.base_map = None
       scene.base_scale = None
 
       scene.save()
   except GlbAlignmentError:
-    discard_failed_apply_files(scene, before)
     raise
   except Exception as e:
-    discard_failed_apply_files(scene, before)
     log.error(f'Failed to unapply GLB: {e}')
     raise GlbAlignmentError(500, 'Failed to unapply GLB')
 
-  return _write_response(scene)
+  return saved_alignment(scene) if scene.glb_map else None
 
 
 def move_glb_anchor(scene, new_anchor, save=True):
@@ -527,8 +535,7 @@ def move_glb_anchor(scene, new_anchor, save=True):
   lat, lng, heading = parse_anchor(new_anchor)
 
   try:
-    with transaction.atomic():
-      lock_scene_row(scene)
+    with locked_scene_write(scene):
       # Update anchor with footprint from existing
       footprint_m = scene.glb_anchor.get('footprint_m') if scene.glb_anchor else {}
       scene.glb_anchor = {
@@ -571,7 +578,7 @@ def move_glb_anchor(scene, new_anchor, save=True):
     log.error(f'Failed to move GLB anchor: {e}')
     raise GlbAlignmentError(500, 'Failed to move GLB anchor')
 
-  return _write_response(scene)
+  return saved_alignment(scene) if scene.glb_map else None
 
 
 def set_glb_applied(scene, use_glb):
@@ -586,21 +593,16 @@ def remove_glb_map(scene):
   """Remove a stored GLB (delete glb_map and clear glb_anchor).
 
   If use_glb_map was True, first unapply it (legacy: map becomes empty, frame kept).
-  Deletes cached preview file if present.
+  The GLB file and its cached preview are deleted on commit.
   """
   try:
-    with transaction.atomic():
-      # Delete cached preview if present
-      if scene.glb_map:
-        remove_stored_file(scene.glb_map.storage, f'{os.path.splitext(scene.glb_map.name)[0]}_preview.png')
-
+    with locked_scene_write(scene):
       # If applied, unapply first
       if scene.use_glb_map:
         unapply_glb_map(scene)
 
-      # Remove glb_map file
-      if scene.glb_map and scene.glb_map.storage.exists(scene.glb_map.name):
-        remove_stored_file(scene.glb_map.storage, scene.glb_map.name)
+      if scene.glb_map:
+        transaction.on_commit(partial(_remove_replaced_glb, scene.glb_map.storage, scene.glb_map.name))
       scene.glb_map = None
       scene.glb_anchor = None
 
@@ -621,6 +623,13 @@ def _reapply_applied_glb(scene):
     raise GlbAlignmentError(500, 'Failed to update GLB pose')
 
 
+def _adopt_staged_preview(scene, token):
+  """Cache the staged top view as the GLB's preview: the image depends only on the GLB file."""
+  staged_png = os.path.join(staging_dir(), f'{token}.png')
+  if os.path.isfile(staged_png):
+    shutil.copyfile(staged_png, glb_preview_path(scene.glb_map.path))
+
+
 def commit_glb(scene, token, anchor, save=True):
   """Store a staged GLB with its anchor; does not apply it.
 
@@ -632,49 +641,44 @@ def commit_glb(scene, token, anchor, save=True):
   Returns saved_alignment dict.
   """
   path = staged_glb_path(token)
+  token = str(uuid.UUID(token))
   lat, lng, heading = parse_anchor(anchor)
 
   old_glb = scene.glb_map.name if scene.glb_map else ''
-  try:
-    with transaction.atomic():
-      lock_scene_row(scene)
-      # Save the staged GLB as glb_map
-      with open(path, 'rb') as f:
-        scene.glb_map.save(f'{scene.name}.glb', File(f), save=False)
+  with locked_scene_write(scene):
+    # Save the staged GLB as glb_map
+    with open(path, 'rb') as f:
+      scene.glb_map.save(f'{scene.name}.glb', File(f), save=False)
+    _adopt_staged_preview(scene, token)
 
-      # Get footprint from the real mesh (extract and measure, not autoAlignSceneMap)
-      width, height = _get_mesh_footprint_corners_from_glb(scene.glb_map.path)
+    # Get footprint from the real mesh (extract and measure, not autoAlignSceneMap)
+    width, height = _get_mesh_footprint_corners_from_glb(scene.glb_map.path)
 
-      scene.glb_anchor = {
-        'lat': float(lat),
-        'lng': float(lng),
-        'heading_deg': float(heading),
-        'footprint_m': {'width': float(width), 'height': float(height)},
-      }
+    scene.glb_anchor = {
+      'lat': float(lat),
+      'lng': float(lng),
+      'heading_deg': float(heading),
+      'footprint_m': {'width': float(width), 'height': float(height)},
+    }
 
-      # Initialize base_map_corners_lla if not set (from current frame)
-      if not scene.base_map_corners_lla:
-        scene.base_map_corners_lla = scene.map_corners_lla
+    # Initialize base_map_corners_lla if not set (from current frame)
+    if not scene.base_map_corners_lla:
+      scene.base_map_corners_lla = scene.map_corners_lla
 
-      # If already applied, re-apply with new GLB; otherwise just store
-      if scene.use_glb_map:
-        _reapply_applied_glb(scene)
-      if save:
-        scene.save()
+    # If already applied, re-apply with new GLB; otherwise just store
+    if scene.use_glb_map:
+      _reapply_applied_glb(scene)
+    if save:
+      scene.save()
 
-      # Staged and replaced files are removed on commit only: a rollback keeps the old GLB row
-      if old_glb and old_glb != scene.glb_map.name:
-        transaction.on_commit(partial(_remove_replaced_glb, scene.glb_map.storage, old_glb))
-      transaction.on_commit(partial(remove_staged_files, str(uuid.UUID(token))))
-
-  except Exception:
-    if scene.glb_map.name != old_glb:
-      remove_stored_file(scene.glb_map.storage, scene.glb_map.name)
-    raise
+    # Staged and replaced files are removed on commit only: a rollback keeps the old GLB row
+    if old_glb and old_glb != scene.glb_map.name:
+      transaction.on_commit(partial(_remove_replaced_glb, scene.glb_map.storage, old_glb))
+    transaction.on_commit(partial(remove_staged_files, token))
 
   purge_stale_files()
 
-  return _write_response(scene)
+  return saved_alignment(scene)
 
 
 def scene_form_fields(scene):
@@ -686,21 +690,21 @@ def scene_form_fields(scene):
   return {name: getattr(scene, name) for name in SCENE_FORM_GLB_FIELDS}
 
 
-def unapplied_preview_path(glb_path):
-  """Cache path of the unapplied top-view preview, stored next to the GLB file."""
-  glb_base = os.path.splitext(os.path.basename(glb_path))[0]
-  return os.path.join(os.path.dirname(glb_path), f'{glb_base}_preview.png')
+def glb_preview_path(glb_path):
+  """Cache path of the top-view preview of a stored GLB, next to the GLB file."""
+  return glb_preview_name(glb_path)
 
 
-def ensure_unapplied_preview(scene):
-  """Render the unapplied preview of the stored GLB if it is not cached yet.
+def ensure_glb_preview(scene):
+  """Render the preview of the stored GLB if it is not cached yet.
 
-  Called from write paths only, never from the GET read path. The preview depends
-  only on the GLB file. A failed render is logged and retried on the next write.
+  The preview depends only on the GLB file, so the staged top view is normally adopted on
+  commit and this only repairs a missing one. Call it outside the write transaction, never
+  from the GET read path. A failed render is logged and retried on the next call.
   """
-  if scene.use_glb_map or not scene.glb_map:
+  if not scene.glb_map:
     return
-  preview_path = unapplied_preview_path(scene.glb_map.path)
+  preview_path = glb_preview_path(scene.glb_map.path)
   if os.path.exists(preview_path):
     return
   try:
@@ -715,11 +719,9 @@ def ensure_unapplied_preview(scene):
     log.warning(f'Failed to generate GLB preview: {e}')
 
 
-def _write_response(scene):
-  """Response for write paths: make sure the unapplied preview exists, then read it."""
-  if not scene.glb_map:
-    return None
-  ensure_unapplied_preview(scene)
+def write_response(scene):
+  """Alignment after a write: make sure the preview exists, then read it."""
+  ensure_glb_preview(scene)
   return saved_alignment(scene)
 
 
@@ -729,8 +731,9 @@ def saved_alignment(scene):
   Returns dict with exists, filename, download_url, anchor, footprint_m, use_glb_map, preview_url.
   Returns exists=false if no GLB stored.
 
-  Read-only. For applied GLB: uses cached scene.thumbnail. For unapplied GLB: uses the
-  cached preview file if it exists (rendered by ensure_unapplied_preview on write paths).
+  Read-only. preview_url is the cached top view of the GLB file, applied or not: the map
+  overlay stretches it onto the footprint at the anchor heading, while scene.thumbnail is the
+  posed render of the applied map and already carries the heading.
   """
   if not scene.glb_map or not scene.glb_anchor:
     return {
@@ -741,14 +744,8 @@ def saved_alignment(scene):
   footprint_data = anchor_data.get('footprint_m', {})
 
   preview_url = None
-  if scene.use_glb_map and scene.thumbnail:
-    # Use the thumbnail cached when GLB was applied
-    preview_url = scene.thumbnail.url
-  else:
-    preview_path = unapplied_preview_path(scene.glb_map.path)
-    if os.path.exists(preview_path):
-      preview_name = os.path.join(os.path.dirname(scene.glb_map.name), os.path.basename(preview_path))
-      preview_url = scene.glb_map.storage.url(preview_name)
+  if os.path.exists(glb_preview_path(scene.glb_map.path)):
+    preview_url = scene.glb_map.storage.url(glb_preview_name(scene.glb_map.name))
 
   return {
     'exists': True,

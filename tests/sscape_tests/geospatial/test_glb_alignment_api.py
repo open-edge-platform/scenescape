@@ -10,14 +10,13 @@ Tests the DRF/Django view layer for GeospatialGlb* endpoints covering:
   - File download sanitization
 
 Coverage:
-  D1: GET /scene/{id}/geospatial-glb happy path (exists:true/false)
-  D2: GET response format: filename, download_url, anchor, footprint_m, use_glb_map, preview_url
-  D3: POST /scene/{id}/geospatial-glb with valid token and anchor (201/200)
   D4: PUT /scene/{id}/geospatial-glb to update anchor and use_glb_map
   D5: DELETE /scene/{id}/geospatial-glb
   D6: Error cases: invalid anchor (400), non-bool use_glb_map (400), non-geospatial (400)
   D7: Auth: unauthenticated (403), non-admin (403)
   D8: Download: attachment header, sanitised filename, 404 when no GLB
+
+GET and POST are covered with the commit flow in tests/sscape_tests/views/test_geospatial_glb_views.py.
 """
 
 import json
@@ -40,118 +39,6 @@ from scene_common.earth_lla import localFootprintCornersLLA
 
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / "mesh_util" / "test_data" / "scene.glb"
 POSE_FIELDS = ("rotation_x", "rotation_y", "rotation_z", "translation_x", "translation_y", "translation_z")
-
-
-class TestGeospatialGlbApiGetEndpoint(TestCase):
-  """Tests for GET /scene/{id}/geospatial-glb endpoint."""
-
-  def setUp(self):
-    """Create superuser and geospatial scene."""
-    self.user = User.objects.create_superuser("admin", "admin@intel.com", "pass")
-    self.scene = Scene.objects.create(
-      name="api_test_scene",
-      map_type="geospatial_map",
-      map_center_lat=37.38,
-      map_center_lng=-121.96,
-      output_lla=True
-    )
-    self.client.force_login(self.user)
-
-  def test_get_glb_exists_false_when_no_glb_stored(self):
-    """D2: GET returns exists:false when no GLB stored."""
-    response = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
-    )
-    self.assertEqual(response.status_code, 200)
-    data = json.loads(response.content)
-    self.assertFalse(data['exists'])
-
-  def test_get_glb_exists_true_when_glb_stored(self):
-    """D2: GET returns exists:true when GLB stored."""
-    temp_dir = tempfile.TemporaryDirectory()
-    self.addCleanup(temp_dir.cleanup)
-    with override_settings(MEDIA_ROOT=temp_dir.name):
-      glb_path = os.path.join(temp_dir.name, "test.glb")
-      with open(TEST_GLB_FILE, 'rb') as f_src:
-        with open(glb_path, 'wb') as f_dst:
-          f_dst.write(f_src.read())
-
-      self.scene.glb_map = "test.glb"
-      self.scene.glb_anchor = {
-        'lat': 37.39,
-        'lng': -121.97,
-        'heading_deg': 0.0,
-        'footprint_m': {'width': 10.0, 'height': 10.0}
-      }
-      self.scene.save()
-
-      response = self.client.get(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
-      )
-      self.assertEqual(response.status_code, 200)
-      data = json.loads(response.content)
-      self.assertTrue(data['exists'])
-      self.assertEqual(data['filename'], 'test.glb')
-      self.assertIn('anchor', data)
-      self.assertIn('footprint_m', data)
-      self.assertIn('use_glb_map', data)
-
-
-class TestGeospatialGlbApiPostEndpoint(TransactionTestCase):
-  """Tests for POST /scene/{id}/geospatial-glb endpoint."""
-
-  def setUp(self):
-    """Create superuser and geospatial scene."""
-    self.temp_dir = tempfile.TemporaryDirectory()
-    self.addCleanup(self.temp_dir.cleanup)
-    patcher = override_settings(MEDIA_ROOT=self.temp_dir.name)
-    patcher.enable()
-    self.addCleanup(patcher.disable)
-
-    self.user = User.objects.create_superuser("admin", "admin@intel.com", "pass")
-    self.scene = Scene.objects.create(
-      name="post_test_scene",
-      map_type="geospatial_map",
-      map_center_lat=37.38,
-      map_center_lng=-121.96,
-      output_lla=True
-    )
-    self.scene.map_corners_lla = localFootprintCornersLLA(
-      center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
-      width_m=100.0, height_m=100.0
-    ).tolist()
-    self.scene.save()
-    self.client.force_login(self.user)
-
-  def _stage_glb(self):
-    """Stage a GLB and return the token."""
-    token = str(uuid.uuid4())
-    staging_dir = os.path.join(self.temp_dir.name, glb_alignment.STAGING_SUBDIR)
-    os.makedirs(staging_dir, exist_ok=True)
-    glb_path = os.path.join(staging_dir, f"{token}.glb")
-    with open(TEST_GLB_FILE, 'rb') as f_src:
-      with open(glb_path, 'wb') as f_dst:
-        f_dst.write(f_src.read())
-    return token
-
-  def test_post_glb_with_valid_anchor_stores_glb(self):
-    """D3: POST with valid token and anchor stores GLB."""
-    token = self._stage_glb()
-    anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0.0}
-
-    with patch.object(glb_alignment, '_get_mesh_footprint_corners_from_glb',
-                      return_value=(10.0, 10.0)), \
-         patch.object(Scene, 'saveThumbnail'), \
-         patch('manager.models.sendUpdateCommand'):
-      response = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-        data=json.dumps({'token': token, 'anchor': anchor}),
-        content_type='application/json'
-      )
-
-    self.assertEqual(response.status_code, 200)
-    data = json.loads(response.content)
-    self.assertTrue(data['exists'])
 
 
 class _GlbApplyHelpers:

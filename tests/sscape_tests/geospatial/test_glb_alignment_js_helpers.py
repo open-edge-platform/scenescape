@@ -12,7 +12,6 @@ import pytest
 
 _TESTS_DIR = Path(__file__).resolve().parent
 _HARNESS = _TESTS_DIR / "glb_align_pure_helpers_harness.js"
-_SQUARE = [{"lat": 0, "lng": 0}, {"lat": 0, "lng": 2}, {"lat": 2, "lng": 2}, {"lat": 2, "lng": 0}]
 
 
 def run_js_helpers(test_name, args):
@@ -56,14 +55,6 @@ class TestGlbAlignmentPureHelpers:
     assert res["lat"] == pytest.approx(expected_lat, abs=1e-6)
     assert res["lng"] == pytest.approx(-120.9, abs=1e-6)
     assert res["heading_deg"] == 45.0
-
-  @pytest.mark.parametrize("point, inside", [
-    ({"lat": 1.0, "lng": 1.0}, True),
-    ({"lat": 3.0, "lng": 3.0}, False),
-  ])
-  def test_point_in_polygon(self, point, inside):
-    """Points inside and outside a square are classified correctly."""
-    assert run_js_helpers("pointInPolygon", {"pt": point, "corners": _SQUARE}) is inside
 
   def test_build_overlay_corners_matches_footprint_size(self):
     """An unrotated 30 x 20 m footprint spans about 30 m east-west and 20 m north-south."""

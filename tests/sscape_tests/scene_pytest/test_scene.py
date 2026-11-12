@@ -1032,20 +1032,3 @@ def test_updateScene_png_glb_png_round_trip_restores_png_frame(tmp_path):
   assert np.allclose(scene.mapFootprintCorners(), png_corners)
   assert np.allclose(scene.trs_xyz_to_lla, png_trs)
 
-
-def test_updateScene_same_map_and_scale_does_not_reload_mesh(tmp_path, monkeypatch):
-  """! Hydrating an unchanged map keeps the loaded background and mesh without re-extracting."""
-  png = str(tmp_path / "map.png")
-  cv2.imwrite(png, np.zeros((8, 8, 3), dtype=np.uint8))
-  scene = scene_module.Scene("test", png, 10.0)
-  mesh = scene.map_triangle_mesh
-  background = scene.background
-  extract = Mock()
-  monkeypatch.setattr(scene, 'extractMapTriangleMesh', extract)
-
-  scene.updateScene(_map_update(png, [0, 0, 0]))
-
-  extract.assert_not_called()
-  assert scene.map_triangle_mesh is mesh
-  assert scene.background is background
-

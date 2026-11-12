@@ -65,10 +65,6 @@ class NonNullSerializer(serializers.ModelSerializer):
                             not isinstance(result[key], list)
                             and not isinstance(result[key], tuple)) or result[key]])
 
-def _vec_or_default(values, default):
-  """Replace NULL (legacy) pose components with a default; keep stored zeros."""
-  return [default if v is None else v for v in values]
-
 def _validate_scene_exists(data):
   scene = data.get('scene')
   if scene is not None:
@@ -808,13 +804,13 @@ class SceneSerializer(NonNullSerializer):
     return SingletonSerializer(queryset, many=True).data
 
   def get_rotation(self, obj):
-    return _vec_or_default([obj.rotation_x, obj.rotation_y, obj.rotation_z], 0)
+    return [obj.rotation_x, obj.rotation_y, obj.rotation_z] if obj.rotation_x else [0, 0, 0]
 
   def get_translation(self, obj):
-    return _vec_or_default([obj.translation_x, obj.translation_y, obj.translation_z], 0)
+    return [obj.translation_x, obj.translation_y, obj.translation_z] if obj.translation_x else [0, 0, 0]
 
   def get_scale(self, obj):
-    return _vec_or_default([obj.scale_x, obj.scale_y, obj.scale_z], 1)
+    return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x else [1, 1, 1]
 
   def get_children(self, obj):
     children = []

@@ -409,6 +409,7 @@ const scenarios = {
       frameTrail,
       sceneFormTrail,
       sceneForm: sceneForm(),
+      stateToken: fakeEls["id_glb_state_token"]?.value ?? null,
       submits,
       mapFrame: frameState(),
       savedBlockDisplay: fakeEls["glbSavedBlock"]?.style?.display ?? null,

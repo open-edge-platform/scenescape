@@ -425,15 +425,36 @@ class TestGlbAlignment:
     assert res["frameTrail"] == [FRAME_UNAPPLIED, FRAME_APPLIED, FRAME_UNAPPLIED]
 
   def test_toggle_use_redraws_overlay_with_response_preview(self):
-    """Toggling the GLB redraws the overlay with the preview the server returns for the new state."""
+    """Toggling the GLB redraws the overlay from the response; the preview is the same in both states."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png"}},
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png"}},
       {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png"}},
     ]
     res = _align(responses, [["toggleUse", True], ["toggleUse", False]], geomapReady=True)
     urls = [c[1] for c in res["calls"] if c[0] == "setOverlay"]
-    assert urls == ["/saved.png", "/applied.png", "/saved.png"]
+    assert urls == ["/saved.png", "/saved.png", "/saved.png"]
+
+  def test_saved_model_without_preview_shows_a_message(self):
+    """A saved model whose preview is missing says so instead of drawing nothing silently."""
+    res = _align([_saved_model_get(preview_url=None)], [], geomapReady=True)
+    assert "preview" in res["status"]
+    assert not [c for c in res["calls"] if c[0] == "setOverlay"]
+
+  def test_toggle_use_writes_state_token_to_form(self):
+    """Applying the GLB writes the server's state token into the form, so the next save is not stale."""
+    responses = [
+      _saved_model_get(),
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png", "state_token": "tok-applied"}},
+    ]
+    res = _align(responses, [["toggleUse", True]])
+    assert res["stateToken"] == "tok-applied"
+
+  def test_remove_writes_state_token_to_form(self):
+    """Removing the GLB writes the server's state token into the form."""
+    responses = [_saved_model_get(), {"status": 200, "body": {"success": True, "state_token": "tok-removed"}}]
+    res = _align(responses, [["remove"]])
+    assert res["stateToken"] == "tok-removed"
 
   def test_overlay_frame_unchanged_when_apply_fails(self):
     """A failed apply request leaves the frame in its previous state."""

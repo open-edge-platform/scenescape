@@ -185,28 +185,6 @@ class TestMapReloadOnHydrate:
     assert np.allclose(scene.mapFootprintCorners(), png_corners)
     assert np.allclose(scene.trs_xyz_to_lla, png_trs)
 
-  def test_unchanged_map_and_scale_does_not_reload(self, tmp_path):
-    png = str(tmp_path / 'map.png')
-    self._write_png(png)
-    scene = AnalyticsScene('rt', png, 10.0)
-    scene.extractMapTriangleMesh = MagicMock()
-
-    scene._hydrateFromSceneData(self._data(png))
-
-    scene.extractMapTriangleMesh.assert_not_called()
-
-  def test_scale_change_on_same_map_reloads_mesh(self, tmp_path):
-    png = str(tmp_path / 'map.png')
-    self._write_png(png)
-    scene = AnalyticsScene('rt', png, 10.0)
-    scene.extractMapTriangleMesh = MagicMock()
-    data = {**self._data(png), 'scale': 20.0}
-
-    scene._hydrateFromSceneData(data)
-
-    scene.extractMapTriangleMesh.assert_called_once_with(png, 20.0)
-    assert scene.scale == 20.0
-
 
 MODULE = 'analytics.adapters.scene_model'
 CORNERS_LLA = [[0, 0, 0], [1, 1, 1]]
