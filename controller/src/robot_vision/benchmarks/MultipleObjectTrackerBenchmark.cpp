@@ -98,7 +98,7 @@ AssociationParams makeAssociationParams(const std::string &method,
     const double probability = gate_probability.value_or(0.99);
     params.distance_type = DistanceType::PositionMahalanobis;
     params.max_radius_m = max_radius_m.value_or(10.0);
-    params.distance_threshold = rv::chi2Threshold(probability, 2);
+    params.distance_threshold = rv::chi2Threshold(probability, 3);
     params.label = "position_mahalanobis_p" + std::to_string(probability) + "_r" +
                    std::to_string(params.max_radius_m);
   }
