@@ -745,6 +745,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       obj = create_object_at_location(
         x=x, y=y, z=z, yaw=yaw,
         classification=classification_data.classification('Person', 1.0))
+      obj.zMeasured = True
       # Orienting measurement so UKF correct applies yaw (not zero innovation).
       # Assign the full dict — pybind setitem on the returned map is not sticky.
       obj.attributes = {'has_orientation': 'true'}
@@ -780,6 +781,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       measurement = create_object_at_location(
         x=t, y=0.0, z=vz * t,
         classification=classification_data.classification('Person', 1.0))
+      measurement.zMeasured = True
       estimator.track(measurement, timestamp)
 
     state = estimator.current_state()
@@ -878,6 +880,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       obj = create_object_at_location(
         x=0.4 * last_t, y=0.0, z=vz * last_t,
         classification=classification_data.classification('Person', 1.0))
+      obj.zMeasured = True
       tracker.track([obj], timestamp)
 
     tracks = tracker.get_reliable_tracks()

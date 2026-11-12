@@ -314,6 +314,9 @@ struct Sensor
   std::mt19937 rng{1};
   double zNoise = 0.0;  // standard deviation of z [m]; 0 keeps z exact
   std::mt19937 zRng{2}; // own generator so z noise never changes the x/y/size/yaw noise
+  // When false (and zNoise == 0), detections stay planar: UKF omits z and association uses XY only.
+  // zNoise > 0 implies a ranging sensor and sets zMeasured even if measuresZ stays false.
+  bool measuresZ = false;
 };
 
 // Lets a test repeat a scenario with different noise; seed 1 reproduces the defaults.
@@ -340,12 +343,14 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
   for (const auto &sample : truth)
   {
     auto detection = makeDetection(sample);
+    const bool measureZ = sensor.measuresZ || sensor.zNoise > 0.0;
+    detection.zMeasured = measureZ;
     if (sensor.positionNoise > 0.0)
     {
       detection.x += sensor.positionNoise * noise(sensor.rng);
       detection.y += sensor.positionNoise * noise(sensor.rng);
     }
-    if (sensor.zNoise > 0.0)
+    if (measureZ && sensor.zNoise > 0.0)
     {
       detection.z += sensor.zNoise * zNoiseDistribution(sensor.zRng);
     }

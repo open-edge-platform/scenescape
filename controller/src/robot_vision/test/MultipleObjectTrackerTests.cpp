@@ -791,6 +791,7 @@ TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
     measurement.x = vx * t;
     measurement.y = vy * t;
     measurement.z = vz * t;
+    measurement.zMeasured = true;
     measurement.yaw = yaw;
     measurement.length = 0.5;
     measurement.width = 0.5;
@@ -868,6 +869,7 @@ TEST(MultipleObjectTrackerTest, CoastsClimbingZWithoutMeasurements)
     measurement.x = 0.4 * t;
     measurement.y = 0.0;
     measurement.z = vz * t;
+    measurement.zMeasured = true;
     measurement.length = measurement.width = measurement.height = 0.5;
     objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
                         rv::tracking::DistanceType::Euclidean, 2.0);
@@ -911,6 +913,7 @@ TEST(MultipleObjectTrackerTest, ProductionFilterFollowsClimbingZAndCoastsIt)
     rv::tracking::TrackedObject measurement;
     measurement.x = vx * t;
     measurement.z = vz * t;
+    measurement.zMeasured = true;
     measurement.length = measurement.width = 0.5;
     measurement.height = 1.8;
     objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
