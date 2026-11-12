@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -32,6 +32,17 @@ SPDX-License-Identifier: Apache-2.0
     <div class="card-body">
       <form enctype="multipart/form-data" method="post" id="scene_update_form">
         {% csrf_token %}
+        <input
+          type="hidden"
+          name="glb_state_token"
+          id="id_glb_state_token"
+          value="{{ glb_state_token }}"
+        />
+        {% if stale_form_notice %}
+          <div class="alert alert-warning" role="alert">
+            {{ stale_form_notice }}
+          </div>
+        {% endif %}
         {% if form.non_field_errors %}
           <div class="alert alert-danger" role="alert">
             {% for error in form.non_field_errors %}
@@ -192,6 +203,135 @@ SPDX-License-Identifier: Apache-2.0
           <label class="col-sm-2 col-form-label">Map</label>
           <div class="col-sm-10">
             <div id="map"></div>
+          </div>
+        </div>
+
+        <!-- GLB alignment - only visible for geospatial -->
+        <div
+          class="form-group row"
+          id="glbAlignRow"
+          style="display:none;"
+          data-scene-id="{{ scene.id }}"
+        >
+          <label class="col-sm-2 col-form-label" for="glbFileInput"
+            >3D model (GLB)</label
+          >
+          <div class="col-sm-10">
+            <div id="glbFileWrap">
+              <input
+                type="file"
+                id="glbFileInput"
+                class="form-control-file"
+                accept=".glb"
+              />
+            </div>
+            <small id="glbAlignHint" class="form-text text-muted"></small>
+            <div
+              id="glbAlignStatus"
+              role="status"
+              aria-live="polite"
+              class="mt-2"
+            ></div>
+            <div
+              id="glbSavedBlock"
+              style="display:none;"
+              class="mt-3 p-3 border rounded bg-light"
+            >
+              <div class="mb-2">
+                <strong>Saved 3D model:</strong>
+                <span id="glbSavedFilename"></span>
+              </div>
+              <div class="mb-2">
+                <a
+                  id="glbDownloadLink"
+                  href="#"
+                  class="btn btn-sm btn-outline-primary"
+                  download
+                  >Download</a
+                >
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  id="glbRemoveBtn"
+                >
+                  Remove
+                </button>
+                <span id="glbSavePositionWrap" class="d-inline-block">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-primary"
+                    id="glbSavePosition"
+                    style="display:none;"
+                  >
+                    Save position
+                  </button>
+                </span>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="glbUse" />
+                <label class="form-check-label" for="glbUse"
+                  >Apply saved 3D model to scene map</label
+                >
+              </div>
+            </div>
+            <div
+              id="glbAlignControls"
+              style="display:none;"
+              class="mt-3 p-3 border rounded bg-light"
+            >
+              <div class="form-group mt-2">
+                <label for="glbOpacity">Opacity</label>
+                <input
+                  type="range"
+                  id="glbOpacity"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value="0.6"
+                  aria-label="Opacity control"
+                />
+              </div>
+              <div class="form-group">
+                <label for="glbHeadingNumber"
+                  >Heading (degrees clockwise from north)</label
+                >
+                <div class="d-flex align-items-center">
+                  <input
+                    type="number"
+                    class="form-control mr-3"
+                    style="width: 7rem;"
+                    id="glbHeadingNumber"
+                    min="0"
+                    max="359.9"
+                    step="0.1"
+                  />
+                  <input
+                    type="range"
+                    id="glbHeadingRange"
+                    min="0"
+                    max="359"
+                    step="1"
+                    aria-label="Heading slider"
+                  />
+                </div>
+              </div>
+              <div class="form-group">
+                <span id="glbFootprint"></span>
+              </div>
+              <div class="form-group">
+                <span id="glbAcceptWrap" class="d-inline-block">
+                  <button type="button" class="btn btn-primary" id="glbAccept">
+                    Accept
+                  </button>
+                </span>
+                <button type="button" class="btn btn-secondary" id="glbReset">
+                  Reset
+                </button>
+                <button type="button" class="btn btn-secondary" id="glbCancel">
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -634,11 +774,13 @@ SPDX-License-Identifier: Apache-2.0
   <!-- API Keys from environment variables (CSP-compliant using json_script) -->
   {{ google_maps_api_key|json_script:"google-maps-api-key" }}
   {{ mapbox_api_key|json_script:"mapbox-api-key" }}
+  <script src="/static/js/geospatial/geo-overlay-math.js"></script>
   <script src="/static/js/geospatial/map-interface.js"></script>
   <script src="/static/js/geospatial/google-maps-plugin.js"></script>
   <script src="/static/js/geospatial/mapbox-plugin.js"></script>
   <script src="/static/js/geospatial/geomanager.js"></script>
   <script src="/static/js/geospatial/scene-form.js"></script>
+  <script src="/static/js/geospatial/glb-alignment.js"></script>
   <div class="display-none">
     <button class="btn btn-secondary" id="connect">Connect</button>
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>

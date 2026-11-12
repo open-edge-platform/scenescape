@@ -2,13 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import cv2
+import numpy as np
 import os
 from copy import copy
 from threading import RLock
+from typing import Optional
 
 from scene_common import log
 from scene_common.camera import Camera
-from scene_common.mesh_util import extractTriangleMesh
+from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
+from scene_common.mesh_util import extractTriangleMesh, getMeshAxisAlignedProjectionToXY, getPosedMeshFootprint
 from scene_common.options import (
   POSE_CLASS_LIVE,
   POSE_ORIGIN_DETECTOR_EXTRINSICS,
@@ -19,6 +22,8 @@ from scene_common.options import (
 from scene_common.transform import (
   CameraIntrinsics, CameraPose, validate_camera_extrinsics,
 )
+
+IMAGE_MAP_TYPES = ["png", "jpg", "jpeg"]
 
 
 def _normalize_observation_resolution(resolution):
@@ -82,13 +87,7 @@ class SceneModel:
     self.background = None
     self.map_triangle_mesh = None
     self.map_file = map_file
-    if map_file:
-      # FIXME: get the image binary data using url rather than this hack
-      if 'http' in map_file:
-        map_file = map_file.replace('https://web.scenescape.intel.com', '/home/scenescape/Scenescape')
-      if os.path.exists(map_file):
-        self.background = cv2.imread(map_file)
-        self.extractMapTriangleMesh(map_file, scale)
+    self._loadMapData(map_file, scale)
     self.children = []
     self.cameras = {}
     self._camera_lock = RLock()
@@ -102,13 +101,42 @@ class SceneModel:
 
     self.mesh_translation = None
     self.mesh_rotation = None
+    self.mesh_scale = None
+    self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     self.scale = scale
     return
 
+  def _loadMapData(self, map_file, scale):
+    """Load the background image and triangle mesh for map_file when it exists on disk."""
+    if not map_file:
+      return
+    # FIXME: get the image binary data using url rather than this hack
+    if 'http' in map_file:
+      map_file = map_file.replace('https://web.scenescape.intel.com', '/home/scenescape/Scenescape')
+    if os.path.exists(map_file):
+      self.background = cv2.imread(map_file)
+      self.extractMapTriangleMesh(map_file, scale)
+
+  def reloadMapIfChanged(self, map_file, scale):
+    """Reload the map when its file or scale differs from the loaded one.
+
+    Hydration updates a scene in place, so a map swapped from an image to a GLB
+    (or back) must replace the background and triangle mesh; otherwise the
+    footprint and TRS-to-LLA transform keep describing the old map.
+    Call before self.scale is updated to the new value.
+    """
+    if map_file == self.map_file and scale == self.scale:
+      return False
+    self.map_file = map_file
+    self.background = None
+    self.map_triangle_mesh = None
+    self._loadMapData(map_file, scale)
+    return True
+
   def extractMapTriangleMesh(self, mapFile, scale):
     map_info = []
-    supported_types = ["png", "jpg", "jpeg"]
-    if os.path.basename(mapFile).split(".")[-1].lower() in supported_types:
+    if os.path.basename(mapFile).split(".")[-1].lower() in IMAGE_MAP_TYPES:
       if not scale:
         log.error("Scale not provided with a map image")
         return
@@ -257,3 +285,60 @@ class SceneModel:
     bgRes = self.background.shape[1::-1]
     points = [[c[0] / self.scale, (bgRes[1] - c[1]) / self.scale] for c in pixelCoords]
     return points
+
+  def mapFootprintCorners(self):
+    """! Map footprint corners (SW, SE, NE, NW at z=0) in the scene's local frame.
+
+    Image maps are already in that frame. A GLB mesh is stored unposed, so the
+    scene's mesh scale, rotation and translation must be applied first. Without the
+    rotation and translation the unposed footprint would be in the wrong frame, so a
+    ValueError is raised rather than returning it silently.
+    """
+    ext = os.path.splitext(self.map_file or "")[1].lower()[1:]
+    if ext in IMAGE_MAP_TYPES:
+      return getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+    if self.mesh_rotation is None or self.mesh_translation is None:
+      raise ValueError(f"Scene '{self.name}' has a GLB map without mesh_rotation/mesh_translation; "
+                       "the footprint cannot be placed in the scene frame")
+    return getPosedMeshFootprint(self.map_triangle_mesh, self.mesh_rotation, self.mesh_translation,
+                                 self.mesh_scale)
+
+  def _hydrateMeshPose(self, scene_data):
+    if 'mesh_translation' in scene_data:
+      self.mesh_translation = scene_data['mesh_translation']
+    if 'mesh_rotation' in scene_data:
+      self.mesh_rotation = scene_data['mesh_rotation']
+    if 'mesh_scale' in scene_data:
+      self.mesh_scale = scene_data['mesh_scale']
+    self._invalidate_trs_xyz_to_lla()
+    # Compute eagerly so an unavailable georeference is logged at hydration time.
+    _ = self.trs_xyz_to_lla
+
+  @property
+  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
+    """
+    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
+
+    The matrix is calculated lazily on first access and cached for subsequent calls.
+    Returns None when the geospatial inputs are incomplete or invalid. A computation
+    failure is logged once and remembered until the cache is invalidated.
+    """
+    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
+        and self.output_lla and self.map_corners_lla is not None):
+      try:
+        mesh_corners_xyz = self.mapFootprintCorners()
+        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+      except (TypeError, ValueError, IndexError) as exc:
+        self._trs_xyz_to_lla_failed = True
+        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
+                  self.map_file, "error:", exc)
+    return self._trs_xyz_to_lla
+
+  def _invalidate_trs_xyz_to_lla(self):
+    """
+    Invalidate the cached transformation matrix from TRS to LLA coordinates.
+    This method should be called when the scene geospatial mapping parameters change.
+    """
+    self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
+    return

@@ -79,6 +79,13 @@ async function toggleMapFields() {
 
         // Load saved geospatial settings
         const savedSettings = loadSavedGeospatialSettings();
+        // Restore the view the user had before accepting a GLB (glb-alignment.js; absent on create)
+        Object.assign(
+          savedSettings,
+          window.takeGlbAcceptedView?.(
+            document.getElementById("mapProvider")?.value,
+          ),
+        );
 
         await window.mapManager.initialize(savedSettings);
         console.log("Map initialized successfully");

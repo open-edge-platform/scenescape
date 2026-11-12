@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from analytics.adapters.scene_model import AnalyticsScene
 from analytics.state import AnalyticsStateStore
@@ -90,6 +91,31 @@ class TestHydrateFromSceneData:
     assert scene.regulated_rate == 30
     assert scene.external_update_rate == 30
 
+  def test_mesh_pose_refreshes_on_update(self):
+    scene = _scene()
+    scene._hydrateFromSceneData({
+      'name': 's', 'mesh_translation': [1, 2, 3], 'mesh_rotation': [0, 0, 0], 'mesh_scale': [2, 1, 1],
+    })
+
+    scene.updateScene({
+      'name': 's', 'mesh_translation': [4, 5, 6], 'mesh_rotation': [0, 0, 90], 'mesh_scale': [1, 1, 1],
+    })
+
+    assert scene.mesh_translation == [4, 5, 6]
+    assert scene.mesh_rotation == [0, 0, 90]
+    assert scene.mesh_scale == [1, 1, 1]
+
+  def test_georeference_unavailable_without_pose_logs_error(self):
+    scene = _scene()
+
+    with patch('scene_common.scene_model.log') as mock_log:
+      scene._hydrateFromSceneData({
+        'name': 's', 'output_lla': True, 'map_corners_lla': [[37.0, -121.0, 35.0]] * 4,
+      })
+
+    assert scene.trs_xyz_to_lla is None
+    mock_log.error.assert_called_once()
+
   def test_delegates_to_camera_region_tripwire_updaters(self):
     scene = _scene()
     scene.updateCameras = MagicMock()
@@ -111,7 +137,57 @@ class TestHydrateFromSceneData:
     assert scene._updateRegions.call_args_list[1].args == (scene.sensors, sensors)
 
 
-MODULE = 'analytics.adapters.scene_model'
+MAP_CORNERS_LLA = [
+  [37.38, -121.96, 0.0], [37.38, -121.95, 0.0],
+  [37.39, -121.95, 0.0], [37.39, -121.96, 0.0],
+]
+
+
+class TestMapReloadOnHydrate:
+  """Hydration must reload the map when its file or scale changes."""
+
+  @staticmethod
+  def _write_png(path):
+    Image.fromarray(np.zeros((8, 8, 3), dtype=np.uint8)).save(path)
+
+  @staticmethod
+  def _write_box_glb(path):
+    trimesh = pytest.importorskip('trimesh')
+    trimesh.creation.box(extents=(30.0, 20.0, 3.0)).export(str(path))
+
+  @staticmethod
+  def _data(map_file):
+    return {
+      'name': 'rt', 'map': map_file, 'scale': 10.0, 'output_lla': True,
+      'map_corners_lla': MAP_CORNERS_LLA,
+      'mesh_translation': [0, 0, 0], 'mesh_rotation': [0, 0, 0], 'mesh_scale': [1, 1, 1],
+    }
+
+  def test_png_glb_png_round_trip_restores_png_footprint(self, tmp_path):
+    pytest.importorskip('trimesh')
+    png = str(tmp_path / 'map.png')
+    glb = str(tmp_path / 'map.glb')
+    self._write_png(png)
+    self._write_box_glb(glb)
+    scene = AnalyticsScene('rt', png, 10.0)
+    scene._hydrateFromSceneData(self._data(png))
+    png_corners = np.array(scene.mapFootprintCorners())
+    png_trs = scene.trs_xyz_to_lla
+    assert png_trs is not None
+
+    scene._hydrateFromSceneData(self._data(glb))
+    assert scene.map_file == glb
+    assert not np.allclose(scene.mapFootprintCorners(), png_corners)
+
+    scene._hydrateFromSceneData(self._data(png))
+    assert scene.map_file == png
+    assert scene.background is not None
+    assert np.allclose(scene.mapFootprintCorners(), png_corners)
+    assert np.allclose(scene.trs_xyz_to_lla, png_trs)
+
+
+# TRS-to-LLA code lives in the shared SceneModel base class.
+MODULE = 'scene_common.scene_model'
 CORNERS_LLA = [[0, 0, 0], [1, 1, 1]]
 
 
@@ -144,7 +220,7 @@ class TestTrsXyzToLla:
   def test_result_is_cached_and_invalidate_recomputes(self):
     scene = _lla_scene()
 
-    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+    with patch.object(AnalyticsScene, 'mapFootprintCorners', return_value=np.zeros((4, 3))), \
          patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
                return_value=np.eye(4)) as mock_calc:
       first = scene.trs_xyz_to_lla
@@ -160,7 +236,7 @@ class TestTrsXyzToLla:
   def test_expected_failure_is_cached_and_logged_once(self, exc):
     scene = _lla_scene()
 
-    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+    with patch.object(AnalyticsScene, 'mapFootprintCorners', return_value=np.zeros((4, 3))), \
          patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints', side_effect=exc) as mock_calc, \
          patch(f'{MODULE}.log') as mock_log:
       assert scene.trs_xyz_to_lla is None
@@ -182,7 +258,7 @@ class TestTrsXyzToLla:
   def test_invalidate_clears_cached_failure(self):
     scene = _lla_scene()
 
-    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+    with patch.object(AnalyticsScene, 'mapFootprintCorners', return_value=np.zeros((4, 3))), \
          patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
                side_effect=ValueError('boom')) as mock_calc, \
          patch(f'{MODULE}.log'):
@@ -195,7 +271,7 @@ class TestTrsXyzToLla:
   def test_unexpected_error_is_not_swallowed(self):
     scene = _lla_scene()
 
-    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+    with patch.object(AnalyticsScene, 'mapFootprintCorners', return_value=np.zeros((4, 3))), \
          patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
                side_effect=RuntimeError('unexpected')), \
          pytest.raises(RuntimeError):
@@ -205,7 +281,7 @@ class TestTrsXyzToLla:
     scene = _scene()
     data = {'name': 's', 'output_lla': True, 'map_corners_lla': CORNERS_LLA}
 
-    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+    with patch.object(AnalyticsScene, 'mapFootprintCorners', return_value=np.zeros((4, 3))), \
          patch(f'{MODULE}.log'):
       with patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
                  side_effect=ValueError('boom')):

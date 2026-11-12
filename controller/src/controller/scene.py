@@ -9,12 +9,11 @@ from scipy.spatial.transform import Rotation
 
 import robot_vision as rv
 from scene_common import log
-from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
+from scene_common.earth_lla import convertLLAToECEF
 from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from scene_common.camera_registry import CameraRegistry
 from scene_common.reid_constants import REID_PROVENANCE_KEY
@@ -98,8 +97,6 @@ class Scene(SceneModel):
 
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
-    self._trs_xyz_to_lla = None
-    self._trs_xyz_to_lla_failed = False
     self.use_tracker = True
 
     self.pose_adjustment = PoseAdjustment.from_env(
@@ -183,15 +180,14 @@ class Scene(SceneModel):
       log.info(f"ReID config changed for scene={self.uid}; updating tracker ReID runtime config")
       self.tracker.updateReidConfig(self.reid_config_data)
 
+    self.reloadMapIfChanged(scene_data.get('map', self.map_file), scene_data.get('scale', self.scale))
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
     if 'regulated_rate' in scene_data:
       self.regulated_rate = scene_data['regulated_rate']
     if 'external_update_rate' in scene_data:
       self.external_update_rate = scene_data['external_update_rate']
-    self._invalidate_trs_xyz_to_lla()
-    # Access the property to trigger initialization
-    _ = self.trs_xyz_to_lla
+    self._hydrateMeshPose(scene_data)
     return
 
   def updateScene(self, scene_data):
@@ -467,8 +463,6 @@ class Scene(SceneModel):
                 reid_config_data=reid_config_data,
                 pose_adjustment_config_data=pose_adjustment_config_data)
     scene.uid = data['uid']
-    scene.mesh_translation = data.get('mesh_translation', None)
-    scene.mesh_rotation = data.get('mesh_rotation', None)
     scene._hydrateFromSceneData(data, reid_runtime_update=False)
     return scene
 
@@ -481,31 +475,3 @@ class Scene(SceneModel):
     CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 
-  @property
-  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
-    """
-    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
-
-    The matrix is calculated lazily on first access and cached for subsequent calls.
-    Returns None when the geospatial inputs are incomplete or invalid. A computation
-    failure is logged once and remembered until the cache is invalidated.
-    """
-    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
-        and self.output_lla and self.map_corners_lla is not None):
-      try:
-        mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
-      except (TypeError, ValueError, IndexError) as exc:
-        self._trs_xyz_to_lla_failed = True
-        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
-                  self.map_file, "error:", exc)
-    return self._trs_xyz_to_lla
-
-  def _invalidate_trs_xyz_to_lla(self):
-    """
-    Invalidate the cached transformation matrix from TRS to LLA coordinates.
-    This method should be called when the scene geospatial mapping parameters change.
-    """
-    self._trs_xyz_to_lla = None
-    self._trs_xyz_to_lla_failed = False
-    return
