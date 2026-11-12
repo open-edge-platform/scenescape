@@ -364,7 +364,9 @@ class MapboxPlugin extends MapInterface {
       this.overlayCorners = corners;
       const coordinates = this._cornersToMapboxCoordinates(corners);
       source.setCoordinates(coordinates);
-      this.map.getSource("glb-overlay-frame")?.setData(this._frameFeature(corners));
+      this.map
+        .getSource("glb-overlay-frame")
+        ?.setData(this._frameFeature(corners));
     }
   }
 

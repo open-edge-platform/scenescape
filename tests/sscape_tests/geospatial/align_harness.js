@@ -455,7 +455,8 @@ const scenarios = {
 
   helpers(args) {
     const { ctx } = load(args);
-    const { pointInPolygon, clampHeading, dragAnchor, wrapDegrees180 } = ctx.__api;
+    const { pointInPolygon, clampHeading, dragAnchor, wrapDegrees180 } =
+      ctx.__api;
     if (args.fn === "pointInPolygon") {
       const result = pointInPolygon(args.args[0], args.args[1]);
       return { ok: true, result };
