@@ -1386,8 +1386,8 @@ class GeospatialGlb(APIView):
     if new_use_glb is not None and not isinstance(new_use_glb, bool):
       return JsonResponse({'error': 'use_glb_map must be a boolean'}, status=400)
 
-    # Apply MOVE if anchor provided
-    if new_anchor:
+    # Apply MOVE if anchor provided; an empty object is passed through so parse_anchor rejects it
+    if new_anchor is not None:
       glb_alignment.move_glb_anchor(scene, new_anchor)
       scene.refresh_from_db()
 

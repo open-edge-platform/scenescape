@@ -1,12 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional
-
-import numpy as np
-
 from scene_common import log
-from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mesh_util import createObjectMesh, createRegionMesh
 from scene_common.scene_model import SceneModel
@@ -45,8 +40,6 @@ class AnalyticsScene(SceneModel):
     self.analytics_state = AnalyticsStateStore()
     self.regulated_rate = 30
     self.external_update_rate = 30
-    self._trs_xyz_to_lla = None
-    self._trs_xyz_to_lla_failed = False
     return
 
   def _hydrateFromSceneData(self, scene_data):
@@ -72,48 +65,11 @@ class AnalyticsScene(SceneModel):
       self.regulated_rate = scene_data['regulated_rate']
     if 'external_update_rate' in scene_data:
       self.external_update_rate = scene_data['external_update_rate']
-    if 'mesh_translation' in scene_data:
-      self.mesh_translation = scene_data['mesh_translation']
-    if 'mesh_rotation' in scene_data:
-      self.mesh_rotation = scene_data['mesh_rotation']
-    if 'mesh_scale' in scene_data:
-      self.mesh_scale = scene_data['mesh_scale']
-    self._invalidate_trs_xyz_to_lla()
-    # Compute eagerly so an unavailable georeference is logged at hydration time.
-    _ = self.trs_xyz_to_lla
+    self._hydrateMeshPose(scene_data)
     return
 
   def updateScene(self, scene_data):
     self._hydrateFromSceneData(scene_data)
-    return
-
-  @property
-  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
-    """
-    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
-
-    The matrix is calculated lazily on first access and cached for subsequent calls.
-    Returns None when the geospatial inputs are incomplete or invalid. A computation
-    failure is logged once and remembered until the cache is invalidated.
-    """
-    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
-        and self.output_lla and self.map_corners_lla is not None):
-      try:
-        mesh_corners_xyz = self.mapFootprintCorners()
-        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
-      except (TypeError, ValueError, IndexError) as exc:
-        self._trs_xyz_to_lla_failed = True
-        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
-                  self.map_file, "error:", exc)
-    return self._trs_xyz_to_lla
-
-  def _invalidate_trs_xyz_to_lla(self):
-    """
-    Invalidate the cached transformation matrix from TRS to LLA coordinates.
-    This method should be called when the scene geospatial mapping parameters change.
-    """
-    self._trs_xyz_to_lla = None
-    self._trs_xyz_to_lla_failed = False
     return
 
   def _updateChildren(self, newChildren):

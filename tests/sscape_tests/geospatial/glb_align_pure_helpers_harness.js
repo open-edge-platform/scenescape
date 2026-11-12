@@ -66,6 +66,9 @@ try {
     case "buildOverlayCorners":
       result = glbExports.buildOverlayCorners(args.anchor, args.footprint);
       break;
+    case "distanceKm":
+      result = glbExports.distanceKm(args.a, args.b);
+      break;
     default:
       throw new Error(`Unknown test: ${testName}`);
   }

@@ -183,7 +183,6 @@ def test_glb_pose_coordinate_system_invariance(mesh_type, align_rotation_x,
 
   # Create test GLB
   glb_path = None
-  glb_width, glb_height = 30.0, 20.0
   if mesh_type == 'box_y_up':
     glb_path = _create_box_glb(width_m=30.0, height_m=20.0, depth_m=3.0,
                                path=os.path.join(temp_glb_dir, 'box_y_up.glb'))
@@ -193,7 +192,6 @@ def test_glb_pose_coordinate_system_invariance(mesh_type, align_rotation_x,
                                path=os.path.join(temp_glb_dir, 'box_z_up.glb'))
   elif mesh_type == 'l_shaped':
     glb_path = _create_l_shaped_prism_glb(path=os.path.join(temp_glb_dir, 'l.glb'))
-    glb_width, glb_height = 4.0, 4.0  # L-shaped prism dimensions
 
   # Compute anchor LLA: start from frame centre, move by offset in frame-local
   frame_lat, frame_lng, _, _, _ = footprintAnchorFromCornersLLA(frame_corners_lla)
@@ -211,8 +209,7 @@ def test_glb_pose_coordinate_system_invariance(mesh_type, align_rotation_x,
   # Monkeypatch ALIGN_ROTATION_X for this test
   with patch.object(glb_alignment, 'ALIGN_ROTATION_X', align_rotation_x):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
-      frame_corners_lla, anchor_lat, anchor_lng, anchor_heading,
-      glb_width, glb_height, glb_path=glb_path
+      frame_corners_lla, anchor_lat, anchor_lng, anchor_heading, glb_path=glb_path
     )
 
   # Verify invariant: the controller path (posed mesh -> local->LLA TRS) must
@@ -278,8 +275,7 @@ def test_glb_overlay_equality(frame_heading, anchor_heading, temp_glb_dir):
 
   with patch.object(glb_alignment, 'ALIGN_ROTATION_X', 90.0):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
-      frame_corners_lla, frame_lat, frame_lng, anchor_heading,
-      30.0, 20.0, glb_path=glb_path
+      frame_corners_lla, frame_lat, frame_lng, anchor_heading, glb_path=glb_path
     )
 
   theta = np.deg2rad(frame_heading - anchor_heading)
@@ -333,8 +329,7 @@ def test_glb_pose_anchor_at_centre_and_z_min_zero(temp_glb_dir):
 
   with patch.object(glb_alignment, 'ALIGN_ROTATION_X', 90.0):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
-      frame_corners_lla, anchor_lla[0], anchor_lla[1], 0.0,
-      30.0, 20.0, glb_path=glb_path
+      frame_corners_lla, anchor_lla[0], anchor_lla[1], 0.0, glb_path=glb_path
     )
 
   # Verify translation_z is negative of mesh z_min (so posed z_min becomes 0)
@@ -372,8 +367,7 @@ def test_non_rectangular_mesh_uses_real_vertices(rotation_angle, temp_glb_dir):
 
   with patch.object(glb_alignment, 'ALIGN_ROTATION_X', 0.0):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
-      frame_corners_lla, frame_lat, frame_lng, rotation_angle,
-      4.0, 4.0, glb_path=glb_path
+      frame_corners_lla, frame_lat, frame_lng, rotation_angle, glb_path=glb_path
     )
 
   # Load mesh and pose it
@@ -403,7 +397,7 @@ def test_missing_glb_path_raises_error():
 
   with pytest.raises(glb_alignment.GlbAlignmentError) as exc_info:
     glb_alignment.compute_glb_pose_and_corners(
-      frame_corners_lla, 52.0, 21.0, 0.0, 30.0, 20.0, glb_path=None
+      frame_corners_lla, 52.0, 21.0, 0.0, glb_path=None
     )
   assert exc_info.value.status == 400
 

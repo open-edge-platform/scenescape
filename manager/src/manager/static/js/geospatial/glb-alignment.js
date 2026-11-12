@@ -15,6 +15,10 @@ const MAP_EMPTY_HINT =
   "Set the map location and save the scene before aligning a 3D model.";
 const PREVIEW_MISSING_HINT =
   "The preview of the saved 3D model could not be generated.";
+const FAR_ANCHOR_KM = 50;
+const FAR_ANCHOR_HINT =
+  `The 3D model is more than ${FAR_ANCHOR_KM} km from the map center; ` +
+  "check its position.";
 
 function pointInPolygon(pt, corners) {
   const x = pt.lng;
@@ -39,9 +43,11 @@ function clampHeading(v) {
 }
 
 function dragAnchor(anchor, grab, cur) {
+  // Shortest signed longitude delta, so a drag across the antimeridian moves the anchor a short way
+  const dLng = _wrapDegrees180(cur.lng - grab.lng);
   return {
     lat: Math.max(-85, Math.min(85, anchor.lat + (cur.lat - grab.lat))),
-    lng: anchor.lng + (cur.lng - grab.lng),
+    lng: _wrapDegrees180(anchor.lng + dLng),
     heading_deg: anchor.heading_deg,
   };
 }
@@ -54,6 +60,17 @@ function buildOverlayCorners(anchor, footprint) {
     footprint.width,
     footprint.height,
   );
+}
+
+function distanceKm(a, b) {
+  const EARTH_RADIUS_KM = 6371;
+  const rad = (deg) => (deg * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 const byId = (id) => document.getElementById(id);
@@ -219,8 +236,24 @@ class GlbAlignment {
         this.anchor = { ...data.anchor };
         this._renderSavedBlock();
         this._drawSavedOverlay();
+        this._updateFarAnchorHint();
       }
     } catch (e) {}
+  }
+
+  // Soft warning only: the anchor is still saved when it is far from the map center.
+  _updateFarAnchorHint() {
+    const center = {
+      lat: parseFloat(this.ui.mapCenterLat.value),
+      lng: parseFloat(this.ui.mapCenterLng.value),
+    };
+    const far =
+      !!this.anchor &&
+      !this._mapEmpty() &&
+      distanceKm(this.anchor, center) > FAR_ANCHOR_KM;
+    if (far) this.ui.hint.textContent = FAR_ANCHOR_HINT;
+    else if (this.ui.hint.textContent === FAR_ANCHOR_HINT)
+      this.ui.hint.textContent = this._mapEmpty() ? MAP_EMPTY_HINT : "";
   }
 
   _renderSavedBlock() {
@@ -336,6 +369,7 @@ class GlbAlignment {
     this.ui.headingNumber.value = this.anchor.heading_deg.toFixed(1);
     this.ui.headingRange.value = this.anchor.heading_deg;
     this.ui.opacity.value = this.opacity;
+    this._updateFarAnchorHint();
   }
 
   _corners() {
@@ -348,6 +382,7 @@ class GlbAlignment {
 
   _render() {
     this._updateControlsVisibility();
+    this._updateFarAnchorHint();
     if (!this.anchor) return;
     try {
       const strategy = this._strategy();
@@ -492,6 +527,7 @@ class GlbAlignment {
     this.dirty = false;
     this._updateSavedBlockVisibility();
     this._updateControlsVisibility();
+    this._updateFarAnchorHint();
     this.ui.status.textContent = status;
   }
 
@@ -636,6 +672,7 @@ class GlbAlignment {
       this.anchor = null;
       this.dirty = false;
       this._updateControlsVisibility();
+      this._updateFarAnchorHint();
       this._updateSavedBlockVisibility();
       this._strategy().removeOverlay();
       this.ui.status.textContent = "3D model removed";
@@ -702,5 +739,6 @@ if (typeof module !== "undefined" && module.exports) {
     clampHeading,
     dragAnchor,
     buildOverlayCorners,
+    distanceKm,
   };
 }

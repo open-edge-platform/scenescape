@@ -56,6 +56,34 @@ class TestGlbAlignmentPureHelpers:
     assert res["lng"] == pytest.approx(-120.9, abs=1e-6)
     assert res["heading_deg"] == 45.0
 
+  @pytest.mark.parametrize("anchor_lng, grab_lng, cur_lng, expected_lng", [
+    (179.0, 179.0, 180.0, -180.0),   # sum lands exactly on +180, wraps to -180
+    (179.5, 179.0, 180.0, -179.5),   # sum crosses +180 and wraps
+    (-180.0, 0.0, 0.0, -180.0),      # lower bound stays at -180
+    (179.9, 179.9, -179.9, -179.9),  # antimeridian drag: shortest delta is +0.2
+    (-179.9, 179.9, -179.9, -179.7),  # antimeridian drag from the western side
+    (0.0, 179.9, -179.9, 0.2),       # antimeridian drag away from the seam
+  ])
+  def test_drag_anchor_wraps_longitude(self, anchor_lng, grab_lng, cur_lng, expected_lng):
+    """Longitude is wrapped into [-180, 180) and the drag uses the shortest signed delta."""
+    anchor = {"lat": 37.0, "lng": anchor_lng, "heading_deg": 45.0}
+    grab = {"lat": 37.0, "lng": grab_lng}
+    cur = {"lat": 37.0, "lng": cur_lng}
+    res = run_js_helpers("dragAnchor", {"anchor": anchor, "grab": grab, "cur": cur})
+    assert -180.0 <= res["lng"] < 180.0
+    assert res["lng"] == pytest.approx(expected_lng, abs=1e-9)
+
+  @pytest.mark.parametrize("a, b, expected_km", [
+    ({"lat": 37.0, "lng": -121.0}, {"lat": 37.0, "lng": -121.0}, 0.0),
+    ({"lat": 0.0, "lng": 0.0}, {"lat": 1.0, "lng": 0.0}, 111.195),
+    ({"lat": 0.0, "lng": 0.0}, {"lat": 0.0, "lng": 1.0}, 111.195),
+    ({"lat": 60.0, "lng": 0.0}, {"lat": 60.0, "lng": 1.0}, 55.598),
+    ({"lat": 0.0, "lng": 179.5}, {"lat": 0.0, "lng": -179.5}, 111.195),
+  ])
+  def test_distance_km(self, a, b, expected_km):
+    """Great-circle distance is zero for equal points and crosses the antimeridian the short way."""
+    assert run_js_helpers("distanceKm", {"a": a, "b": b}) == pytest.approx(expected_km, rel=1e-4, abs=1e-6)
+
   def test_build_overlay_corners_matches_footprint_size(self):
     """An unrotated 30 x 20 m footprint spans about 30 m east-west and 20 m north-south."""
     anchor = {"lat": 0.0, "lng": 0.0, "heading_deg": 0.0}

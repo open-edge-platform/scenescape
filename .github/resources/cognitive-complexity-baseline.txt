@@ -69,7 +69,6 @@ manager/src/manager/serializers.py	SceneSerializer::validate	15
 manager/src/manager/serializers.py	SingletonSerializer::validate	17
 manager/src/manager/serializers.py	UserSerializer::validate	19
 manager/src/manager/validators.py	is_polycam_dataset	17
-manager/src/manager/validators.py	validate_map_corners_lla	13
 manager/src/manager/views.py	cameraCalibrate	21
 manager/src/manager/views.py	genericCalibrate	55
 manager/src/manager/views.py	getAllChildrenMetaData	38

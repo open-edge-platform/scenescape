@@ -1248,6 +1248,7 @@ paths:
         anchor while the GLB is applied recomputes the map pose and map_corners_lla, and while it is
         not applied only the stored anchor changes. Cameras, regions, and sensors keep their local
         positions and trs_matrix is unchanged, but the lat/lng reported for objects can change.
+        An empty anchor object (`anchor: {}`) returns 400; omit anchor or set it to null to leave it unchanged.
       parameters:
         - in: path
           name: uid

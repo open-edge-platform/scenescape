@@ -108,7 +108,7 @@ class TestHydrateFromSceneData:
   def test_georeference_unavailable_without_pose_logs_error(self):
     scene = _scene()
 
-    with patch('analytics.adapters.scene_model.log') as mock_log:
+    with patch('scene_common.scene_model.log') as mock_log:
       scene._hydrateFromSceneData({
         'name': 's', 'output_lla': True, 'map_corners_lla': [[37.0, -121.0, 35.0]] * 4,
       })
@@ -186,7 +186,8 @@ class TestMapReloadOnHydrate:
     assert np.allclose(scene.trs_xyz_to_lla, png_trs)
 
 
-MODULE = 'analytics.adapters.scene_model'
+# TRS-to-LLA code lives in the shared SceneModel base class.
+MODULE = 'scene_common.scene_model'
 CORNERS_LLA = [[0, 0, 0], [1, 1, 1]]
 
 

@@ -20,6 +20,7 @@ from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Point
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA, localFootprintCornersLLA
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, getPosedMeshFootprint
+import scene_common.scene_model as scene_model_module
 
 from tests.sscape_tests.scene_pytest.config import *
 
@@ -650,7 +651,7 @@ def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
     return np.array([[1.0]])
 
   monkeypatch.setattr(scene_obj, 'mapFootprintCorners', lambda: np.array([[0, 0, 0]]))
-  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _fake_calc)
+  monkeypatch.setattr(scene_model_module, 'calculateTRSLocal2LLAFromSurfacePoints', _fake_calc)
   scene_obj.output_lla = True
   scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
 
@@ -672,7 +673,7 @@ def test_trs_xyz_to_lla_fresh_scene_returns_none(scene_obj):
 ])
 def test_trs_xyz_to_lla_incomplete_inputs_return_none_without_computing(scene_obj, monkeypatch, output_lla, corners):
   calc_mock = Mock()
-  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', calc_mock)
+  monkeypatch.setattr(scene_model_module, 'calculateTRSLocal2LLAFromSurfacePoints', calc_mock)
   scene_obj.output_lla = output_lla
   scene_obj.map_corners_lla = corners
 
@@ -687,7 +688,7 @@ def _make_failing_lla_scene(scene_obj, monkeypatch, exc):
     raise exc
 
   monkeypatch.setattr(scene_module.Scene, 'mapFootprintCorners', lambda self: np.array([[0, 0, 0]]))
-  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
+  monkeypatch.setattr(scene_model_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
   scene_obj.output_lla = True
   scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
   return calls
@@ -738,11 +739,11 @@ def test_updateScene_recovers_lla_transform_after_failed_hydration(scene_obj, mo
   def _raise(mesh_corners, map_corners_lla):
     raise ValueError("boom")
 
-  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
+  monkeypatch.setattr(scene_model_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
   scene_obj.updateScene(scene_data)
   assert scene_obj.trs_xyz_to_lla is None
 
-  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints',
+  monkeypatch.setattr(scene_model_module, 'calculateTRSLocal2LLAFromSurfacePoints',
                       lambda mesh_corners, map_corners_lla: np.eye(4))
   scene_obj.updateScene(scene_data)
   assert np.array_equal(scene_obj.trs_xyz_to_lla, np.eye(4))

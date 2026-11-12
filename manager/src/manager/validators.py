@@ -186,6 +186,40 @@ def validate_uuid(value):
   except ValueError:
     return False
 
+def _parse_map_corner(index, corner):
+  """Validate one [latitude, longitude, altitude] corner; index is the 1-based label.
+
+  Returns (latitude, longitude) as floats.
+  """
+  if not isinstance(corner, list) or len(corner) != 3:
+    raise ValidationError(f"Corner {index} must be an array of [latitude, longitude, altitude].")
+  try:
+    lat, lon, _alt = float(corner[0]), float(corner[1]), float(corner[2])
+  except (ValueError, TypeError):
+    raise ValidationError(f"Corner {index} coordinates must be numeric values.")
+  if not (-90 <= lat <= 90):
+    raise ValidationError(f"Corner {index} latitude ({lat}) must be between -90 and 90 degrees.")
+  if not (-180 <= lon <= 180):
+    raise ValidationError(f"Corner {index} longitude ({lon}) must be between -180 and 180 degrees.")
+  return lat, lon
+
+# Minimum absolute shoelace area (square degrees) for the map corner quadrilateral.
+# Coordinates near 180 degrees carry about 1e-14 deg of float error, so collinear input
+# produces cross-product noise around 1e-15; this threshold sits well above that noise.
+MIN_CORNER_AREA_DEG2 = 1e-13
+
+def _polygon_area_deg2(points):
+  """Absolute shoelace area of the (lat, lon) polygon in square degrees.
+
+  Coordinates are shifted to the first point before summing to limit float error.
+  """
+  lat0, lon0 = points[0]
+  shifted = [(lat - lat0, lon - lon0) for lat, lon in points]
+  twice_area = 0.0
+  for (x1, y1), (x2, y2) in zip(shifted, shifted[1:] + shifted[:1]):
+    twice_area += x1 * y2 - x2 * y1
+  return abs(twice_area) / 2.0
+
 def validate_map_corners_lla(value):
   """
   Validates that map_corners_lla is an array containing exactly 4 corner coordinates.
@@ -193,6 +227,7 @@ def validate_map_corners_lla(value):
   - latitude: -90 to 90 degrees
   - longitude: -180 to 180 degrees
   - altitude: any numeric value (meters)
+  The corners must also enclose a non-zero area.
   """
   if value is None:
     return  # Allow None values since field is nullable
@@ -201,16 +236,8 @@ def validate_map_corners_lla(value):
   if len(value) != 4:
     raise ValidationError("map_corners_lla must contain exactly 4 corner coordinates.")
 
-  for i, corner in enumerate(value):
-    if not isinstance(corner, list) or len(corner) != 3:
-      raise ValidationError(f"Corner {i+1} must be an array of [latitude, longitude, altitude].")
-    try:
-      lat, lon, alt = float(corner[0]), float(corner[1]), float(corner[2])
-    except (ValueError, TypeError):
-      raise ValidationError(f"Corner {i+1} coordinates must be numeric values.")
-    if not (-90 <= lat <= 90):
-      raise ValidationError(f"Corner {i+1} latitude ({lat}) must be between -90 and 90 degrees.")
-    if not (-180 <= lon <= 180):
-      raise ValidationError(f"Corner {i+1} longitude ({lon}) must be between -180 and 180 degrees.")
+  points = [_parse_map_corner(i + 1, corner) for i, corner in enumerate(value)]
+  if _polygon_area_deg2(points) < MIN_CORNER_AREA_DEG2:
+    raise ValidationError("map_corners_lla must enclose a non-zero area.")
 
   return value

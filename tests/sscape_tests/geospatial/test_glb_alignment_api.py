@@ -128,7 +128,32 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
 
     self.assertEqual(response.status_code, 400)
 
-  def test_put_use_glb_map_true_returns_applied_scene_fields(self):
+  def test_put_empty_anchor_returns_400_and_keeps_stored_anchor(self):
+    """Negative: an empty anchor object is rejected instead of being ignored."""
+    anchor_before = self.scene.glb_anchor
+
+    response = self._put({'anchor': {}})
+
+    self.assertEqual(response.status_code, 400)
+    self.scene.refresh_from_db()
+    self.assertEqual(self.scene.glb_anchor, anchor_before)
+
+  def test_put_anchor_longitude_at_bounds_is_accepted(self):
+    """Boundary: anchor longitude of exactly -180 and 180 is accepted and stored."""
+    for lng in (-180.0, 180.0):
+      with self.subTest(lng=lng):
+        response = self._put({'anchor': {'lat': 37.40, 'lng': lng, 'heading_deg': 0.0}})
+
+        self.assertEqual(response.status_code, 200)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.glb_anchor['lng'], lng)
+
+  def test_put_anchor_longitude_past_bound_returns_400(self):
+    """Negative: anchor longitude beyond 180 is rejected."""
+    response = self._put({'anchor': {'lat': 37.40, 'lng': 180.5, 'heading_deg': 0.0}})
+
+    self.assertEqual(response.status_code, 400)
+
     """D4: PUT use_glb_map=true returns the pose and corners written by apply."""
     pre_apply_corners = self.scene.map_corners_lla
     self._set_snapshot_map()

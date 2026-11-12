@@ -223,7 +223,7 @@ def _get_mesh_footprint_corners_from_glb(glb_path):
 
 
 def compute_glb_pose_and_corners(frame_corners_lla, anchor_lat, anchor_lng, anchor_heading,
-                                  glb_width_m, glb_height_m, glb_path=None):
+                                  glb_path=None):
   """Compute GLB mesh pose and map_corners_lla to place it at the anchor in the frame.
 
   Frame local origin is at the SW corner (0, 0), with local corners:
@@ -422,14 +422,12 @@ def _apply_pose_and_map(scene, glb_path=None):
   anchor_lat = scene.glb_anchor['lat']
   anchor_lng = scene.glb_anchor['lng']
   anchor_heading = scene.glb_anchor['heading_deg']
-  glb_width = scene.glb_anchor['footprint_m']['width']
-  glb_height = scene.glb_anchor['footprint_m']['height']
 
   # Use real mesh for map_corners_lla if glb_path provided
   glb_path_for_corners = glb_path or scene.glb_map.path
 
   rotation, translation, map_corners = compute_glb_pose_and_corners(
-    frame_corners, anchor_lat, anchor_lng, anchor_heading, glb_width, glb_height,
+    frame_corners, anchor_lat, anchor_lng, anchor_heading,
     glb_path=glb_path_for_corners
   )
   scene.rotation_x = rotation[0]
@@ -557,7 +555,7 @@ def move_glb_anchor(scene, new_anchor, save=True):
           raise GlbAlignmentError(400, 'Invalid GLB footprint')
 
         rotation, translation, map_corners = compute_glb_pose_and_corners(
-          frame_corners, lat, lng, heading, glb_width, glb_height,
+          frame_corners, lat, lng, heading,
           glb_path=scene.glb_map.path
         )
         scene.rotation_x = rotation[0]
