@@ -5,7 +5,7 @@
 
 - **Author(s)**: Sarat Poluri
 - **Date**: 2026-09-06
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 - **Related**: [ADR 7 — Tracker Service](./0007-tracker-service.md) (RobotVision MOT remains the association/filter core)
 
 ## TLDR
@@ -34,10 +34,11 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 
 - Keep the existing 7D measurement model **(x, y, z, length, width, height, yaw)**.
 - Do **not** add pitch/roll Kalman states in this decision.
+- The CTRV motion model turns yaw with the estimated turn rate in predict (new with this decision), so yaw follows a turning target between orienting detections.
 - Mark measurements with attribute `has_orientation=true` when the SceneScape detection carried detector `rotation` (`MovingObject.has_detection_rotation`).
 - On Kalman **correct**:
   - If `has_orientation`: unwrap and correct yaw as today (`deltaTheta`).
-  - Else: set measurement yaw to the **predicted** yaw (zero yaw innovation) so position/size still update.
+  - Else: leave yaw out of the update (reduced update without the yaw row) so position/size still update and yaw only predicts.
 
 ### Multi-sensor fuse in one time chunk
 
@@ -47,16 +48,16 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 
 ### Association
 
-- Euclidean association unchanged (demo default).
-- Mahalanobis uses the yaw residual **only** when the measurement has `has_orientation` **and** the track has `orientation_observed` (or current `has_orientation`). Otherwise zero yaw innovation as before.
+- The services associate with `euclidean` or `position_mahalanobis` ([ADR 19](./0019-probabilistic-tracking-association.md)); neither uses yaw.
+- The legacy full-measurement `DistanceType::Mahalanobis` cost, which the services do not use, includes the yaw residual **only** when the measurement has `has_orientation`, the track has `orientation_observed` (or current `has_orientation`), and the kinematic yaw gate below keeps the yaw; the residual is wrapped and π-aware. Otherwise it leaves yaw out (inverse of S without the yaw row and column).
 
 ### Publish path
 
-| Track condition                                                                                                           | Published orientation                                          |
-| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Track has `orientation_observed` / orienting link, and \|velocity heading − Kalman yaw\| ≤ ~0.6 rad (or speed &lt; 1 m/s) | Kalman-filtered yaw → quaternion                               |
-| Track has `orientation_observed` / orienting link, and velocity heading disagrees beyond ~0.6 rad while speed ≥ 1 m/s     | **Publish velocity heading** (does not write back into Kalman) |
-| Otherwise                                                                                                                 | Velocity-inferred heading with existing speed hysteresis       |
+| Track condition                                                                                                           | Published orientation                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Track has `orientation_observed` / orienting link, and \|velocity heading − Kalman yaw\| ≤ ~0.6 rad (or speed &lt; 1 m/s) | Kalman-filtered yaw → quaternion                                                                                                           |
+| Track has `orientation_observed` / orienting link, and velocity heading disagrees beyond ~0.6 rad while speed ≥ 1 m/s     | **Publish velocity heading** (does not write back into Kalman)                                                                             |
+| Otherwise                                                                                                                 | Velocity-inferred heading with existing speed hysteresis when the object class enables `rotation_from_velocity`; identity when it does not |
 
 **Locked rule for velocity heading:** it is a legitimate published orientation for camera-only periods (hysteresis filters flicker), but it is **derived from the same filter’s velocity**. Feeding it back into `correct()` would double-count. CTRV integrates attitude yaw with yaw-rate in the **process** model; when yaw-rate was never observed (brief orienting sensor then a camera-driven curve), the publish disagreement rule above covers the visual lag.
 
@@ -65,7 +66,7 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 Detector yaw from **any** orienting modality can be π-ambiguous or temporarily frozen while XY motion is correct. At Kalman **correct**, when track speed ≥ 1 m/s:
 
 1. Choose `yaw` or `yaw+π` closest to velocity heading (front/back disambiguation).
-2. If the residual to velocity still exceeds ~0.6 rad, **drop the yaw observation for that frame** (same as a non-orienting sensor: zero yaw innovation). Position/size still update.
+2. If the residual to velocity still exceeds ~0.6 rad, **drop the yaw observation for that frame** (same as a non-orienting sensor: yaw left out of the update). Position/size still update.
 3. Do **not** re-fold with box-symmetric `deltaTheta` against a stale `previousYaw` after step 1 — that would undo velocity-aligned π flips.
 
 This lives in RobotVision (`prepareYawMeasurement`), not in modality-specific publishers. Publishers should forward detector rotation as-is.
@@ -102,7 +103,9 @@ flowchart LR
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
 - Sticky `orientation_observed` does not currently expire; a long camera-only gap after an orienting sensor still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
+- Without orienting detections the yaw variance keeps growing (fastest for standing objects, whose CTRV turn rate is unobserved), so the first orienting detection sets yaw almost directly.
 - Kinematic gate needs usable track velocity (≥ ~1 m/s); slow or stationary objects still accept detector yaw (including π ambiguity via `deltaTheta`).
+- Objects are assumed to move forward: a vehicle reversing at 1 m/s or more is shown facing its direction of travel, the wrong way, because the kinematic gate turns its detector yaw by π toward travel and the publish rule prefers velocity heading when Kalman yaw disagrees.
 
 ## Implementation notes
 

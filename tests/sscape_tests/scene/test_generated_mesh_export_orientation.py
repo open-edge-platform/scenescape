@@ -17,7 +17,7 @@ from scene_common.mesh_util import extractMeshFromGLB
 FLOOR_EXTENTS = (4.0, 3.0, 1.0)
 
 
-def _save_generated_box(tmp_path, align):
+def _save_generated_box(tmp_path):
   box = trimesh.creation.box(extents=FLOOR_EXTENTS)
   box.apply_translation(box.extents / 2)
   scene = Scene(name="gen")
@@ -29,16 +29,15 @@ def _save_generated_box(tmp_path, align):
   scene.map.save.side_effect = lambda name, content, save: exported.update(data=content.read())
 
   with patch.object(Scene, "save"):
-    MeshGenerator()._saveMeshToScene(scene, box, align=align)
+    MeshGenerator()._saveMeshToScene(scene, box)
 
   glb_path = tmp_path / "generated.glb"
   glb_path.write_bytes(exported["data"])
   return scene, box, glb_path
 
 
-@pytest.mark.parametrize("align", [True, False])
-def test_generated_mesh_is_exported_y_up_and_restored_by_scene_rotation(tmp_path, align):
-  scene, box, glb_path = _save_generated_box(tmp_path, align)
+def test_generated_mesh_is_exported_y_up_and_restored_by_scene_rotation(tmp_path):
+  scene, box, glb_path = _save_generated_box(tmp_path)
 
   raw = trimesh.load(str(glb_path), force="mesh")
   assert raw.extents == pytest.approx((FLOOR_EXTENTS[0], FLOOR_EXTENTS[2], FLOOR_EXTENTS[1]), abs=1e-4)
@@ -52,6 +51,6 @@ def test_generated_mesh_is_exported_y_up_and_restored_by_scene_rotation(tmp_path
 
 
 def test_generated_mesh_export_does_not_mutate_the_input_mesh(tmp_path):
-  _, box, _ = _save_generated_box(tmp_path, align=False)
+  _, box, _ = _save_generated_box(tmp_path)
 
   assert box.bounds == pytest.approx(np.array([[0.0, 0.0, 0.0], FLOOR_EXTENTS]), abs=1e-6)

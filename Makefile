@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
 
 # Image variables
@@ -77,8 +77,8 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics positioning
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics positioning)
 DEPLOYMENT_TEST ?= 0
 
 # First-party application trees; this list is the complexity scope of record.
@@ -126,7 +126,7 @@ help:
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, positioning, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
@@ -200,6 +200,8 @@ help:
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
+	@echo "  generate-positioning-proto  Regenerate Positioning protobuf/gRPC Python stubs"
+	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
 	@echo "  - Use 'SUPASS=<password> make build-core deploy' a clean deployment (without demo cameras or scenes)."
@@ -236,7 +238,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid positioning: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -768,6 +770,14 @@ prettier-write: prettier-dependency
 .PHONY: add-licensing
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
+
+# ===================== Code Generation =============================
+
+.PHONY: generate-positioning-proto
+generate-positioning-proto:
+	@echo "==> Generating Positioning protobuf stubs..."
+	@docs/user-guide/api-docs/positioning/v1/generate.sh || (echo "Positioning protobuf generation failed" && exit 1)
+	@echo "DONE ==> Generating Positioning protobuf stubs"
 
 # ===================== Docker Compose Demo ==========================
 

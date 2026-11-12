@@ -16,9 +16,9 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
   source object and persist across frames.
 
   Optional fields (mesh, bbMeters, size, velocity, info, rotation, metadata,
-  reid, visibility) are carried through via getattr so the function works
-  identically for MovingObject instances and the lightweight SimpleNamespace
-  wrappers produced by SceneDataIngestion.
+  reid, visibility, association_window) are carried through via getattr so the
+  function works identically for MovingObject instances and the lightweight
+  SimpleNamespace wrappers produced by SceneDataIngestion.
   """
   return AnalyticsObject(
     gid=obj.gid,
@@ -35,6 +35,7 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
     metadata=getattr(obj, 'metadata', None),
     reid=getattr(obj, 'reid', None),
     visibility=getattr(obj, 'visibility', None),
+    association_window=getattr(obj, 'association_window', None),
     source=getattr(obj, 'source', None),
     reid_state=getattr(obj, 'reid_state', None),
     similarity=getattr(obj, 'similarity', None),
@@ -54,9 +55,9 @@ class AnalyticsObject:
   Required fields reflect the minimum surface accessed by region, tripwire,
   and sensor analytics.  Optional fields (mesh, bbMeters, size) are used only
   by the 3-D mesh-intersection path.  Publishing fields (velocity, info,
-  rotation, metadata, reid, visibility) are carried through from the source
-  object so that detections_builder / event_serializer can serialise
-  AnalyticsObject instances directly without any unwrapping step.
+  rotation, metadata, reid, visibility, association_window) are carried through
+  from the source object so that detections_builder / event_serializer can
+  serialise AnalyticsObject instances directly without any unwrapping step.
 
   chain_data is always a shared reference — analytics mutates it in-place to
   record region entry/exit timestamps, sensor state, and location history.
@@ -79,6 +80,8 @@ class AnalyticsObject:
   # Camera IDs whose FOV contains this object. Prefer pass-through from the
   # track producer; AnalyticsScene._updateVisible fills only when missing.
   visibility: Optional[Any] = None
+  # Association gate geometry from the track producer (MQTT association_window).
+  association_window: Optional[Any] = None
   # Debug aid: which sensor produced this detection (e.g. "lidar"/"camera"),
   # carried through from the track producer.
   source: Optional[Any] = None

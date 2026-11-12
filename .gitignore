@@ -56,6 +56,9 @@ tests/perf_tests/input/*.json
 autocalibration/.vendor/
 mapping/.vendor/
 
+# Local Positioning lab configs: camera endpoints and ONVIF credentials must never be committed
+positioning/.local/
+
 model_installer/models
 package.json
 package-lock.json
@@ -70,3 +73,6 @@ kubernetes/scenescape-chart/files/*
 .venv
 test_db.sqlite3
 tests/ui/test_media/Empty.zip
+
+# PTZ shadow-validation artifacts collected by the acceptance harness
+tests/artifacts/

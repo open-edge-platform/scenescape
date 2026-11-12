@@ -6,6 +6,7 @@
 - [Enable Re-ID](#enable-reidentification)
 - [Enable Pose Estimation](#enable-pose-estimation)
 - [Enable Frame NTP Timestamp Extraction](#enable-frame-ntp-timestamp-extraction)
+- [Enable Track GID Labels](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md#track-gid-labels-on-camera-images)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
 - [Additional Resources](#additional-resources)
@@ -32,7 +33,8 @@ docker compose --profile controller up -d
 
 Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other Scenescape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
 
-> **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
+> [!NOTE]
+> `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
 > settings referenced below live in each scene's own compose file,
 > [sample_data/demo_scenes/Retail/compose.retail-video.yml](/sample_data/demo_scenes/Retail/compose.retail-video.yml) and
 > [sample_data/demo_scenes/Queuing/compose.queuing-video.yml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yml),
@@ -113,13 +115,15 @@ To enable Scenescape pipelines to run on a specific GPU device of your choice (e
 
 By following these steps, only the selected GPU device will be available in the container. As a result, all DL Streamer Pipeline Server pipelines running in the container will use the GPU device of your choice.
 
-> **Note**: This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
+> [!NOTE]
+> This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
 
 ## Running on NPU
 
 Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other Scenescape services.
 
-> **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
+> [!NOTE]
+> `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
 > settings referenced below live in each scene's own compose file,
 > [sample_data/demo_scenes/Retail/compose.retail-video.yml](/sample_data/demo_scenes/Retail/compose.retail-video.yml) and
 > [sample_data/demo_scenes/Queuing/compose.queuing-video.yml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yml),
@@ -223,6 +227,9 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
 1. **Download the required models** using the DL Streamer helper script from the external DL Streamer repository:
 
+   > [!NOTE]
+   > `download_public_models.sh` no longer exists in the upstream DL Streamer repository; it was replaced by separate scripts under [`scripts/download_models/`](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models) with different CLI syntax. The link and the commands below are kept for historical reference.
+
    Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
    Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
 
@@ -259,7 +266,8 @@ Following are step-by-step instructions for enabling pose estimation for the out
 
    To enable improved localization using pose keypoints, pass the `--pose-adjustment` flag or set the `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable on the `scene` service. This feature is disabled by default. See the [Scene Controller documentation](../docs/user-guide/microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend).
+> [!NOTE]
+> Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128` for deep-sort tracking) must use `detectionPolicy` as the metadata generation policy — `reidPolicy` is not supported for these pipelines. Additionally, the `--pose-adjustment` controller flag cannot be used together with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 ## Enable Frame NTP Timestamp Extraction
 
@@ -271,7 +279,8 @@ attach that NTP reference timestamp to each buffer using `add-reference-timestam
 timestamp instead of the post-decode system clock time. This improves timing accuracy when the camera and server are
 synchronized to the same NTP source.
 
-> **Note:** This feature requires an RTSP source that provides NTP timestamps in its stream. It has no effect on
+> [!NOTE]
+> This feature requires an RTSP source that provides NTP timestamps in its stream. It has no effect on
 > file-based sources such as `multifilesrc`.
 
 1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
@@ -301,7 +310,8 @@ To create a new pipeline, follow these steps:
 1. **Create a New Config File:**
    Use the existing `config.json` as a template to create your new pipeline configuration file (e.g., `my_pipeline_config.json`). Adjust the parameters as needed for your use case.
 
-   > **Note:** The `detection_policy` parameter specifies the type of inference model used in the pipeline. For example, use `detection_policy` for detection models, `reid_policy` for re-identification models, and `classification_policy` for classification models. Currently, only these policies are supported. To add a custom policy, refer to the implementation in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py).
+   > [!NOTE]
+   > The `detection_policy` parameter specifies the type of inference model used in the pipeline. For example, use `detection_policy` for detection models, `reid_policy` for re-identification models, and `classification_policy` for classification models. Currently, only these policies are supported. To add a custom policy, refer to the implementation in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py).
 
 2. **Mount the Config File:**
    In your `docker-compose.yml`, update the DL Streamer Pipeline Server service to mount your new config file. For example:

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -19,7 +19,7 @@ import {
 } from "/static/js/constants.js";
 
 class CamCanvas {
-  constructor(canvas, initialImageSrc) {
+  constructor(canvas, initialImageSrc, onLoad) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.image = new Image();
@@ -31,6 +31,9 @@ class CamCanvas {
     }
     this.calibrationPointSize = 0;
     this.calibrationPointDiagnostics = new Map();
+    // Display-only mapping of stored points into a moved PTZ frame; null = identity.
+    this.pointMapper = null;
+    this.pointsVisible = true;
 
     this.camScaleFactor = CAMERA_SCALE_FACTOR;
     this.scale = 1;
@@ -43,12 +46,8 @@ class CamCanvas {
     this.draggingPoint = null;
     this.calibrationUpdated = false;
 
-    this.image.onload = () => {
-      this.handleImageLoad();
-    };
-
     this.initializeEventListeners();
-    this.updateImageSrc(initialImageSrc);
+    this.updateImageSrc(initialImageSrc, onLoad);
   }
 
   getImageSize() {
@@ -81,8 +80,40 @@ class CamCanvas {
     return [imageX, imageY];
   }
 
+  // Stored points cannot be edited while they are shown at a mapped position.
+  arePointsLocked() {
+    return this.pointMapper !== null || !this.pointsVisible;
+  }
+
+  #getDisplayPosition(point) {
+    return this.pointMapper === null
+      ? [point.x, point.y]
+      : this.pointMapper(point.x, point.y);
+  }
+
+  /**
+   * Sets how stored calibration points are displayed; the stored points do not change.
+   * @param {Function|null} mapper - (x, y) => [x, y] or null if hidden; null for none.
+   * @param {boolean} visible - Whether the points are drawn.
+   */
+  setPointMapper(mapper, visible) {
+    this.pointMapper = mapper;
+    this.pointsVisible = visible;
+    if (this.arePointsLocked()) {
+      this.isDragging = false;
+      this.draggingPoint = null;
+    }
+    // A new frame that is still decoding would be drawn blank; its onload redraws.
+    if (this.image.complete && this.image.naturalWidth > 0) {
+      this.drawImage();
+    }
+  }
+
   // Find the calibration point that intersects with the given point
   #findPointIntersection(x, y) {
+    if (this.arePointsLocked()) {
+      return null;
+    }
     const [imageX, imageY] = this.#getImageCoordinates(x, y);
     for (const point of this.calibrationPoints) {
       const distance = Math.sqrt(
@@ -170,6 +201,9 @@ class CamCanvas {
 
   onDblClick(event) {
     event.preventDefault();
+    if (this.arePointsLocked()) {
+      return;
+    }
     const [imageX, imageY] = this.#getImageCoordinates(
       event.clientX,
       event.clientY,
@@ -210,10 +244,14 @@ class CamCanvas {
     this.ctx.translate(this.panX, this.panY);
     this.ctx.scale(this.scale, this.scale);
     this.ctx.drawImage(this.image, 0, 0, width, height);
-    for (const point of this.calibrationPoints) {
+    for (const point of this.pointsVisible ? this.calibrationPoints : []) {
+      const position = this.#getDisplayPosition(point);
+      if (position === null) {
+        continue;
+      }
       this.drawPoint(
-        point.x * this.camScaleFactor,
-        point.y * this.camScaleFactor,
+        position[0] * this.camScaleFactor,
+        position[1] * this.camScaleFactor,
         point.color,
         point.name,
         this.calibrationPointDiagnostics.get(point.name) || null,
@@ -223,6 +261,14 @@ class CamCanvas {
   }
 
   handleImageLoad() {
+    const size = this.getImageSize();
+    if (this.previousImageSize) {
+      for (const point of this.calibrationPoints) {
+        point.x *= size[0] / this.previousImageSize[0];
+        point.y *= size[1] / this.previousImageSize[1];
+      }
+    }
+    this.previousImageSize = size;
     // Do resizing and find the new width and height
     const aspectRatio = this.image.width / this.image.height;
     this.camScaleFactor = this.canvas.clientWidth / this.image.width;
@@ -233,7 +279,11 @@ class CamCanvas {
     this.drawImage(newWidth, newHeight);
   }
 
-  updateImageSrc(base64Image) {
+  updateImageSrc(base64Image, onLoad) {
+    this.image.onload = () => {
+      this.handleImageLoad();
+      onLoad?.();
+    };
     this.image.src = base64Image;
   }
 

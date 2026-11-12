@@ -95,7 +95,8 @@ class CameraDeletionTest(FunctionalTest):
 
       # Step 5: Attach orphan camera to existing test scene
       log.info(f"Attaching orphan camera to scene: {self.existingSceneUID}")
-      updateResult = self.rest.updateCamera(cameraUID, {'scene': self.existingSceneUID})
+      updateResult = self.rest.updateCamera(
+        cameraUID, {'name': self.newCameraName, 'scene': self.existingSceneUID})
       assert updateResult, (updateResult.statusCode, updateResult.errors)
       assert updateResult['scene'] == self.existingSceneUID
 
@@ -139,5 +140,7 @@ class CameraDeletionTest(FunctionalTest):
 @pytest.mark.test_name("NEX-T21878")
 def test_camera_deletion_main(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraDeletionTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
+  test.existingSceneUID = demo_scene
   test.testCameraDeletion()
   assert test.exitCode == 0

@@ -5,7 +5,9 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 from django.db import models as django_models
+from django.db.models.fields.files import FieldFile
 
 from manager.models import Scene
 
@@ -37,7 +39,7 @@ def test_direct_glb_upload_auto_aligns():
 
 
 def test_saving_unchanged_glb_scene_skips_align_and_thumbnail():
-  glb = _map_file("scene.glb", "/media/maps/scene.glb", committed=True)
+  glb = FieldFile(None, Scene._meta.get_field("map"), "scene.glb")
   scene = Scene(name="glb_scene", map=glb)
 
   auto_align, save_thumbnail = _save_scene(scene)
@@ -46,6 +48,7 @@ def test_saving_unchanged_glb_scene_skips_align_and_thumbnail():
   save_thumbnail.assert_not_called()
 
 
+@pytest.mark.django_db
 def test_polycam_zip_upload_still_auto_aligns():
   zip_map = _map_file("dataset.zip", "/media/maps/dataset.zip")
   zip_map.save.side_effect = lambda *args, **kwargs: setattr(zip_map, "path", "/media/maps/glb_scene.glb")

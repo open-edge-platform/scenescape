@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **Location**: `tests/functional/` (integration-style flows also use this tree or `tests/system/`)
 
-**Infrastructure**: `scenescape_env` in `tests/conftest.py` reads module-level `SCENESCAPE_SPEC`, starts the `ServiceProfile` stack, injects `params`, restores DB on teardown (unless `@pytest.mark.preserve_db`).
+**Infrastructure**: `scenescape_env` in `tests/conftest.py` reads module-level `SCENESCAPE_SPEC`, starts the `ServiceProfile` stack, injects `params`. Use the `scene_factory` fixture to create scenes/cameras that are deleted on teardown.
 
 **Profiles**: `tests/utils/profiles.py`
 
@@ -83,8 +83,7 @@ shared with children, parent-only passthrough, or none):
   (`BROKER_EXTRA_HOSTS` / `WEB_EXTRA_HOSTS` / `REID_S_EXTRA_HOSTS` via root
   `make certificates`).
 - Children should NTP to the parent NTP service (`--rewriteBadTime` / maxlag help absorb residual skew in tests).
-- Demo fixture UUID collides across child stacks—create a dedicated scene (+ camera) per child before linking.
-- Prefer `@pytest.mark.preserve_db` for multi-controller matrices (each profile brings its own PG volumes).
+- Demo fixture UUID collides across child stacks—create a dedicated scene (+ camera) per child before linking, via `scene_factory`.
 - Hierarchy host ports are written to `os.environ` for Compose interpolation and
   cleared on stack teardown (`clear_hierarchy_port_env`).
 - Controller product notes (remote `parent` recovery): `controller/Agents.md` hierarchy section.

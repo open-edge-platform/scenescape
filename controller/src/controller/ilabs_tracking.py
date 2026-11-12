@@ -18,8 +18,190 @@ from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
                                  Tracking)
 from scene_common import log
+from scene_common.association import (
+  ASSOCIATION_METHOD_EUCLIDEAN,
+  ASSOCIATION_METHOD_POSITION_MAHALANOBIS,
+  DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M,
+  DEFAULT_ASSOCIATION_GATE_PROBABILITY,
+  DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,
+  VALID_ASSOCIATION_METHODS,
+)
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
+
+
+def _default_max_radius_for_method(method):
+  """Fallback max_radius_m when the configured value is missing or invalid.
+
+  None for ``euclidean``: it gates on the objects' tracking_radius instead.
+  """
+  if method == ASSOCIATION_METHOD_POSITION_MAHALANOBIS:
+    return DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M
+  return None
+
+
+def _parse_max_radius_m(value, default_max_radius_m):
+  """Return ``value`` as a finite float >= 0, or ``default_max_radius_m`` when it is missing or invalid."""
+  if value is None:
+    return default_max_radius_m
+  default_label = "the objects' tracking_radius" if default_max_radius_m is None else default_max_radius_m
+  try:
+    max_radius_m = float(value)
+  except (TypeError, ValueError):
+    log.error("Invalid association max_radius_m %r; using %s", value, default_label)
+    return default_max_radius_m
+  if not math.isfinite(max_radius_m) or max_radius_m < 0.0:
+    log.error("Association max_radius_m %s must be finite and >= 0; using %s", max_radius_m, default_label)
+    return default_max_radius_m
+  return max_radius_m
+
+
+def normalize_association_config(association_config=None):
+  """Return a validated association config dict with defaults filled in.
+
+  A missing or invalid ``max_radius_m`` defaults per method: the 10 m ceiling
+  for ``position_mahalanobis``; None for ``euclidean``, which then gates on the
+  frame's average object tracking_radius, as before the association block.
+
+  Raises:
+    ValueError: If ``method`` is present and not a supported association method.
+  """
+  config = dict(association_config or {})
+
+  method = config.get("method", ASSOCIATION_METHOD_POSITION_MAHALANOBIS)
+  # A non-string method (a JSON list or object) is unhashable: the frozenset lookup would raise TypeError.
+  if not isinstance(method, str) or method not in VALID_ASSOCIATION_METHODS:
+    raise ValueError(
+      "Invalid association method {!r} (expected {})".format(
+        method, ", ".join(sorted(VALID_ASSOCIATION_METHODS)))
+    )
+  config["method"] = method
+  default_max_radius_m = _default_max_radius_for_method(method)
+
+  try:
+    gate_probability = float(config.get("gate_probability", DEFAULT_ASSOCIATION_GATE_PROBABILITY))
+  except (TypeError, ValueError):
+    log.error("Invalid association gate_probability %r; using %s",
+              config.get("gate_probability"), DEFAULT_ASSOCIATION_GATE_PROBABILITY)
+    gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
+  if not 0.0 < gate_probability <= 1.0:
+    log.error(
+      "Association gate_probability %s out of range (0, 1]; using %s",
+      gate_probability,
+      DEFAULT_ASSOCIATION_GATE_PROBABILITY,
+    )
+    gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
+  config["gate_probability"] = gate_probability
+
+  max_radius_m = _parse_max_radius_m(config.get("max_radius_m"), default_max_radius_m)
+  config["max_radius_m"] = max_radius_m
+  return config
+
+
+def warn_association_config(association_config):
+  """Warn about a normalized config that works but defeats the gate; once, where the config is loaded."""
+  max_radius_m = association_config["max_radius_m"]
+  if (association_config["method"] == ASSOCIATION_METHOD_POSITION_MAHALANOBIS
+      and max_radius_m <= DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M + 1e-6):
+    log.warning(
+      "association.method is position_mahalanobis with max_radius_m=%s; "
+      "ADR-0019 recommends raising max_radius_m (e.g. %s) so the chi-squared "
+      "gate can widen with predicted uncertainty",
+      max_radius_m,
+      DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,
+    )
+
+
+def uses_tracking_radius(association_config):
+  """Whether a normalized association config gates on the objects' tracking_radius (``euclidean`` without
+  ``max_radius_m``)."""
+  return (association_config["method"] == ASSOCIATION_METHOD_EUCLIDEAN
+          and association_config["max_radius_m"] is None)
+
+
+def average_tracking_radius(objects):
+  """Mean tracking_radius of a frame's objects, DEFAULT_TRACKING_RADIUS without objects."""
+  if not objects:
+    return DEFAULT_TRACKING_RADIUS
+  return sum(obj.tracking_radius for obj in objects) / len(objects)
+
+
+def association_match_params(association_config=None, tracking_radius_m=DEFAULT_TRACKING_RADIUS):
+  """Map association config to robot_vision match() parameters.
+
+  ``euclidean`` without ``max_radius_m`` gates on ``tracking_radius_m``.
+  """
+  config = normalize_association_config(association_config)
+  method = config["method"]
+  gate_probability = config["gate_probability"]
+  max_radius_m = config["max_radius_m"]
+
+  if method == ASSOCIATION_METHOD_POSITION_MAHALANOBIS:
+    return (
+      rv.tracking.DistanceType.PositionMahalanobis,
+      rv.tracking.chi2_threshold(gate_probability),
+      max_radius_m,
+    )
+
+  radius_m = tracking_radius_m if max_radius_m is None else max_radius_m
+  return (
+    rv.tracking.DistanceType.Euclidean,
+    radius_m,
+    radius_m,
+  )
+
+
+def _circle_window(method, max_radius_m):
+  return {
+    "method": method,
+    "shape": "circle",
+    "radius_m": max_radius_m,
+  }
+
+
+def build_association_window(association_config, measurement_covariance=None,
+                             tracking_radius_m=DEFAULT_TRACKING_RADIUS):
+  """Build MQTT ``association_window`` geometry for UI visualization.
+
+  Euclidean association is a circle of radius ``max_radius_m``, or
+  ``tracking_radius_m`` without it. Position Mahalanobis is the χ² ellipse of
+  the 2×2 XY block of ``S_pred``, with each semi-axis clipped to
+  ``max_radius_m`` so the drawn region stays inside the hard association
+  ceiling; without a usable covariance it falls back to the ``max_radius_m``
+  circle.
+  """
+  config = normalize_association_config(association_config)
+  method = config["method"]
+  max_radius_m = config["max_radius_m"]
+  max_radius_m = float(tracking_radius_m if max_radius_m is None else max_radius_m)
+
+  if method == ASSOCIATION_METHOD_EUCLIDEAN or measurement_covariance is None:
+    return _circle_window(method, max_radius_m)
+
+  cov = np.asarray(measurement_covariance, dtype=float)
+  if cov.ndim != 2 or cov.shape[0] < 2 or cov.shape[1] < 2:
+    return _circle_window(method, max_radius_m)
+
+  s00 = float(cov[0, 0])
+  s01 = 0.5 * float(cov[0, 1] + cov[1, 0])
+  s11 = float(cov[1, 1])
+  if not (math.isfinite(s00) and math.isfinite(s01) and math.isfinite(s11)):
+    return _circle_window(method, max_radius_m)
+
+  # Closed-form eigendecomposition of the symmetric 2×2 S_xy, run for every
+  # published object every frame; numpy.linalg.eigh made this call 5x slower.
+  mean = 0.5 * (s00 + s11)
+  spread = math.hypot(0.5 * (s00 - s11), s01)
+  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"]))
+
+  return {
+    "method": method,
+    "shape": "ellipse",
+    # An ellipse with both semi-axes ≤ R lies inside the disk of radius R used as the hard gate.
+    "semi_major_m": min(math.sqrt(chi2 * max(mean + spread, 0.0)), max_radius_m),
+    "semi_minor_m": min(math.sqrt(chi2 * max(mean - spread, 0.0)), max_radius_m),
+    "angle_rad": 0.5 * math.atan2(2.0 * s01, s00 - s11),
+  }
 
 
 def _quaternion_to_yaw(rotation):
@@ -76,21 +258,24 @@ def _kalman_yaw_disagrees_with_velocity(tracked_object,
 
 
 class IntelLabsTracking(Tracking):
+  # The last frame's gate when association gates on tracking_radius; also the drawn association window.
+  tracking_radius_m = DEFAULT_TRACKING_RADIUS
+  # The ignored tracking_radius warning is logged once per tracker and association config, not every frame.
+  _ignored_tracking_radius_warned = False
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None, association_config=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__(reid_config_data=reid_config_data)
     self.name = name if name is not None else "IntelLabsTracking"
+    self.association_config = normalize_association_config(association_config)
     # ref_camera_frame_rate is used to determine the frame-based param values
     self.ref_camera_frame_rate = effective_object_update_rate
     tracker_config = rv.tracking.TrackManagerConfig()
 
-    tracker_config.default_process_noise = 1e-4
-    tracker_config.default_measurement_noise = 2e-1
-    tracker_config.init_state_covariance = 1
-
-    tracker_config.motion_models = [rv.tracking.MotionModel.CV, rv.tracking.MotionModel.CA,
-                                    rv.tracking.MotionModel.CTRV]
+    tracker_config.default_process_noise = rv.tracking.PRODUCTION_PROCESS_NOISE
+    tracker_config.default_measurement_noise = rv.tracking.PRODUCTION_MEASUREMENT_NOISE
+    tracker_config.init_state_covariance = rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE
+    tracker_config.motion_models = list(rv.tracking.PRODUCTION_MOTION_MODELS)
 
     if self.check_valid_time_parameters(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
       tracker_config.max_unreliable_time = max_unreliable_time
@@ -108,7 +293,22 @@ class IntelLabsTracking(Tracking):
     self.tracker = rv.tracking.MultipleObjectTracker(tracker_config)
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
+    log.info("Association config: {}".format(self.association_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)
+    return
+
+  def applyAssociationConfig(self, association_config):
+    """Update association settings used by subsequent track()/match calls."""
+    config = normalize_association_config(association_config)
+    # Under the lock, so a category tracker that _createTrackers adds meanwhile reads this config or is updated below.
+    with self._lifecycle_lock:
+      self.association_config = config
+      self._ignored_tracking_radius_warned = False
+      trackers = list(getattr(self, 'trackers', {}).values())
+    log.info("Association config updated: {}".format(config))
+    for tracker in trackers:
+      if hasattr(tracker, 'applyAssociationConfig'):
+        tracker.applyAssociationConfig(config)
     return
 
   def check_valid_time_parameters(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
@@ -180,14 +380,44 @@ class IntelLabsTracking(Tracking):
     rv_object.attributes = attributes
     return rv_object
 
+  def _warn_ignored_tracking_radius(self, objects):
+    if self._ignored_tracking_radius_warned:
+      return
+    for obj in objects:
+      radius = getattr(obj, 'tracking_radius', DEFAULT_TRACKING_RADIUS)
+      if abs(radius - DEFAULT_TRACKING_RADIUS) > 1e-6:
+        log.warning(
+          "Object tracking_radius %s is ignored: association.method is %s with max_radius_m %s",
+          radius,
+          self.association_config["method"],
+          self.association_config["max_radius_m"],
+        )
+        self._ignored_tracking_radius_warned = True
+        return
+
+  def _association_kwargs(self, objects):
+    """Association keyword arguments of track() for a frame's objects."""
+    if uses_tracking_radius(self.association_config):
+      self.tracking_radius_m = average_tracking_radius(objects)
+    else:
+      self._warn_ignored_tracking_radius(objects)
+    distance_type, distance_threshold, max_radius_m = association_match_params(
+      self.association_config, self.tracking_radius_m)
+    return {
+      "distance_type": distance_type,
+      "distance_threshold": distance_threshold,
+      "max_radius_m": max_radius_m,
+    }
+
+  def _birth_cluster_radius(self):
+    """Radius that groups new detections of different cameras: the tracking_radius gate when association uses it."""
+    if uses_tracking_radius(self.association_config):
+      return self.tracking_radius_m
+    return rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M
+
   def update_tracks(self, objects, timestamp):
     rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
-    tracking_radius = DEFAULT_TRACKING_RADIUS
-    if len(objects):
-      tracking_radius = sum([x.tracking_radius for x in objects]) / len(objects)
-
-    self.tracker.track(rv_objects, timestamp, distance_type=rv.tracking.DistanceType.Euclidean,
-                       distance_threshold=tracking_radius)
+    self.tracker.track(rv_objects, timestamp, **self._association_kwargs(objects))
     return
 
   def from_tracked_object(self, tracked_object, objects):
@@ -201,6 +431,11 @@ class IntelLabsTracking(Tracking):
     if not sscape_object:
       for obj in self.all_tracker_objects:
         if object_uuid == obj.uuid:
+          obj.association_window = build_association_window(
+            self.association_config,
+            getattr(tracked_object, "measurement_covariance", None),
+            self.tracking_radius_m,
+          )
           return obj
 
     sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
@@ -244,6 +479,12 @@ class IntelLabsTracking(Tracking):
       sscape_object.inferRotationFromVelocity()
 
     self.uuid_manager.assignID(sscape_object)
+
+    sscape_object.association_window = build_association_window(
+      self.association_config,
+      getattr(tracked_object, "measurement_covariance", None),
+      self.tracking_radius_m,
+    )
 
     return sscape_object
 
@@ -319,25 +560,17 @@ class IntelLabsTracking(Tracking):
   def update_tracks_batched(self, objects_per_camera, timestamp):
     """Update tracks using batched per-camera object data"""
     rv_objects_per_camera = []
-    tracking_radius = DEFAULT_TRACKING_RADIUS
-
-    # Calculate average tracking radius across all objects from all cameras
-    total_tracking_radius = 0
-    total_object_count = 0
+    flat_objects = []
 
     for camera_objects in objects_per_camera:
       rv_camera_objects = [self.to_rv_object(sscape_object) for sscape_object in camera_objects]
       rv_objects_per_camera.append(rv_camera_objects)
+      flat_objects.extend(camera_objects)
 
-      # Accumulate tracking radius sum and object count
-      if len(camera_objects):
-        total_tracking_radius += sum([x.tracking_radius for x in camera_objects])
-        total_object_count += len(camera_objects)
-
-    # Calculate overall average tracking radius
-    if total_object_count > 0:
-      tracking_radius = total_tracking_radius / total_object_count
-
-    self.tracker.track(rv_objects_per_camera, timestamp,
-                       distance_type=rv.tracking.DistanceType.Euclidean, distance_threshold=tracking_radius)
+    self.tracker.track(
+      rv_objects_per_camera,
+      timestamp,
+      **self._association_kwargs(flat_objects),
+      birth_cluster_radius_m=self._birth_cluster_radius(),
+    )
     return
