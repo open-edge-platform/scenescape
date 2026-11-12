@@ -302,6 +302,101 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.assertFalse(self.scene.use_glb_map)
 
 
+class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
+  """Unapplied preview contract: GET is read-only, write paths render and cache the preview."""
+
+  RENDER = (np.zeros((8, 8, 3), dtype=np.uint8), 5.0)
+
+  def setUp(self):
+    """Create superuser and scene with a stored GLB that has no preview yet."""
+    self.temp_dir = tempfile.TemporaryDirectory()
+    self.addCleanup(self.temp_dir.cleanup)
+    patcher = override_settings(MEDIA_ROOT=self.temp_dir.name)
+    patcher.enable()
+    self.addCleanup(patcher.disable)
+
+    self.user = User.objects.create_superuser("admin", "admin@intel.com", "pass")
+    self.scene = Scene.objects.create(
+      name="preview_test_scene",
+      map_type="geospatial_map",
+      map_center_lat=37.38,
+      map_center_lng=-121.96,
+      output_lla=True
+    )
+    self.scene.map_corners_lla = localFootprintCornersLLA(
+      center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
+      width_m=100.0, height_m=100.0
+    ).tolist()
+    glb_path = os.path.join(self.temp_dir.name, "stored.glb")
+    with open(TEST_GLB_FILE, 'rb') as f_src:
+      with open(glb_path, 'wb') as f_dst:
+        f_dst.write(f_src.read())
+    self.scene.glb_map = "stored.glb"
+    self.scene.glb_anchor = {
+      'lat': 37.38,
+      'lng': -121.96,
+      'heading_deg': 0.0,
+      'footprint_m': {'width': 10.0, 'height': 10.0}
+    }
+    self.scene.save()
+    self.preview_path = os.path.join(self.temp_dir.name, "stored_preview.png")
+    self.client.force_login(self.user)
+
+  def _get(self):
+    return self.client.get(reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}))
+
+  def test_get_does_not_render_or_write_preview(self):
+    """GET renders nothing, writes no file and returns preview_url null when no preview is cached."""
+    with patch.object(glb_alignment, 'generateOrthoView') as render:
+      response = self._get()
+
+    self.assertEqual(response.status_code, 200)
+    render.assert_not_called()
+    self.assertIsNone(response.json()['preview_url'])
+    self.assertFalse(os.path.exists(self.preview_path))
+
+  def test_unapply_renders_preview_on_write_path(self):
+    """Unapplying renders the unapplied preview once with alignment rotation and returns its URL."""
+    self._set_snapshot_map()
+    with patch.object(glb_alignment, 'generateOrthoView', return_value=self.RENDER) as render:
+      self.assertEqual(self._put({'use_glb_map': True}).status_code, 200)
+      response = self._put({'use_glb_map': False})
+
+    self.assertEqual(response.status_code, 200)
+    render.assert_called_once()
+    self.assertEqual(render.call_args.args[0].rotation_x, glb_alignment.ALIGN_ROTATION_X)
+    self.assertTrue(os.path.exists(self.preview_path))
+    self.assertTrue(response.json()['preview_url'].endswith('stored_preview.png'))
+
+  def test_real_render_writes_valid_preview_png(self):
+    """Unapplying with the real renderer caches a non-empty PNG preview."""
+    self._set_snapshot_map()
+    self.assertEqual(self._put({'use_glb_map': True}).status_code, 200)
+
+    response = self._put({'use_glb_map': False})
+
+    self.assertEqual(response.status_code, 200)
+    self.assertTrue(os.path.exists(self.preview_path))
+    with Image.open(self.preview_path) as img:
+      self.assertEqual(img.format, 'PNG')
+      self.assertGreater(img.size[0], 0)
+      self.assertGreater(img.size[1], 0)
+
+  def test_failed_render_is_retried_on_next_write_not_on_get(self):
+    """A failed preview render is logged and returns null; GET does not retry it, the next write does."""
+    with patch.object(glb_alignment, 'generateOrthoView', side_effect=RuntimeError('boom')) as render:
+      first = self._put({'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0.0}})
+      self.assertEqual(first.status_code, 200)
+      self.assertIsNone(first.json()['preview_url'])
+      self.assertEqual(render.call_count, 1)
+
+      self._get()
+      self.assertEqual(render.call_count, 1)
+
+      self._put({'anchor': {'lat': 37.40, 'lng': -121.95, 'heading_deg': 0.0}})
+      self.assertEqual(render.call_count, 2)
+
+
 class TestSceneFormFields(SimpleTestCase):
   """Unit tests for glb_alignment.scene_form_fields."""
 

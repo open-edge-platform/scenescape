@@ -418,11 +418,22 @@ class TestGlbAlignment:
     """The frame turns green when the model is applied and red again when it is unapplied."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True}},
-      {"status": 200, "body": {"use_glb_map": False}},
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png"}},
+      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png"}},
     ]
     res = _align(responses, [["toggleUse", True], ["toggleUse", False]], geomapReady=True)
     assert res["frameTrail"] == [FRAME_UNAPPLIED, FRAME_APPLIED, FRAME_UNAPPLIED]
+
+  def test_toggle_use_redraws_overlay_with_response_preview(self):
+    """Toggling the GLB redraws the overlay with the preview the server returns for the new state."""
+    responses = [
+      _saved_model_get(),
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png"}},
+      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png"}},
+    ]
+    res = _align(responses, [["toggleUse", True], ["toggleUse", False]], geomapReady=True)
+    urls = [c[1] for c in res["calls"] if c[0] == "setOverlay"]
+    assert urls == ["/saved.png", "/applied.png", "/saved.png"]
 
   def test_overlay_frame_unchanged_when_apply_fails(self):
     """A failed apply request leaves the frame in its previous state."""
@@ -454,7 +465,7 @@ class TestGlbAlignment:
   def test_toggle_use_writes_applied_scene_fields_to_form(self):
     """Applying the GLB writes the server pose, scale and corners into the scene-edit form."""
     res = _align(
-      [_saved_model_get(), {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}}],
+      [_saved_model_get(), {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}}],
       [["toggleUse", True]],
     )
     _assert_form_matches(res["sceneForm"], SCENE_FIELDS_APPLIED)
@@ -463,8 +474,8 @@ class TestGlbAlignment:
     """Toggling the GLB on then off moves the scene-edit form from the applied to the base values."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}},
-      {"status": 200, "body": {"use_glb_map": False, "scene_fields": SCENE_FIELDS_BASE}},
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png", "scene_fields": SCENE_FIELDS_BASE}},
     ]
     res = _align(responses, [["toggleUse", True], ["toggleUse", False]])
     _assert_form_matches(res["sceneFormTrail"][1], SCENE_FIELDS_APPLIED)
@@ -483,7 +494,7 @@ class TestGlbAlignment:
     """Removing an applied GLB writes the server's unapplied scene fields into the form."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
       {"status": 200, "body": {"success": True, "scene_fields": SCENE_FIELDS_BASE}},
     ]
     res = _align(responses, [["toggleUse", True], ["remove"]])
@@ -495,7 +506,7 @@ class TestGlbAlignment:
     """A DELETE response without scene_fields keeps the form as it was and still clears the saved model."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
       {"status": 204, "body": {}},
     ]
     res = _align(responses, [["toggleUse", True], ["remove"]])

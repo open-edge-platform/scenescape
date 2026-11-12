@@ -242,11 +242,6 @@ class GlbAlignment {
     return this.saved?.use_glb_map ? FRAME_APPLIED : FRAME_UNAPPLIED;
   }
 
-  _updateMapFrame() {
-    if (this.mapReady)
-      this._strategy().setOverlayFrameColor(this._frameColor());
-  }
-
   _updateControlsVisibility() {
     if (!this.ui.savePosBtn) return;
     const show = !this.staged && !!this.saved && this.dirty;
@@ -513,6 +508,7 @@ class GlbAlignment {
       );
 
       this.saved.anchor = sent;
+      this.saved.preview_url = response.preview_url ?? null;
       this._applySceneFields(response.scene_fields);
       this.dirty = JSON.stringify(this.anchor) !== JSON.stringify(sent);
       this._updateControlsVisibility();
@@ -590,8 +586,14 @@ class GlbAlignment {
       );
 
       this.saved.use_glb_map = response.use_glb_map;
+      this.saved.preview_url = response.preview_url ?? null;
       this._applySceneFields(response.scene_fields);
-      this._updateMapFrame();
+      // The preview image changes with the applied state, so the overlay is redrawn, not just re-framed.
+      if (this.saved.preview_url) {
+        this._drawSavedOverlay();
+      } else if (this.mapReady) {
+        this._strategy().removeOverlay();
+      }
       this.ui.status.textContent = this.saved.use_glb_map
         ? "3D model applied to scene map"
         : "3D model overlay only";

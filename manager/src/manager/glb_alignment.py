@@ -421,7 +421,7 @@ def unapply_glb_map(scene):
     log.error(f'Failed to unapply GLB: {e}')
     raise GlbAlignmentError(500, 'Failed to unapply GLB')
 
-  return saved_alignment(scene) if scene.glb_map else None
+  return _write_response(scene)
 
 
 def move_glb_anchor(scene, new_anchor):
@@ -475,7 +475,7 @@ def move_glb_anchor(scene, new_anchor):
     log.error(f'Failed to move GLB anchor: {e}')
     raise GlbAlignmentError(500, 'Failed to move GLB anchor')
 
-  return saved_alignment(scene) if scene.glb_map else None
+  return _write_response(scene)
 
 
 def set_glb_applied(scene, use_glb):
@@ -575,7 +575,7 @@ def commit_glb(scene, token, anchor):
     old_preview = f'{os.path.splitext(old_glb)[0]}_preview.png'
     remove_stored_file(scene.glb_map.storage, old_preview)
 
-  return saved_alignment(scene)
+  return _write_response(scene)
 
 
 def scene_form_fields(scene):
@@ -587,14 +587,51 @@ def scene_form_fields(scene):
   return {name: getattr(scene, name) for name in SCENE_FORM_GLB_FIELDS}
 
 
+def unapplied_preview_path(glb_path):
+  """Cache path of the unapplied top-view preview, stored next to the GLB file."""
+  glb_base = os.path.splitext(os.path.basename(glb_path))[0]
+  return os.path.join(os.path.dirname(glb_path), f'{glb_base}_preview.png')
+
+
+def ensure_unapplied_preview(scene):
+  """Render the unapplied preview of the stored GLB if it is not cached yet.
+
+  Called from write paths only, never from the GET read path. The preview depends
+  only on the GLB file. A failed render is logged and retried on the next write.
+  """
+  if scene.use_glb_map or not scene.glb_map:
+    return
+  preview_path = unapplied_preview_path(scene.glb_map.path)
+  if os.path.exists(preview_path):
+    return
+  try:
+    # Alignment rotation only; generateOrthoView does not use translation
+    temp_scene = Scene(map=scene.glb_map.path)
+    temp_scene.rotation_x = ALIGN_ROTATION_X
+    temp_scene.rotation_y = 0.0
+    temp_scene.rotation_z = 0.0
+    img_data, _ = generateOrthoView(temp_scene, scene.glb_map.path)
+    Image.fromarray(np.uint8(img_data)).save(preview_path, format='PNG')
+  except Exception as e:
+    log.warning(f'Failed to generate GLB preview: {e}')
+
+
+def _write_response(scene):
+  """Response for write paths: make sure the unapplied preview exists, then read it."""
+  if not scene.glb_map:
+    return None
+  ensure_unapplied_preview(scene)
+  return saved_alignment(scene)
+
+
 def saved_alignment(scene):
   """Build alignment response from a scene with a stored GLB.
 
   Returns dict with exists, filename, download_url, anchor, footprint_m, use_glb_map, preview_url.
   Returns exists=false if no GLB stored.
 
-  For applied GLB: uses cached scene.thumbnail.
-  For unapplied GLB: generates preview from temporary aligned scene, cached deterministically.
+  Read-only. For applied GLB: uses cached scene.thumbnail. For unapplied GLB: uses the
+  cached preview file if it exists (rendered by ensure_unapplied_preview on write paths).
   """
   if not scene.glb_map or not scene.glb_anchor:
     return {
@@ -604,42 +641,12 @@ def saved_alignment(scene):
   anchor_data = scene.glb_anchor
   footprint_data = anchor_data.get('footprint_m', {})
 
-  # Render preview if not cached
   preview_url = None
   if scene.use_glb_map and scene.thumbnail:
     # Use the thumbnail cached when GLB was applied
     preview_url = scene.thumbnail.url
-  elif scene.glb_map:
-    # Generate on-demand preview for unapplied GLB
-    # Build deterministic cache path based on glb_map file
-    glb_base = os.path.splitext(os.path.basename(scene.glb_map.path))[0]
-    preview_path = os.path.join(
-      os.path.dirname(scene.glb_map.path),
-      f'{glb_base}_preview.png'
-    )
-    if not os.path.exists(preview_path):
-      try:
-        # Create a temporary scene with the GLB map and alignment rotation
-        # (do not use the scene's own pose, which may be for the snapshot)
-        temp_scene = Scene(map=scene.glb_map.path)
-        temp_scene.rotation_x = ALIGN_ROTATION_X
-        temp_scene.rotation_y = 0.0
-        temp_scene.rotation_z = 0.0
-
-        # Get mesh size for translation
-        mesh, _ = extractMeshFromGLB(scene.glb_map.path,
-                                      rotation=[ALIGN_ROTATION_X, 0.0, 0.0])
-        bbox = mesh.get_axis_aligned_bounding_box()
-        min_bound = bbox.min_bound.numpy()
-        temp_scene.translation_x = float(-min_bound[0])
-        temp_scene.translation_y = float(-min_bound[1])
-        temp_scene.translation_z = float(-min_bound[2])
-
-        img_data, _ = generateOrthoView(temp_scene, scene.glb_map.path)
-        Image.fromarray(np.uint8(img_data)).save(preview_path, format='PNG')
-      except Exception as e:
-        log.warning(f'Failed to generate GLB preview: {e}')
-
+  else:
+    preview_path = unapplied_preview_path(scene.glb_map.path)
     if os.path.exists(preview_path):
       preview_name = os.path.join(os.path.dirname(scene.glb_map.name), os.path.basename(preview_path))
       preview_url = scene.glb_map.storage.url(preview_name)
