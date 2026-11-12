@@ -30,7 +30,7 @@ TEST(ObjectMatchingTest, PositionGateCentralizesXyVersusXyz)
 {
   rv::tracking::TrackedObject planar;
   rv::tracking::TrackedObject measured;
-  measured.zMeasured = true;
+  measured.z_measured = true;
 
   EXPECT_FALSE(rv::tracking::position_gate::gatesZ(planar, measured));
   EXPECT_FALSE(rv::tracking::position_gate::gatesZ(measured, planar));
@@ -140,7 +140,7 @@ TEST(ObjectMatchingTest, EuclideanSeparatesStackedFloors)
   track.x = 1.0;
   track.y = 2.0;
   track.z = 0.0;
-  track.zMeasured = true; // floors are told apart by measured z only
+  track.z_measured = true; // floors are told apart by measured z only
   track.length = track.width = track.height = 0.5;
 
   rv::tracking::TrackedObject sameFloor = track;
@@ -172,16 +172,16 @@ TEST(ObjectMatchingTest, EuclideanBirthUsesXyUnlessBothZMeasured)
   planar.x = 1.0;
   planar.y = 2.0;
   planar.z = 0.0;
-  planar.zMeasured = false;
+  planar.z_measured = false;
   planar.length = planar.width = planar.height = 0.5;
 
   rv::tracking::TrackedObject measured = planar;
   measured.z = 1.5;
-  measured.zMeasured = true;
+  measured.z_measured = true;
 
   rv::tracking::TrackedObject upperMeasured = planar;
   upperMeasured.z = 4.0; // Δz > kDefaultBirthClusterRadiusM
-  upperMeasured.zMeasured = true;
+  upperMeasured.z_measured = true;
 
   std::vector<std::pair<size_t, size_t>> assignments;
   std::vector<size_t> unassignedTracks;
@@ -214,7 +214,7 @@ TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
   seed.x = 0.0;
   seed.y = 0.0;
   seed.z = 0.0;
-  seed.zMeasured = true; // floors are told apart by measured z only
+  seed.z_measured = true; // floors are told apart by measured z only
   seed.length = seed.width = seed.height = 0.5;
 
   auto timestamp = std::chrono::system_clock::now();
@@ -621,8 +621,8 @@ TEST(ObjectMatchingTest, PositionMahalanobisGatesZOnlyWhenBothSidesMeasuredIt)
   for (const auto &testCase : cases)
   {
     SCOPED_TRACE(testCase.name);
-    track.zMeasured = testCase.trackZ;
-    above.zMeasured = farAbove.zMeasured = testCase.detectionZ;
+    track.z_measured = testCase.trackZ;
+    above.z_measured = farAbove.z_measured = testCase.detectionZ;
     EXPECT_EQ(assignedCount(track, above, DistanceType::PositionMahalanobis, chi2, 10.0), testCase.expected);
     EXPECT_EQ(assignedCount(track, farAbove, DistanceType::PositionMahalanobis, chi2, 10.0), testCase.expected)
       << "20 m above, ceiling 10 m";
@@ -641,9 +641,9 @@ TEST(ObjectMatchingTest, PositionMahalanobisGatesXyPairsAtTwoDegreesOfFreedom)
   EXPECT_EQ(assignedCount(track, between, DistanceType::PositionMahalanobis, chi2, 10.0), 0U) << "planar";
   EXPECT_EQ(assignedCount(track, inside, DistanceType::PositionMahalanobis, chi2, 10.0), 1U) << "planar";
 
-  track.zMeasured = true;
+  track.z_measured = true;
   auto measuredBetween = between;
-  measuredBetween.zMeasured = true;
+  measuredBetween.z_measured = true;
   EXPECT_EQ(assignedCount(track, measuredBetween, DistanceType::PositionMahalanobis, chi2, 10.0), 1U) << "measured z";
 }
 
@@ -666,8 +666,8 @@ TEST(ObjectMatchingTest, EuclideanGatesZOnlyWhenBothSidesMeasuredIt)
   for (const auto &testCase : cases)
   {
     SCOPED_TRACE(testCase.name);
-    track.zMeasured = testCase.trackZ;
-    above.zMeasured = testCase.detectionZ;
+    track.z_measured = testCase.trackZ;
+    above.z_measured = testCase.detectionZ;
     EXPECT_EQ(assignedCount(track, above, DistanceType::Euclidean, 2.0, 2.0), testCase.expected);
   }
 }

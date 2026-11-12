@@ -290,8 +290,8 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     fuseGeometry(matches, objectsPerCamera, fusedObject);
     applyOrientingYaw(matches, objectsPerCamera, fusedObject);
     // The update measured z if any matched camera did, whichever camera seeds the fused object.
-    fusedObject.zMeasured = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
-      return objectsPerCamera[match.first][match.second].zMeasured;
+    fusedObject.z_measured = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
+      return objectsPerCamera[match.first][match.second].z_measured;
     });
     metadata_fusion::fuseMetadata(matches, objectsPerCamera, fusedObject);
     metadata_fusion::mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
@@ -379,7 +379,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   // do not carry track predictedMeasurementCov, so PositionMahalanobis treats
   // them as near-delta covariances and fails to fuse the same object seen by
   // two cameras (duplicate frozen tracks). EuclideanBirth uses XY unless both
-  // sides have measured Z (zMeasured), so planar + 3D OD still fuse; two 3D
+  // sides have measured Z (z_measured), so planar + 3D OD still fuse; two 3D
   // detections use XYZ so stacked floors stay separate. Use birthClusterRadiusM
   // (default 2 m) — not maxRadiusM — so a Mahalanobis association ceiling
   // (e.g. 10 m) does not over-merge nearby people at birth. Track-to-detection
@@ -423,8 +423,8 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
       fuseGeometry(members, objectsPerCamera, fusedObject);
       applyOrientingYaw(members, objectsPerCamera, fusedObject);
       // Same sticky rule as track↔detection fusion: any measured-z camera marks the birth seed.
-      fusedObject.zMeasured = std::any_of(members.begin(), members.end(), [&](const auto &match) {
-        return objectsPerCamera[match.first][match.second].zMeasured;
+      fusedObject.z_measured = std::any_of(members.begin(), members.end(), [&](const auto &match) {
+        return objectsPerCamera[match.first][match.second].z_measured;
       });
       metadata_fusion::fuseMetadata(members, objectsPerCamera, fusedObject);
     }

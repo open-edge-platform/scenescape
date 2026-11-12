@@ -344,7 +344,7 @@ TEST(MultipleObjectTrackerTest, BirthClusteringDoesNotFuseStackedFloors)
   floor0.x = 5.0;
   floor0.y = 5.0;
   floor0.z = 0.0;
-  floor0.zMeasured = true;
+  floor0.z_measured = true;
   floor0.width = floor0.length = floor0.height = 0.5;
 
   rv::tracking::TrackedObject floor1 = floor0;
@@ -365,7 +365,7 @@ TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
   rv::tracking::TrackedObject planar = makeDetection(5.0, 5.0, 0.0, 0.5, 0.5, 1.8);
   rv::tracking::TrackedObject measured = planar;
   measured.z = 0.3;
-  measured.zMeasured = true;
+  measured.z_measured = true;
 
   for (const bool measuredFirst : {true, false})
   {
@@ -373,13 +373,13 @@ TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
     auto tracker = makeFusionTracker();
     tracker.track(DetectionsPerCamera{{planar}}, atMs(0), rv::tracking::DistanceType::Euclidean, kFusionGate);
     ASSERT_EQ(tracker.getTracks().size(), 1U);
-    ASSERT_FALSE(tracker.getTracks()[0].zMeasured);
+    ASSERT_FALSE(tracker.getTracks()[0].z_measured);
 
     const auto cameras
       = measuredFirst ? DetectionsPerCamera{{measured}, {planar}} : DetectionsPerCamera{{planar}, {measured}};
     tracker.track(cameras, atMs(100), rv::tracking::DistanceType::Euclidean, kFusionGate);
     ASSERT_EQ(tracker.getTracks().size(), 1U);
-    EXPECT_TRUE(tracker.getTracks()[0].zMeasured);
+    EXPECT_TRUE(tracker.getTracks()[0].z_measured);
   }
 }
 
@@ -401,12 +401,12 @@ TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
   planar.x = 5.0;
   planar.y = 5.0;
   planar.z = 0.0;
-  planar.zMeasured = false;
+  planar.z_measured = false;
   planar.width = planar.length = planar.height = 0.5;
 
   rv::tracking::TrackedObject measured = planar;
   measured.z = 1.5;
-  measured.zMeasured = true;
+  measured.z_measured = true;
 
   auto timestamp = std::chrono::system_clock::now();
   objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{planar}, {measured}},
@@ -414,5 +414,5 @@ TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
 
   auto tracks = objectTracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U) << "planar + measured-Z at same XY should birth-cluster via XY distance";
-  EXPECT_TRUE(tracks[0].zMeasured) << "birth fusion must OR zMeasured like track updates";
+  EXPECT_TRUE(tracks[0].z_measured) << "birth fusion must OR z_measured like track updates";
 }

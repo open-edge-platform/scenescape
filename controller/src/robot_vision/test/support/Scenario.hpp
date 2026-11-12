@@ -316,8 +316,8 @@ struct Sensor
   std::mt19937 zRng{2}; // own generator so z noise never changes the x/y/size/yaw noise
   // When false (and zNoise == 0), detections stay planar: association uses XY only; UKF still
   // corrects z until a track gains sticky measured height, then later planar updates omit z.
-  // zNoise > 0 implies a ranging sensor and sets zMeasured even if measuresZ stays false.
-  bool measuresZ = false;
+  // zNoise > 0 implies a ranging sensor and sets detection.z_measured even if this stays false.
+  bool z_measured = false; // detections from this sensor set TrackedObject::z_measured
 };
 
 // Lets a test repeat a scenario with different noise; seed 1 reproduces the defaults.
@@ -344,14 +344,14 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
   for (const auto &sample : truth)
   {
     auto detection = makeDetection(sample);
-    const bool measureZ = sensor.measuresZ || sensor.zNoise > 0.0;
-    detection.zMeasured = measureZ;
+    const bool z_measured = sensor.z_measured || sensor.zNoise > 0.0;
+    detection.z_measured = z_measured;
     if (sensor.positionNoise > 0.0)
     {
       detection.x += sensor.positionNoise * noise(sensor.rng);
       detection.y += sensor.positionNoise * noise(sensor.rng);
     }
-    if (measureZ && sensor.zNoise > 0.0)
+    if (z_measured && sensor.zNoise > 0.0)
     {
       detection.z += sensor.zNoise * zNoiseDistribution(sensor.zRng);
     }

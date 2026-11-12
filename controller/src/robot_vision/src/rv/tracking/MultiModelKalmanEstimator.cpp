@@ -33,7 +33,7 @@ std::vector<int> observedMeasurementRows(const TrackedObject &track, const Track
 {
   std::vector<int> rows;
   rows.reserve(TrackedObject::MeasurementSize);
-  const bool includeZ = measurement.zMeasured || !track.zMeasured;
+  const bool includeZ = measurement.z_measured || !track.z_measured;
   position_gate::appendPositionMeasurementRows(rows, includeZ);
   rows.push_back(MeasurementIndex::LENGTH);
   rows.push_back(MeasurementIndex::WIDTH);
@@ -383,7 +383,7 @@ void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurem
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
   // Sticky like orientation_observed: z is gated once any update has measured it.
-  mCurrentState.zMeasured = priorState.zMeasured || measurement.zMeasured;
+  mCurrentState.z_measured = priorState.z_measured || measurement.z_measured;
   mCurrentState.corrected = true;
 }
 
@@ -440,7 +440,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
   // Sticky like orientation_observed: z is gated once any update has measured it.
-  mCurrentState.zMeasured = priorState.zMeasured || measurement.zMeasured;
+  mCurrentState.z_measured = priorState.z_measured || measurement.z_measured;
 
   mCurrentState.corrected = true;
 }

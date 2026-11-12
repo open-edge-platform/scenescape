@@ -791,7 +791,7 @@ TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
     measurement.x = vx * t;
     measurement.y = vy * t;
     measurement.z = vz * t;
-    measurement.zMeasured = true;
+    measurement.z_measured = true;
     measurement.yaw = yaw;
     measurement.length = 0.5;
     measurement.width = 0.5;
@@ -869,7 +869,7 @@ TEST(MultipleObjectTrackerTest, CoastsClimbingZWithoutMeasurements)
     measurement.x = 0.4 * t;
     measurement.y = 0.0;
     measurement.z = vz * t;
-    measurement.zMeasured = true;
+    measurement.z_measured = true;
     measurement.length = measurement.width = measurement.height = 0.5;
     objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
                         rv::tracking::DistanceType::Euclidean, 2.0);
@@ -913,7 +913,7 @@ TEST(MultipleObjectTrackerTest, ProductionFilterFollowsClimbingZAndCoastsIt)
     rv::tracking::TrackedObject measurement;
     measurement.x = vx * t;
     measurement.z = vz * t;
-    measurement.zMeasured = true;
+    measurement.z_measured = true;
     measurement.length = measurement.width = 0.5;
     measurement.height = 1.8;
     objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
@@ -972,7 +972,7 @@ TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarCameraAndThreeDSensorKeepsO
         const double t = frame * stepS;
         const bool planar = (frame < 20) == cameraFirst;
         auto detection = makeDetection(1.4 * t, 0.0, planar ? 0.0 : method.centreHeight, 0.5, 0.5, 1.8);
-        detection.zMeasured = !planar;
+        detection.z_measured = !planar;
         objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{detection}}, timestamp,
                             method.distanceType, method.threshold, 0.5, method.maxRadiusM);
         for (const auto &track : objectTracker.getTracks())
@@ -1021,7 +1021,7 @@ TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
 
 TEST(MultipleObjectTrackerTest, StickyMeasuredZKeepsHeightThroughPlanarHandover)
 {
-  // Measured-z climb establishes sticky zMeasured and height; later planar ground points at z = 0 must keep one
+  // Measured-z climb establishes sticky z_measured and height; later planar ground points at z = 0 must keep one
   // track (XY association). Planar corrects omit z, so height coasts with estimated vz instead of falling to the floor.
   using namespace rv::tracking::test;
   const struct
@@ -1057,7 +1057,7 @@ TEST(MultipleObjectTrackerTest, StickyMeasuredZKeepsHeightThroughPlanarHandover)
       measured.x = 1.4 * t;
       measured.y = 0.0;
       measured.z = vz * t;
-      measured.zMeasured = true;
+      measured.z_measured = true;
       measured.length = measured.width = 0.5;
       measured.height = 1.8;
       tracker.track({measured}, timestamp, method.distanceType, method.threshold, 0.0, method.maxRadiusM);
@@ -1065,7 +1065,7 @@ TEST(MultipleObjectTrackerTest, StickyMeasuredZKeepsHeightThroughPlanarHandover)
 
     auto tracks = tracker.getTracks();
     ASSERT_EQ(tracks.size(), 1U);
-    EXPECT_TRUE(tracks[0].zMeasured);
+    EXPECT_TRUE(tracks[0].z_measured);
     const double zAtHandover = tracks[0].z;
     const double vzAtHandover = tracks[0].vz;
     EXPECT_GT(zAtHandover, 1.0);
@@ -1078,7 +1078,7 @@ TEST(MultipleObjectTrackerTest, StickyMeasuredZKeepsHeightThroughPlanarHandover)
       planar.x = 1.4 * (climbS + stepS * (frame + 1));
       planar.y = 0.0;
       planar.z = 0.0;
-      planar.zMeasured = false;
+      planar.z_measured = false;
       planar.length = planar.width = 0.5;
       planar.height = 1.8;
       tracker.track({planar}, timestamp, method.distanceType, method.threshold, 0.0, method.maxRadiusM);
@@ -1087,7 +1087,7 @@ TEST(MultipleObjectTrackerTest, StickyMeasuredZKeepsHeightThroughPlanarHandover)
     tracks = tracker.getTracks();
     ASSERT_EQ(tracks.size(), 1U) << "planar handover must not birth a second track";
     EXPECT_EQ(tracks[0].id, trackId);
-    EXPECT_TRUE(tracks[0].zMeasured);
+    EXPECT_TRUE(tracks[0].z_measured);
     // Height coasts with vz; it must not be pulled toward the planar ground point at z = 0.
     EXPECT_NEAR(tracks[0].z, zAtHandover + vzAtHandover * planarFrames * stepS, 0.45);
     EXPECT_GT(tracks[0].z, 1.0);
@@ -1120,7 +1120,7 @@ TEST(MultipleObjectTrackerTest, VerticalSpeedAloneUsesDynamicCoastTimeout)
       measurement.x = 0.0;
       measurement.y = 0.0;
       measurement.z = climbing ? (1.2 * t) : 0.0;
-      measurement.zMeasured = climbing;
+      measurement.z_measured = climbing;
       measurement.length = measurement.width = 0.5;
       measurement.height = 1.8;
       tracker.track({measurement}, timestamp, rv::tracking::DistanceType::Euclidean, 2.0);

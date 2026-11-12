@@ -745,7 +745,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       obj = create_object_at_location(
         x=x, y=y, z=z, yaw=yaw,
         classification=classification_data.classification('Person', 1.0))
-      obj.zMeasured = True
+      obj.z_measured = True
       # Orienting measurement so UKF correct applies yaw (not zero innovation).
       # Assign the full dict — pybind setitem on the returned map is not sticky.
       obj.attributes = {'has_orientation': 'true'}
@@ -781,7 +781,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       measurement = create_object_at_location(
         x=t, y=0.0, z=vz * t,
         classification=classification_data.classification('Person', 1.0))
-      measurement.zMeasured = True
+      measurement.z_measured = True
       estimator.track(measurement, timestamp)
 
     state = estimator.current_state()
@@ -838,7 +838,7 @@ class TestNonPlanarTracking(unittest.TestCase):
     same_floor = create_object_at_location(x=1.0, y=2.0, z=0.1)
     upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
     for obj in (track, same_floor, upper_floor):
-      obj.zMeasured = True
+      obj.z_measured = True
 
     assignments, _, _ = tracking.match(
       [track], [same_floor, upper_floor],
@@ -856,7 +856,7 @@ class TestNonPlanarTracking(unittest.TestCase):
     track = create_object_at_location(x=1.0, y=2.0, z=0.0)
     upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
     measured_upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
-    measured_upper_floor.zMeasured = True
+    measured_upper_floor.z_measured = True
 
     for detection in (upper_floor, measured_upper_floor):
       assignments, _, _ = tracking.match(
@@ -880,7 +880,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       obj = create_object_at_location(
         x=0.4 * last_t, y=0.0, z=vz * last_t,
         classification=classification_data.classification('Person', 1.0))
-      obj.zMeasured = True
+      obj.z_measured = True
       tracker.track([obj], timestamp)
 
     tracks = tracker.get_reliable_tracks()
@@ -911,14 +911,14 @@ class TestNonPlanarTracking(unittest.TestCase):
     """Planar UKF updates omit z only after the track has sticky measured z."""
     planar = create_object_at_location(x=1.0, y=2.0, z=0.0)
     measured = create_object_at_location(x=1.0, y=2.0, z=1.2)
-    measured.zMeasured = True
+    measured.z_measured = True
 
     estimator = tracking.MultiModelKalmanEstimator()
     timestamp = datetime.now()
     estimator.initialize(
       measured, timestamp, process_noise=1e-5, measurement_noise=1e-3,
       motion_models=[tracking.MotionModel.CV])
-    self.assertTrue(estimator.current_state().zMeasured)
+    self.assertTrue(estimator.current_state().z_measured)
     self.assertAlmostEqual(estimator.current_state().z, 1.2, places=6)
 
     for frame in range(5):
@@ -927,7 +927,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       planar.x = 1.0 + 0.1 * (frame + 1)
       estimator.correct(planar)
       state = estimator.current_state()
-      self.assertTrue(state.zMeasured)
+      self.assertTrue(state.z_measured)
       self.assertAlmostEqual(state.z, 1.2, delta=0.2)
       self.assertAlmostEqual(state.vz, 0.0, delta=0.15)
 
@@ -949,12 +949,12 @@ class TestNonPlanarTracking(unittest.TestCase):
       obj = create_object_at_location(
         x=1.4 * last_t, y=0.0, z=vz * last_t,
         classification=classification_data.classification('Person', 1.0))
-      obj.zMeasured = True
+      obj.z_measured = True
       tracker.track([obj], timestamp)
 
     tracks = tracker.get_reliable_tracks()
     self.assertEqual(len(tracks), 1)
-    self.assertTrue(tracks[0].zMeasured)
+    self.assertTrue(tracks[0].z_measured)
     z_at_handover = tracks[0].z
     vz_at_handover = tracks[0].vz
     self.assertGreater(z_at_handover, 1.0)
@@ -966,13 +966,13 @@ class TestNonPlanarTracking(unittest.TestCase):
       planar = create_object_at_location(
         x=1.4 * t, y=0.0, z=0.0,
         classification=classification_data.classification('Person', 1.0))
-      planar.zMeasured = False
+      planar.z_measured = False
       tracker.track([planar], timestamp)
 
     tracks = tracker.get_reliable_tracks()
     self.assertEqual(len(tracks), 1)
     self.assertEqual(tracks[0].id, track_id)
-    self.assertTrue(tracks[0].zMeasured)
+    self.assertTrue(tracks[0].z_measured)
     # Planar corrects omit z, so height coasts with vz instead of falling to the ground point.
     self.assertAlmostEqual(
       tracks[0].z, z_at_handover + vz_at_handover * planar_frames * step, delta=0.45)
@@ -991,7 +991,7 @@ class TestNonPlanarTracking(unittest.TestCase):
         timestamp = timestamp + timedelta(seconds=step)
         obj = create_object_at_location(
           x=0.0, y=0.0, z=(1.2 * float(t) if climbing else 0.0))
-        obj.zMeasured = climbing
+        obj.z_measured = climbing
         tracker.track([obj], timestamp)
       self.assertEqual(len(tracker.get_tracks()), 1)
       if climbing:

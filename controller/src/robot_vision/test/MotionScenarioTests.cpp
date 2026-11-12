@@ -889,8 +889,8 @@ TEST(MotionScenarioTest, ZOffsetInvariance)
   {
     SCOPED_TRACE(caseItem.name);
 
-    // Run at z = 0 (exact measured height; zNoise==0 still measures Z via measuresZ)
-    Sensor sensor{.positionNoise = 0.05, .zNoise = 0.0, .measuresZ = true};
+    // Run at z = 0 (exact measured height; zNoise==0 still marks detections z_measured)
+    Sensor sensor{.positionNoise = 0.05, .zNoise = 0.0, .z_measured = true};
     const auto states0 = runVerticalScenario(caseItem.truth2d, sensor);
 
     // Create identical trajectory but starting at z = 10
@@ -1420,8 +1420,8 @@ TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
   const auto trajectory
     = Trajectory({.speed = 2.0, .box = kCar}).straight(5.0).climb(0.3, 2.0).straight(2.0).sample(kFps);
 
-  // Baseline: exact measured z (no zNoise); still measures Z so climb is observed.
-  Sensor baselineSensor{.positionNoise = 0.05, .zNoise = 0.0, .measuresZ = true};
+  // Baseline: exact measured z (no zNoise); still marks z_measured so climb is observed.
+  Sensor baselineSensor{.positionNoise = 0.05, .zNoise = 0.0, .z_measured = true};
   const auto baselineMetrics = runVerticalScenario(trajectory, baselineSensor, kWarmUp);
 
   // With large zNoise

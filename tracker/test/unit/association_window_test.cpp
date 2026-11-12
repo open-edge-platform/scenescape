@@ -13,9 +13,9 @@ namespace tracker {
 namespace {
 
 rv::tracking::TrackedObject trackWithPositionCovariance(double s00, double s01, double s11,
-                                                        bool zMeasured = false) {
+                                                        bool z_measured = false) {
     rv::tracking::TrackedObject track;
-    track.zMeasured = zMeasured;
+    track.z_measured = z_measured;
     track.predictedMeasurementCov = rv::tracking::TrackedObject::MeasurementMatrix::eye();
     track.predictedMeasurementCov(0, 0) = s00;
     track.predictedMeasurementCov(0, 1) = s01;

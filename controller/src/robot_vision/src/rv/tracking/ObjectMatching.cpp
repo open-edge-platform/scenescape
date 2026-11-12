@@ -184,7 +184,7 @@ struct PositionMahalanobisTrackCache
   double invXy01 = 0.0;
   double invXy11 = 0.0;
   bool validXy = false;
-  bool zMeasured = false;
+  bool z_measured = false;
 };
 
 PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
@@ -193,7 +193,7 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   cache.pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
   cache.pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
   cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
-  cache.zMeasured = track.zMeasured;
+  cache.z_measured = track.z_measured;
 
   const cv::Matx33d S = positionCovariance(track);
 
@@ -230,7 +230,7 @@ double positionMahalanobisCostFromCache(const TrackedObject &measurement, const 
 {
   const double dx = measurement.x - cache.pred_x;
   const double dy = measurement.y - cache.pred_y;
-  if (!position_gate::gatesZ(cache.zMeasured, measurement.zMeasured))
+  if (!position_gate::gatesZ(cache.z_measured, measurement.z_measured))
   {
     if (std::hypot(dx, dy) > max_radius_m || !cache.validXy)
     {

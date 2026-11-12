@@ -368,7 +368,7 @@ class IntelLabsTracking(Tracking):
     rv_object.y = pt.y
     rv_object.z = pt.z
     # EuclideanBirth: XY unless both detections have measured Z (3D translation).
-    rv_object.zMeasured = bool(getattr(sscape_object, 'has_measured_z', False))
+    rv_object.z_measured = bool(getattr(sscape_object, 'has_measured_z', False))
     # length is mapped to x, width is mapped to y and height is to z if intel labs tracker
     size = sscape_object.size if sscape_object.size else [DEFAULT_EDGE_LENGTH] * 3
     rv_object.length = size[0]
@@ -442,7 +442,7 @@ class IntelLabsTracking(Tracking):
             self.association_config,
             getattr(tracked_object, "measurement_covariance", None),
             self.tracking_radius_m,
-            z_measured=bool(getattr(tracked_object, "zMeasured", False)),
+            z_measured=bool(getattr(tracked_object, "z_measured", False)),
           )
           return obj
 
@@ -492,7 +492,7 @@ class IntelLabsTracking(Tracking):
       self.association_config,
       getattr(tracked_object, "measurement_covariance", None),
       self.tracking_radius_m,
-      z_measured=bool(getattr(tracked_object, "zMeasured", False)),
+      z_measured=bool(getattr(tracked_object, "z_measured", False)),
     )
 
     return sscape_object

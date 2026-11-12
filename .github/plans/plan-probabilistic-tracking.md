@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
 - **Date**: 2026-11-11
-- **Status**: Phase 1 implemented, opt-in (shipped configs use `euclidean`); default flip pending the Wildtrack regression; Phases 2–3 open; non-planar Z/`vz` + sticky `zMeasured` on `feature/prob-tracking-extracted-3d`
+- **Status**: Phase 1 implemented, opt-in (shipped configs use `euclidean`); default flip pending the Wildtrack regression; Phases 2–3 open; non-planar Z/`vz` + sticky `z_measured` on `feature/prob-tracking-extracted-3d`
 - **ADR**: [ADR-0019](../../docs/adr/0019-probabilistic-tracking-association.md)
 - **Design**: [Probabilistic Tracking Association](../../docs/design/probabilistic-tracking-association.md)
 - **Evaluation**: [ADR-0009](../../docs/adr/0009-tracking-evaluation.md), [Tracker Evaluation Pipeline](../../docs/design/tracker-evaluation-pipeline.md)
@@ -174,14 +174,14 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 |------|--------|----------------|
 | State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | |
 | Process noise | Independent `Q[vz,vz]` | |
-| Sticky `zMeasured` | Track keeps measured-z once any update measured it (like `orientation_observed`) | |
+| Sticky `z_measured` | Track keeps measured-z once any update measured it (like `orientation_observed`) | |
 | `position_gate` helpers | `PositionGate.hpp`: `gatesZ` / `positionDof` / `positionChi2` / `appendPositionMeasurementRows` / `xyCostScaleForChi2Threshold3` — single XY-vs-XYZ policy for association, birth, UKF rows, and UI windows | |
 | Planar UKF update | `observedMeasurementRows` includes z when the detection measured it **or** the track has never measured z (floor lock); omits z only to protect sticky measured height from later planar ground points | |
 | 3D association | Euclidean + `PositionMahalanobis` via `position_gate::gatesZ`; birth clustering by the same rule | |
 | χ² gate | `positionChi2(p, includeZ)` — df=3 (~11.34 @ p=0.99) or df=2 (~9.21); UI ellipse uses `trackCanGateZ` | |
 | Named indices | `StateIndex` / `MeasurementIndex` | |
 | `isDynamic` | `vx²+vy²+vz² > 1` (vertical counts toward coast aging) | |
-| Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association; sticky planar correct / planar handover keep height; `|vz|` alone uses the dynamic coast timeout; `position_gate` helpers; birth fusion ORs `zMeasured` | |
+| Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association; sticky planar correct / planar handover keep height; `|vz|` alone uses the dynamic coast timeout; `position_gate` helpers; birth fusion ORs `z_measured` | |
 
 ### Controller-only — done (skip for tracker)
 
@@ -202,7 +202,7 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 |---|------|----------|--------|
 | T1 | χ² `df=3` match threshold (XY pairs scaled to `df=2`); association-window ellipse at the track's df | `association_config.hpp`, `association_window.hpp` | Done |
 | T2 | Detection `translation` / `size` / `rotation` input, translation path preserves Z | #2050 (through main) | Done |
-| T3 | Set `zMeasured = true` on the translation path | `coordinate_transformer.cpp` | Done |
+| T3 | Set `z_measured = true` on the translation path | `coordinate_transformer.cpp` | Done |
 | T5 | Assert published `velocity[2]` / `translation[2]` | `track_publisher_test.cpp` | Done |
 | T6 | End-to-end: stacked-floor 3D detections stay separate; climbing 3D detection publishes `translation[2]` / `velocity[2]` | `tracking_worker_test.cpp`, `coordinate_transformer_test.cpp` | Done |
 
@@ -216,14 +216,14 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 | F4 | Size for 3D detections | **Done:** #2050 requires `size` with `translation`. |
 | F5 | Mesh / DEM foot-ray for bbox-only cameras | Separate PR. |
 | F6 | Schema `distance` alone without `translation` | Deferred. |
-| F8 | One z reference for pixel (ground point) and 3D (box centre) detections | **Open:** association gates z only when both sides measured it, and planar UKF corrects omit z after sticky `zMeasured`, so handovers keep one track and no longer drag height to the floor. A mixed track can still average differing z references while both measure z; unify foot vs box-centre later. |
-| F7 | Hybrid birth: `EuclideanBirth` + `zMeasured` | **Done:** XY if either planar; XYZ when both measured (`position_gate`). Tracker sets `zMeasured` on translation detections (T3). Birth-cluster re-fuse ORs `zMeasured` like track↔detection fusion. |
+| F8 | One z reference for pixel (ground point) and 3D (box centre) detections | **Open:** association gates z only when both sides measured it, and planar UKF corrects omit z after sticky `z_measured`, so handovers keep one track and no longer drag height to the floor. A mixed track can still average differing z references while both measure z; unify foot vs box-centre later. |
+| F7 | Hybrid birth: `EuclideanBirth` + `z_measured` | **Done:** XY if either planar; XYZ when both measured (`position_gate`). Tracker sets `z_measured` on translation detections (T3). Birth-cluster re-fuse ORs `z_measured` like track↔detection fusion. |
 
-**Birth clustering note (not association default):** Unmatched detection→detection fusion uses `DistanceType::EuclideanBirth` ~`kDefaultBirthClusterRadiusM` (2 m), even when track→detection association is `position_mahalanobis`. Raw detections lack `predictedMeasurementCov`, so Mahalanobis cannot birth-cluster. `EuclideanBirth` is XY when either side lacks `zMeasured` (planar + 3D OD still fuse); XYZ when both have measured Z (stacked floors stay separate). Revisit after metrics / multi-floor datasets.
+**Birth clustering note (not association default):** Unmatched detection→detection fusion uses `DistanceType::EuclideanBirth` ~`kDefaultBirthClusterRadiusM` (2 m), even when track→detection association is `position_mahalanobis`. Raw detections lack `predictedMeasurementCov`, so Mahalanobis cannot birth-cluster. `EuclideanBirth` is XY when either side lacks `z_measured` (planar + 3D OD still fuse); XYZ when both have measured Z (stacked floors stay separate). Revisit after metrics / multi-floor datasets.
 
 ### Position subspace maintainability
 
-**Done:** Call sites go through `rv::tracking::position_gate` (and Python `gates_z` / `position_chi2`) instead of open-coding `zMeasured ? 3 : 2` / dual Euclidean formulas. Mahalanobis still keeps a dual XY/XYZ inverse cache for speed, but the gate decision is one `gatesZ` check plus `xyCostScaleForChi2Threshold3`.
+**Done:** Call sites go through `rv::tracking::position_gate` (and Python `gates_z` / `position_chi2`) instead of open-coding `z_measured ? 3 : 2` / dual Euclidean formulas. Mahalanobis still keeps a dual XY/XYZ inverse cache for speed, but the gate decision is one `gatesZ` check plus `xyCostScaleForChi2Threshold3`.
 
 **Do not do yet (deferred):**
 
@@ -231,7 +231,7 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 |----------|----------|
 | Always-3D association with huge `R_zz` for planar detections | One math path, but needs Phase 2 `R_meas` and changes coast / gate semantics |
 | Template / `if constexpr` forests per df | Still two mental models; worse to read than `position_gate` |
-| Leaving `zMeasured` branches without routing them through `position_gate` | Re-scatters XY/XYZ policy; new axes (size in the gate, Phase 2) would multiply `if`s again |
+| Leaving `z_measured` branches without routing them through `position_gate` | Re-scatters XY/XYZ policy; new axes (size in the gate, Phase 2) would multiply `if`s again |
 | Per-edge matcher thresholds (drop `xy_scale`) | Cleaner than scaling df=2 costs to chi2(p,3), but needs bipartite matcher API changes |
 | Normalized gate cost `d² / chi2(p, df)` with threshold 1 | Nice long-term ranking across subspaces; changes assignment costs vs today’s scaled d² — validate on Wildtrack first |
 
@@ -251,8 +251,8 @@ cd tracker && make test-unit test-robot-vision
 4. [x] Controller non-planar Z/`vz` + 3D association
 5. [x] Tracker χ² df=3 parity + `vz` publish tests
 6. [ ] F2: Wildtrack eval post–χ² df=3; mitigate from results
-7. [x] F1: Tracker 3D detection input (#2050) + `zMeasured` (T3)
-8. [x] F7: Hybrid birth (`EuclideanBirth` / `zMeasured`) + birth-cluster `zMeasured` OR
+7. [x] F1: Tracker 3D detection input (#2050) + `z_measured` (T3)
+8. [x] F7: Hybrid birth (`EuclideanBirth` / `z_measured`) + birth-cluster `z_measured` OR
 9. [ ] F8: One z reference for pixel and 3D detections (mitigated: gated association + planar UKF omits z)
 10. [x] Planar UKF updates omit z only when the track already has sticky measured height and the detection does not
 11. [x] `position_gate` helpers centralize XY vs XYZ (association, UKF rows, UI); deferred alternatives listed above

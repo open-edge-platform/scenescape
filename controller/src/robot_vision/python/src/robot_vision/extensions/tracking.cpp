@@ -78,7 +78,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("x", &rv::tracking::TrackedObject::x, "Position 'x' in meters.")
     .def_readwrite("y", &rv::tracking::TrackedObject::y, "Position 'y' in meters.")
     .def_readwrite("z", &rv::tracking::TrackedObject::z, "Position 'z' in meters.")
-    .def_readwrite("zMeasured", &rv::tracking::TrackedObject::zMeasured,
+    .def_readwrite("z_measured", &rv::tracking::TrackedObject::z_measured,
      "True when Z came from a measured 3D pose (translation), not ground-plane projection.")
     .def_readwrite("length", &rv::tracking::TrackedObject::length, "Object's length in meters.")
     .def_readwrite("width", &rv::tracking::TrackedObject::width, "Object's width in meters.")
@@ -189,15 +189,15 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
      "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
-     "Euclidean distance on x and y, on x, y and z when both sides have zMeasured.")
+     "Euclidean distance on x and y, on x, y and z when both sides have z_measured.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
      "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
      "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
-     "Squared Mahalanobis distance on the (x, y, z) block of the predicted measurement covariance when both sides have zMeasured, else on the (x, y) block at the same gate probability; the threshold is chi2(p, 3).")
+     "Squared Mahalanobis distance on the (x, y, z) block of the predicted measurement covariance when both sides have z_measured, else on the (x, y) block at the same gate probability; the threshold is chi2(p, 3).")
     .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
-     "Detection birth clustering: XY if either side lacks zMeasured; XYZ when both measured.")
+     "Detection birth clustering: XY if either side lacks z_measured; XYZ when both measured.")
     .export_values();
 
   py::class_<rv::tracking::TrackManagerConfig>(tracking, "TrackManagerConfig", "Holds all the configuration parameters used by the TrackManager.")

@@ -362,7 +362,7 @@ def test_to_rv_object_converts_quaternion_to_yaw():
 
   assert rv_object.yaw == pytest.approx(yaw)
   assert rv_object.attributes.get('has_orientation') == 'true'
-  assert rv_object.zMeasured is True
+  assert rv_object.z_measured is True
 
 
 def test_to_rv_object_omits_orientation_without_detection_rotation():
@@ -383,7 +383,7 @@ def test_to_rv_object_omits_orientation_without_detection_rotation():
 
   assert rv_object.yaw == 0.0
   assert 'has_orientation' not in rv_object.attributes
-  assert rv_object.zMeasured is False
+  assert rv_object.z_measured is False
 
 
 @pytest.mark.parametrize("yaw", [
@@ -514,7 +514,7 @@ def test_build_association_window_uses_the_track_degrees_of_freedom():
 @pytest.mark.parametrize('z_measured', [False, True])
 def test_from_tracked_object_draws_the_window_with_the_track_degrees_of_freedom(z_measured):
   tracked_object = _make_tracked_object("uuid-3")
-  tracked_object.zMeasured = z_measured
+  tracked_object.z_measured = z_measured
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
   tracker.all_tracker_objects = []
   tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)

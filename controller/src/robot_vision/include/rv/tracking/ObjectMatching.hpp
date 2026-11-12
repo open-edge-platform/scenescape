@@ -26,7 +26,7 @@ namespace tracking {
 enum class DistanceType
 {
   MultiClassEuclidean, ///< Legacy, MultipleObjectTracker's default: x/y/z distance scaled by the class conflict.
-  Euclidean,           ///< Position distance via ``position_gate`` (XY unless both ``zMeasured``); up to max_radius_m;
+  Euclidean,           ///< Position distance via ``position_gate`` (XY unless both ``z_measured``); up to max_radius_m;
                        ///< ``association.method: euclidean``.
   Mahalanobis,         ///< Legacy: 0.5 * sqrt(d^2) over the measurement vector; not chi-squared calibrated.
   MCEMahalanobis,      ///< Legacy: average of MultiClassEuclidean and Mahalanobis.

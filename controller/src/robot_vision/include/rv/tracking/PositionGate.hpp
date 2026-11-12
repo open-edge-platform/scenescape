@@ -21,13 +21,13 @@ inline bool gatesZ(bool trackMeasured, bool detectionMeasured)
 
 inline bool gatesZ(const TrackedObject &track, const TrackedObject &detection)
 {
-  return gatesZ(track.zMeasured, detection.zMeasured);
+  return gatesZ(track.z_measured, detection.z_measured);
 }
 
 /// A track with sticky measured z draws / pairs at df=3 when the other side also measured z.
 inline bool trackCanGateZ(const TrackedObject &track)
 {
-  return track.zMeasured;
+  return track.z_measured;
 }
 
 inline int positionDof(bool includeZ)

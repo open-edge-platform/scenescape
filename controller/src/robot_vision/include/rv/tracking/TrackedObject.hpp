@@ -93,7 +93,7 @@ public:
   /// True when Z came from a measured 3D pose (translation / 3D OD), not ground-plane projection.
   /// Association and birth clustering gate z only when both sides have it.
   /// On a track it is sticky: set by the first update with measured Z, kept through planar updates and coasts.
-  bool zMeasured{false};
+  bool z_measured{false};
 
   std::string toString() const;
 
