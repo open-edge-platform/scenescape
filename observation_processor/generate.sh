@@ -24,16 +24,16 @@ cd "${REPO_ROOT}"
   -I "${PROTO_ROOT}" \
   --python_out="${tmp_dir}" \
   --grpc_python_out="${tmp_dir}" \
-  --pyi_out="${tmp_dir}" \
   "${PROTO_ROOT}/observation_processor.proto"
 
 sed -i 's/^import observation_processor_pb2 as/from . import observation_processor_pb2 as/' \
   "${tmp_dir}/observation_processor_pb2_grpc.py"
 
 # Header strings written into generated files; not this file's license.
+# Commit only the runtime .py stubs; ignore any .pyi artifacts.
 # REUSE-IgnoreStart
 mkdir -p "${OUT_DIR}"
-for generated in "${tmp_dir}"/observation_processor_pb2*; do
+for generated in "${tmp_dir}"/observation_processor_pb2*.py; do
   {
     printf '%s\n' \
       "# SPDX-FileCopyrightText: (C) ${YEAR} Intel Corporation" \
@@ -41,11 +41,7 @@ for generated in "${tmp_dir}"/observation_processor_pb2*; do
       "# Generated from ${PROTO_ROOT}/observation_processor.proto - do not edit." \
       "# pylint: skip-file" \
       "# flake8: noqa"
-    if [[ "${generated}" == *.py ]]; then
-      "${PYTHON}" tests/scripts/reindent < "${generated}"
-    else
-      cat "${generated}"
-    fi
+    "${PYTHON}" tests/scripts/reindent < "${generated}"
   } > "${OUT_DIR}/$(basename "${generated}")"
 done
 # REUSE-IgnoreEnd

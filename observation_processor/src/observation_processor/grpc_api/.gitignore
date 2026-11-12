@@ -1,6 +1,6 @@
 *_pb2.py
 *_pb2_grpc.py
 *_pb2.pyi
+*_pb2_grpc.pyi
 !observation_processor_pb2.py
 !observation_processor_pb2_grpc.py
-!observation_processor_pb2.pyi

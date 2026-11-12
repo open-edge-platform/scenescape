@@ -21,8 +21,8 @@ secret.
 
 ## Layout
 
-- `proto/` — published gRPC contract (`observation_processor.proto`); generated typed stubs
-  are committed under `src/observation_processor/grpc_api/`
+- `proto/` — published gRPC contract (`observation_processor.proto`); generated runtime
+  stubs (`.py` only) are committed under `src/observation_processor/grpc_api/`
 - `src/observation_processor/` — service sources
 - `../spatial_performance_primitives/frustum_gaussian/` — frustum-gaussian library; the C++/TBB
   kernel is built as a wheel (scikit-build-core) in the image builder stage

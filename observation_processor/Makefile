@@ -8,7 +8,7 @@ PYTHON ?= python3
 
 include ../common.mk
 
-# Regenerate the committed typed gRPC stubs from the published contract.
+# Regenerate the committed gRPC stubs from the published contract.
 .PHONY: proto
 proto:
 	PYTHON="$(PYTHON)" bash generate.sh
