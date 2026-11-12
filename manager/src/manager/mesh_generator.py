@@ -18,6 +18,7 @@ import mimetypes
 import numpy as np
 from scipy.spatial.transform import Rotation
 from django.core.files.base import ContentFile
+from django.db import transaction
 import paho.mqtt.client as mqtt
 import trimesh
 
@@ -688,15 +689,26 @@ class MeshGenerator:
       glb_exported_bytes = aligned_mesh.export(file_type='glb')
 
       log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
-      if scene.use_glb_map:
-        # Restores the pre-GLB base map and clears use_glb_map before the mesh overwrites scene.map
-        glb_alignment.unapply_glb_map(scene)
-      scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
+      before = None
+      try:
+        # One transaction: the GLB unapply and the mesh save commit or roll back together
+        with transaction.atomic():
+          glb_alignment.lock_scene_row(scene)
+          scene.refresh_from_db()
+          before = glb_alignment.stored_file_names(scene, ('map', 'base_map'))
+          if scene.use_glb_map:
+            # Restores the pre-GLB base map and clears use_glb_map before the mesh overwrites scene.map
+            glb_alignment.unapply_glb_map(scene)
+          scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
 
-      scene.map_processed = get_iso_time()
-      scene._original_map = None
-      scene._from_generate_mesh = True
-      scene.save()
+          scene.map_processed = get_iso_time()
+          scene._original_map = None
+          scene._from_generate_mesh = True
+          scene.save()
+      except Exception:
+        if before is not None:
+          glb_alignment.discard_failed_apply_files(scene, before)
+        raise
 
       log.info(f"Saved generated mesh to scene {scene.name}")
       return mesh_transform

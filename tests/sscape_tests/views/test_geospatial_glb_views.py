@@ -21,6 +21,7 @@ from django.contrib.auth.models import User
 import numpy as np
 
 from manager import glb_alignment
+from manager.forms import SceneUpdateForm
 from manager.models import Scene, Region, RegionPoint, SingletonSensor
 from scene_common.earth_lla import localFootprintCornersLLA
 from scene_common.glb_top_view import getMeshSize
@@ -611,8 +612,12 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.assertEqual(resp.status_code, 200)
     self.scene.refresh_from_db()
 
-  def _post_scene_form(self, **overrides):
-    """POST the scene update form with the current scene values, then overrides."""
+  def _scene_form_data(self, **overrides):
+    """Scene update form data built from the stored scene, then overrides.
+
+    The pose and corners are the stored values, so the form is not stale.
+    """
+    self.scene.refresh_from_db()
     data = {
       'name': self.scene.name,
       'map_type': 'geospatial_map',
@@ -621,13 +626,18 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
       'map_center_lat': self.scene.map_center_lat,
       'map_center_lng': self.scene.map_center_lng,
       'camera_calibration': self.scene.camera_calibration,
-      'rotation_x': 0.0, 'rotation_y': 0.0, 'rotation_z': 0.0,
-      'translation_x': 0.0, 'translation_y': 0.0, 'translation_z': 0.0,
+      'rotation_x': self.scene.rotation_x, 'rotation_y': self.scene.rotation_y, 'rotation_z': self.scene.rotation_z,
+      'translation_x': self.scene.translation_x, 'translation_y': self.scene.translation_y,
+      'translation_z': self.scene.translation_z,
       'scale_x': 1.0, 'scale_y': 1.0, 'scale_z': 1.0,
       'use_tracker': 'True',
     }
     data.update(overrides)
-    return self.client.post(reverse('scene_update', args=[self.scene.id]), data=data)
+    return data
+
+  def _post_scene_form(self, **overrides):
+    """POST the scene update form with the stored scene values, then overrides."""
+    return self.client.post(reverse('scene_update', args=[self.scene.id]), data=self._scene_form_data(**overrides))
 
   def test_form_persists_shifted_anchor_with_other_fields(self):
     """The shifted anchor is saved with the form's own fields, keeping the stored footprint."""
@@ -673,6 +683,58 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.assertAlmostEqual(self.scene.glb_anchor['lat'], 37.391, places=6)
     self.assertNotEqual(self.scene.map_corners_lla, stale_corners)
 
+  def test_stale_form_after_glb_apply_is_rejected_and_state_unchanged(self):
+    """Second request posts a form loaded before the first request applied the GLB: 409, state unchanged."""
+    self._commit_glb()
+    stale_form = self._scene_form_data(name='geo_renamed', glb_anchor=json.dumps(self.SHIFTED))
+
+    # Request 1: apply the stored GLB
+    with self.captureOnCommitCallbacks(execute=True):
+      self.assertEqual(self._apply_glb().status_code, 200)
+    self.scene.refresh_from_db()
+    self.assertTrue(self.scene.use_glb_map)
+    applied = (
+      self.scene.name, self.scene.use_glb_map, self.scene.map.name, self.scene.base_map.name,
+      self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self.scene.glb_anchor,
+    )
+
+    # Request 2: the stale form still carries the pre-apply pose and corners
+    resp = self.client.post(reverse('scene_update', args=[self.scene.id]), data=stale_form)
+
+    self.assertEqual(resp.status_code, 409)
+    self.scene.refresh_from_db()
+    self.assertEqual(
+      (self.scene.name, self.scene.use_glb_map, self.scene.map.name, self.scene.base_map.name,
+       self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self.scene.glb_anchor),
+      applied,
+    )
+
+  def test_failure_between_glb_commit_and_form_save_rolls_back_everything(self):
+    """A failure after the GLB commit and before the form save leaves the row, files and staged GLB as before."""
+    self._commit_glb()
+    self.mqtt_mock.reset_mock()
+    before_row = (self.scene.name, self.scene.glb_map.name, self.scene.glb_anchor)
+    token = self._stage_glb()
+    glb_files_before = self._glb_files()
+    form_data = self._scene_form_data(name='geo_renamed', glb_token=token, glb_anchor=json.dumps(self.SHIFTED))
+
+    with patch.object(SceneUpdateForm, 'save', side_effect=RuntimeError('injected failure')):
+      with self.assertRaises(RuntimeError):
+        self.client.post(reverse('scene_update', args=[self.scene.id]), data=form_data)
+
+    self.scene.refresh_from_db()
+    self.assertEqual((self.scene.name, self.scene.glb_map.name, self.scene.glb_anchor), before_row)
+    # The replacement GLB written by the commit is removed; the staged file is kept for a retry
+    self.assertEqual(self._glb_files(), glb_files_before)
+    self.assertTrue(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
+    self.mqtt_mock.assert_not_called()
+
+  def _glb_files(self):
+    """Sorted paths of every .glb under MEDIA_ROOT, including the staging folder."""
+    return sorted(
+      os.path.join(d, f) for d, _, files in os.walk(self.media_root) for f in files if f.endswith('.glb')
+    )
+
   def test_invalid_anchor_json_rerenders_with_error_and_keeps_scene(self):
     """Malformed glb_anchor re-renders the form with an error and saves nothing."""
     self._commit_glb()
@@ -714,9 +776,10 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     """Save Scene Updates with a staged GLB stores it, the same as the Accept button."""
     token = self._stage_glb()
 
-    resp = self._post_scene_form(
-      name='geo_renamed', glb_token=token, glb_anchor=json.dumps(self.SHIFTED)
-    )
+    with self.captureOnCommitCallbacks(execute=True):
+      resp = self._post_scene_form(
+        name='geo_renamed', glb_token=token, glb_anchor=json.dumps(self.SHIFTED)
+      )
 
     self.assertEqual(resp.status_code, 302)
     self.scene.refresh_from_db()

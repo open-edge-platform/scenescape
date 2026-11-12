@@ -74,12 +74,16 @@ class MapInterface {
   }
 
   // Common utility methods
-  calculateScale(lat, zoom) {
+  // Pixels per metre of a map image at latitude `lat` and `zoom`.
+  // `tileSize` is the provider's world size in px at zoom 0: 256 for Google
+  // Maps (default), 512 for Mapbox GL (Mapbox zoom is one level lower for the
+  // same view).
+  calculateScale(lat, zoom, tileSize = 256) {
     // Earth's circumference at equator in meters
     const EARTH_CIRCUMFERENCE = 40075016.686;
 
-    // At zoom level 0, the entire world (360 degrees) fits in 256 pixels
-    const pixelsPerDegree = (256 * Math.pow(2, zoom)) / 360;
+    // At zoom level 0, the entire world (360 degrees) fits in tileSize pixels
+    const pixelsPerDegree = (tileSize * Math.pow(2, zoom)) / 360;
 
     // Convert longitude degrees to meters at the given latitude
     const metersPerDegreeLng =

@@ -19,6 +19,7 @@ Coverage:
 import importlib
 import os
 import tempfile
+import time
 import uuid
 from pathlib import Path
 from unittest.mock import patch
@@ -590,3 +591,150 @@ class TestGlbTrsMatrixInvariance(TransactionTestCase):
       with transaction.atomic():
         glb_alignment.unapply_glb_map(scene)
       assert scene.trs_matrix == orig_trs, "trs_matrix changed during unapply"
+
+
+class TestGlbFileLifecycle(TransactionTestCase):
+  """Files written by apply, unapply, commit and failed apply are cleaned up."""
+
+  def setUp(self):
+    """Temp media root; thumbnails, MQTT and ortho renders are stubbed."""
+    import numpy as np
+    self.temp_dir = tempfile.TemporaryDirectory()
+    self.addCleanup(self.temp_dir.cleanup)
+    self.media_root = self.temp_dir.name
+    patcher = override_settings(MEDIA_ROOT=self.media_root)
+    patcher.enable()
+    self.addCleanup(patcher.disable)
+    stubs = (
+      patch.object(Scene, 'saveThumbnail'),
+      patch('manager.models.sendUpdateCommand'),
+      patch.object(glb_alignment, 'generateOrthoView',
+                   return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 10.0)),
+    )
+    for stub in stubs:
+      stub.start()
+      self.addCleanup(stub.stop)
+
+  def _stored_files(self):
+    """Relative paths of every file under the temp media root."""
+    found = []
+    for root, _, names in os.walk(self.media_root):
+      for name in names:
+        found.append(os.path.relpath(os.path.join(root, name), self.media_root))
+    return sorted(found)
+
+  def _create_scene(self):
+    """Geospatial scene whose map is a PNG snapshot, with a stored GLB and anchor."""
+    import numpy as np
+    from PIL import Image
+    from scene_common.earth_lla import localFootprintCornersLLA
+
+    scene = Scene.objects.create(
+      name="test_scene",
+      map_type="geospatial_map",
+      map_center_lat=37.38,
+      map_center_lng=-121.96,
+      output_lla=True
+    )
+    Image.fromarray(np.zeros((16, 16, 3), dtype=np.uint8)).save(
+      os.path.join(self.media_root, "snap.png"), format='PNG')
+    scene.map = "snap.png"
+    scene.map_corners_lla = localFootprintCornersLLA(
+      center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
+      width_m=100.0, height_m=100.0
+    ).tolist()
+    scene.save()
+
+    scene = Scene.objects.get(pk=scene.pk)
+    with open(TEST_GLB_FILE, 'rb') as src:
+      with open(os.path.join(self.media_root, "test_glb.glb"), 'wb') as dst:
+        dst.write(src.read())
+    scene.glb_map = "test_glb.glb"
+    scene.glb_anchor = {
+      'lat': 37.39,
+      'lng': -121.97,
+      'heading_deg': 0.0,
+      'footprint_m': {'width': 10.0, 'height': 10.0}
+    }
+    scene.save()
+    return Scene.objects.get(pk=scene.pk)
+
+  def _stage_glb(self):
+    """Stage a copy of the test GLB under a new token and return the token."""
+    token = str(uuid.uuid4())
+    staging = glb_alignment.staging_dir()
+    os.makedirs(staging, exist_ok=True)
+    with open(TEST_GLB_FILE, 'rb') as src:
+      with open(os.path.join(staging, f"{token}.glb"), 'wb') as dst:
+        dst.write(src.read())
+    return token
+
+  def test_apply_then_unapply_leaves_only_expected_files(self):
+    """Positive: after apply and unapply the snapshot and applied GLB are gone."""
+    scene = self._create_scene()
+    glb_alignment.apply_glb_map(scene)
+    scene = Scene.objects.get(pk=scene.pk)
+    glb_alignment.unapply_glb_map(scene)
+
+    self.assertEqual(
+      self._stored_files(),
+      ['test_glb.glb', 'test_glb_preview.png', 'test_scene.png'])
+
+  def test_commit_while_applied_removes_previous_applied_map(self):
+    """Positive: re-applying a new GLB deletes the previously applied map file."""
+    scene = self._create_scene()
+    glb_alignment.apply_glb_map(scene)
+    scene = Scene.objects.get(pk=scene.pk)
+    previous_map = os.path.join(self.media_root, scene.map.name)
+    token = self._stage_glb()
+
+    with patch.object(glb_alignment, '_get_mesh_footprint_corners_from_glb',
+                      return_value=(10.0, 10.0)):
+      glb_alignment.commit_glb(scene, token, {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0.0})
+
+    scene = Scene.objects.get(pk=scene.pk)
+    self.assertFalse(os.path.exists(previous_map))
+    self.assertEqual(
+      self._stored_files(),
+      sorted([scene.base_map.name, scene.glb_map.name, scene.map.name]))
+
+  def test_failed_apply_leaves_no_new_files(self):
+    """Negative: a failed apply removes the files it wrote and keeps the snapshot."""
+    scene = self._create_scene()
+    before = self._stored_files()
+    cases = (
+      (RuntimeError('pose failed'), 500),
+      (glb_alignment.GlbAlignmentError(400, 'Cannot compute pose'), 400),
+    )
+    for error, status in cases:
+      with self.subTest(error=type(error).__name__):
+        scene = Scene.objects.get(pk=scene.pk)
+        with patch.object(glb_alignment, 'compute_glb_pose_and_corners', side_effect=error):
+          with self.assertRaises(glb_alignment.GlbAlignmentError) as ctx:
+            glb_alignment.apply_glb_map(scene)
+        self.assertEqual(ctx.exception.status, status)
+        self.assertEqual(self._stored_files(), before)
+        stored = Scene.objects.get(pk=scene.pk)
+        self.assertFalse(stored.use_glb_map)
+        self.assertEqual(stored.map.name, 'snap.png')
+
+  def test_commit_removes_stale_staged_files(self):
+    """Positive: committing purges staged files past the TTL and keeps fresh ones."""
+    scene = self._create_scene()
+    staging = glb_alignment.staging_dir()
+    os.makedirs(staging, exist_ok=True)
+    stale = os.path.join(staging, 'stale.glb')
+    fresh = os.path.join(staging, 'fresh.glb')
+    for path in (stale, fresh):
+      with open(path, 'wb') as f:
+        f.write(b'x')
+    old = time.time() - 2 * glb_alignment.STAGING_TTL_SECONDS
+    os.utime(stale, (old, old))
+    token = self._stage_glb()
+
+    with patch.object(glb_alignment, '_get_mesh_footprint_corners_from_glb',
+                      return_value=(10.0, 10.0)):
+      glb_alignment.commit_glb(scene, token, {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0.0})
+
+    self.assertFalse(os.path.exists(stale))
+    self.assertTrue(os.path.exists(fresh))

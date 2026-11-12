@@ -11,6 +11,7 @@ import trimesh
 from manager.mesh_generator import MeshGenerator
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize("use_glb_map", [True, False])
 @patch("manager.mesh_generator.glb_alignment")
 def test_save_mesh_unapplies_glb_only_before_overwriting_map(mock_glb, use_glb_map):
@@ -25,3 +26,6 @@ def test_save_mesh_unapplies_glb_only_before_overwriting_map(mock_glb, use_glb_m
   assert order == expected
   if use_glb_map:
     mock_glb.unapply_glb_map.assert_called_once_with(scene)
+  mock_glb.lock_scene_row.assert_called_once_with(scene)
+  scene.refresh_from_db.assert_called_once()
+  scene.save.assert_called_once()

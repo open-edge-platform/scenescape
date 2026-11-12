@@ -45,6 +45,8 @@ def test_direct_glb_upload_keeps_form_rotation_and_translation(rotation_x):
 def test_saving_unchanged_glb_scene_skips_align_and_thumbnail():
   glb = _map_file("scene.glb", "/media/maps/scene.glb", committed=True)
   scene = Scene(name="glb_scene", map=glb)
+  # FieldFile compares by name against the stored name; the mock does not, so mirror the saved state.
+  scene._original_map = glb
 
   auto_align, save_thumbnail = _save_scene(scene)
 
@@ -61,7 +63,8 @@ def test_polycam_zip_upload_still_auto_aligns():
   scene = Scene(name="glb_scene")
   scene.map = zip_map
 
-  with patch("manager.models.zipfile.ZipFile") as zip_cls:
+  with patch("manager.models.zipfile.ZipFile") as zip_cls, \
+       patch.object(Scene, "objects"):
     zip_cls.return_value.__enter__.return_value = zip_archive
     auto_align, save_thumbnail = _save_scene(scene)
 

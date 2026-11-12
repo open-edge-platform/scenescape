@@ -166,7 +166,8 @@ class MapboxPlugin extends MapInterface {
 
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
-    const scale = this.calculateScale(center.lat, zoom);
+    // Mapbox GL renders 512 px world tiles; Google Maps (256 px) is the default.
+    const scale = this.calculateScale(center.lat, zoom, 512);
 
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
