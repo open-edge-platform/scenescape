@@ -229,7 +229,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     @param    result_recorder         Pytest fixture recording the test result.
     @return   None.
     """
-    MAX_WAIT_TIME = 60
+    MAX_WAIT_TIME = 15
     assert self.login()
 
     assert common.navigate_to_scene(self.browser, "Queuing")
