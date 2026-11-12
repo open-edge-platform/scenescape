@@ -18,9 +18,11 @@ from typing import FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 
 from manager.dlsps import (
   DLSPS_URL_ENV,
+  DLSPSBadRequestError,
   DLSPSClient,
   DLSPSConflictError,
   DLSPSError,
@@ -35,6 +37,8 @@ from scene_common import log
 
 RESTART_CONFIG = RestartConfig(enabled=True)
 ALIVE_STATES = frozenset({PipelineState.QUEUED, PipelineState.RUNNING, PipelineState.RESTARTING})
+# DLSPS answered and refused the start, so no instance was created.
+START_REJECTIONS = (DLSPSBadRequestError, DLSPSNotFoundError, DLSPSConflictError)
 STOP_POLL_INTERVAL_S = 0.5
 STATUS_DISPLAY_TIMEOUT_S = 2
 MAX_STATUS_MESSAGE_LENGTH = 300
@@ -44,10 +48,11 @@ MAX_PIPELINE_NAME_LENGTH = Pipeline._meta.get_field('name').max_length
 MAX_FILTER_TAGS = 20
 MAX_FILTER_TAG_LENGTH = 100
 PUBLISH_ELEMENT = "sscape_post_inference_data_publish"
-# The publish element followed by its "key=value" properties (values may be double-quoted).
-_PUBLISH_ELEMENT_RE = re.compile(
-  rf'(?<![\w-]){PUBLISH_ELEMENT}(?![\w-])(?:\s+[\w-]+=(?:"(?:[^"\\]|\\.)*"|[^\s!"]+))*')
-_CAMERAID_PROPERTY_RE = re.compile(r'\s+cameraid=(?:"(?:[^"\\]|\\.)*"|[^\s!"]+)')
+# A gst-launch token: unquoted characters and quoted strings (with backslash escapes) up to
+# whitespace or a link character; ``!``, ``(`` and ``)`` on their own; an unterminated quote
+# takes the rest of the string.
+_LAUNCH_TOKEN_RE = re.compile(
+  r"""(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|[^\s!()"'])+|[!()]|["'].*""", re.S)
 
 
 class PipelineSyncError(Exception):
@@ -152,6 +157,7 @@ def sync_vippet_pipelines(tag_filter: Optional[TagFilter] = None) -> SyncResult:
   """
   if not mlops_flow_enabled():
     raise PipelineSyncError(settings.MLOPS_FLOW_DISABLED_HINT)
+  retry_pending_stops()
   result = SyncResult()
   for definition in _fetch_vippet_definitions(result, tag_filter or TagFilter()):
     pipeline = _store_definition(definition, result)
@@ -266,19 +272,42 @@ def reconcile_pipeline_cameras(pipeline: Pipeline) -> List[str]:
   return warnings
 
 
+def _launch_tokens(pipeline_string: str) -> List[Tuple[int, int]]:
+  """Split a gst-launch string into token spans, keeping quoted text inside its token."""
+  return [match.span() for match in _LAUNCH_TOKEN_RE.finditer(pipeline_string)]
+
+
+def _is_property(token: str) -> bool:
+  name, separator, _value = token.partition("=")
+  return bool(separator) and bool(name) and all(c.isalnum() or c in "_-" for c in name)
+
+
 def bind_pipeline_to_camera(pipeline_string: str, sensor_id: str) -> str:
   """Set ``cameraid`` on every Scenescape publish element to the camera's sensor id.
 
   Pipelines imported from ViPPET do not know which Scenescape camera they run for, and the
-  publish element sends nothing until ``cameraid`` is set. Any existing value is replaced.
+  publish element sends nothing until ``cameraid`` is set. Any existing value is replaced. Only
+  element declarations are changed: the element name inside a quoted property value is not.
   """
   escaped = sensor_id.replace('\\', '\\\\').replace('"', '\\"')
-
-  def bind(match: re.Match) -> str:
-    element = _CAMERAID_PROPERTY_RE.sub('', match.group(0))
-    return f'{element} cameraid="{escaped}"'
-
-  return _PUBLISH_ELEMENT_RE.sub(bind, pipeline_string)
+  tokens = _launch_tokens(pipeline_string)
+  edits: List[Tuple[int, int, str]] = []
+  for index, (start, end) in enumerate(tokens):
+    if pipeline_string[start:end] != PUBLISH_ELEMENT:
+      continue
+    last_end = end
+    for prop_start, prop_end in tokens[index + 1:]:
+      token = pipeline_string[prop_start:prop_end]
+      if not _is_property(token):
+        break
+      if token.partition("=")[0] == "cameraid":
+        # Drop the property together with the whitespace before it.
+        edits.append((last_end, prop_end, ""))
+      last_end = prop_end
+    edits.append((last_end, last_end, f' cameraid="{escaped}"'))
+  for start, end, text in sorted(edits, reverse=True):
+    pipeline_string = pipeline_string[:start] + text + pipeline_string[end:]
+  return pipeline_string
 
 
 def _bound_pipeline(cam: Cam) -> Optional[Tuple[str, str]]:
@@ -286,7 +315,11 @@ def _bound_pipeline(cam: Cam) -> Optional[Tuple[str, str]]:
   if cam.pipeline is None:
     return None
   bound = bind_pipeline_to_camera(cam.pipeline.pipeline, cam.sensor_id)
-  return bound, hashlib.sha256(bound.encode()).hexdigest()
+  return bound, _digest(bound)
+
+
+def _digest(launch_string: str) -> str:
+  return hashlib.sha256(launch_string.encode()).hexdigest()
 
 
 def reconcile_camera_pipeline(cam_pk: int) -> List[str]:
@@ -297,7 +330,8 @@ def reconcile_camera_pipeline(cam_pk: int) -> List[str]:
   is stopped (and confirmed stopped) before a new instance is started with automatic restarts.
   So a changed selection, an edited or synced pipeline string, a changed camera ID, an
   instance that DLSPS rejected or that ended, and an earlier failed stop or start are all
-  handled by saving the camera again.
+  handled by saving the camera again. When an earlier start request got no answer, the live
+  instance running that exact string (if any) is adopted before anything new is started.
 
   The camera row is locked while DLSPS is called. An instance that cannot be confirmed stopped
   stays recorded and no replacement is started, so one camera never runs two instances.
@@ -310,7 +344,7 @@ def reconcile_camera_pipeline(cam_pk: int) -> List[str]:
   with transaction.atomic():
     cam = Cam.objects.select_for_update().get(pk=cam_pk)
     desired = _bound_pipeline(cam)
-    if cam.dlsps_instance_id is None and desired is None:
+    if cam.dlsps_instance_id is None and not cam.dlsps_start_uncertain and desired is None:
       return []
     try:
       client = DLSPSClient()
@@ -322,6 +356,10 @@ def reconcile_camera_pipeline(cam_pk: int) -> List[str]:
 
 
 def _reconcile(client: DLSPSClient, cam: Cam, desired: Optional[Tuple[str, str]]) -> List[str]:
+  if cam.dlsps_start_uncertain and not _resolve_uncertain_start(client, cam):
+    return [f"Camera '{cam.name}': could not check whether its last pipeline start reached "
+            "DLSPS, so no new pipeline was started. Save the camera again to retry. See "
+            "Manager logs for details."]
   warnings: List[str] = []
   if cam.dlsps_instance_id is not None:
     try:
@@ -345,6 +383,40 @@ def _reconcile(client: DLSPSClient, cam: Cam, desired: Optional[Tuple[str, str]]
   if desired is not None:
     warnings.extend(_start_camera_instance(client, cam, *desired))
   return warnings
+
+
+def _resolve_uncertain_start(client: DLSPSClient, cam: Cam) -> bool:
+  """Adopt the instance an unanswered start request may have created; False if unknown."""
+  try:
+    instance_id = _find_live_instance(client, cam.dlsps_pipeline_digest)
+  except DLSPSError as e:
+    log.error(f"Failed to look for the unconfirmed DLSPS start of camera {cam.sensor_id}: {e}")
+    return False
+  if instance_id is None:
+    log.info(f"The unconfirmed DLSPS start of camera {cam.sensor_id} did not create an instance")
+    _set_runtime(cam, None, None)
+  else:
+    log.info(f"Camera {cam.sensor_id} adopts DLSPS instance {instance_id} from an unconfirmed start")
+    _set_runtime(cam, instance_id, cam.dlsps_pipeline_digest)
+  return True
+
+
+def _find_live_instance(client: DLSPSClient, digest: Optional[str]) -> Optional[uuid.UUID]:
+  """Return a QUEUED/RUNNING/RESTARTING instance whose launch string has ``digest``.
+
+  Raises:
+    DLSPSError: DLSPS could not be queried.
+  """
+  for status in client.list_pipeline_statuses():
+    if digest is None or status.state not in ALIVE_STATES:
+      continue
+    try:
+      summary = client.get_pipeline(status.id)
+    except DLSPSNotFoundError:
+      continue
+    if summary.launch_command is not None and _digest(summary.launch_command) == digest:
+      return uuid.UUID(summary.id)
+  return None
 
 
 def _instance_status(client: DLSPSClient, instance_id: uuid.UUID) -> Optional[PipelineStatus]:
@@ -414,51 +486,85 @@ def _start_camera_instance(client: DLSPSClient, cam: Cam, bound_pipeline: str,
                            digest: str) -> List[str]:
   pipeline = cam.pipeline
   try:
-    instance_id = uuid.UUID(client.create_pipeline(bound_pipeline, restart_config=RESTART_CONFIG))
-  except (DLSPSError, ValueError) as e:
+    response = client.create_pipeline(bound_pipeline, restart_config=RESTART_CONFIG)
+  except (ValueError, *START_REJECTIONS) as e:
     log.error(f"Failed to start DLSPS pipeline '{pipeline.name}' for camera {cam.sensor_id}: {e}")
     return [f"Camera '{cam.name}': failed to start pipeline '{pipeline.name}' on DLSPS. "
             "Save the camera again to retry. See Manager logs for details."]
+  except DLSPSError as e:
+    return _record_uncertain_start(cam, digest, e)
+  try:
+    instance_id = uuid.UUID(response)
+  except ValueError as e:
+    return _record_uncertain_start(cam, digest, e)
   _set_runtime(cam, instance_id, digest)
   log.info(f"Camera {cam.sensor_id} runs pipeline '{pipeline.name}' as DLSPS instance {instance_id}")
   return []
 
 
-def _set_runtime(cam: Cam, instance_id: Optional[uuid.UUID], digest: Optional[str]) -> None:
+def _record_uncertain_start(cam: Cam, digest: str, error: Exception) -> List[str]:
+  """Remember a start whose outcome is unknown, so it is checked before starting again."""
+  log.error(f"DLSPS did not confirm the start of pipeline '{cam.pipeline.name}' for camera "
+            f"{cam.sensor_id}; it may be running: {error}")
+  _set_runtime(cam, None, digest, start_uncertain=True)
+  return [f"Camera '{cam.name}': DLSPS did not confirm the start of pipeline "
+          f"'{cam.pipeline.name}'. Save the camera again to check whether it is running; "
+          "no second instance is started before that check succeeds."]
+
+
+def _set_runtime(cam: Cam, instance_id: Optional[uuid.UUID], digest: Optional[str],
+                 start_uncertain: bool = False) -> None:
   Cam.objects.filter(pk=cam.pk).update(dlsps_instance_id=instance_id,
-                                       dlsps_pipeline_digest=digest)
+                                       dlsps_pipeline_digest=digest,
+                                       dlsps_start_uncertain=start_uncertain)
   cam.dlsps_instance_id = instance_id
   cam.dlsps_pipeline_digest = digest
+  cam.dlsps_start_uncertain = start_uncertain
 
 
-def stop_deleted_camera_instance(instance_id: uuid.UUID) -> None:
-  """Stop the instance of a deleted camera; remember it for later retries if not confirmed."""
-  try:
-    with DLSPSClient() as client:
-      if _stop_and_confirm(client, instance_id):
-        log.info(f"Stopped DLSPS instance {instance_id} of a deleted camera")
-        return
-  except ValueError:
-    log.warning(f"DLSPS is not configured; instance {instance_id} of a deleted camera "
-                "will be stopped once it is")
-  PendingDLSPSStop.objects.get_or_create(instance_id=instance_id)
+def record_deleted_camera_instance(cam_pk: int) -> None:
+  """Queue the stop of a camera's DLSPS instance as part of deleting the camera.
+
+  Must run inside the deletion transaction (``pre_delete``). The row is re-read under the lock
+  that reconciliation holds, so an instance started concurrently or after the caller loaded the
+  camera is not missed, and the pending stop commits or rolls back with the deletion. The stop
+  itself is attempted after commit and retried later if it cannot be confirmed.
+  """
+  runtime = (Cam.objects.select_for_update().filter(pk=cam_pk)
+             .values('dlsps_instance_id', 'dlsps_pipeline_digest', 'dlsps_start_uncertain')
+             .first())
+  if runtime is None:
+    return
+  if runtime['dlsps_instance_id'] is not None:
+    entry, _ = PendingDLSPSStop.objects.get_or_create(instance_id=runtime['dlsps_instance_id'])
+  elif runtime['dlsps_start_uncertain'] and runtime['dlsps_pipeline_digest']:
+    entry = PendingDLSPSStop.objects.create(pipeline_digest=runtime['dlsps_pipeline_digest'])
+  else:
+    return
+  transaction.on_commit(lambda: retry_pending_stops(
+    timeout_s=settings.DLSPS_STOP_TIMEOUT_S, entry_pk=entry.pk))
 
 
-def retry_pending_stops(timeout_s: float = 0) -> None:
+def retry_pending_stops(timeout_s: float = 0, entry_pk: Optional[int] = None) -> None:
   """Retry stopping instances of deleted cameras; give up after ``MAX_PENDING_STOP_ATTEMPTS``.
 
   Each attempt requests the stop without waiting (unless ``timeout_s`` is set); a later attempt
-  confirms that the instance ended. Rows locked by a concurrent retry are skipped.
+  confirms that the instance ended. ``entry_pk`` limits the retry to one entry. Rows locked by a
+  concurrent retry are skipped.
   """
   if not mlops_flow_enabled():
     return
   with transaction.atomic():
-    pending = list(PendingDLSPSStop.objects.select_for_update(skip_locked=True))
+    pending = PendingDLSPSStop.objects.select_for_update(skip_locked=True)
+    if entry_pk is not None:
+      pending = pending.filter(pk=entry_pk)
+    pending = list(pending)
     if not pending:
       return
     try:
       client = DLSPSClient()
     except ValueError:
+      log.warning("DLSPS is not configured; instances of deleted cameras are not stopped yet")
       return
     with client:
       for entry in pending:
@@ -466,18 +572,31 @@ def retry_pending_stops(timeout_s: float = 0) -> None:
 
 
 def _retry_pending_stop(client: DLSPSClient, entry: PendingDLSPSStop, timeout_s: float) -> None:
-  if _stop_and_confirm(client, entry.instance_id, timeout_s=timeout_s):
-    log.info(f"Stopped DLSPS instance {entry.instance_id} of a deleted camera")
+  if _stop_pending_entry(client, entry, timeout_s):
+    log.info(f"Stopped the DLSPS pipeline of a deleted camera ({entry})")
     entry.delete()
     return
   entry.attempts += 1
   if entry.attempts >= MAX_PENDING_STOP_ATTEMPTS:
-    log.error(f"Giving up stopping DLSPS instance {entry.instance_id} of a deleted camera "
+    log.error(f"Giving up stopping the DLSPS pipeline of a deleted camera ({entry}) "
               f"after {entry.attempts} attempts; stop it manually")
     entry.delete()
     return
   entry.last_error = "stop not confirmed"
   entry.save(update_fields=['attempts', 'last_error'])
+
+
+def _stop_pending_entry(client: DLSPSClient, entry: PendingDLSPSStop, timeout_s: float) -> bool:
+  instance_id = entry.instance_id
+  if instance_id is None:
+    try:
+      instance_id = _find_live_instance(client, entry.pipeline_digest)
+    except DLSPSError as e:
+      log.warning(f"Failed to look up DLSPS instances: {e}")
+      return False
+    if instance_id is None:
+      return True
+  return _stop_and_confirm(client, instance_id, timeout_s=timeout_s)
 
 
 def stop_all_camera_instances() -> None:
@@ -490,9 +609,12 @@ def stop_all_camera_instances() -> None:
     log.warning("DLSPS is not configured; no camera pipelines were stopped")
     return
   with client:
-    for cam_pk in Cam.objects.exclude(dlsps_instance_id=None).values_list('pk', flat=True):
+    running = Cam.objects.filter(Q(dlsps_instance_id__isnull=False) | Q(dlsps_start_uncertain=True))
+    for cam_pk in running.values_list('pk', flat=True):
       with transaction.atomic():
         cam = Cam.objects.select_for_update().get(pk=cam_pk)
+        if cam.dlsps_start_uncertain and not _resolve_uncertain_start(client, cam):
+          continue
         if cam.dlsps_instance_id is not None \
             and _stop_and_confirm(client, cam.dlsps_instance_id):
           _set_runtime(cam, None, None)
@@ -504,7 +626,13 @@ def describe_camera_instance(cam: Cam) -> Optional[dict]:
 
   Uses a short timeout and never raises: an unreachable DLSPS is reported as state "UNKNOWN".
   """
-  if not mlops_flow_enabled() or cam.pk is None or cam.dlsps_instance_id is None:
+  if not mlops_flow_enabled() or cam.pk is None:
+    return None
+  if cam.dlsps_start_uncertain:
+    return {'state': 'START UNCONFIRMED',
+            'message': "DLSPS did not confirm the last start; save the camera to check whether "
+                       "it is running."}
+  if cam.dlsps_instance_id is None:
     return None
   try:
     with DLSPSClient(timeout=STATUS_DISPLAY_TIMEOUT_S) as client:

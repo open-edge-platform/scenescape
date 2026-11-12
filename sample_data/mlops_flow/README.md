@@ -55,7 +55,8 @@ it by name once it starts), then:
   `BROKER_PORT` to change it);
 - starts DLSPS 2.0 with [compose.dlsps2.yml](./compose.dlsps2.yml) as container
   `dlsps2-pipeline-server` on the Scenescape network
-  (`http://dlsps.scenescape.intel.com:8080`, REST API also on host port `8080`).
+  (`http://dlsps.scenescape.intel.com:8080`; REST API also on `127.0.0.1:8080` of
+  the host only, because DLSPS has no authentication and runs any submitted pipeline).
   It loads the Scenescape GStreamer elements
   (`sscape_timestamp_capture`, `sscape_post_inference_data_publish`) from
   `dlstreamer-pipeline-server/user_scripts/gstplugins`, trusts the Scenescape
@@ -77,7 +78,7 @@ The defaults can be changed with these variables:
 | `VIPPET_URL`              | `http://vippet:7860/api/v1`                                  |
 | `DLSPS_URL`               | `http://dlsps.scenescape.intel.com:8080`                     |
 | `DLSPS2_IMAGE`            | `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-2.0-rc1` |
-| `DLSPS2_REST_SERVER_PORT` | `8080` (host port of the DLSPS REST API)                     |
+| `DLSPS2_REST_SERVER_PORT` | `8080` (loopback host port of the DLSPS REST API)            |
 | `MLOPS_FLOW_RTSP_PORT`    | `18554` (ViPPET's own media server already uses `8554`)      |
 | `DEMO_REBUILD_IMAGES`     | `true`; set to `false` to skip rebuilding images             |
 

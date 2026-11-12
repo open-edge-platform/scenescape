@@ -105,7 +105,9 @@ again reports the error and starts a new instance.
 Before starting an instance, Manager sets `cameraid` on every
 `sscape_post_inference_data_publish` element to the camera's ID, replacing any
 value in the stored string, so detections are published for the camera the
-pipeline is assigned to.
+pipeline is assigned to. Only element declarations are changed; text inside
+quoted property values is left as it is. Changing the Camera ID, in the UI or
+through the REST API, restarts the pipeline with the new ID.
 
 Related events:
 
@@ -120,9 +122,14 @@ report that the old instance has ended. If it has not ended by then, if it is
 still `QUEUED` (DLSPS cannot stop queued instances), or if DLSPS is unreachable,
 the old instance stays recorded, no new one is started, and a warning asks you
 to save the camera again. If DLSPS rejects a start, the camera is still saved
-with a warning; saving it again retries. An instance of a deleted camera that
-cannot be stopped right away is retried on later camera saves and syncs, up to
-10 times.
+with a warning; saving it again retries. If DLSPS does not answer a start
+request (for example, it times out), the camera page shows
+`START UNCONFIRMED`; the next save looks in DLSPS for an instance running the
+camera's exact pipeline string and keeps it instead of starting a second one,
+and starts nothing while DLSPS cannot be checked. Deleting a camera queues the
+stop of its instance together with the deletion; a stop that cannot be
+confirmed right away is retried on later camera saves and syncs, up to 10
+times.
 
 Limitations:
 

@@ -337,12 +337,22 @@ docker compose exec manager python manage.py showmigrations
   accepts the stop and its worker exits about a second later, while a replacement validates for
   several seconds before processing frames. DLSPS failures never block the save; they are logged
   and shown as `messages` warnings
-- `Cam.RUNTIME_FIELDS` (`dlsps_instance_id`, `dlsps_pipeline_digest`) are written only by
+- A start without a usable answer (connection error/timeout, 5xx, invalid body) records
+  `dlsps_start_uncertain` with the attempted digest instead of an instance id. The next reconcile
+  adopts a live instance whose `launch_command` has that digest (`_find_live_instance`) and starts
+  nothing while DLSPS cannot be listed. Only 4xx responses count as confirmed rejections
+- `bind_pipeline_to_camera` tokenizes the launch string with quote awareness and only rewrites
+  `sscape_post_inference_data_publish` element tokens, never text inside quoted values
+- `Cam.RUNTIME_FIELDS` (`dlsps_instance_id`, `dlsps_pipeline_digest`, `dlsps_start_uncertain`) are
+  written only by
   `pipeline_runtime` (`_set_runtime`, a queryset update). `Cam.save()` without `update_fields`
   skips them for existing rows, so a stale form or REST save cannot overwrite a newer handle
-- A `post_delete` signal on `Cam` stops the instance after commit; unconfirmed stops are stored in
-  `PendingDLSPSStop` and retried (bounded, `MAX_PENDING_STOP_ATTEMPTS`) by `retry_pending_stops()`
-  on later reconciles and syncs. Deleting a `Pipeline` does not call DLSPS. Instances are not
+- A `pre_delete` signal on `Cam` (also fired for queryset and `Sensor` cascade deletes) re-reads
+  the runtime fields under the row lock and writes a `PendingDLSPSStop` (instance id, or digest
+  for an unconfirmed start) in the deletion transaction; the stop is attempted after commit and
+  retried (bounded, `MAX_PENDING_STOP_ATTEMPTS`) by `retry_pending_stops()` at the start of every
+  reconcile and sync. A REST update that changes `sensor_id` reconciles the camera
+  (`CamSerializer.rebind_camera_pipeline`; warnings are only logged). Deleting a `Pipeline` does not call DLSPS. Instances are not
   recreated after a DLSPS restart until the camera is saved
 - Camera pages show the live instance state via the `dlsps_instance_status` template tag
   (`templatetags/pipeline_tags.py`, 2 s timeout, `UNKNOWN` when DLSPS is unreachable)
@@ -353,7 +363,7 @@ docker compose exec manager python manage.py showmigrations
   Apache by `config/webserver-init`) gates the whole Pipelines feature; default off
 - Off: `MlopsFlowSuperUserCheck` makes pipeline create/update/delete/sync views return 403 (the list
   stays readable); `CameraPipelineForm` marks `pipeline` as a disabled field, so posted values are
-  ignored; `pipeline_runtime` entry points and the `Cam` `post_delete` signal never call ViPPET or DLSPS
+  ignored; `pipeline_runtime` entry points and the `Cam` `pre_delete` signal never call ViPPET or DLSPS
 - Templates read `ENABLE_MLOPS_FLOW` and `MLOPS_FLOW_DISABLED_HINT` from the context processor and
   render greyed controls inside a `.mlops-flow-disabled` wrapper that carries the hint as `title`
 - Tests that exercise the enabled feature use `@override_settings(ENABLE_MLOPS_FLOW=True)`

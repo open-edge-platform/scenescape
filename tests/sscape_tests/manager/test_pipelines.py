@@ -287,7 +287,7 @@ class PipelineTests(TestCase):
     })
     self.assertEqual(merge.Migration.operations, [])
     historical_camera = state.apps.get_model('manager', 'Cam')
-    for name in ('dlsps_instance_id', 'dlsps_pipeline_digest'):
+    for name in ('dlsps_instance_id', 'dlsps_pipeline_digest', 'dlsps_start_uncertain'):
       self.assertEqual(historical_camera._meta.get_field(name).deconstruct()[1:],
                        Cam._meta.get_field(name).deconstruct()[1:])
     historical_stop = state.apps.get_model('manager', 'PendingDLSPSStop')

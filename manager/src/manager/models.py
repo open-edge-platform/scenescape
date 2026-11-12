@@ -18,7 +18,7 @@ from django.core.files.base import ContentFile
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.db import models, transaction
 from django.db.models import Q
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, pre_delete
 from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.sessions.models import Session
@@ -849,23 +849,29 @@ class Pipeline(models.Model):
 class PendingDLSPSStop(models.Model):
   """DLSPS instance of a deleted camera that could not be confirmed stopped yet."""
 
-  instance_id = models.UUIDField(unique=True)
+  # Null when the camera was deleted while its start was unconfirmed; the instance is then found
+  # by the digest of its launch string.
+  instance_id = models.UUIDField(unique=True, null=True, blank=True)
+  pipeline_digest = models.CharField(max_length=64, null=True, blank=True)
   attempts = models.PositiveIntegerField(default=0)
   last_error = models.TextField(blank=True, default="")
   created_at = models.DateTimeField(auto_now_add=True)
 
   def __str__(self):
-    return str(self.instance_id)
+    return str(self.instance_id or self.pipeline_digest)
 
 
 class Cam(Sensor):
   DEFAULT_INTRINSICS = {"fx":570.0,"fy":570.0,"cx":320.0,"cy":240.0}
   # Written only by manager.pipeline_runtime (under a row lock); ordinary saves leave them alone.
-  RUNTIME_FIELDS = frozenset({'dlsps_instance_id', 'dlsps_pipeline_digest'})
+  RUNTIME_FIELDS = frozenset({'dlsps_instance_id', 'dlsps_pipeline_digest',
+                              'dlsps_start_uncertain'})
 
   dlsps_instance_id = models.UUIDField(null=True, blank=True, editable=False)
   # sha256 of the camera-bound pipeline string the recorded DLSPS instance was started with.
   dlsps_pipeline_digest = models.CharField(max_length=64, null=True, blank=True, editable=False)
+  # The last start request may have reached DLSPS without its response reaching Manager.
+  dlsps_start_uncertain = models.BooleanField(default=False, editable=False)
   pipeline = models.ForeignKey(Pipeline, null=True, blank=True, on_delete=models.SET_NULL,
                                related_name="cameras",
                                help_text="Selecting a pipeline starts it on DL Streamer Pipeline Server for this camera; changing or clearing it stops the running instance.")
@@ -1140,15 +1146,17 @@ class Cam(Sensor):
     return
 
 
-@receiver(post_delete, sender=Cam)
+@receiver(pre_delete, sender=Cam)
 def stop_deleted_camera_pipeline(sender, instance, **kwargs):
-  """Stop the DLSPS instance of a deleted camera once the deletion is committed."""
-  instance_id = instance.dlsps_instance_id
-  if instance_id is None or not settings.ENABLE_MLOPS_FLOW:
+  """Queue the stop of a deleted camera's DLSPS instance in the deletion transaction.
+
+  ``pre_delete`` also runs for queryset deletes and for deletes cascading from ``Sensor``.
+  """
+  if not settings.ENABLE_MLOPS_FLOW:
     return
   # Deferred import: pipeline_runtime imports this module.
-  from manager.pipeline_runtime import stop_deleted_camera_instance
-  transaction.on_commit(lambda: stop_deleted_camera_instance(instance_id))
+  from manager.pipeline_runtime import record_deleted_camera_instance
+  record_deleted_camera_instance(instance.pk)
 
 
 class SingletonSensor(Sensor):

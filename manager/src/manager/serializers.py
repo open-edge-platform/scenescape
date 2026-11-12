@@ -25,6 +25,7 @@ from manager.validators import validate_scene_name
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+from manager.pipeline_runtime import reconcile_camera_pipeline
 from manager.ptz_calibration import PTZCalibrationError, validate_ptz_calibration
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
@@ -382,14 +383,28 @@ class CamSerializer(NonNullSerializer):
         validated_data['sensor_id'] = sensor_id
       instance = super().create(validated_data)
     else:
-      instance._pose_supplied = 'transforms' in validated_data
-      try:
-        super().update(instance, validated_data)
-      finally:
-        instance._pose_supplied = False
+      self.update_camera(instance, validated_data)
 
     self.create_camera_instance(instance)
     return instance
+
+  def update_camera(self, instance, validated_data):
+    previous_sensor_id = instance.sensor_id
+    instance._pose_supplied = 'transforms' in validated_data
+    try:
+      super().update(instance, validated_data)
+    finally:
+      instance._pose_supplied = False
+    if instance.sensor_id != previous_sensor_id:
+      self.rebind_camera_pipeline(instance)
+
+  @staticmethod
+  def rebind_camera_pipeline(instance):
+    """Restart the camera's DLSPS pipeline so it publishes under the new camera ID."""
+    if not settings.ENABLE_MLOPS_FLOW:
+      return
+    for warning in reconcile_camera_pipeline(instance.pk):
+      log.warning(f"REST update of camera {instance.sensor_id}: {warning}")
 
   def create(self, validated_data):
     return self.create_update(validated_data)
