@@ -56,10 +56,11 @@ RECEIVED_MESSAGE_METRICS = (
 # to the received total; later drops (e.g. queue full) were already counted.
 REJECTED_REASON_PREFIX = "rejected_"
 
-# Dropped-counter reasons that are counted once per (camera message, category)
-# dispatch instead of once per message: the controller's busy-tracker drop and
-# the tracker service's full-queue / worker-limit drops happen after the split by
-# category.  Other reasons (rejected_*, fell_behind, ptz_dwell) count messages.
+# Dropped-counter reasons that are counted per (camera message, category) dispatch
+# instead of per message: the controller's busy-tracker drop and the tracker
+# service's full-queue / worker-limit drops happen after the split by category and
+# lose only that category's detections.  Other reasons (rejected_*, fell_behind,
+# ptz_dwell) lose the whole message.
 PER_CATEGORY_DROP_REASONS = (
     "tracker_busy",
     "dropped_queue_full",
@@ -225,6 +226,7 @@ def _summarise_counter(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
 
   total = 0.0
   by_reason: Dict[str, float] = {}
+  by_category: Dict[str, Dict[str, float]] = {}
   deltas: List[float] = []
   for key, series_points in by_series.items():
     series_points.sort(key=_point_time)
@@ -242,9 +244,12 @@ def _summarise_counter(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
     total += previous
     reason = dict(key).get("reason", "")
     by_reason[reason] = by_reason.get(reason, 0.0) + previous
+    category_reasons = by_category.setdefault(dict(key).get("category", ""), {})
+    category_reasons[reason] = category_reasons.get(reason, 0.0) + previous
   if not deltas:
     return None
-  return {"total": total, "by_reason": by_reason, "delta": _stats(deltas)}
+  return {"total": total, "by_reason": by_reason, "by_category": by_category,
+          "delta": _stats(deltas)}
 
 
 def _summarise_gauge(points: List[Dict[str, Any]]) -> Optional[Dict[str, float]]:
@@ -320,15 +325,38 @@ def _rejected_total(metric_values: Dict[str, Dict[str, Any]]) -> int:
   return _dropped_total(metric_values, lambda reason: reason.startswith(REJECTED_REASON_PREFIX))
 
 
-def _per_category_total(metric_values: Dict[str, Dict[str, Any]]) -> int:
-  """Sum the drops counted once per (camera message, category) dispatch."""
-  return _dropped_total(metric_values, lambda reason: reason in PER_CATEGORY_DROP_REASONS)
+def _split_drops(metric_values: Dict[str, Dict[str, Any]]) -> Tuple[int, Dict[str, int]]:
+  """Split the drops into message-level drops and per-category drops.
+
+  Message-level drops (``rejected_*``, ``fell_behind``, ``ptz_dwell``, or any drop
+  without a category) lose the whole message, so they affect every category.  Per-category
+  drops (:data:`PER_CATEGORY_DROP_REASONS`) lose one category's detections of a message.
+  Counters without a per-category breakdown are taken as message-level.
+
+  Returns:
+      ``(message_level, {category: per_category_drops})``.
+  """
+  message_level = 0
+  per_category: Dict[str, int] = {}
+  for name in DROPPED_FRAME_METRICS:
+    stats = (metric_values.get(name) or {}).get("stats") or {}
+    by_category = stats.get("by_category")
+    if by_category is None:
+      message_level += int(stats.get("total", 0) or 0)
+      continue
+    for category, reasons in by_category.items():
+      for reason, value in reasons.items():
+        if category and reason in PER_CATEGORY_DROP_REASONS:
+          per_category[category] = per_category.get(category, 0) + int(value or 0)
+        else:
+          message_level += int(value or 0)
+  return message_level, per_category
 
 
 def check_dropped_frames(
     metric_values: Dict[str, Dict[str, Any]],
     threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
-    categories: int = 1,
+    inputs_per_category: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
   """Verify how many messages the tracker/controller dropped during the run.
 
@@ -338,41 +366,51 @@ def check_dropped_frames(
   dropped.  Both services count dropped messages per camera, so the ratio is
   independent of the camera count.
 
-  Drops that happen after the split by category (see
-  :data:`PER_CATEGORY_DROP_REASONS`) are counted once per category, while the
-  received counters count messages.  Those drops are divided by ``categories``
-  so the ratio is the share of messages lost, not inflated by the category
-  count.  This assumes every message carries every category.  Drops without a
-  reason breakdown are taken as already counting messages.
+  Each category has its own work queue and drops independently, so the loss is
+  judged per category: the category's own drops plus the message-level drops,
+  over the messages that category received (``inputs_per_category``, defaulting
+  to ``received``).  The reported ``ratio`` is the worst category, so a category
+  losing more than the threshold is flagged even when the others lose nothing.
+  Without per-category data the ratio is all drops over ``received``.
 
   Args:
-      metric_values: Output of :func:`collect_metric_values`.
-      threshold:     Ratio above which the run is flagged (default 1%).
-      categories:    Number of object categories each message is split into
-                     (default 1, no normalisation).
+      metric_values:       Output of :func:`collect_metric_values`.
+      threshold:           Ratio above which the run is flagged (default 1%).
+      inputs_per_category: Number of messages each category received, by name.
 
   Returns:
-      Mapping with ``dropped`` (int, raw counter total), ``dropped_messages``
-      (float, ``dropped`` expressed in messages), ``received`` (int),
-      ``categories`` (int), ``ratio`` (float; 1.0 when messages were dropped but
-      none received, 0.0 when neither), ``threshold`` (float) and ``exceeded``
-      (bool).
+      Mapping with ``dropped`` (int, raw counter total), ``received`` (int),
+      ``categories`` (``{category: {"dropped", "inputs", "ratio"}}``, empty without
+      per-category data), ``worst_category`` (str or None), ``ratio`` (float, the worst
+      category's; 1.0 when messages were dropped but none received, 0.0 when neither),
+      ``threshold`` (float) and ``exceeded`` (bool).
   """
-  categories = max(1, int(categories))
   dropped = _counter_total(metric_values, DROPPED_FRAME_METRICS)
-  per_category = _per_category_total(metric_values)
-  dropped_messages = (dropped - per_category) + per_category / categories
   received = _counter_total(metric_values, RECEIVED_MESSAGE_METRICS) + _rejected_total(metric_values)
+  message_level, per_category = _split_drops(metric_values)
 
-  if received > 0:
-    ratio = dropped_messages / received
+  categories: Dict[str, Dict[str, Any]] = {}
+  for category in sorted(set(per_category) | set(inputs_per_category or {})):
+    category_dropped = message_level + per_category.get(category, 0)
+    inputs = (inputs_per_category or {}).get(category) or received
+    categories[category] = {
+        "dropped": category_dropped,
+        "inputs": inputs,
+        "ratio": category_dropped / inputs if inputs > 0 else (1.0 if category_dropped > 0 else 0.0),
+    }
+
+  worst_category = max(categories, key=lambda c: categories[c]["ratio"]) if categories else None
+  if worst_category is not None:
+    ratio = categories[worst_category]["ratio"]
+  elif received > 0:
+    ratio = dropped / received
   else:
     ratio = 1.0 if dropped > 0 else 0.0
   return {
       "dropped": dropped,
-      "dropped_messages": dropped_messages,
       "received": received,
       "categories": categories,
+      "worst_category": worst_category,
       "ratio": ratio,
       "threshold": threshold,
       "exceeded": ratio > threshold,

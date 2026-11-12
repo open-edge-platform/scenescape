@@ -263,17 +263,19 @@ folder with, per metric:
 
 After writing the summary, the harness verifies how many messages were dropped (summing the
 `scenescape_controller_mqtt_messages_dropped` and `tracker.mqtt.dropped` counters), prints the
-count and ratio, and emits a `WARNING` when the dropped-to-received-message ratio exceeds 1%.
-The denominator is the total of the `scenescape_controller_mqtt_messages` and
-`tracker.mqtt.messages` counters, plus the messages the Tracker rejected before accepting them
-(`tracker.mqtt.dropped` with a `rejected_*` reason), which `tracker.mqtt.messages` does not count.
-A run that dropped messages but received none is reported as 100%. Dropped messages are counted
-per camera, so the ratio does not depend on the number of cameras in the dataset. Drops after the
-split by category (`tracker_busy`, `dropped_queue_full`, `dropped_max_workers`) count once per
-category, so they are divided by the number of distinct categories in the input frames to give the
-share of messages lost; this assumes every message carries every category. Drops without a reason
-breakdown are taken as already counting messages. The printed line shows the raw counter total and
-the normalised ratio.
+count and the loss per category, and emits a `WARNING` when the loss of any category exceeds 1%.
+Each category has its own work queue and drops independently (`tracker_busy`, `dropped_queue_full`,
+`dropped_max_workers`), so the loss is judged per category: the category's own drops plus the drops
+of whole messages (`rejected_*`, `fell_behind`, `ptz_dwell`), over the messages that category
+received. The Controller dispatches only the categories a message carries (all of them when it
+carries none); the Tracker Service gives every category every message. The warning uses the worst
+category, so one failing category is not hidden by the others. Counters without a per-category
+breakdown fall back to all drops over the received messages: the total of the
+`scenescape_controller_mqtt_messages` and `tracker.mqtt.messages` counters, plus the messages the
+Tracker rejected before accepting them (`tracker.mqtt.dropped` with a `rejected_*` reason), which
+`tracker.mqtt.messages` does not count. A run that dropped messages but received none is reported
+as 100%. Dropped messages are counted per camera, so the ratio does not depend on the number of
+cameras in the dataset.
 The aggregated values are also available programmatically via
 `metrics_recorder.collect_metric_values()` and `metrics_recorder.check_dropped_frames()`.
 

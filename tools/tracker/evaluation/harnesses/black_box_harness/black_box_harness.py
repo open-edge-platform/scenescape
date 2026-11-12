@@ -339,10 +339,20 @@ def _stagger_offsets(frames: List[Dict[str, Any]], stagger_s: float) -> List[flo
   return offsets
 
 
-def _count_categories(frames: List[Dict[str, Any]]) -> int:
-  """Return the number of distinct object categories across *frames* (at least 1)."""
+def _count_category_inputs(frames: List[Dict[str, Any]], container_type: Optional[str]) -> Dict[str, int]:
+  """Return how many of *frames* each object category receives, by category.
+
+  The Tracker Service gives every category every message.  The Controller
+  dispatches only the categories a message carries, or all of them when it
+  carries none.
+  """
   categories = {category for frame in frames for category in frame.get("objects") or {}}
-  return max(1, len(categories))
+  if container_type == CONTAINER_TYPE_TRACKER:
+    return {category: len(frames) for category in categories}
+  return {
+      category: sum(1 for frame in frames if not frame.get("objects") or category in frame["objects"])
+      for category in categories
+  }
 
 
 def _merge_outputs_by_timestamp(
@@ -411,7 +421,7 @@ class BlackBoxHarness(TrackerHarness):
     self._startup_wait_s: float             = DEFAULT_STARTUP_WAIT
     self._camera_order: Optional[List[str]] = None
     self._same_timestamp_stagger_s: float   = 0.0
-    self._category_count: int               = 1
+    self._category_inputs: Dict[str, int]   = {}
     self._object_classes: List[Dict[str, Any]] = []
     self._broker_image: str                 = ""
     self._broker_port: int                  = 0
@@ -554,7 +564,7 @@ class BlackBoxHarness(TrackerHarness):
 
     try:
       input_frames: List[Dict[str, Any]] = list(inputs)
-      self._category_count = _count_categories(input_frames)
+      self._category_inputs = _count_category_inputs(input_frames, self._container_type)
       self._write_inputs(input_frames, tmp_dir)
 
       host_port = self._broker_port if self._broker_port > 0 else _free_port()
@@ -607,7 +617,7 @@ class BlackBoxHarness(TrackerHarness):
     self._startup_wait_s      = DEFAULT_STARTUP_WAIT
     self._camera_order        = None
     self._same_timestamp_stagger_s = 0.0
-    self._category_count      = 1
+    self._category_inputs     = {}
     self._object_classes      = []
     self._output_folder       = None
     self._enable_metrics      = False
@@ -1015,24 +1025,30 @@ class BlackBoxHarness(TrackerHarness):
     """Report dropped messages and warn when the drop ratio is too high."""
     try:
       values = metrics_recorder.collect_metric_values(metrics_file)
-      result = metrics_recorder.check_dropped_frames(values, categories=self._category_count)
+      result = metrics_recorder.check_dropped_frames(
+          values, inputs_per_category=self._category_inputs)
     except Exception as exc:
       print(f"[BlackBoxHarness] Warning: dropped-message check failed: {exc}")
       return
 
-    per_category = (
-        f"; per-category drops divided by {result['categories']} categories"
-        if result["categories"] > 1 else ""
-    )
-    print(
-        f"[BlackBoxHarness] Dropped messages: {result['dropped']} counted "
-        f"({result['ratio'] * 100:.2f}% of {result['received']} "
-        f"received messages{per_category})"
-    )
-    if result["exceeded"]:
+    if result["categories"]:
+      worst_first = sorted(result["categories"].items(), key=lambda item: -item[1]["ratio"])
+      losses = ", ".join(
+          f"{category} {stats['ratio'] * 100:.2f}% of {stats['inputs']}"
+          for category, stats in worst_first
+      )
+      print(f"[BlackBoxHarness] Dropped messages: {result['dropped']} counted; "
+            f"loss per category: {losses} messages")
+    else:
       print(
-          "[BlackBoxHarness] WARNING: results are unreliable! Dropped-message ratio "
-          f"{result['ratio'] * 100:.2f}% exceeds threshold "
+          f"[BlackBoxHarness] Dropped messages: {result['dropped']} "
+          f"({result['ratio'] * 100:.2f}% of {result['received']} received messages)"
+      )
+    if result["exceeded"]:
+      worst = f" of category {result['worst_category']}" if result["worst_category"] else ""
+      print(
+          "[BlackBoxHarness] WARNING: results are unreliable! Dropped-message ratio"
+          f"{worst} {result['ratio'] * 100:.2f}% exceeds threshold "
           f"{result['threshold'] * 100:.2f}%"
       )
 

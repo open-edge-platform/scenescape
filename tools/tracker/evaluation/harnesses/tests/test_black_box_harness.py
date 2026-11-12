@@ -21,7 +21,7 @@ from harnesses.black_box_harness.black_box_harness import (
     DEFAULT_DRAIN_TIMEOUT,
     DEFAULT_STARTUP_WAIT,
     _build_tracker_service_config,
-    _count_categories,
+    _count_category_inputs,
     _free_port,
     _merge_outputs_by_timestamp,
     _parse_ts,
@@ -863,12 +863,12 @@ class TestStaggerConfig:
     with pytest.raises(ValueError, match="same_timestamp_stagger_ms"):
       harness.set_custom_config(self._config(tracker_config_file, same_timestamp_stagger_ms=-1))
 
-  def test_reset_clears_stagger_and_category_count(self, harness, tracker_config_file):
+  def test_reset_clears_stagger_and_category_inputs(self, harness, tracker_config_file):
     harness.set_custom_config(self._config(tracker_config_file, same_timestamp_stagger_ms=30))
-    harness._category_count = 3
+    harness._category_inputs = {"person": 3}
     harness.reset()
     assert harness._same_timestamp_stagger_s == 0.0
-    assert harness._category_count == 1
+    assert harness._category_inputs == {}
 
 
 class TestStaggeredPublishing:
@@ -975,25 +975,28 @@ class TestStaggeredPublishing:
 
 
 # ---------------------------------------------------------------------------
-# Dropped-message ratio normalisation by category count
+# Dropped-message ratio per category
 # ---------------------------------------------------------------------------
 
-class TestCountCategories:
-  def test_counts_distinct_categories_across_frames(self):
-    frames = [
-        {"objects": {"person": []}},
+class TestCountCategoryInputs:
+  @pytest.fixture
+  def frames(self):
+    return [
         {"objects": {"person": [], "FW190D": []}},
+        {"objects": {"person": []}},
         {"objects": {}},
     ]
-    assert _count_categories(frames) == 2
 
-  def test_at_least_one_when_no_objects(self):
-    assert _count_categories([{"objects": {}}, {}]) == 1
+  def test_controller_counts_messages_carrying_the_category_and_empty_messages(self, frames):
+    assert _count_category_inputs(frames, CONTAINER_TYPE_CONTROLLER) == {"person": 3, "FW190D": 2}
 
-  def test_no_frames(self):
-    assert _count_categories([]) == 1
+  def test_tracker_service_gives_every_category_every_message(self, frames):
+    assert _count_category_inputs(frames, CONTAINER_TYPE_TRACKER) == {"person": 3, "FW190D": 3}
 
-  def test_process_inputs_records_the_category_count(
+  def test_no_categories(self):
+    assert _count_category_inputs([{"objects": {}}, {}], CONTAINER_TYPE_CONTROLLER) == {}
+
+  def test_process_inputs_records_the_category_inputs(
       self, harness, scene_config, tracker_config_file, sample_frames
   ):
     harness.set_scene_config(scene_config)
@@ -1015,15 +1018,17 @@ class TestCountCategories:
       mock_docker.network.remove = MagicMock()
       mock_docker.run = MagicMock(return_value=MagicMock())
       list(harness.process_inputs(iter(sample_frames)))
-    assert harness._category_count == 2
+    # sample_frames: person in 2 messages, FW190D in 1, one message without objects.
+    assert harness._category_inputs == {"person": 3, "FW190D": 2}
 
 
 class TestVerifyDroppedFrames:
-  def _values(self, dropped, messages, by_reason):
+  def _values(self, by_category, messages=1600):
+    total = sum(v for reasons in by_category.values() for v in reasons.values())
     return {
         "scenescape_controller_mqtt_messages_dropped": {
             "kind": "sum", "unit": "1",
-            "stats": {"total": dropped, "by_reason": by_reason, "delta": {}},
+            "stats": {"total": total, "by_category": by_category, "delta": {}},
         },
         "scenescape_controller_mqtt_messages": {
             "kind": "sum", "unit": "1", "stats": {"total": messages, "delta": {}},
@@ -1035,28 +1040,38 @@ class TestVerifyDroppedFrames:
                ".collect_metric_values", return_value=values):
       harness._verify_dropped_frames(Path("unused"))
 
-  def test_per_category_drops_are_divided_by_the_category_count(self, harness, capsys):
-    harness._category_count = 2
-    self._verify(harness, self._values(96, 1600, {"tracker_busy": 96}))
+  def test_one_category_over_the_threshold_is_flagged_while_the_other_is_not(self, harness, capsys):
+    # The average of the two categories is 0.97% but FW190D lost 1.19%.
+    harness._category_inputs = {"person": 1600, "FW190D": 1593}
+    self._verify(harness, self._values(
+        {"person": {"tracker_busy": 12}, "FW190D": {"tracker_busy": 19}}))
     out = capsys.readouterr().out
-    assert "Dropped messages: 96 counted (3.00% of 1600 received messages" in out
-    assert "divided by 2 categories" in out
+    assert "Dropped messages: 31 counted; loss per category: " \
+           "FW190D 1.19% of 1593, person 0.75% of 1600 messages" in out
     assert "WARNING" in out
+    assert "of category FW190D 1.19%" in out
 
-  def test_single_category_prints_no_normalisation_note(self, harness, capsys):
-    self._verify(harness, self._values(5, 1000, {"tracker_busy": 5}))
+  def test_all_categories_below_the_threshold_is_not_flagged(self, harness, capsys):
+    harness._category_inputs = {"person": 1600, "FW190D": 1600}
+    self._verify(harness, self._values(
+        {"person": {"tracker_busy": 4}, "FW190D": {"tracker_busy": 8}}))
     out = capsys.readouterr().out
-    assert "0.50% of 1000 received messages)" in out
-    assert "divided by" not in out
+    assert "FW190D 0.50% of 1600, person 0.25% of 1600" in out
     assert "WARNING" not in out
 
-  def test_ratio_below_threshold_after_normalisation_is_not_flagged(self, harness, capsys):
-    # 18 per-category drops over 1600 messages and 2 categories is 0.56%, not 1.12%.
-    harness._category_count = 2
-    self._verify(harness, self._values(18, 1600, {"tracker_busy": 18}))
+  def test_without_category_data_prints_the_overall_ratio(self, harness, capsys):
+    values = {
+        "scenescape_controller_mqtt_messages_dropped": {
+            "kind": "sum", "unit": "1", "stats": {"total": 50, "delta": {}},
+        },
+        "scenescape_controller_mqtt_messages": {
+            "kind": "sum", "unit": "1", "stats": {"total": 1000, "delta": {}},
+        },
+    }
+    self._verify(harness, values)
     out = capsys.readouterr().out
-    assert "0.56%" in out
-    assert "WARNING" not in out
+    assert "Dropped messages: 50 (5.00% of 1000 received messages)" in out
+    assert "WARNING" in out and "category" not in out.split("WARNING")[1]
 
 
 # ---------------------------------------------------------------------------
