@@ -28,7 +28,7 @@ from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
-from scene_common.glb_top_view import generateOrthoView, getMeshSize
+from scene_common.glb_top_view import generateOrthoView
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
 from scene_common.mqtt import PubSub
 from scene_common.options import *
@@ -313,10 +313,9 @@ class Scene(models.Model):
       self.rotation_y = 0.0
       self.rotation_z = 0.0
       mesh, _ = extractMeshFromGLB(self.map.path, rotation=np.array([self.rotation_x, self.rotation_y, self.rotation_z]))
-      width, height, depth = getMeshSize(mesh)
-      self.translation_x = width/2
-      self.translation_y = height/2
-      self.translation_z = depth/2
+      # Min corner at the origin, whether or not the file is centred on its own origin
+      min_bound = mesh.get_axis_aligned_bounding_box().min_bound.numpy()
+      self.translation_x, self.translation_y, self.translation_z = (float(-v) for v in min_bound)
     return
 
   def resetRotation(self):

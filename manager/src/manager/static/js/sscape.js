@@ -2133,12 +2133,6 @@ function setupGenerateMesh() {
 
       alert("Mesh generated successfully! The scene map has been updated.");
 
-      $("#id_rotation_x").val(0);
-      $("#id_rotation_y").val(0);
-      $("#id_rotation_z").val(0);
-      $("#id_translation_x").val(0);
-      $("#id_translation_y").val(0);
-      $("#id_translation_z").val(0);
       window.location.reload();
     } catch (err) {
       console.error(err);
