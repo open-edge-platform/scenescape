@@ -1091,6 +1091,8 @@ class BlackBoxHarness(TrackerHarness):
     session_start_wall: Optional[float] = None
     session_start_data: Optional[float] = None
     stagger_offsets = _stagger_offsets(frames, self._same_timestamp_stagger_s)
+    staggered = self._same_timestamp_stagger_s > 0
+    group_start_wall: Optional[float] = None
 
     published_count = 0
     publish_start = time.monotonic()
@@ -1103,11 +1105,17 @@ class BlackBoxHarness(TrackerHarness):
           session_start_data = frame_ts
         else:
           data_offset = frame_ts - session_start_data
-          expected_wall = session_start_wall + data_offset + stagger_offset
+          expected_wall = session_start_wall + data_offset
+          if stagger_offset and group_start_wall is not None:
+            # Space the group from its actual first publication, so a late wake-up
+            # does not make the whole group overdue and publish it as a burst.
+            expected_wall = max(expected_wall, group_start_wall + stagger_offset)
           sleep_for = expected_wall - time.monotonic()
           if sleep_for > 0:
             time.sleep(sleep_for)
 
+      if staggered and not stagger_offset:
+        group_start_wall = time.monotonic()
       cam_id = frame.get("id", "")
       topic  = _TOPIC_DATA_CAMERA.format(camera_id=cam_id)
       client.publish(topic, json.dumps(frame))

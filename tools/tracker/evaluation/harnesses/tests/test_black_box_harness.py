@@ -925,6 +925,54 @@ class TestStaggeredPublishing:
     sleeps = self._sleeps_for(harness, scene_config, tracker_config_file, burst_frames)
     assert [s for s in sleeps if 0.0 < s < 0.5] == []
 
+  @pytest.mark.parametrize("late_s", [0.0, 0.1])
+  def test_late_wake_up_keeps_the_group_spaced(
+      self, harness, scene_config, tracker_config_file, late_s
+  ):
+    """A late wake-up delays the group but does not collapse it into a burst."""
+    frames = [
+        {"id": f"cam{i}", "timestamp": ts, "objects": {}}
+        for ts in ("2024-01-01T00:00:00.000Z", "2024-01-01T00:00:00.500Z")
+        for i in range(3)
+    ]
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
+        "container_type": "controller",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+        "same_timestamp_stagger_ms": 30,
+    })
+    clock = [0.0]
+    published = []
+
+    def sleep(duration):
+      # The wake-up before the second group is late; later sleeps are exact.
+      overshoot = late_s if len(published) == 3 else 0.0
+      clock[0] += duration + overshoot
+
+    client = MagicMock()
+    client.publish.side_effect = lambda topic, payload: published.append(clock[0])
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"), \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client", return_value=client), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep", side_effect=sleep), \
+         patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
+               side_effect=lambda: clock[0]):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+
+    first_group, second_group = published[:3], published[3:]
+    assert first_group[1] - first_group[0] == pytest.approx(0.03)
+    assert first_group[2] - first_group[0] == pytest.approx(0.06)
+    assert second_group[0] - first_group[0] == pytest.approx(0.5 + late_s)
+    assert second_group[1] - second_group[0] == pytest.approx(0.03)
+    assert second_group[2] - second_group[0] == pytest.approx(0.06)
+
 
 # ---------------------------------------------------------------------------
 # Dropped-message ratio normalisation by category count
