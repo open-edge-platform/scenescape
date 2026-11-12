@@ -94,7 +94,7 @@ def _parse_number_string(value):
   if text[0] in '[(' and text[-1] in '])':
     try:
       parsed = json.loads(text)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, RecursionError):
       parsed = None
     if isinstance(parsed, list):
       return parsed
