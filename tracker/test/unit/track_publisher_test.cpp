@@ -144,8 +144,8 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     Track track;
     track.id = "8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2";
     track.category = "vehicle";
-    track.translation = {10.5, 20.3, 0.0};
-    track.velocity = {1.0, 2.0, 0.0};
+    track.translation = {10.5, 20.3, 1.25};
+    track.velocity = {1.0, 2.0, 0.4};
     track.size = {4.5, 2.0, 1.5};
     track.rotation = {0.0, 0.0, 0.707, 0.707};
 
@@ -164,13 +164,14 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     EXPECT_EQ(obj["translation"].Size(), 3u);
     EXPECT_DOUBLE_EQ(obj["translation"][0].GetDouble(), 10.5);
     EXPECT_DOUBLE_EQ(obj["translation"][1].GetDouble(), 20.3);
-    EXPECT_DOUBLE_EQ(obj["translation"][2].GetDouble(), 0.0);
+    EXPECT_DOUBLE_EQ(obj["translation"][2].GetDouble(), 1.25);
 
-    // Velocity [vx, vy, vz]
+    // Velocity [vx, vy, vz] — vz must be published (non-planar tracking)
     EXPECT_TRUE(obj["velocity"].IsArray());
     EXPECT_EQ(obj["velocity"].Size(), 3u);
     EXPECT_DOUBLE_EQ(obj["velocity"][0].GetDouble(), 1.0);
     EXPECT_DOUBLE_EQ(obj["velocity"][1].GetDouble(), 2.0);
+    EXPECT_DOUBLE_EQ(obj["velocity"][2].GetDouble(), 0.4);
 
     // Size [length, width, height]
     EXPECT_TRUE(obj["size"].IsArray());

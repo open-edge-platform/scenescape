@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
+#include <limits>
 #include <numbers>
 #include <optional>
 #include <string>
@@ -197,6 +199,209 @@ TEST(ScenarioSupportTest, ObserveReportsTruthWithSensorNoise)
   EXPECT_NEAR(std::sqrt(yawSquares / n), lidar.yawNoise, 0.1 * lidar.yawNoise);
   EXPECT_TRUE(rv::tracking::orientation::hasOrientation(noisy.back().detection));
 }
+
+// Support tests for vertical motion infrastructure
+
+TEST(ScenarioSupportTest, TrajectoryClimb)
+{
+  // Vertical-only climb: z == 0 until t=1, linear to 1.0 at t=3, then constant.
+  const auto climb
+    = Trajectory({.speed = 2.0, .box = kPerson}).straight(1.0).climb(0.5, 2.0).straight(1.0).sample(10.0);
+  EXPECT_DOUBLE_EQ(climb[0].z, 0.0);
+  EXPECT_NEAR(climb[10].z, 0.0, 1e-9);    // t=1.0, end of straight
+  EXPECT_NEAR(climb[30].z, 1.0, 1e-9);    // t=3.0, end of climb
+  EXPECT_NEAR(climb.back().z, 1.0, 1e-9); // t=4.0, end of final straight
+
+  // Verify vz is non-zero only during the climb.
+  // Convention: sample k carries vz/yawRate/acceleration of the segment that ENDED at sample k.
+  // So sample 0 carries start state with vz=0. After samples 0..10 (end of segment 1), vz becomes 0.5 for
+  // samples 11..30.
+  for (size_t i = 0; i <= 10; ++i)
+  {
+    EXPECT_DOUBLE_EQ(climb[i].vz, 0.0) << "vz should be 0 before climb at sample " << i;
+  }
+  for (size_t i = 11; i <= 30; ++i)
+  {
+    EXPECT_DOUBLE_EQ(climb[i].vz, 0.5) << "vz should be 0.5 during climb at sample " << i;
+  }
+  for (size_t i = 31; i < climb.size(); ++i)
+  {
+    EXPECT_DOUBLE_EQ(climb[i].vz, 0.0) << "vz should be 0 after climb at sample " << i;
+  }
+
+  // x/y identical to the trajectory without climb.
+  const auto straight = Trajectory({.speed = 2.0, .box = kPerson}).straight(4.0).sample(10.0);
+  for (size_t i = 0; i < climb.size(); ++i)
+  {
+    EXPECT_DOUBLE_EQ(climb[i].x, straight[i].x);
+    EXPECT_DOUBLE_EQ(climb[i].y, straight[i].y);
+    EXPECT_DOUBLE_EQ(climb[i].speed, straight[i].speed);
+  }
+
+  // Combined segment: acceleration, yaw rate, and vz together.
+  // Turns 2 rad on a circle of radius 1 m, so x(4s) = sin(2) = 0.9093 and y = 1 - cos(2) = 1.4161.
+  const auto combined = Trajectory({.speed = 0.5, .box = kPerson}).segment(0.0, 0.5, 0.3, 4.0).sample(10.0);
+  EXPECT_DOUBLE_EQ(combined[0].z, 0.0);
+  EXPECT_NEAR(combined.back().z, 1.2, 1e-9);       // 0.3 m/s * 4 s
+  EXPECT_NEAR(combined.back().heading, 2.0, 1e-9); // 0.5 rad/s * 4 s
+  EXPECT_NEAR(combined.back().x, std::sin(2.0), 1e-3);
+  EXPECT_NEAR(combined.back().y, 1.0 - std::cos(2.0), 1e-3);
+
+  // Vertical-only: speed = 0, climb up then down returns z to 0, vz not clamped.
+  const auto verticalOnly = Trajectory({.box = kPerson}).climb(0.5, 2.0).climb(-0.5, 2.0).sample(10.0);
+  EXPECT_DOUBLE_EQ(verticalOnly[0].z, 0.0);
+  EXPECT_NEAR(verticalOnly[20].z, 1.0, 1e-9);      // peak at t=2.0
+  EXPECT_NEAR(verticalOnly.back().z, 0.0, 1e-9);   // back to 0 at t=4.0
+  EXPECT_NEAR(verticalOnly.back().vz, -0.5, 1e-9); // vz is negative during descent
+  for (size_t i = 0; i < verticalOnly.size(); ++i)
+  {
+    EXPECT_DOUBLE_EQ(verticalOnly[i].x, 0.0);
+    EXPECT_DOUBLE_EQ(verticalOnly[i].y, 0.0);
+  }
+}
+
+TEST(ScenarioSupportTest, ObserveReportsTruthWithZNoise)
+{
+  // zNoise = 0.1 -> RMS z error within 10% of 0.1
+  // Use a long trajectory (~1000 samples) for statistical significance, like ObserveReportsTruthWithSensorNoise
+  const auto truth = Trajectory({.speed = 1.0, .box = kCar}).straight(40.0).climb(0.5, 60.0).sample(10.0);
+
+  Sensor noisy{.positionNoise = 0.05, .zNoise = 0.1};
+  const auto withNoise = observe(truth, noisy);
+  double zSquares = 0.0;
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    zSquares += std::pow(withNoise[i].detection.z - truth[i].z, 2);
+  }
+  const double zRms = std::sqrt(zSquares / static_cast<double>(truth.size()));
+  EXPECT_NEAR(zRms, 0.1, 0.01);
+
+  // zNoise = 0 -> detection z equals truth z exactly
+  Sensor exact{.positionNoise = 0.05, .zNoise = 0.0};
+  const auto withoutNoise = observe(truth, exact);
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    EXPECT_DOUBLE_EQ(withoutNoise[i].detection.z, truth[i].z);
+  }
+
+  // AND detection x/y are bit-identical between a sensor with zNoise = 0 and one with zNoise = 0.1
+  // (same other settings/seed) - this guarantees paired comparisons.
+  Sensor baseline{.positionNoise = 0.05, .zNoise = 0.0};
+  Sensor withZNoise{.positionNoise = 0.05, .zNoise = 0.1};
+  const auto baselineObs = observe(truth, baseline);
+  const auto noiseObs = observe(truth, withZNoise);
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    EXPECT_DOUBLE_EQ(baselineObs[i].detection.x, noiseObs[i].detection.x);
+    EXPECT_DOUBLE_EQ(baselineObs[i].detection.y, noiseObs[i].detection.y);
+    EXPECT_DOUBLE_EQ(baselineObs[i].detection.length, noiseObs[i].detection.length);
+    EXPECT_DOUBLE_EQ(baselineObs[i].detection.width, noiseObs[i].detection.width);
+    EXPECT_DOUBLE_EQ(baselineObs[i].detection.height, noiseObs[i].detection.height);
+  }
+}
+
+namespace {
+
+// Helper for the diagnostic scenarios: runs a trajectory with a sensor and returns key metrics.
+struct VerticalMotionMetrics
+{
+  double maxHorizontalError = 0.0;    // [m], after warm-up
+  double rmsHorizontalError = 0.0;    // [m], after warm-up
+  double maxVerticalError = 0.0;      // [m], after warm-up
+  double rmsVerticalError = 0.0;      // [m], after warm-up
+  double finalSpeedError = 0.0;       // [m/s]
+  double finalVzError = 0.0;          // [m/s], |vz_estimated - vz_truth|
+  std::vector<double> meanModelProbs; // [CV, CA, CTRV] over the entire scenario
+  rv::tracking::TrackedObject finalState;
+};
+
+// Adapter over the support tool runScenario(): the metrics and the final state of one run.
+VerticalMotionMetrics runVerticalScenario(const std::vector<TruthSample> &truth,
+                                          Sensor sensor,
+                                          double warmUpTime = 2.0,
+                                          FilterRunObserver *observer = nullptr)
+{
+  const auto result = runScenario(truth, std::move(sensor), {.warmUp = warmUpTime, .observer = observer});
+  const auto measured = result.metrics();
+
+  VerticalMotionMetrics metrics;
+  metrics.maxHorizontalError = measured.maxHorizontalError;
+  metrics.rmsHorizontalError = measured.rmsHorizontalError;
+  metrics.maxVerticalError = measured.maxVerticalError;
+  metrics.rmsVerticalError = measured.rmsVerticalError;
+  metrics.finalSpeedError = measured.finalSpeedError;
+  metrics.finalVzError = measured.finalVzError;
+  for (const auto model : result.models)
+  {
+    metrics.meanModelProbs.push_back(result.meanProbability(model));
+  }
+  metrics.finalState = result.states.back();
+  return metrics;
+}
+
+struct SteppedJumpRun
+{
+  VerticalMotionMetrics metrics;
+  VerticalMotionMetrics flat; // the same path at constant height
+  double finalZError = 0.0;   // [m], |z_estimated - z_truth| at the last step
+};
+
+// Constant x/y velocity; vz steps by `step` every `stepSeconds` up to 3 steps and back to zero (jump), then the same
+// downwards (fall), between 2 s of level motion. z ends at its start height.
+// With horizontalSteps the target instead starts at rest and its x velocity makes the same steps (a one-frame ramp at
+// the start of each step, reversing the heading where vz changes sign), so x and z do the same motion.
+SteppedJumpRun runSteppedJumpAndFall(const char *name, double step, double stepSeconds, bool horizontalSteps = false)
+{
+  constexpr double kFps = 10.0;
+  constexpr double kWarmUp = 2.0;
+  constexpr double kRamp = 1.0 / kFps;
+
+  Trajectory path({.speed = horizontalSteps ? 0.0 : 2.0, .box = kCar});
+  path.straight(2.0);
+  double previous = 0.0; // in steps
+  for (const double sign : {1.0, -1.0})
+  {
+    for (const double magnitude : {1, 2, 3, 2, 1})
+    {
+      const double level = sign * magnitude;
+      const bool reverse = previous * level < 0.0;
+      const double acceleration
+        = horizontalSteps && !reverse ? (std::fabs(level) - std::fabs(previous)) * step / kRamp : 0.0;
+      const double yawRate = horizontalSteps && reverse ? std::numbers::pi / kRamp : 0.0;
+      path.segment(acceleration, yawRate, level * step, kRamp).segment(0.0, 0.0, level * step, stepSeconds - kRamp);
+      previous = level;
+    }
+  }
+  path.segment(horizontalSteps ? -step / kRamp : 0.0, 0.0, 0.0, kRamp).straight(2.0 - kRamp);
+  const auto truth = path.sample(kFps);
+
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  SteppedJumpRun run;
+  run.flat = runVerticalScenario(atHeight(truth, 0.0), sensor, kWarmUp);
+  ScenarioRecorder recorder(name);
+  recorder.truth(truth);
+  run.metrics = runVerticalScenario(truth, sensor, kWarmUp, &recorder);
+  run.finalZError = std::fabs(run.metrics.finalState.z - truth.back().z);
+  return run;
+}
+
+// Car at 2 m/s whose vertical velocity follows vz(t), t in [0, seconds], between 2 s of level motion. The builder only
+// has constant-rate segments, so vz is sampled at the middle of every frame: a smooth vertical acceleration at frame
+// resolution, with z integrated exactly from it.
+std::vector<TruthSample> verticalVelocityProfile(const std::function<double(double)> &vz, double seconds, double fps)
+{
+  Trajectory path({.speed = 2.0, .box = kCar});
+  path.straight(2.0);
+  const long frames = std::lround(seconds * fps);
+  for (long i = 0; i < frames; ++i)
+  {
+    path.climb(vz((static_cast<double>(i) + 0.5) / fps), 1.0 / fps);
+  }
+  path.straight(2.0);
+  return path.sample(fps);
+}
+
+} // namespace
 
 TEST(MotionScenarioTest, TracksMotionCases)
 {
@@ -657,4 +862,637 @@ TEST(MotionScenarioTest, SteadyCircleHasNoConstantOffset)
   {
     GTEST_SKIP() << "Known issue, mean error beyond " << kTolerance << " m:" << offsets;
   }
+}
+
+// Diagnostic scenarios for vertical motion
+
+TEST(MotionScenarioTest, ZOffsetInvariance)
+{
+  // Constant-velocity, accelerating, and turning trajectories each started at z = 0 and at z = 10 with zNoise = 0:
+  // x/y/vx/vy/yaw estimates and model probabilities equal between the two runs (tight tolerance).
+  constexpr double kFps = 10.0;
+  constexpr double kTolerance = 1e-6;
+
+  struct OffsetCase
+  {
+    const char *name;
+    std::vector<TruthSample> truth2d; // starting at z = 0
+  };
+
+  const OffsetCase cases[] = {
+    {.name = "constant velocity", .truth2d = Trajectory({.speed = 2.0, .box = kCar}).straight(6.0).sample(kFps)},
+    {.name = "accelerating", .truth2d = Trajectory({.box = kCar}).accelerate(1.0, 6.0).sample(kFps)},
+    {.name = "turning", .truth2d = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).sample(kFps)},
+  };
+
+  for (const auto &caseItem : cases)
+  {
+    SCOPED_TRACE(caseItem.name);
+
+    // Run at z = 0 (exact measured height; zNoise==0 still marks detections z_measured)
+    Sensor sensor{.positionNoise = 0.05, .zNoise = 0.0, .z_measured = true};
+    const auto states0 = runVerticalScenario(caseItem.truth2d, sensor);
+
+    // Create identical trajectory but starting at z = 10
+    auto truth10 = caseItem.truth2d;
+    for (auto &sample : truth10)
+    {
+      sample.z = 10.0;
+    }
+    const auto states10 = runVerticalScenario(truth10, sensor);
+
+    // x/y/vx/vy/yaw should be identical
+    EXPECT_NEAR(states0.finalState.x, states10.finalState.x, kTolerance);
+    EXPECT_NEAR(states0.finalState.y, states10.finalState.y, kTolerance);
+    EXPECT_NEAR(states0.finalState.vx, states10.finalState.vx, kTolerance);
+    EXPECT_NEAR(states0.finalState.vy, states10.finalState.vy, kTolerance);
+    EXPECT_NEAR(
+      std::remainder(states0.finalState.yaw - states10.finalState.yaw, 2.0 * std::numbers::pi), 0.0, kTolerance);
+
+    // Model probabilities should be identical
+    for (size_t i = 0; i < states0.meanModelProbs.size(); ++i)
+    {
+      EXPECT_NEAR(states0.meanModelProbs[i], states10.meanModelProbs[i], kTolerance);
+    }
+
+    // z error should be small
+    EXPECT_LT(states0.maxVerticalError, 0.1);
+    EXPECT_LT(states10.maxVerticalError, 0.1);
+
+    // Record measurements for Z offset invariance
+    double maxDiff = 0.0;
+    maxDiff = std::max(maxDiff, std::fabs(states0.finalState.x - states10.finalState.x));
+    maxDiff = std::max(maxDiff, std::fabs(states0.finalState.y - states10.finalState.y));
+    maxDiff = std::max(maxDiff, std::fabs(states0.finalState.vx - states10.finalState.vx));
+    maxDiff = std::max(maxDiff, std::fabs(states0.finalState.vy - states10.finalState.vy));
+    maxDiff = std::max(
+      maxDiff, std::fabs(std::remainder(states0.finalState.yaw - states10.finalState.yaw, 2.0 * std::numbers::pi)));
+    RecordProperty(std::string("maxOffsetDiff_") + caseItem.name, std::to_string(maxDiff));
+
+    for (size_t i = 0; i < states0.meanModelProbs.size(); ++i)
+    {
+      const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
+      RecordProperty(std::string("probDiff_") + caseItem.name + "_" + modelName,
+                     std::to_string(std::fabs(states0.meanModelProbs[i] - states10.meanModelProbs[i])));
+    }
+  }
+}
+
+TEST(MotionScenarioTest, ClimbDuringStraightMotion)
+{
+  // Straight + climb (and the equivalent combined segment) vs same planar trajectory without climb:
+  // horizontal error and final horizontal speed error within baseline + margin;
+  // vertical error and final vz error within measured bounds.
+  constexpr double kFps = 10.0;
+  constexpr double kWarmUp = 2.0;
+  constexpr double kClimbRate = 0.5;
+
+  // Baseline: straight motion without vertical component
+  const auto straight = Trajectory({.speed = 2.0, .box = kCar}).straight(5.0).sample(kFps);
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  const auto baselineMetrics = runVerticalScenario(straight, sensor, kWarmUp);
+
+  // 3D: same trajectory but with climb
+  const auto climbTrajectory
+    = Trajectory({.speed = 2.0, .box = kCar}).straight(2.5).climb(kClimbRate, 2.5).sample(kFps);
+  ScenarioRecorder recorder("ClimbDuringStraightMotion");
+  recorder.truth(climbTrajectory);
+  const auto climbMetrics = runVerticalScenario(climbTrajectory, sensor, kWarmUp, &recorder);
+
+  // z does not enter the planar filtering: same x/y noise, same planar results (measured differences ~1e-13).
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(climbMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(climbMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(climbMetrics.finalSpeedError, baselineMetrics.finalSpeedError, kPlanarTolerance);
+
+  // Vertical error should converge
+  EXPECT_LT(climbMetrics.maxVerticalError, 0.2);
+  EXPECT_LT(climbMetrics.rmsVerticalError, 0.15);
+
+  // Final vz error should be bounded
+  EXPECT_LT(climbMetrics.finalVzError, 0.2);
+
+  // Record measurements for paired comparison
+  RecordProperty("baseline_rmsHorizontalError", std::to_string(baselineMetrics.rmsHorizontalError));
+  RecordProperty("climb_rmsHorizontalError", std::to_string(climbMetrics.rmsHorizontalError));
+  RecordProperty("baseline_maxHorizontalError", std::to_string(baselineMetrics.maxHorizontalError));
+  RecordProperty("climb_maxHorizontalError", std::to_string(climbMetrics.maxHorizontalError));
+  RecordProperty("baseline_finalSpeedError", std::to_string(baselineMetrics.finalSpeedError));
+  RecordProperty("climb_finalSpeedError", std::to_string(climbMetrics.finalSpeedError));
+  RecordProperty("climb_rmsVerticalError", std::to_string(climbMetrics.rmsVerticalError));
+  RecordProperty("climb_maxVerticalError", std::to_string(climbMetrics.maxVerticalError));
+  RecordProperty("climb_finalVzError", std::to_string(climbMetrics.finalVzError));
+  for (size_t i = 0; i < climbMetrics.meanModelProbs.size(); ++i)
+  {
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
+    RecordProperty(std::string("climb_prob_") + modelName, std::to_string(climbMetrics.meanModelProbs[i]));
+  }
+}
+
+TEST(MotionScenarioTest, ClimbWhileTurning)
+{
+  // segment(0, 0.5, 0.3, 6) vs the same turn without climb: horizontal error within baseline + margin;
+  // mean probability of CTRV not lower than baseline minus margin.
+  constexpr double kFps = 10.0;
+  constexpr double kWarmUp = 2.0;
+
+  // Baseline: turn without vertical motion
+  const auto turnWithoutClimb = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).sample(kFps);
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  const auto baselineMetrics = runVerticalScenario(turnWithoutClimb, sensor, kWarmUp);
+
+  // 3D: same turn but with climb (combined segment)
+  const auto turnWithClimb
+    = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).segment(0.0, 0.5, 0.3, 4.0).sample(kFps);
+  ScenarioRecorder recorder("ClimbWhileTurning");
+  recorder.truth(turnWithClimb);
+  const auto climbMetrics = runVerticalScenario(turnWithClimb, sensor, kWarmUp, &recorder);
+
+  // z does not enter the planar filtering or the model selection: results equal the planar baseline.
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(climbMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(climbMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
+  ASSERT_EQ(climbMetrics.meanModelProbs.size(), baselineMetrics.meanModelProbs.size());
+  for (size_t i = 0; i < climbMetrics.meanModelProbs.size(); ++i)
+  {
+    SCOPED_TRACE(motionModelName(rv::tracking::kProductionMotionModels[i]));
+    EXPECT_NEAR(climbMetrics.meanModelProbs[i], baselineMetrics.meanModelProbs[i], kPlanarTolerance);
+  }
+
+  // Record measurements for paired comparison
+  RecordProperty("baseline_rmsHorizontalError", std::to_string(baselineMetrics.rmsHorizontalError));
+  RecordProperty("turn_rmsHorizontalError", std::to_string(climbMetrics.rmsHorizontalError));
+  RecordProperty("baseline_maxHorizontalError", std::to_string(baselineMetrics.maxHorizontalError));
+  RecordProperty("turn_maxHorizontalError", std::to_string(climbMetrics.maxHorizontalError));
+  RecordProperty("baseline_finalSpeedError", std::to_string(baselineMetrics.finalSpeedError));
+  RecordProperty("turn_finalSpeedError", std::to_string(climbMetrics.finalSpeedError));
+  RecordProperty("turn_rmsVerticalError", std::to_string(climbMetrics.rmsVerticalError));
+  RecordProperty("turn_maxVerticalError", std::to_string(climbMetrics.maxVerticalError));
+  RecordProperty("turn_finalVzError", std::to_string(climbMetrics.finalVzError));
+  for (size_t i = 0; i < climbMetrics.meanModelProbs.size(); ++i)
+  {
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
+    RecordProperty(std::string("turn_prob_") + modelName, std::to_string(climbMetrics.meanModelProbs[i]));
+  }
+}
+
+TEST(MotionScenarioTest, VerticalOnlyMotion)
+{
+  // Speed = 0, climb up 3 s, level 2 s, descend 3 s: x/y stay near start, estimated horizontal speed near 0,
+  // z follows, yaw estimate bounded.
+  constexpr double kFps = 10.0;
+
+  const auto verticalOnly = Trajectory({.box = kCar}).climb(0.5, 3.0).climb(0.0, 2.0).climb(-0.5, 3.0).sample(kFps);
+
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  ScenarioRecorder recorder("VerticalOnlyMotion");
+  recorder.truth(verticalOnly);
+  const auto metrics = runVerticalScenario(verticalOnly, sensor, 0.0, &recorder);
+
+  // x/y should stay near origin (bounded by position noise)
+  EXPECT_LT(std::fabs(metrics.finalState.x), 0.2);
+  EXPECT_LT(std::fabs(metrics.finalState.y), 0.2);
+
+  // Horizontal speed should be near zero
+  const double horizontalSpeed = std::hypot(metrics.finalState.vx, metrics.finalState.vy);
+  EXPECT_LT(horizontalSpeed, 0.1);
+
+  // z should return near to zero
+  EXPECT_LT(std::fabs(metrics.finalState.z), 0.2);
+
+  // Yaw estimate should be bounded (no heading in this scenario, so should drift slowly)
+  EXPECT_LT(std::fabs(metrics.finalState.yaw), 0.5);
+
+  // Record measurements
+  RecordProperty("verticalOnly_rmsVerticalError", std::to_string(metrics.rmsVerticalError));
+  RecordProperty("verticalOnly_maxVerticalError", std::to_string(metrics.maxVerticalError));
+  RecordProperty("verticalOnly_finalVzError", std::to_string(metrics.finalVzError));
+  for (size_t i = 0; i < metrics.meanModelProbs.size(); ++i)
+  {
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
+    RecordProperty(std::string("verticalOnly_prob_") + modelName, std::to_string(metrics.meanModelProbs[i]));
+  }
+}
+
+TEST(MotionScenarioTest, TargetBornClimbing)
+{
+  // Stationary in x/y, vz = 0.5 from t = 0: record vz estimate after 1 s and 3 s; assert measured behaviour;
+  // z error converges. A new track starts at rest with velocity variance init_state_covariance, vz included.
+  constexpr double kFps = 10.0;
+
+  const auto climbingFromBirth = Trajectory({.box = kCar}).climb(0.5, 8.0).sample(kFps);
+
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  ScenarioRecorder recorder("TargetBornClimbing");
+  recorder.truth(climbingFromBirth);
+  FilterRun run(productionConfig(), &recorder);
+  const auto observations = observe(climbingFromBirth, sensor);
+  const auto states = run.feed(observations);
+
+  // Extract vz estimate at t=1.0 and t=3.0
+  const auto getStateAtTime = [&](double t) -> const rv::tracking::TrackedObject * {
+    size_t idx = static_cast<size_t>(std::lround(t * kFps));
+    if (idx < states.size())
+    {
+      return &states[idx];
+    }
+    return nullptr;
+  };
+
+  const auto *state1s = getStateAtTime(1.0);
+  const auto *state3s = getStateAtTime(3.0);
+
+  ASSERT_NE(state1s, nullptr);
+  ASSERT_NE(state3s, nullptr);
+
+  EXPECT_GT(state1s->z, 0.2);
+  EXPECT_LT(state1s->z, 0.7);
+
+  // After 3 s, vz should be closer to truth
+  EXPECT_GT(state3s->z, 1.3);
+  EXPECT_LT(state3s->z, 1.7);
+
+  // Final z error should be bounded
+  EXPECT_LT(std::fabs(states.back().z - climbingFromBirth.back().z), 0.3);
+
+  // With the production init_state_covariance (1 (m/s)^2) vz is picked up within 1 s (measured 0.52 after 1 s, 0.51
+  // after 3 s); a 0.05 cap kept it at 0.22 after 1 s.
+  EXPECT_NEAR(state1s->vz, 0.5, 0.1);
+  EXPECT_NEAR(state3s->vz, 0.5, 0.1);
+
+  RecordProperty("born_vz_estimate_1s", std::to_string(state1s->vz));
+  RecordProperty("born_vz_estimate_3s", std::to_string(state3s->vz));
+  RecordProperty("born_vz_truth", std::to_string(climbingFromBirth.back().vz));
+  RecordProperty("born_finalVzError", std::to_string(std::fabs(states.back().vz - climbingFromBirth.back().vz)));
+}
+
+TEST(MotionScenarioTest, VerticalRateChanges)
+{
+  // Climb -> level -> descend while moving straight: vertical overshoot after each change below a measured bound;
+  // planar error within baseline + margin; vz settles to truth after each change.
+  constexpr double kFps = 10.0;
+  constexpr double kWarmUp = 2.0;
+
+  // Baseline: straight without vertical changes
+  const auto straightOnly = Trajectory({.speed = 2.0, .box = kCar}).straight(9.0).sample(kFps);
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  const auto baselineMetrics = runVerticalScenario(straightOnly, sensor, kWarmUp);
+
+  // With vertical rate changes
+  const auto rateChanges
+    = Trajectory({.speed = 2.0, .box = kCar}).climb(0.4, 3.0).climb(0.0, 3.0).climb(-0.4, 3.0).sample(kFps);
+
+  ScenarioRecorder recorder("VerticalRateChanges");
+  recorder.truth(rateChanges);
+  const auto changeMetrics = runVerticalScenario(rateChanges, sensor, kWarmUp, &recorder);
+
+  // Planar results equal the planar baseline: the climb and its sensor noise do not enter x/y.
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(changeMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(changeMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(changeMetrics.finalSpeedError, baselineMetrics.finalSpeedError, kPlanarTolerance);
+
+  // Vertical overshoot after rate changes should be bounded
+  EXPECT_LT(changeMetrics.maxVerticalError, 0.3);
+
+  // Final vz error should be small
+  EXPECT_LT(changeMetrics.finalVzError, 0.2);
+
+  // Record measurements for paired comparison
+  RecordProperty("baseline_rmsHorizontalError_changes", std::to_string(baselineMetrics.rmsHorizontalError));
+  RecordProperty("changes_rmsHorizontalError", std::to_string(changeMetrics.rmsHorizontalError));
+  RecordProperty("baseline_maxHorizontalError_changes", std::to_string(baselineMetrics.maxHorizontalError));
+  RecordProperty("changes_maxHorizontalError", std::to_string(changeMetrics.maxHorizontalError));
+  RecordProperty("baseline_finalSpeedError_changes", std::to_string(baselineMetrics.finalSpeedError));
+  RecordProperty("changes_finalSpeedError", std::to_string(changeMetrics.finalSpeedError));
+  RecordProperty("changes_rmsVerticalError", std::to_string(changeMetrics.rmsVerticalError));
+  RecordProperty("changes_maxVerticalError", std::to_string(changeMetrics.maxVerticalError));
+  RecordProperty("changes_finalVzError", std::to_string(changeMetrics.finalVzError));
+  for (size_t i = 0; i < changeMetrics.meanModelProbs.size(); ++i)
+  {
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
+    RecordProperty(std::string("changes_prob_") + modelName, std::to_string(changeMetrics.meanModelProbs[i]));
+  }
+}
+
+TEST(MotionScenarioTest, RectangularHelixWithStops)
+{
+  // Constant climb along a rectangular path with 90 degree corners within one frame; twice the target brakes to a
+  // standstill (also vertically) and resumes. Planar results equal the same path flat; z and vz recover after each
+  // stop.
+  constexpr double kFps = 10.0;
+  constexpr double kClimbRate = 0.25;
+  constexpr double kBrake = 4.0; // 2 m/s to a stop in 0.5 s
+  constexpr double kStand = 1.5;
+  constexpr double kWarmUp = 2.0;
+
+  Trajectory path({.speed = 2.0, .box = kCar});
+  double now = 0.0;
+  std::vector<double> standEnds;
+  const auto add = [&](double acceleration, double yawRate, double vz, double seconds) {
+    path.segment(acceleration, yawRate, vz, seconds);
+    now += seconds;
+  };
+  const auto leg = [&](double seconds) { add(0.0, 0.0, kClimbRate, seconds); };
+  const auto corner = [&] { add(0.0, std::numbers::pi / 2.0 * kFps, kClimbRate, 1.0 / kFps); };
+  const auto stop = [&] {
+    add(-kBrake, 0.0, 0.0, 0.5);
+    add(0.0, 0.0, 0.0, kStand);
+    standEnds.push_back(now);
+    add(kBrake, 0.0, kClimbRate, 0.5);
+  };
+  leg(3.0);
+  corner();
+  leg(2.0);
+  stop();
+  leg(1.0);
+  corner();
+  leg(3.0);
+  corner();
+  leg(2.0);
+  stop();
+  leg(1.0);
+  corner();
+  leg(3.0);
+  const auto truth = path.sample(kFps);
+
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  const auto flatMetrics = runVerticalScenario(atHeight(truth, 0.0), sensor, kWarmUp);
+  ScenarioRecorder recorder("RectangularHelixWithStops");
+  recorder.truth(truth);
+  const auto result = runScenario(truth, sensor, {.warmUp = kWarmUp, .observer = &recorder});
+  const auto metrics = result.metrics();
+
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(metrics.maxHorizontalError, flatMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(metrics.rmsHorizontalError, flatMetrics.rmsHorizontalError, kPlanarTolerance);
+
+  // Measured: vertical error peaks at 0.10 m, after the resumes.
+  EXPECT_LT(metrics.maxVerticalError, 0.15);
+  EXPECT_LT(metrics.finalVzError, 0.1);
+
+  // At the end of each stand the estimate has settled: speed 0.13-0.16 m/s, vz 0.01-0.02 m/s.
+  ASSERT_EQ(standEnds.size(), 2u);
+  for (const double standEnd : standEnds)
+  {
+    const auto &state = result.stateAt(standEnd);
+    EXPECT_LT(std::hypot(state.vx, state.vy), 0.3) << "t = " << standEnd;
+    EXPECT_LT(std::fabs(state.vz), 0.1) << "t = " << standEnd;
+  }
+
+  RecordProperty("flat_maxHorizontalError", std::to_string(flatMetrics.maxHorizontalError));
+  RecordProperty("helix_maxVerticalError", std::to_string(metrics.maxVerticalError));
+  RecordProperty("helix_rmsVerticalError", std::to_string(metrics.rmsVerticalError));
+  RecordProperty("helix_finalVzError", std::to_string(metrics.finalVzError));
+  for (size_t i = 0; i < result.models.size(); ++i)
+  {
+    RecordProperty(std::string("helix_prob_") + motionModelName(result.models[i]),
+                   std::to_string(result.meanProbability(result.models[i])));
+  }
+}
+
+TEST(MotionScenarioTest, SteppedVerticalSpeedJumpAndFall)
+{
+  // Constant x/y velocity; vz steps by 0.2 m/s every second up to a peak and back to zero (slow jump), then the
+  // same downwards (fall). Planar results equal the same path flat; z follows with a bounded lag and returns to its
+  // start height.
+  const auto run = runSteppedJumpAndFall("SteppedVerticalSpeedJumpAndFall", 0.2, 1.0);
+
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(run.metrics.maxHorizontalError, run.flat.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(run.metrics.rmsHorizontalError, run.flat.rmsHorizontalError, kPlanarTolerance);
+
+  // Measured: vertical error peaks at 0.17 m (the estimate lags each rate change), z ends 0.01 m from the start.
+  EXPECT_LT(run.metrics.maxVerticalError, 0.25);
+  EXPECT_LT(run.metrics.finalVzError, 0.1);
+  EXPECT_LT(run.finalZError, 0.1);
+  RecordProperty("jump_maxVerticalError", std::to_string(run.metrics.maxVerticalError));
+  RecordProperty("jump_rmsVerticalError", std::to_string(run.metrics.rmsVerticalError));
+  RecordProperty("jump_finalVzError", std::to_string(run.metrics.finalVzError));
+  RecordProperty("flat_maxHorizontalError", std::to_string(run.flat.maxHorizontalError));
+}
+
+TEST(MotionScenarioTest, FastSteppedJumpAndFallInXAndZ)
+{
+  // Same as SteppedVerticalSpeedJumpAndFall with vz steps of 0.4 m/s every 0.5 s (four times the vertical acceleration, the same peak height of
+  // 1.8 m), and the x velocity doing the same steps, so the horizontal and vertical errors of one run can be compared.
+  // Planar results equal the same path flat.
+  const auto run = runSteppedJumpAndFall("FastSteppedJumpAndFallInXAndZ", 0.4, 0.5, true);
+
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(run.metrics.maxHorizontalError, run.flat.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(run.metrics.rmsHorizontalError, run.flat.rmsHorizontalError, kPlanarTolerance);
+
+  // Measured: vertical error peaks at 0.45 m (2.6 times the slow jump) and z ends 0.06 m from the start; the
+  // horizontal error peaks at 0.28 m and the final speed error is 0.04 m/s.
+  EXPECT_LT(run.metrics.maxVerticalError, 0.6);
+  EXPECT_LT(run.metrics.finalVzError, 0.1);
+  EXPECT_LT(run.finalZError, 0.15);
+  EXPECT_LT(run.metrics.maxHorizontalError, 0.4);
+  EXPECT_LT(run.metrics.finalSpeedError, 0.1);
+  RecordProperty("fastJump_maxVerticalError", std::to_string(run.metrics.maxVerticalError));
+  RecordProperty("fastJump_rmsVerticalError", std::to_string(run.metrics.rmsVerticalError));
+  RecordProperty("fastJump_finalVzError", std::to_string(run.metrics.finalVzError));
+  RecordProperty("fastJump_finalZError", std::to_string(run.finalZError));
+  RecordProperty("fastJump_maxHorizontalError", std::to_string(run.metrics.maxHorizontalError));
+  RecordProperty("fastJump_rmsHorizontalError", std::to_string(run.metrics.rmsHorizontalError));
+  RecordProperty("fastJump_finalSpeedError", std::to_string(run.metrics.finalSpeedError));
+}
+
+TEST(MotionScenarioTest, VerticalAccelerationIsOnlyApproximated)
+{
+  // The filter has no vertical acceleration (z + vz*dt, vz constant), so real z acceleration is followed through
+  // the process noise only. Smooth z acceleration of increasing size, each with a constant 2 m/s in x/y: how far the
+  // estimate drifts from the truth. Planar results equal the same path flat.
+  struct AccelerationCase
+  {
+    const char *name;
+    std::function<double(double)> vz; // [m/s] at time t of the profile
+    double seconds;
+    double maxVerticalError; // after warm-up [m]
+    double rmsVerticalError; // [m]
+  };
+  constexpr double kFps = 10.0;
+  constexpr double kWarmUp = 2.0;
+  constexpr double kOmega = 2.0 * std::numbers::pi / 4.0;
+  // Bounds are the measured errors plus margin.
+  const AccelerationCase cases[] = {
+    // Lift: 1 m/s^2 up to 1.5 m/s, cruise for 2 s, 1 m/s^2 down to a stop; z rises 5.25 m.
+    {.name = "VerticalAcceleration_Lift",
+     .vz = [](double t) { return t < 1.5 ? t : (t < 3.5 ? 1.5 : std::max(1.5 - (t - 3.5), 0.0)); },
+     .seconds = 5.0,
+     .maxVerticalError = 0.5,
+     .rmsVerticalError = 0.3},
+    // Hard: 3 m/s^2 up to 3 m/s in 1 s, cruise for 0.5 s, 3 m/s^2 down to a stop; z rises 4.5 m.
+    {.name = "VerticalAcceleration_Hard",
+     .vz = [](double t) { return t < 1.0 ? 3.0 * t : (t < 1.5 ? 3.0 : std::max(3.0 - 3.0 * (t - 1.5), 0.0)); },
+     .seconds = 2.5,
+     .maxVerticalError = 1.0,
+     .rmsVerticalError = 0.6},
+    // Bobbing: z = 1 - cos(omega t) over two 4 s periods, starting at rest; peak acceleration 2.5 m/s^2.
+    {.name = "VerticalAcceleration_Bobbing",
+     .vz = [](double t) { return kOmega * std::sin(kOmega * t); },
+     .seconds = 8.0,
+     .maxVerticalError = 0.9,
+     .rmsVerticalError = 0.55},
+  };
+
+  for (const auto &acceleration : cases)
+  {
+    SCOPED_TRACE(acceleration.name);
+    const auto truth = verticalVelocityProfile(acceleration.vz, acceleration.seconds, kFps);
+    Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+    const auto flatMetrics = runVerticalScenario(atHeight(truth, 0.0), sensor, kWarmUp);
+    ScenarioRecorder recorder(acceleration.name);
+    recorder.truth(truth);
+    const auto metrics = runVerticalScenario(truth, sensor, kWarmUp, &recorder);
+
+    constexpr double kPlanarTolerance = 1e-9;
+    EXPECT_NEAR(metrics.maxHorizontalError, flatMetrics.maxHorizontalError, kPlanarTolerance);
+    EXPECT_NEAR(metrics.rmsHorizontalError, flatMetrics.rmsHorizontalError, kPlanarTolerance);
+    EXPECT_LT(metrics.maxVerticalError, acceleration.maxVerticalError);
+    EXPECT_LT(metrics.rmsVerticalError, acceleration.rmsVerticalError);
+
+    const std::string prefix = std::string(acceleration.name) + "_";
+    RecordProperty(prefix + "maxVerticalError", std::to_string(metrics.maxVerticalError));
+    RecordProperty(prefix + "rmsVerticalError", std::to_string(metrics.rmsVerticalError));
+    RecordProperty(prefix + "finalVzError", std::to_string(metrics.finalVzError));
+    RecordProperty(prefix + "finalZError", std::to_string(std::fabs(metrics.finalState.z - truth.back().z)));
+  }
+}
+
+TEST(MotionScenarioTest, CoastWhileClimbing)
+{
+  // Climb, then run.coast(1.0): z extrapolates by about vz*dt (tolerance ~0.25);
+  // x/y extrapolation as in the planar baseline; z variance grows.
+  constexpr double kFps = 10.0;
+
+  // Trajectory ends mid-climb with truth vz = 0.5
+  const auto trajectory = Trajectory({.speed = 2.0, .box = kCar}).straight(2.0).climb(0.5, 4.0).sample(kFps);
+
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  ScenarioRecorder recorder("CoastWhileClimbing");
+  recorder.truth(trajectory);
+  FilterRun run(productionConfig(), &recorder);
+  const auto observations = observe(trajectory, sensor);
+
+  // Feed observations one at a time to build up the run state correctly
+  for (const auto &observation : observations)
+  {
+    run.feed({observation});
+  }
+
+  // Record state and covariance before coasting
+  const auto before = run.state();
+  const double zVarBefore = before.errorCovariance(static_cast<int>(rv::tracking::StateIndex::Z),
+                                                   static_cast<int>(rv::tracking::StateIndex::Z));
+
+  // Coast for 1 second
+  run.coast(1.0);
+  const auto after = run.state();
+  const double zVarAfter = after.errorCovariance(static_cast<int>(rv::tracking::StateIndex::Z),
+                                                 static_cast<int>(rv::tracking::StateIndex::Z));
+
+  // z should extrapolate: after.z - before.z is near before.vz * 1.0
+  EXPECT_NEAR(after.z - before.z, before.vz * 1.0, 0.25);
+
+  // x/y extrapolation should follow the velocity estimate (as in planar baseline)
+  EXPECT_NEAR(after.x - before.x, before.vx * 1.0, 0.1);
+
+  // vz should stay approximately constant during coast
+  EXPECT_NEAR(after.vz, before.vz, 0.15);
+
+  // z variance should grow during coasting (uncertainty increases when not observing)
+  EXPECT_GT(zVarAfter, zVarBefore);
+
+  RecordProperty("coast_zChange", std::to_string(after.z - before.z));
+  RecordProperty("coast_vzBefore", std::to_string(before.vz));
+  RecordProperty("coast_vzErrorAfter", std::to_string(std::fabs(after.vz - trajectory.back().vz)));
+}
+
+TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
+{
+  // positionNoise = 0.05 with zNoise = 0.3 vs zNoise = 0: horizontal error not worse than baseline + margin;
+  // z error reflects the larger noise.
+  constexpr double kFps = 10.0;
+  constexpr double kWarmUp = 2.0;
+
+  const auto trajectory
+    = Trajectory({.speed = 2.0, .box = kCar}).straight(5.0).climb(0.3, 2.0).straight(2.0).sample(kFps);
+
+  // Baseline: exact measured z (no zNoise); still marks z_measured so climb is observed.
+  Sensor baselineSensor{.positionNoise = 0.05, .zNoise = 0.0, .z_measured = true};
+  const auto baselineMetrics = runVerticalScenario(trajectory, baselineSensor, kWarmUp);
+
+  // With large zNoise
+  Sensor noisySensor{.positionNoise = 0.05, .zNoise = 0.3};
+  ScenarioRecorder recorder("AnisotropicNoiseDoesNotLeakIntoPlane");
+  recorder.truth(trajectory);
+  const auto noisyMetrics = runVerticalScenario(trajectory, noisySensor, kWarmUp, &recorder);
+
+  // z noise does not leak into the plane: the planar results are those of the noise-free-z baseline.
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(noisyMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(noisyMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
+
+  // Vertical error should reflect the larger noise
+  EXPECT_GT(noisyMetrics.rmsVerticalError, baselineMetrics.rmsVerticalError);
+  EXPECT_LT(noisyMetrics.rmsVerticalError, 0.4); // bounded by the noise std dev
+
+  // Record measurements for paired comparison
+  RecordProperty("baseline_rmsHorizontalError_aniso", std::to_string(baselineMetrics.rmsHorizontalError));
+  RecordProperty("noisy_rmsHorizontalError", std::to_string(noisyMetrics.rmsHorizontalError));
+  RecordProperty("baseline_maxHorizontalError_aniso", std::to_string(baselineMetrics.maxHorizontalError));
+  RecordProperty("noisy_maxHorizontalError", std::to_string(noisyMetrics.maxHorizontalError));
+  RecordProperty("baseline_finalSpeedError_aniso", std::to_string(baselineMetrics.finalSpeedError));
+  RecordProperty("noisy_finalSpeedError", std::to_string(noisyMetrics.finalSpeedError));
+  RecordProperty("noisy_rmsVerticalError", std::to_string(noisyMetrics.rmsVerticalError));
+  RecordProperty("noisy_maxVerticalError", std::to_string(noisyMetrics.maxVerticalError));
+  RecordProperty("noisy_finalVzError", std::to_string(noisyMetrics.finalVzError));
+  for (size_t i = 0; i < noisyMetrics.meanModelProbs.size(); ++i)
+  {
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
+    RecordProperty(std::string("noisy_prob_") + modelName, std::to_string(noisyMetrics.meanModelProbs[i]));
+  }
+}
+
+TEST(MotionScenarioTest, CovarianceStaysPositiveDefiniteWhileClimbing)
+{
+  // Min eigenvalue of P > 0 for all steps including vz.
+  constexpr double kFps = 10.0;
+
+  const auto climbingTrajectory = Trajectory({.speed = 3.0, .box = kCar})
+                                    .straight(2.0)
+                                    .climb(0.5, 4.0)
+                                    .turn(0.5, 4.0)
+                                    .climb(-0.3, 3.0)
+                                    .sample(kFps);
+
+  Sensor sensor{.positionNoise = 0.05, .zNoise = 0.05};
+  ScenarioRecorder recorder("CovarianceStaysPositiveDefiniteWhileClimbing");
+  recorder.truth(climbingTrajectory);
+  FilterRun run(productionConfig(), &recorder);
+  std::optional<double> firstFailure;
+  double minEigenvalueFound = std::numeric_limits<double>::max();
+
+  for (const auto &observation : observe(climbingTrajectory, sensor))
+  {
+    run.feed({observation});
+
+    // Check all motion model filters
+    for (const auto &filter : run.estimator.mKalmanFilters)
+    {
+      const cv::Mat covariance = filter->getErrorCov();
+      if (!firstFailure && !(cv::checkRange(covariance) && minEigenvalue(covariance) > 0.0))
+      {
+        firstFailure = observation.t;
+      }
+      minEigenvalueFound = std::min(minEigenvalueFound, minEigenvalue(covariance));
+    }
+  }
+
+  EXPECT_FALSE(firstFailure) << "a model covariance is not positive definite at t = " << firstFailure.value_or(0.0)
+                             << " s";
+
+  RecordProperty("cov_minEigenvalue", std::to_string(minEigenvalueFound));
 }
