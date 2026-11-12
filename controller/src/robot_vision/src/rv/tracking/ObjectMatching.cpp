@@ -15,6 +15,7 @@
 #include "rv/apollo/secure_matrix.hpp"
 #include "rv/tracking/Classification.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
+#include "rv/tracking/PositionGate.hpp"
 
 namespace rv {
 namespace tracking {
@@ -34,18 +35,13 @@ double calculateMulticlassScaledDistance(const TrackedObject &measurement, const
   return distance * (1.0 + conflict);
 }
 
+/// XY when either side is planar (no measured Z): a ground point and a box centre differ in z by the reference, not by
+/// the motion. Full XYZ when both are, so measured stacked floors stay apart.
 double calculateEuclideanDistance(const TrackedObject &measurement, const TrackedObject &track)
-{
-  return std::sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2)
-                   + pow(measurement.z - track.z, 2));
-}
-
-/// Birth clustering: XY when either detection is planar (no measured Z); full XYZ when both are.
-double calculateEuclideanBirthDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   const double dx = measurement.x - track.x;
   const double dy = measurement.y - track.y;
-  if (!(measurement.zMeasured && track.zMeasured))
+  if (!position_gate::gatesZ(track, measurement))
   {
     return std::hypot(dx, dy);
   }
@@ -160,39 +156,10 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
   return mahalanobisCostFromCache(measurement, track, buildMahalanobisTrackCache(track));
 }
 
-// Pairs whose detection carries R (per-pair S); match() costs the others with the per-track cache below.
-double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
-{
-  const double pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
-  const double pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
-  const double pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
-  const double dx = measurement.x - pred_x;
-  const double dy = measurement.y - pred_y;
-  const double dz = measurement.z - pred_z;
-
-  const cv::Matx33d S = positionCovariance(measurement, track);
-
-  cv::Mat Sinv;
-  if (!invertPositionCovariance(S, Sinv))
-  {
-    return kDefaultClassBoundValue;
-  }
-
-  const double inv00 = Sinv.at<double>(0, 0);
-  const double inv01 = Sinv.at<double>(0, 1);
-  const double inv02 = Sinv.at<double>(0, 2);
-  const double inv11 = Sinv.at<double>(1, 1);
-  const double inv12 = Sinv.at<double>(1, 2);
-  const double inv22 = Sinv.at<double>(2, 2);
-
-  return dx * (inv00 * dx + inv01 * dy + inv02 * dz)
-       + dy * (inv01 * dx + inv11 * dy + inv12 * dz)
-       + dz * (inv02 * dx + inv12 * dy + inv22 * dz);
-}
-
 namespace {
 
-/// Per-track constants for PositionMahalanobis cost fill (S^{-1} is fixed for the frame).
+/// Per-track constants for PositionMahalanobis cost fill (S^{-1} is fixed for the frame): the inverse of the x/y/z
+/// block for pairs that both measured z, and of the x/y block for the others.
 struct PositionMahalanobisTrackCache
 {
   double pred_x = 0.0;
@@ -205,16 +172,32 @@ struct PositionMahalanobisTrackCache
   double inv12 = 0.0;
   double inv22 = 0.0;
   bool valid = false;
+  double invXy00 = 0.0;
+  double invXy01 = 0.0;
+  double invXy11 = 0.0;
+  bool validXy = false;
+  bool z_measured = false;
 };
 
-PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
+/// Cache for one S: the track's predicted S, or a pair's H P H^T + R_detection.
+PositionMahalanobisTrackCache buildPositionMahalanobisCache(const TrackedObject &track, const cv::Matx33d &S)
 {
   PositionMahalanobisTrackCache cache;
   cache.pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
   cache.pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
   cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
+  cache.z_measured = track.z_measured;
 
-  const cv::Matx33d S = positionBlock(track.predictedMeasurementCov);
+  // x/y block: SPD with det S_xy above the floor, as the 2x2 gate before z tracking.
+  const double detXy = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
+  if (std::isfinite(S(0, 0)) && std::isfinite(S(0, 1)) && std::isfinite(S(1, 1)) && S(0, 0) > 0.0
+      && detXy > kMinPositionCovarianceDeterminant)
+  {
+    cache.invXy00 = S(1, 1) / detXy;
+    cache.invXy01 = -S(0, 1) / detXy;
+    cache.invXy11 = S(0, 0) / detXy;
+    cache.validXy = true;
+  }
 
   cv::Mat Sinv;
   if (!invertPositionCovariance(S, Sinv))
@@ -231,12 +214,27 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   return cache;
 }
 
-double positionMahalanobisCostFromCache(double measurement_x, double measurement_y, double measurement_z,
-                                        const PositionMahalanobisTrackCache &cache, double max_radius_m)
+PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
 {
-  const double dx = measurement_x - cache.pred_x;
-  const double dy = measurement_y - cache.pred_y;
-  const double dz = measurement_z - cache.pred_z;
+  return buildPositionMahalanobisCache(track, positionBlock(track.predictedMeasurementCov));
+}
+
+/// Cost against match()'s single threshold chi2(p, 3). When position_gate::gatesZ is false, d² is on x/y only and
+/// scaled by xy_scale so both subspaces pass at the same p (see position_gate::xyCostScaleForChi2Threshold3).
+double positionMahalanobisCostFromCache(const TrackedObject &measurement, const PositionMahalanobisTrackCache &cache,
+                                        double max_radius_m, double xy_scale)
+{
+  const double dx = measurement.x - cache.pred_x;
+  const double dy = measurement.y - cache.pred_y;
+  if (!position_gate::gatesZ(cache.z_measured, measurement.z_measured))
+  {
+    if (std::hypot(dx, dy) > max_radius_m || !cache.validXy)
+    {
+      return kDefaultClassBoundValue;
+    }
+    return xy_scale * (cache.invXy00 * dx * dx + 2.0 * cache.invXy01 * dx * dy + cache.invXy11 * dy * dy);
+  }
+  const double dz = measurement.z - cache.pred_z;
   if (std::sqrt(dx * dx + dy * dy + dz * dz) > max_radius_m)
   {
     return kDefaultClassBoundValue;
@@ -250,23 +248,25 @@ double positionMahalanobisCostFromCache(double measurement_x, double measurement
        + dz * (cache.inv02 * dx + cache.inv12 * dy + cache.inv22 * dz);
 }
 
-/// Per-pair S = H P H^T + R_detection: the per-track cached S^-1 does not apply.
-double positionMahalanobisCostWithMeasurementNoise(const TrackedObject &measurement,
-                                                   const TrackedObject &track,
-                                                   const PositionMahalanobisTrackCache &cache,
-                                                   double max_radius_m)
+/// Cost of one pair from its own S: with R on the detection S = H P H^T + R is per pair, so the track's cached inverses
+/// do not apply; the per-pair z gate does.
+double positionMahalanobisPairCost(const TrackedObject &measurement,
+                                   const TrackedObject &track,
+                                   double max_radius_m,
+                                   double xy_scale)
 {
-  const double dx = measurement.x - cache.pred_x;
-  const double dy = measurement.y - cache.pred_y;
-  const double dz = measurement.z - cache.pred_z;
-  if (std::sqrt(dx * dx + dy * dy + dz * dz) > max_radius_m)
-  {
-    return kDefaultClassBoundValue;
-  }
-  return calculatePositionMahalanobisSquaredDistance(measurement, track);
+  const auto pairCache = buildPositionMahalanobisCache(track, positionCovariance(measurement, track));
+  return positionMahalanobisCostFromCache(measurement, pairCache, max_radius_m, xy_scale);
 }
 
 } // namespace
+
+// One pair, for tests: d^2 on x/y/z when position_gate::gatesZ, else on x/y (df 2, not scaled to chi2(p, 3)); S is
+// H P H^T + R when the detection carries R. match() costs the pairs without R with the per-track cache.
+double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
+{
+  return positionMahalanobisPairCost(measurement, track, std::numeric_limits<double>::infinity(), 1.0);
+}
 
 void match(const std::vector<TrackedObject> &tracks,
                           const std::vector<TrackedObject> &measurements,
@@ -302,6 +302,9 @@ void match(const std::vector<TrackedObject> &tracks,
 
   if (distanceType == DistanceType::PositionMahalanobis)
   {
+    // threshold is chi2(p, 3); x/y-only pairs are scaled to the same p.
+    const double xy_scale = position_gate::xyCostScaleForChi2Threshold3(threshold);
+
     // Invert the 3x3 position covariance once per track, not once per (track, detection).
     std::vector<PositionMahalanobisTrackCache> track_caches(tracks.size());
     for (size_t i = 0; i < tracks.size(); ++i)
@@ -315,9 +318,8 @@ void match(const std::vector<TrackedObject> &tracks,
       for (size_t j = 0; j < measurements.size(); ++j)
       {
         (*costMatrix)(i, j) = measurements[j].measurementNoiseCov
-          ? positionMahalanobisCostWithMeasurementNoise(measurements[j], tracks[i], track_caches[i], max_radius_m)
-          : positionMahalanobisCostFromCache(
-              measurements[j].x, measurements[j].y, measurements[j].z, track_caches[i], max_radius_m);
+          ? positionMahalanobisPairCost(measurements[j], tracks[i], max_radius_m, xy_scale)
+          : positionMahalanobisCostFromCache(measurements[j], track_caches[i], max_radius_m, xy_scale);
       }
     }
   }
@@ -351,15 +353,6 @@ void match(const std::vector<TrackedObject> &tracks,
         distanceFunction = std::bind(&calculateMulticlassScaledDistance, std::placeholders::_1, std::placeholders::_2);
         break;
       case DistanceType::EuclideanBirth:
-        distanceFunction = [max_radius_m](const TrackedObject &measurement, const TrackedObject &track) {
-          const double distance = calculateEuclideanBirthDistance(measurement, track);
-          if (distance > max_radius_m)
-          {
-            return kDefaultClassBoundValue;
-          }
-          return distance;
-        };
-        break;
       case DistanceType::Euclidean:
       default:
         distanceFunction = [max_radius_m](const TrackedObject &measurement, const TrackedObject &track) {

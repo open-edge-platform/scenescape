@@ -96,7 +96,7 @@ public:
      * @throws std::invalid_argument if the context does not reference the exact detection span.
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity is zero.
-     *         zMeasured is true for translation detections, false for ground-plane projections.
+     *         z_measured is true for translation detections, false for ground-plane projections.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
      *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
      *         attributes["confidence"] is set from Detection::confidence when present.

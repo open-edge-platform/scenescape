@@ -315,7 +315,7 @@ TEST_F(ScenarioRecorderTest, RecordsVerticalMotion)
   const auto climbingTruth
     = Trajectory({.speed = 1.0, .box = kCar}).straight(1.0).climb(0.5, 2.0).straight(1.0).sample(10.0);
 
-  Sensor camera{.positionNoise = 0.05};
+  Sensor camera{.positionNoise = 0.05, .z_measured = true};
   {
     ScenarioRecorder recorder("vertical motion", mRoot);
     recorder.truth(climbingTruth);

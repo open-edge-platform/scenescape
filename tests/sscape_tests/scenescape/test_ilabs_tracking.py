@@ -362,7 +362,7 @@ def test_to_rv_object_converts_quaternion_to_yaw():
 
   assert rv_object.yaw == pytest.approx(yaw)
   assert rv_object.attributes.get('has_orientation') == 'true'
-  assert rv_object.zMeasured is True
+  assert rv_object.z_measured is True
 
 
 def test_to_rv_object_omits_orientation_without_detection_rotation():
@@ -383,7 +383,7 @@ def test_to_rv_object_omits_orientation_without_detection_rotation():
 
   assert rv_object.yaw == 0.0
   assert 'has_orientation' not in rv_object.attributes
-  assert rv_object.zMeasured is False
+  assert rv_object.z_measured is False
 
 
 @pytest.mark.parametrize("yaw", [
@@ -460,8 +460,24 @@ def test_from_tracked_object_draws_the_last_tracking_radius_gate(monkeypatch):
   assert result.association_window == {'method': 'euclidean', 'shape': 'circle', 'radius_m': pytest.approx(6.0)}
 
 
+def test_from_tracked_object_publishes_vertical_velocity():
+  tracked_object = _make_tracked_object("uuid-vz", vx=0.3, vy=-0.1, vz=0.45)
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+  tracker.association_config = normalize_association_config({'method': 'euclidean'})
+  tracker.tracking_radius_m = 2.0
+
+  result = tracker.from_tracked_object(
+    tracked_object, [_make_sscape_object("uuid-vz", has_detection_rotation=False)])
+
+  assert result.velocity.x == pytest.approx(0.3)
+  assert result.velocity.y == pytest.approx(-0.1)
+  assert result.velocity.z == pytest.approx(0.45)
+
+
 def test_build_association_window_mahalanobis_is_ellipse():
-  # Diagonal covariance → axis-aligned ellipse; χ²(0.99,3) ≈ 11.34
+  # Diagonal covariance → axis-aligned ellipse; a track without measured z: χ²(0.99,2) ≈ 9.21
   cov = np.diag([1.0, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0])
   window = build_association_window({
     'method': 'position_mahalanobis',
@@ -470,19 +486,46 @@ def test_build_association_window_mahalanobis_is_ellipse():
   }, cov)
   assert window['method'] == 'position_mahalanobis'
   assert window['shape'] == 'ellipse'
-  assert window['semi_major_m'] == pytest.approx(math.sqrt(11.3448667302 * 1.0), rel=1e-4)
-  assert window['semi_minor_m'] == pytest.approx(math.sqrt(11.3448667302 * 0.25), rel=1e-4)
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(9.21034037198 * 1.0), rel=1e-4)
+  assert window['semi_minor_m'] == pytest.approx(math.sqrt(9.21034037198 * 0.25), rel=1e-4)
   assert window['angle_rad'] == pytest.approx(0.0, abs=1e-6)
 
 
-def _mahalanobis_window(s00, s01, s11, gate_probability=0.99):
+def _mahalanobis_window(s00, s01, s11, gate_probability=0.99, z_measured=False):
   cov = np.eye(7)
   cov[0, 0], cov[0, 1], cov[1, 0], cov[1, 1] = s00, s01, s01, s11
   return build_association_window({
     'method': 'position_mahalanobis',
     'gate_probability': gate_probability,
     'max_radius_m': 10.0,
-  }, cov)
+  }, cov, z_measured=z_measured)
+
+
+def test_build_association_window_uses_the_track_degrees_of_freedom():
+  """position_chi2: df=2 without measured z, df=3 once the track has measured z."""
+  planar = _mahalanobis_window(1.0, 0.0, 0.25)
+  assert planar['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, False) * 1.0))
+  assert planar['semi_minor_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, False) * 0.25))
+  measured = _mahalanobis_window(1.0, 0.0, 0.25, z_measured=True)
+  assert measured['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, True) * 1.0))
+  assert measured['semi_minor_m'] == pytest.approx(math.sqrt(rv.tracking.position_chi2(0.99, True) * 0.25))
+
+
+@pytest.mark.parametrize('z_measured', [False, True])
+def test_from_tracked_object_draws_the_window_with_the_track_degrees_of_freedom(z_measured):
+  tracked_object = _make_tracked_object("uuid-3")
+  tracked_object.z_measured = z_measured
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+  tracker.association_config = normalize_association_config()
+  tracker.tracking_radius_m = 2.0
+
+  result = tracker.from_tracked_object(tracked_object, [_make_sscape_object("uuid-3", has_detection_rotation=False)])
+
+  # measurement_covariance is 0.25 * I.
+  assert result.association_window['semi_major_m'] == pytest.approx(
+    math.sqrt(rv.tracking.position_chi2(0.99, z_measured) * 0.25))
 
 
 def _angle_difference_modulo_pi(a, b):
@@ -496,7 +539,7 @@ def test_build_association_window_follows_rotated_covariance(degrees):
   angle = math.radians(degrees)
   c, s = math.cos(angle), math.sin(angle)
   window = _mahalanobis_window(4 * c * c + s * s, 3 * c * s, 4 * s * s + c * c, 0.95)
-  chi2 = rv.tracking.chi2_threshold(0.95, 3)
+  chi2 = rv.tracking.chi2_threshold(0.95, 2)
   assert window['shape'] == 'ellipse'
   assert window['semi_major_m'] == pytest.approx(math.sqrt(chi2 * 4.0))
   assert window['semi_minor_m'] == pytest.approx(math.sqrt(chi2 * 1.0))
@@ -505,7 +548,7 @@ def test_build_association_window_follows_rotated_covariance(degrees):
 
 def test_build_association_window_major_axis_follows_larger_variance():
   window = _mahalanobis_window(1.0, 0.0, 4.0)
-  chi2 = rv.tracking.chi2_threshold(0.99, 3)
+  chi2 = rv.tracking.chi2_threshold(0.99, 2)
   assert window['semi_major_m'] == pytest.approx(math.sqrt(chi2 * 4.0))
   assert window['semi_minor_m'] == pytest.approx(math.sqrt(chi2 * 1.0))
   assert _angle_difference_modulo_pi(window['angle_rad'], math.pi / 2) == pytest.approx(0.0, abs=1e-9)
@@ -514,7 +557,7 @@ def test_build_association_window_major_axis_follows_larger_variance():
 def test_build_association_window_clamps_negative_eigenvalues():
   """Eigenvalues 3 and -1, major axis at 45 degrees: the minor semi-axis is 0, not NaN."""
   window = _mahalanobis_window(1.0, 2.0, 1.0)
-  assert window['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99, 3) * 3.0))
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99, 2) * 3.0))
   assert window['semi_minor_m'] == 0.0
   assert _angle_difference_modulo_pi(window['angle_rad'], math.pi / 4) == pytest.approx(0.0, abs=1e-9)
 

@@ -26,15 +26,18 @@ namespace tracking {
 enum class DistanceType
 {
   MultiClassEuclidean, ///< Legacy, MultipleObjectTracker's default: x/y/z distance scaled by the class conflict.
-  Euclidean,           ///< x/y/z distance up to max_radius_m; ``association.method: euclidean``.
+  Euclidean,           ///< Position distance via ``position_gate`` (XY unless both ``z_measured``); up to max_radius_m;
+                       ///< ``association.method: euclidean``.
   Mahalanobis,         ///< Legacy: 0.5 * sqrt(d^2) over the measurement vector; not chi-squared calibrated.
   MCEMahalanobis,      ///< Legacy: average of MultiClassEuclidean and Mahalanobis.
-  PositionMahalanobis, ///< d^2 on the x/y/z block of S up to max_radius_m; ``association.method: position_mahalanobis``.
-  EuclideanBirth       ///< Birth clustering: x/y distance, x/y/z when both detections have ``zMeasured``.
+  PositionMahalanobis, ///< Position Mahalanobis via ``position_gate`` (XYZ block or scaled XY); up to max_radius_m;
+                       ///< ``association.method: position_mahalanobis``.
+  EuclideanBirth       ///< Birth clustering between detections; the same distance as Euclidean.
 };
 
 /// Assigns measurements to tracks on costs below threshold, which is capped at 1000, the cost of a pair beyond
-/// max_radius_m or with a degenerate / non-SPD position covariance.
+/// max_radius_m or with a degenerate / non-SPD position covariance. For PositionMahalanobis the threshold is
+/// chi2(p, 3); see ``position_gate`` for XY vs XYZ pair gating.
 void match(const std::vector<TrackedObject> &tracks,
             const std::vector<TrackedObject> &measurements,
             std::vector<std::pair<size_t, size_t>> &assignments,
