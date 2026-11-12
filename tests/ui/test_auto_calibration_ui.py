@@ -2,16 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
-import os
 
+import pytest
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from tests.ui.browser import By
+
+import tests.ui.common_ui_test_utils as common
 from tests.ui import UserInterfaceTest
-from tests.ui import common
-from tests.utils.spec import FuncTestSpec
+from tests.ui.browser import By
+from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
-import pytest
+from tests.utils.spec import FuncTestSpec
+
+log = get_logger(__name__)
+
+TEST_NAME = "NEX-T15710"
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION,
@@ -24,34 +29,31 @@ def wait_for_calibration(browser, wait_time):
   @param    wait_time               Int seconds to wait.
   @return   autocal_button          Web Element auto calibration button.
   """
-  iter_time = 1
-  time_passed = 0
-  iterations = int(round(wait_time/iter_time))
-  for x in range(iterations):
+  start = time.time()
+  autocal_button = browser.find_element(By.ID, "auto-autocalibration")
+  while not autocal_button.is_enabled() and time.time() - start < wait_time:
+    time.sleep(1)
     autocal_button = browser.find_element(By.ID, "auto-autocalibration")
-    time.sleep(iter_time)
-    time_passed += iter_time
-    if autocal_button.is_enabled():
-      break
-  print()
-  print("---------------------------------------------")
-  print("After {} seconds autocal enabled: {}".format(time_passed, autocal_button.is_enabled()))
-  print("---------------------------------------------")
+  log.info(f"After {int(time.time() - start)} seconds autocal enabled: "
+           f"{autocal_button.is_enabled()}")
   return autocal_button
 
-def wait_for_image(browser, wait_time, image_id):
-  """! Waits images to load.
+def wait_for_live_frame(browser, wait_time):
+  """! Waits until camCanvas has replaced the offline.png placeholder with a live frame.
   @param    browser                 Object wrapping the Selenium driver.
   @param    wait_time               Int seconds to wait.
-  @return   BOOL                    True if image loaded.
+  @return   BOOL                    True if a live frame is loaded.
   """
-  iter_time = 1
-  iterations = int(round(wait_time/iter_time))
-  for x in range(iterations):
-    cam_img = browser.find_element(By.ID, image_id)
-    if not cam_img.is_displayed(): # it means that there is no image on UI with "No camera"
+  script = (
+    "const img = window.camera_calibration?.camCanvas?.image;"
+    "return !!img && img.complete && img.naturalWidth > 0"
+    " && img.src.startsWith('data:image/');"
+  )
+  deadline = time.time() + wait_time
+  while time.time() < deadline:
+    if browser.execute_script(script):
       return True
-    time.sleep(iter_time)
+    time.sleep(1)
   return False
 
 # Timeouts for autocalibration-specific waits.
@@ -82,15 +84,15 @@ def wait_for_calibration_points(browser, wait_time, min_points=4):
     if count >= min_points:
       return True
     time.sleep(1)
-  print(f"wait_for_calibration_points: only {count} of {min_points} required")
+  log.warning(f"Only {count} of {min_points} required calibration points appeared")
   return False
 
 class AprilTagCalibrationTest(UserInterfaceTest):
   # The camera calibration page constructs a THREE.WebGLRenderer
   BROWSER_WEBGL = True
 
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request, None)
     self.sceneName = self.params['scene']
     return
 
@@ -148,36 +150,34 @@ class AprilTagCalibrationTest(UserInterfaceTest):
         assert abs(actual - expected) <= coord_tolerance, \
           f"Point {actual_coords} coordinate[{i}]: {actual} not within {tolerance*100}% of {expected}"
 
-    print(f"✓ {len(actual_list)} calibration points validated within {tolerance*100}% tolerance")
+    log.info(f"{len(actual_list)} calibration points validated within {tolerance*100}% tolerance")
     return
 
-  def checkForMalfunctions(self, cam_url, scene_name, wait_time):
-    """! Executes april tag test case.
+  def check_autocalibration(self, cam_url, scene_name, wait_time):
+    """! Auto-calibrates a camera, saves the result and verifies the persisted points.
     @param    cam_url                 String cam calibration url.
     @param    scene_name              String scene name.
-    @param    wait_time               Int seconds to wait.
-    @return   exit_code               Indicates test success or failure.
+    @param    wait_time               Int seconds to wait for the live camera frame.
+    @return   None.
     """
-    print()
-    print("#####    " + scene_name + " Test Case    ####")
-    print()
+    log.info(f"{scene_name} auto calibration test case")
 
     time.sleep(1)
     cam_list_url = "/cam/list/"
     self.navigateDirectlyToPage(cam_list_url)
 
     self.navigateDirectlyToPage(cam_url)
-    print(f"Navigated to cam calibration page {cam_url}")
+    log.info(f"Navigated to cam calibration page {cam_url}")
 
     time.sleep(1)
-
-    assert wait_for_image(self.browser, wait_time, "camera_img")
-    assert wait_for_image(self.browser, wait_time, "map_img")
 
     autocal_button = wait_for_calibration(self.browser, REGISTRATION_TIMEOUT_S)
     assert autocal_button.is_enabled(), (
       f"Auto-calibrate button not enabled within {REGISTRATION_TIMEOUT_S}s: "
       f"{autocal_button.get_attribute('title')!r}"
+    )
+    assert wait_for_live_frame(self.browser, wait_time), (
+      f"No live camera frame received within {wait_time}s"
     )
     self.click_button_by_id("reset_points")
     time.sleep(1)
@@ -210,7 +210,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
       f"Save did not persist: transforms unchanged ({post_save_transforms!r})"
     )
     points = get_calibration_points_from_js(self.browser, "camera")
-    print("Actual points:", points)
+    log.info(f"Actual points: {points}")
 
     expected_points = {
         'p0': [42.74131548684735, 663.6953887756321],
@@ -222,20 +222,22 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     }
 
     self.assert_points_within_tolerance(points, expected_points, tolerance=0.1)
+    return
 
-    return True
-
-  def execute_test(self):
-    """! Checks that a user can setup a scene with april tags. """
-    MAX_WAIT_TIME = 15
+  def execute_test(self, result_recorder):
+    """! Checks that a user can setup a scene with april tags.
+    @param    result_recorder         Pytest fixture recording the test result.
+    @return   None.
+    """
+    MAX_WAIT_TIME = 60
     assert self.login()
 
     assert common.navigate_to_scene(self.browser, "Queuing")
     cam_url = common.camera_calibrate_url(self.browser, "atag-qcam1")
-    test_case_1 = self.checkForMalfunctions(cam_url, "Queuing", MAX_WAIT_TIME)
+    self.check_autocalibration(cam_url, "Queuing", MAX_WAIT_TIME)
 
-    if test_case_1:
-      self.exitCode = 0
+    result_recorder.success()
+    return
 
 def get_calibration_points_from_js(browser, canvas_type):
   """! Gets calibration points directly from JavaScript.
@@ -244,8 +246,9 @@ def get_calibration_points_from_js(browser, canvas_type):
   @return   dict                    Dictionary of calibration points.
   """
   if canvas_type == "camera":
+    # Sensor pixels; camCanvas points are in preview-image pixels (offline.png is 640x480).
     script = """
-        return window.camera_calibration?.camCanvas?.getCalibrationPoints() || {};
+        return window.camera_calibration?.getSensorCalibrationPoints?.() || {};
     """
   else:  # map/viewport
     script = """
@@ -253,32 +256,24 @@ def get_calibration_points_from_js(browser, canvas_type):
     """
 
   points = browser.execute_script(script)
-  print(f"Calibration points from {canvas_type}:", points)
+  log.info(f"Calibration points from {canvas_type}: {points}")
   return points
 
 @pytest.mark.test_name("NEX-T15710")
 @common.mock_display
-def test_april_tag(scenescape_env, request, record_xml_attribute):
+def test_april_tag(scenescape_env, request, result_recorder):
   """! Checks that a user can setup a scene with april tags.
-  @param    request                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+  @param    scenescape_env          Fixture providing the running SceneScape stack.
+  @param    request                 Pytest request providing the test parameters.
+  @param    result_recorder         Pytest fixture recording the test result.
+  @return   None.
   """
-  TEST_NAME = "NEX-T15710"
+  log.info(f"Executing: {TEST_NAME}")
 
-  test = AprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
+  test = AprilTagCalibrationTest(TEST_NAME, request)
   try:
-    test.execute_test()
+    test.execute_test(result_recorder)
   finally:
     browser = getattr(test, "browser", None)
     if browser is not None:
       browser.quit()
-
-  assert test.exitCode == 0
-  return test.exitCode
-
-def main():
-  return test_april_tag(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)
