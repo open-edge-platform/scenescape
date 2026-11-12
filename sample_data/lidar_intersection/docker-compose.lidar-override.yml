@@ -34,7 +34,9 @@ services:
   # if a scene with this name already exists (e.g. on a restart without a
   # volume reset), so it's safe to run on every `make demo-lidar`.
   lidar-scene-init:
-    image: alpine:3.24
+    # Image ships with curl/sed/grep so we do not need apk (often blocked by
+    # corporate proxies against dl-cdn.alpinelinux.org).
+    image: curlimages/curl:8.16.0
     networks:
       scenescape:
     depends_on:
@@ -44,6 +46,8 @@ services:
       - SUPASS=${SUPASS}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
       - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
@@ -52,7 +56,6 @@ services:
     command:
       - |
         set -e
-        apk add --no-cache curl >/dev/null
         TOKEN=$$(curl -sk -X POST -d "username=admin&password=${SUPASS}" https://web.scenescape.intel.com/api/v1/auth \
           | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
         if [ -z "$$TOKEN" ]; then
@@ -83,10 +86,14 @@ services:
   # Only the `image/`/`velodyne/` subdirectories are mounted (not the full
   # `infrastructure-side/` tree).
   lidar-data-init:
-    image: python:3.15-slim
+    # Stay on 3.12: pypcd4's python-neo-lzf has no 3.15 wheels and needs a
+    # compiler in slim images. Dependabot previously bumped this to 3.15-slim.
+    image: python:3.12-slim
     environment:
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
       - no_proxy=${no_proxy},.scenescape.intel.com
       - PCD_VELODYNE_DIR=/src/velodyne
@@ -98,6 +105,17 @@ services:
     command:
       - |
         set -e
+        if [ ! -d /src/velodyne ] || [ -z "$$(ls -A /src/velodyne/*.pcd 2>/dev/null)" ]; then
+          echo "lidar-data-init: no .pcd frames under /src/velodyne"
+          echo "Extract V2X-Seq-SPD-Example so infrastructure-side/velodyne and"
+          echo "infrastructure-side/image exist (see run-lidar-intersection-demo.md)."
+          exit 1
+        fi
+        if [ ! -d /src/image ] || [ -z "$$(ls -A /src/image/*.jpg 2>/dev/null)" ]; then
+          echo "lidar-data-init: no .jpg frames under /src/image"
+          echo "Extract V2X-Seq-SPD-Example so infrastructure-side/image exists."
+          exit 1
+        fi
         pip install --no-cache-dir --quiet numpy pypcd4 pillow
         mkdir -p /dst/lidar_intersection/velodyne_bin /dst/lidar_intersection/images
         python3 /convert_pcd_to_bin.py
@@ -126,6 +144,8 @@ services:
       - OPENVINO_CONTRIB_DIR=${OPENVINO_CONTRIB_DIR:-}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
       - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
