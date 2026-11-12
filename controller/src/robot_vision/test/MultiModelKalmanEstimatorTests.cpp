@@ -439,6 +439,31 @@ TEST(MultiModelKalmanEstimatorTest, PlanarCorrectAfterMeasuredDoesNotPullZ)
   }
 }
 
+TEST(MultiModelKalmanEstimatorTest, NeverMeasuredPlanarCorrectStillUpdatesZ)
+{
+  // Purely planar tracks still correct z (floor lock). Omitting z is only for sticky measured height.
+  rv::tracking::TrackedObject seed;
+  seed.x = 1.0;
+  seed.y = 2.0;
+  seed.z = 0.4;
+  seed.length = seed.width = 0.5;
+  seed.height = 1.8;
+
+  rv::tracking::MultiModelKalmanEstimator estimator;
+  auto timestamp = std::chrono::system_clock::now();
+  estimator.initialize(seed, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  ASSERT_FALSE(estimator.currentState().zMeasured);
+  EXPECT_NEAR(estimator.currentState().z, 0.4, 1e-6);
+
+  rv::tracking::TrackedObject planar = seed;
+  planar.z = 0.0;
+  timestamp += std::chrono::milliseconds(100);
+  estimator.predict(timestamp);
+  estimator.correct(planar);
+  EXPECT_FALSE(estimator.currentState().zMeasured);
+  EXPECT_NEAR(estimator.currentState().z, 0.0, 0.05);
+}
+
 TEST(MultiModelKalmanEstimatorTest, PredictIntegratesVzWithoutMeasurement)
 {
   rv::tracking::MultiModelKalmanEstimator estimator;

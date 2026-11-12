@@ -314,7 +314,8 @@ struct Sensor
   std::mt19937 rng{1};
   double zNoise = 0.0;  // standard deviation of z [m]; 0 keeps z exact
   std::mt19937 zRng{2}; // own generator so z noise never changes the x/y/size/yaw noise
-  // When false (and zNoise == 0), detections stay planar: UKF omits z and association uses XY only.
+  // When false (and zNoise == 0), detections stay planar: association uses XY only; UKF still
+  // corrects z until a track gains sticky measured height, then later planar updates omit z.
   // zNoise > 0 implies a ranging sensor and sets zMeasured even if measuresZ stays false.
   bool measuresZ = false;
 };

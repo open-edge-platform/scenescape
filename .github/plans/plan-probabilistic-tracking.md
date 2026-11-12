@@ -176,7 +176,7 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 | Process noise | Independent `Q[vz,vz]` | |
 | Sticky `zMeasured` | Track keeps measured-z once any update measured it (like `orientation_observed`) | |
 | `position_gate` helpers | `PositionGate.hpp`: `gatesZ` / `positionDof` / `positionChi2` / `appendPositionMeasurementRows` / `xyCostScaleForChi2Threshold3` — single XY-vs-XYZ policy for association, birth, UKF rows, and UI windows | |
-| Planar UKF update | `observedMeasurementRows` uses `appendPositionMeasurementRows(..., measurement.zMeasured)` so planar ground points do not pull sticky measured height to the floor | |
+| Planar UKF update | `observedMeasurementRows` includes z when the detection measured it **or** the track has never measured z (floor lock); omits z only to protect sticky measured height from later planar ground points | |
 | 3D association | Euclidean + `PositionMahalanobis` via `position_gate::gatesZ`; birth clustering by the same rule | |
 | χ² gate | `positionChi2(p, includeZ)` — df=3 (~11.34 @ p=0.99) or df=2 (~9.21); UI ellipse uses `trackCanGateZ` | |
 | Named indices | `StateIndex` / `MeasurementIndex` | |
@@ -254,7 +254,7 @@ cd tracker && make test-unit test-robot-vision
 7. [x] F1: Tracker 3D detection input (#2050) + `zMeasured` (T3)
 8. [x] F7: Hybrid birth (`EuclideanBirth` / `zMeasured`) + birth-cluster `zMeasured` OR
 9. [ ] F8: One z reference for pixel and 3D detections (mitigated: gated association + planar UKF omits z)
-10. [x] Planar UKF updates omit z when `!zMeasured` (sticky measured height)
+10. [x] Planar UKF updates omit z only when the track already has sticky measured height and the detection does not
 11. [x] `position_gate` helpers centralize XY vs XYZ (association, UKF rows, UI); deferred alternatives listed above
 
 ```mermaid

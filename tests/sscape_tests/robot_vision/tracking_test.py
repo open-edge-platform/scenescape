@@ -908,7 +908,7 @@ class TestNonPlanarTracking(unittest.TestCase):
     self.assertFalse(obj.isDynamic())
 
   def test_planar_correct_after_measured_does_not_pull_z(self):
-    """Planar UKF updates omit z once the track has sticky measured z."""
+    """Planar UKF updates omit z only after the track has sticky measured z."""
     planar = create_object_at_location(x=1.0, y=2.0, z=0.0)
     measured = create_object_at_location(x=1.0, y=2.0, z=1.2)
     measured.zMeasured = True

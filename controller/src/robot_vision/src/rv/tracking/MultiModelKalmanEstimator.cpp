@@ -26,14 +26,15 @@ predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat 
   return measurement;
 }
 
-// Measurement components a prepared detection observes: position via position_gate (omit z without
-// measured z so planar ground points do not pull sticky measured height to the floor), and yaw
-// without orientation.
-std::vector<int> observedMeasurementRows(const TrackedObject &measurement)
+// Measurement components a prepared detection observes. Include z when the detection measured it, or
+// when the track has never measured z (planar floor lock). Omit z only to protect sticky measured
+// height from later planar ground points. Yaw is omitted without orientation.
+std::vector<int> observedMeasurementRows(const TrackedObject &track, const TrackedObject &measurement)
 {
   std::vector<int> rows;
   rows.reserve(TrackedObject::MeasurementSize);
-  position_gate::appendPositionMeasurementRows(rows, measurement.zMeasured);
+  const bool includeZ = measurement.zMeasured || !track.zMeasured;
+  position_gate::appendPositionMeasurementRows(rows, includeZ);
   rows.push_back(MeasurementIndex::LENGTH);
   rows.push_back(MeasurementIndex::WIDTH);
   rows.push_back(MeasurementIndex::HEIGHT);
@@ -370,14 +371,15 @@ void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurem
 {
   auto newMeasurement = measurement;
   orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
+  const TrackedObject priorState = mCurrentState;
   auto correctedState
-    = mKalmanFilters[0]->correct(newMeasurement.measurementVector(), observedMeasurementRows(newMeasurement));
+    = mKalmanFilters[0]->correct(newMeasurement.measurementVector(),
+                                 observedMeasurementRows(priorState, newMeasurement));
 
   mCurrentState.errorCovariance = mKalmanFilters[0]->getErrorCov();
   mCurrentState.setStateVector(correctedState);
 
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
-  const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
   // Sticky like orientation_observed: z is gated once any update has measured it.
@@ -394,7 +396,8 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
 
   auto newMeasurement = measurement;
   orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
-  const auto observedRows = observedMeasurementRows(newMeasurement);
+  const TrackedObject priorState = mCurrentState;
+  const auto observedRows = observedMeasurementRows(priorState, newMeasurement);
 
   std::vector<cv::Mat> states;
   std::vector<cv::Mat> covariances;
@@ -434,7 +437,6 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   mCurrentState.setStateVector(combinedState);
 
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
-  const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
   // Sticky like orientation_observed: z is gated once any update has measured it.
