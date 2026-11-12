@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import struct
 import threading
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import numpy as np
@@ -12,10 +14,13 @@ from controller.ilabs_tracking import (IntelLabsTracking, _quaternion_to_yaw,
                                        _yaw_to_quaternion,
                                        association_match_params,
                                        build_association_window,
-                                       normalize_association_config)
+                                       normalize_association_config,
+                                       normalize_filter_config)
 from scene_common.geometry import Point
 
 import robot_vision as rv
+
+from tracking_replay import ASSOCIATIONS, MODES, replay
 
 
 def test_normalize_association_config_defaults():
@@ -690,3 +695,250 @@ def test_from_tracked_object_does_not_overwrite_rotation_for_velocity_inferred_r
   assert result.rotation == original_rotation
   assert result.association_window['shape'] == 'ellipse'
   assert getattr(result, 'velocity_inferred', False) is True
+
+
+# Filter settings (q, r, P0) and the birth-clustering radius
+
+def _production_filter():
+  return {
+    'process_noise': rv.tracking.PRODUCTION_PROCESS_NOISE,
+    'base_measurement_noise': rv.tracking.PRODUCTION_MEASUREMENT_NOISE,
+    'init_state_covariance': rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE,
+  }
+
+
+def _bits(value):
+  return struct.pack('<d', value)
+
+
+def test_normalize_filter_config_defaults_are_the_production_constants_bit_for_bit():
+  for config in (normalize_filter_config(), normalize_filter_config({}), normalize_filter_config(None)):
+    assert config.keys() == _production_filter().keys()
+    for key, constant in _production_filter().items():
+      assert _bits(config[key]) == _bits(constant)
+
+
+def test_normalize_filter_config_keeps_valid_values_and_fills_the_rest():
+  config = normalize_filter_config({'process_noise': 2e-4, 'init_state_covariance': 16})
+  assert config == {
+    'process_noise': 2e-4,
+    'base_measurement_noise': rv.tracking.PRODUCTION_MEASUREMENT_NOISE,
+    'init_state_covariance': 16.0,
+  }
+  assert isinstance(config['init_state_covariance'], float)
+
+
+@pytest.mark.parametrize('key', ['process_noise', 'base_measurement_noise', 'init_state_covariance'])
+@pytest.mark.parametrize('value', [0, 0.0, -1.0, math.nan, math.inf, -math.inf, True, False, '0.2', None, [], {}])
+def test_normalize_filter_config_invalid_value_uses_the_default_of_that_field(monkeypatch, key, value):
+  errors = []
+  monkeypatch.setattr('controller.ilabs_tracking.log.error', lambda *args: errors.append(args))
+  config = normalize_filter_config({'process_noise': 3e-4, 'base_measurement_noise': 0.3,
+                                    'init_state_covariance': 4.0, key: value})
+  expected = {'process_noise': 3e-4, 'base_measurement_noise': 0.3, 'init_state_covariance': 4.0}
+  expected[key] = _production_filter()[key]
+  assert config == expected
+  if value is not None:
+    assert len(errors) == 1
+
+
+@pytest.mark.parametrize('block', ['filter', ['process_noise', 1e-4], 3, True])
+def test_normalize_filter_config_not_an_object_uses_defaults(monkeypatch, block):
+  errors = []
+  monkeypatch.setattr('controller.ilabs_tracking.log.error', lambda *args: errors.append(args))
+  assert normalize_filter_config(block) == _production_filter()
+  assert len(errors) == 1
+
+
+def test_normalize_filter_config_drops_unknown_keys_with_a_warning(monkeypatch):
+  warnings = []
+  monkeypatch.setattr('controller.ilabs_tracking.log.warning', lambda *args: warnings.append(args))
+  config = normalize_filter_config({'process_noise': 2e-4, 'motion_models': ['CV']})
+  assert 'motion_models' not in config
+  assert config['process_noise'] == 2e-4
+  assert len(warnings) == 1
+
+
+def test_normalize_association_config_birth_cluster_radius_is_absent_by_default():
+  assert 'birth_cluster_radius_m' not in normalize_association_config()
+  assert 'birth_cluster_radius_m' not in normalize_association_config({'method': 'euclidean'})
+
+
+@pytest.mark.parametrize('radius, expected', [(3.5, 3.5), (0, 0.0), (0.0, 0.0), (4, 4.0)])
+def test_normalize_association_config_keeps_valid_birth_cluster_radius(radius, expected):
+  for method in ('euclidean', 'position_mahalanobis'):
+    config = normalize_association_config({'method': method, 'birth_cluster_radius_m': radius})
+    assert config['birth_cluster_radius_m'] == expected
+    assert isinstance(config['birth_cluster_radius_m'], float)
+
+
+@pytest.mark.parametrize('radius', [-1.0, math.nan, math.inf, True, '2', [], {}])
+def test_normalize_association_config_invalid_birth_cluster_radius_is_dropped(monkeypatch, radius):
+  errors = []
+  monkeypatch.setattr('controller.ilabs_tracking.log.error', lambda *args: errors.append(args))
+  config = normalize_association_config({'method': 'euclidean', 'birth_cluster_radius_m': radius})
+  assert 'birth_cluster_radius_m' not in config
+  assert len(errors) == 1
+
+
+class _SpyTracker:
+  """Records the TrackManagerConfig that IntelLabsTracking hands to robot_vision."""
+
+  def __init__(self, monkeypatch):
+    self.configs = []
+    real = rv.tracking.MultipleObjectTracker
+
+    def spy(config, *args, **kwargs):
+      self.configs.append(config)
+      return real(config, *args, **kwargs)
+
+    monkeypatch.setattr(rv.tracking, 'MultipleObjectTracker', spy)
+
+
+def test_tracker_config_defaults_are_the_production_constants_bit_for_bit(monkeypatch):
+  spy = _SpyTracker(monkeypatch)
+  tracker = IntelLabsTracking(1.0, 0.8, 1.6, 10)
+  config = spy.configs[0]
+  assert tracker.filter_config == _production_filter()
+  assert _bits(config.default_process_noise) == _bits(rv.tracking.PRODUCTION_PROCESS_NOISE)
+  assert _bits(config.default_measurement_noise) == _bits(rv.tracking.PRODUCTION_MEASUREMENT_NOISE)
+  assert _bits(config.init_state_covariance) == _bits(rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE)
+  assert list(config.motion_models) == list(rv.tracking.PRODUCTION_MOTION_MODELS)
+
+
+def test_tracker_config_takes_the_configured_filter_values(monkeypatch):
+  spy = _SpyTracker(monkeypatch)
+  tracker = IntelLabsTracking(
+    1.0, 0.8, 1.6, 10,
+    filter_config={'process_noise': 2e-4, 'base_measurement_noise': 0.5, 'init_state_covariance': 16.0})
+  config = spy.configs[0]
+  assert config.default_process_noise == 2e-4
+  assert config.default_measurement_noise == 0.5
+  assert config.init_state_covariance == 16.0
+  assert tracker.filter_config == {'process_noise': 2e-4, 'base_measurement_noise': 0.5,
+                                   'init_state_covariance': 16.0}
+
+
+def test_time_chunked_tracker_takes_the_configured_filter_values(monkeypatch):
+  from controller.time_chunking import TimeChunkedIntelLabsTracking
+  spy = _SpyTracker(monkeypatch)
+  tracker = TimeChunkedIntelLabsTracking(
+    1.0, 0.8, 1.6, 10, filter_config={'process_noise': 3e-4, 'base_measurement_noise': 0.4})
+  try:
+    config = spy.configs[0]
+    assert config.default_process_noise == 3e-4
+    assert config.default_measurement_noise == 0.4
+    assert _bits(config.init_state_covariance) == _bits(rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE)
+  finally:
+    tracker.join()
+
+
+def test_create_trackers_propagates_filter_config(monkeypatch):
+  """Category workers created by Tracking._createTrackers get the filter settings of their parent."""
+  from controller.tracking import Tracking
+
+  parent = IntelLabsTracking.__new__(IntelLabsTracking)
+  parent.reid_config_data = {}
+  parent.association_config = normalize_association_config()
+  parent.filter_config = normalize_filter_config({'process_noise': 2e-4})
+  parent.trackers = {}
+  parent.uuid_manager = SimpleNamespace(scene_id='scene')
+  parent._lifecycle_lock = threading.Lock()
+  parent._joined = False
+
+  captured = {}
+
+  def fake_init(self, *args, **kwargs):
+    captured['kwargs'] = kwargs
+    self.uuid_manager = SimpleNamespace(scene_id=None)
+    self.queue = SimpleNamespace()
+
+  monkeypatch.setattr(IntelLabsTracking, '__init__', fake_init)
+  monkeypatch.setattr(IntelLabsTracking, 'start', lambda self: None)
+  parent.__class__ = IntelLabsTracking
+  Tracking._createTrackers(parent, ['person'], 1.0, 0.8, 1.6, 10)
+
+  assert captured['kwargs']['filter_config']['process_noise'] == 2e-4
+
+
+def test_filter_settings_change_the_estimate(monkeypatch):
+  """A configured value reaches the filter: a noisier detection model moves the track less in the first update."""
+  def first_update(base_measurement_noise):
+    tracker = IntelLabsTracking(1.0, 0.8, 1.6, 10,
+                                filter_config={'base_measurement_noise': base_measurement_noise})
+    first = rv.tracking.TrackedObject()
+    first.length = first.width = first.height = 1.0
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    tracker.tracker.track([first], start)
+    second = rv.tracking.TrackedObject()
+    second.x = 1.0
+    second.length = second.width = second.height = 1.0
+    tracker.tracker.track([second], start + timedelta(seconds=0.1))
+    return max(tracker.tracker.get_tracks(), key=lambda track: track.x).x
+
+  assert 0.0 < first_update(2.0) < first_update(0.2) <= 1.0
+
+
+class _BirthRadiusTracker:
+  def __init__(self, association_config):
+    self.calls = []
+    self.tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+    self.tracker.association_config = normalize_association_config(association_config)
+    self.tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: self.calls.append(kwargs))
+    self.person = SimpleNamespace(name='person', tracking_radius=2.0)
+    self.car = SimpleNamespace(name='car', tracking_radius=10.0)
+
+
+@pytest.mark.parametrize('association_config, expected', [
+  # Absent: as before, the tracking_radius gate for euclidean without max_radius_m, else the 2 m default.
+  ({'method': 'euclidean'}, 6.0),
+  ({'method': 'euclidean', 'max_radius_m': 3.0}, rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M),
+  ({'method': 'position_mahalanobis'}, rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M),
+  # Present: that radius for every class, also for euclidean without max_radius_m.
+  ({'method': 'euclidean', 'birth_cluster_radius_m': 3.5}, 3.5),
+  ({'method': 'euclidean', 'max_radius_m': 3.0, 'birth_cluster_radius_m': 3.5}, 3.5),
+  ({'method': 'position_mahalanobis', 'birth_cluster_radius_m': 3.5}, 3.5),
+  ({'method': 'position_mahalanobis', 'birth_cluster_radius_m': 0.0}, 0.0),
+])
+def test_birth_cluster_radius_explicit_value_wins(monkeypatch, association_config, expected):
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  harness = _BirthRadiusTracker(association_config)
+  harness.tracker.update_tracks_batched([[harness.person], [harness.car]], 1.0)
+  assert harness.calls[-1]['birth_cluster_radius_m'] == pytest.approx(expected)
+
+
+def test_explicit_birth_cluster_radius_leaves_the_euclidean_gate_on_tracking_radius(monkeypatch):
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  harness = _BirthRadiusTracker({'method': 'euclidean', 'birth_cluster_radius_m': 3.5})
+  harness.tracker.update_tracks_batched([[harness.person], [harness.car]], 1.0)
+  call = harness.calls[-1]
+  assert call['max_radius_m'] == pytest.approx(6.0)
+  assert call['distance_threshold'] == pytest.approx(6.0)
+  assert call['birth_cluster_radius_m'] == pytest.approx(3.5)
+
+
+def test_explicit_birth_cluster_radius_applies_to_a_live_tracker():
+  child = _association_child()
+  tracker = _association_parent({'person': child})
+  tracker.applyAssociationConfig({'method': 'euclidean', 'birth_cluster_radius_m': 3.5})
+  assert tracker.association_config['birth_cluster_radius_m'] == 3.5
+  assert child.association_config['birth_cluster_radius_m'] == 3.5
+
+
+# Bit-exactness: the defaults, and the production values written out, must not change any track by one bit.
+
+@pytest.mark.parametrize('association', list(ASSOCIATIONS))
+@pytest.mark.parametrize('mode', MODES)
+def test_replay_with_production_filter_written_out_is_bit_identical(association, mode):
+  default = replay(association, mode)
+  explicit = replay(association, mode, filter_config=_production_filter())
+  assert len(default) > 100
+  assert explicit == default
+
+
+@pytest.mark.parametrize('association', list(ASSOCIATIONS))
+@pytest.mark.parametrize('mode', MODES)
+def test_replay_with_other_filter_values_differs(association, mode):
+  default = replay(association, mode)
+  assert replay(association, mode, filter_config={'base_measurement_noise': 1.0}) != default
+  assert replay(association, mode, filter_config={'process_noise': 1e-3}) != default

@@ -56,6 +56,59 @@ def _parse_max_radius_m(value, default_max_radius_m):
   return max_radius_m
 
 
+FILTER_CONFIG_KEYS = ("process_noise", "base_measurement_noise", "init_state_covariance")
+
+
+def default_filter_config():
+  """The filter settings of robot_vision's production constants, shared with the Tracker service."""
+  return {
+    "process_noise": rv.tracking.PRODUCTION_PROCESS_NOISE,
+    "base_measurement_noise": rv.tracking.PRODUCTION_MEASUREMENT_NOISE,
+    "init_state_covariance": rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE,
+  }
+
+
+def _parse_number(value, valid):
+  """Return ``value`` as a float when it is a JSON number (not a bool) that passes ``valid``, else None."""
+  if isinstance(value, bool) or not isinstance(value, (int, float)):
+    return None
+  number = float(value)
+  if not math.isfinite(number) or not valid(number):
+    return None
+  return number
+
+
+def normalize_filter_config(filter_config=None):
+  """Return a validated ``filter`` config dict: process_noise (q), base_measurement_noise (r) and
+  init_state_covariance (P0), each a finite number > 0.
+
+  An absent field takes robot_vision's production constant itself (not a parsed copy), so the defaults are
+  bit-identical to the constants. An invalid field is logged and takes its default; a block that is not an object
+  takes all defaults; unknown fields are dropped with a warning.
+  """
+  defaults = default_filter_config()
+  if filter_config is None:
+    return defaults
+  if not isinstance(filter_config, dict):
+    log.error("Invalid filter config in tracker config file: expected an object, got %r; using the defaults",
+              filter_config)
+    return defaults
+  unknown = sorted(str(key) for key in filter_config if key not in FILTER_CONFIG_KEYS)
+  if unknown:
+    log.warning("Ignoring unknown filter config fields: %s", ", ".join(unknown))
+  config = {}
+  for key in FILTER_CONFIG_KEYS:
+    if key not in filter_config:
+      config[key] = defaults[key]
+      continue
+    value = _parse_number(filter_config[key], lambda number: number > 0.0)
+    if value is None:
+      log.error("Invalid filter %s %r: expected a finite number > 0; using %s", key, filter_config[key], defaults[key])
+      value = defaults[key]
+    config[key] = value
+  return config
+
+
 def normalize_association_config(association_config=None):
   """Return a validated association config dict with defaults filled in.
 
@@ -95,6 +148,16 @@ def normalize_association_config(association_config=None):
 
   max_radius_m = _parse_max_radius_m(config.get("max_radius_m"), default_max_radius_m)
   config["max_radius_m"] = max_radius_m
+
+  # Absent: each service keeps its own birth-clustering radius (see IntelLabsTracking._birth_cluster_radius).
+  if "birth_cluster_radius_m" in config:
+    birth_cluster_radius_m = _parse_number(config["birth_cluster_radius_m"], lambda number: number >= 0.0)
+    if birth_cluster_radius_m is None:
+      log.error("Invalid association birth_cluster_radius_m %r: expected a finite number >= 0; "
+                "using the default birth clustering", config["birth_cluster_radius_m"])
+      del config["birth_cluster_radius_m"]
+    else:
+      config["birth_cluster_radius_m"] = birth_cluster_radius_m
   return config
 
 
@@ -268,18 +331,20 @@ class IntelLabsTracking(Tracking):
   # The ignored tracking_radius warning is logged once per tracker and association config, not every frame.
   _ignored_tracking_radius_warned = False
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None, association_config=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None, association_config=None, filter_config=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__(reid_config_data=reid_config_data)
     self.name = name if name is not None else "IntelLabsTracking"
     self.association_config = normalize_association_config(association_config)
+    # Startup-only: read once here, kept for the category trackers this tracker creates.
+    self.filter_config = normalize_filter_config(filter_config)
     # ref_camera_frame_rate is used to determine the frame-based param values
     self.ref_camera_frame_rate = effective_object_update_rate
     tracker_config = rv.tracking.TrackManagerConfig()
 
-    tracker_config.default_process_noise = rv.tracking.PRODUCTION_PROCESS_NOISE
-    tracker_config.default_measurement_noise = rv.tracking.PRODUCTION_MEASUREMENT_NOISE
-    tracker_config.init_state_covariance = rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE
+    tracker_config.default_process_noise = self.filter_config["process_noise"]
+    tracker_config.default_measurement_noise = self.filter_config["base_measurement_noise"]
+    tracker_config.init_state_covariance = self.filter_config["init_state_covariance"]
     tracker_config.motion_models = list(rv.tracking.PRODUCTION_MOTION_MODELS)
 
     if self.check_valid_time_parameters(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
@@ -299,6 +364,7 @@ class IntelLabsTracking(Tracking):
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
     log.info("Association config: {}".format(self.association_config))
+    log.info("Filter config: {}".format(self.filter_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)
     return
 
@@ -417,7 +483,11 @@ class IntelLabsTracking(Tracking):
     }
 
   def _birth_cluster_radius(self):
-    """Radius that groups new detections of different cameras: the tracking_radius gate when association uses it."""
+    """Radius that groups new detections of different cameras: the configured ``birth_cluster_radius_m`` when set,
+    else the tracking_radius gate when association uses it, else the default."""
+    configured = self.association_config.get("birth_cluster_radius_m")
+    if configured is not None:
+      return configured
     if uses_tracking_radius(self.association_config):
       return self.tracking_radius_m
     return rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M

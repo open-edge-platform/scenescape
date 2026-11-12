@@ -21,7 +21,7 @@ from scene_common.reid_constants import REID_PROVENANCE_KEY
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
-from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
+from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config, normalize_filter_config
 from controller.ptz import provider as ptz_provider
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -76,7 +76,8 @@ class Scene(SceneModel):
                time_chunking_rate_fps = DEFAULT_CHUNKING_RATE_FPS,
                suspended_track_timeout_secs = DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS,
                reid_config_data = None,
-               pose_adjustment_config_data = None):
+               pose_adjustment_config_data = None,
+               filter_config = None):
     log.info("NEW SCENE", name, map_file, scale, max_unreliable_time,
              non_measurement_time_dynamic, non_measurement_time_static)
     super().__init__(name, map_file, scale)
@@ -94,6 +95,8 @@ class Scene(SceneModel):
     self.trackerType = None
     self.persist_attributes = {}
     self.association_config = normalize_association_config()
+    # Startup-only: the trackers are built from it here, and rebuilt from it when the timing parameters change.
+    self.filter_config = normalize_filter_config(filter_config)
     self.time_chunking_rate_fps = time_chunking_rate_fps
 
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
@@ -131,7 +134,7 @@ class Scene(SceneModel):
     elif trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_rate_fps, self.suspended_track_timeout_secs, self.reid_config_data)
     self.tracker = self.available_trackers[self.trackerType](
-      *args, association_config=self.association_config)
+      *args, association_config=self.association_config, filter_config=self.filter_config)
     self.tracker.uuid_manager.scene_id = self.name
     return
 
@@ -465,7 +468,8 @@ class Scene(SceneModel):
     scene = cls(data['name'], data.get('map', None), scale_from_data,
                 *tracker_config,
                 reid_config_data=reid_config_data,
-                pose_adjustment_config_data=pose_adjustment_config_data)
+                pose_adjustment_config_data=pose_adjustment_config_data,
+                filter_config=data.get('filter_config', None))
     scene.uid = data['uid']
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)

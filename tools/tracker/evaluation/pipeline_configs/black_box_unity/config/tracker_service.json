@@ -48,7 +48,13 @@
     "non_measurement_time_dynamic_s": 0.8,
     "non_measurement_time_static_s": 1.6,
     "association": {
-      "method": "euclidean"
+      "method": "euclidean",
+      "birth_cluster_radius_m": 2.0
+    },
+    "filter": {
+      "process_noise": 1e-4,
+      "base_measurement_noise": 0.2,
+      "init_state_covariance": 1.0
     }
   },
   "scenes": {

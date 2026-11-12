@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
+#include <rv/tracking/TrackManager.hpp>
 #include <rv/Utils.hpp>
 
 #include <stdexcept>
@@ -30,6 +32,23 @@ enum class AssociationMethod {
 }
 
 /**
+ * @brief Kalman filter settings shared with the Scene Controller (global, read at startup).
+ *
+ * The defaults are robot_vision's production constants, so a config without a filter block runs the
+ * production filter bit for bit.
+ */
+struct FilterConfig {
+    /// Process noise scale q: scales all process noise (see the robot_vision README).
+    double process_noise = rv::tracking::kProductionProcessNoise;
+    /// Measurement noise r: R of every measured component and the initial variance of the measured
+    /// states; the default R of detections without their own.
+    double base_measurement_noise = rv::tracking::kProductionMeasurementNoise;
+    /// P0: the initial velocity variance (also caps the initial acceleration, yaw and yaw-rate
+    /// variances).
+    double init_state_covariance = rv::tracking::kProductionInitStateCovariance;
+};
+
+/**
  * @brief Data association configuration (ADR-0019 Phase 1).
  */
 struct AssociationConfig {
@@ -37,6 +56,9 @@ struct AssociationConfig {
     double gate_probability = kDefaultAssociationGateProbability;
     /// Euclidean: association distance threshold (m). Mahalanobis: hard ceiling (m).
     double max_radius_m = kDefaultAssociationMaxRadiusCeilingM;
+    /// Euclidean radius (m) that groups new detections of one object seen by different cameras;
+    /// independent of method and max_radius_m.
+    double birth_cluster_radius_m = rv::tracking::kDefaultBirthClusterRadiusM;
 
     /// χ² gate for (x,y,z) PositionMahalanobis matching (3 DOF).
     [[nodiscard]] double chi2Threshold() const { return rv::chi2Threshold(gate_probability, 3); }

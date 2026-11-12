@@ -266,7 +266,8 @@ under `tracking.association` in the Tracker service `tracker.json`:
   "association": {
     "method": "position_mahalanobis",
     "gate_probability": 0.99,
-    "max_radius_m": 10.0
+    "max_radius_m": 10.0,
+    "birth_cluster_radius_m": 2.0
   }
 }
 ```
@@ -281,6 +282,7 @@ same values as its `tracker-mahalanobis.json`.
 | `method`           | `position_mahalanobis` (UKF predicted covariance + χ² gate) or `euclidean` (meter gate; the shipped configs)                                                                                                                                                                                                                                                                                                                   | `position_mahalanobis`                                                                                                          |
 | `gate_probability` | χ² gate probability for Mahalanobis: on x, y and z (3 DOF) when the track and the detection both have measured z, on x and y (2 DOF) otherwise. Ignored for Euclidean.                                                                                                                                                                                                                                                         | `0.99`                                                                                                                          |
 | `max_radius_m`     | Euclidean: track↔detection association distance (m); without it, see Euclidean below. Mahalanobis: hard Euclidean **safety ceiling** (m) so a bad track covariance cannot associate arbitrarily far (also keeps the χ² gate from being clipped under long coast). Does **not** set cross-camera birth clustering radius (2 m). Does **not** model multi-camera pose disagreement—that is Phase 2 measurement R (see ADR-0019). | `10.0` for `position_mahalanobis`; for `euclidean` the objects' `tracking_radius` (Scene Controller) or `2.0` (Tracker service) |
+| `birth_cluster_radius_m`| Euclidean radius (m) that groups new detections of one object seen by different cameras into one track; optional, see below. Independent of `method` and `max_radius_m`.                                                                                                                                                                                                                                                       |
 
 **Euclidean:** with `"method": "euclidean"` and no `max_radius_m`, as in the shipped configs,
 association works as before the `association` block: the
@@ -289,15 +291,65 @@ frame's objects (set per object class in the [Object Library](../../other-topics
 the Tracker service on 2 m. With `max_radius_m`, every class uses that gate, births cluster at 2 m,
 and the Scene Controller logs a warning for objects whose `tracking_radius` it ignores.
 
-**Tracker service env overrides** (optional): `TRACKER_ASSOCIATION_METHOD`,
-`TRACKER_ASSOCIATION_GATE_PROBABILITY`, `TRACKER_ASSOCIATION_MAX_RADIUS_M`.
+**Birth clustering:** detections of one new object seen by several cameras start one track when they
+lie within the birth-clustering radius of each other. Without `birth_cluster_radius_m`, the Tracker
+service uses 2 m and the Scene Controller uses the gate described above for `euclidean` without
+`max_radius_m` (the average `tracking_radius`), else 2 m. With `birth_cluster_radius_m`, **the explicit
+value wins**: every class and both services use it, also for `euclidean` without `max_radius_m`, where
+the association gate stays on `tracking_radius`. The Scene Controller applies a changed value to running
+trackers; the Tracker service reads it at startup.
 
-A `gate_probability` outside (0, 1] or a negative or non-finite (`nan`, `inf`) `max_radius_m`
-fails Tracker service startup; the Controller logs an error and uses the default.
+**Tracker service env overrides** (optional): `TRACKER_ASSOCIATION_METHOD`,
+`TRACKER_ASSOCIATION_GATE_PROBABILITY`, `TRACKER_ASSOCIATION_MAX_RADIUS_M`,
+`TRACKER_ASSOCIATION_BIRTH_CLUSTER_RADIUS_M`.
+
+A `gate_probability` outside (0, 1], or a negative or non-finite (`nan`, `inf`) `max_radius_m` or
+`birth_cluster_radius_m`, fails Tracker service startup; the Controller logs an error and uses the
+default (for `birth_cluster_radius_m`: the behaviour without it).
 
 An invalid `method` fails Tracker service startup. The Scene Controller logs an error and uses
 the default `association` block, ignoring the block's other fields, as it does for a block that
 is not a JSON object. Omitting the `association` block uses the defaults above.
+
+## Kalman Filter Settings
+
+The tracker smooths and predicts object motion with a Kalman filter. Its noise settings are global
+(one value for all scenes and categories) and read once at startup; a change needs a restart. They are
+optional: without them both services run the production filter, bit for bit.
+
+Set the `filter` block at the top level of `controller/config/tracker-config.json` (Controller-proper)
+or under `tracking.filter` in the Tracker service `tracker.json`:
+
+```json
+{
+  "filter": {
+    "process_noise": 0.0001,
+    "base_measurement_noise": 0.2,
+    "init_state_covariance": 1.0
+  }
+}
+```
+
+| Field                    | Default  | Meaning                                                                                                                                                                                                                                                                                                                             |
+| ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `process_noise`          | `0.0001` | Process noise scale _q_: how much the object's motion may deviate from the model per second. It scales all process noise: velocity (more along the direction of motion, growing with speed), acceleration, vertical velocity, turn rate and yaw. There is no direct position or size noise. Larger values follow manoeuvres faster and smooth less. |
+| `base_measurement_noise` | `0.2`    | Measurement noise _r_: the variance assumed for every detection component (position, size, yaw), and the initial variance of the measured states. Larger values trust detections less and smooth more.                                                                                                                              |
+| `init_state_covariance`  | `1.0`    | Initial velocity variance _P0_ (m²/s²) of a new track. It sets how fast a track picks up an object that enters already moving, and caps the initial acceleration (0.1), yaw (0.05) and yaw-rate (0.01) variances, so values below 0.1 lower them.                                                                                    |
+
+Every value must be a finite number greater than 0. The Tracker service takes the same values from
+`TRACKER_FILTER_PROCESS_NOISE`, `TRACKER_FILTER_BASE_MEASUREMENT_NOISE` and
+`TRACKER_FILTER_INIT_STATE_COVARIANCE` (environment over config file over default); an invalid value, or
+an unknown field in the block, fails Tracker service startup. The Scene Controller logs an error for an
+invalid field and uses its default; a `filter` block that is not a JSON object is ignored the same way.
+
+The shipped configs have no `filter` block. Treat any change as a tuning step:
+
+- The filter also decides the association gate. With `position_mahalanobis` the gate is the track's
+  predicted covariance plus _r_, so every change to _q_, _r_ or _P0_ moves it as well; with `euclidean`
+  the gate is fixed but the predicted positions it is measured from still change.
+- Change one value at a time and check identity switches and track fragmentation on your own data.
+- The motion models, the shape of the process noise and the filter's internal constants are not
+  configurable.
 
 ## Persisting Object Attributes Across Detection Gaps
 
