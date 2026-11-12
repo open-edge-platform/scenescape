@@ -856,10 +856,12 @@ def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
 
 
 @pytest.fixture(scope="session")
-def _k8s_manager(repo_root, supass, tmp_path_factory, loopback_hosts):
+def _k8s_manager(repo_root, supass, tmp_path_factory, loopback_hosts, _compose_manager):
   """Session-scoped KinD cluster + Helm deployment manager, created on first use."""
   if not _K8S_AVAILABLE:
     pytest.skip("pytest-kubernetes not installed; install with: pip install pytest-kubernetes")
+  if _compose_manager is not None:
+    _compose_manager.teardown()
   manager = K8sManager(repo_root, supass, tmp_path_factory)
   manager.setup()
   yield manager
@@ -1069,11 +1071,17 @@ def pytest_collection_modifyitems(config, items):
   except ImportError:
     profile_order = {}
 
+  def _on_k8s(item):
+    callspec = getattr(item, "callspec", None)
+    return ("_k8s_manager" in item.fixturenames
+            or (callspec is not None and callspec.params.get("_backend_type") == "kubernetes"))
+
+  # Kubernetes tests go last.
   def _sort_key(item):
     spec = _get_item_spec(item)
     if spec is None:
-      return (999, "")
-    return (profile_order.get(spec.profile.name, 998), spec.profile.name)
+      return (_on_k8s(item), 999, "")
+    return (_on_k8s(item), profile_order.get(spec.profile.name, 998), spec.profile.name)
 
   items[:] = sorted(items, key=_sort_key)
 
