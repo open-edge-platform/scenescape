@@ -16,9 +16,13 @@ expiry: configuration changes always go through the Manager, which publishes
 "update" on scenescape/cmd/database — the server subscribes to that topic and
 calls invalidate(), waking the readiness worker for a configuration refresh.
 Meshes and calibrated-camera reasoners are loaded before publishing the new
-snapshot. Unchanged meshes and reasoners are reused after checking mesh content,
-mesh pose and calibration; same-URL mesh replacements are detected. Requests
-retain the last successfully warmed snapshot throughout refreshes and failures.
+snapshot. A mesh that fails to load for one scene is logged and skipped (the
+previous mesh is retained when available); other scenes continue, and AUTO
+falls back to FRUSTUM_ONLY for scenes without a usable mesh. Unchanged meshes
+and reasoners are reused after checking mesh content, mesh pose and
+calibration; same-URL mesh replacements are detected. Requests retain the last
+successfully warmed snapshot throughout refreshes and configuration-store
+failures.
 """
 
 import hashlib

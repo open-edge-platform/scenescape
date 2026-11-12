@@ -44,10 +44,18 @@ the [Observation Processor service README](../../../../../observation_processor/
 
 The unit and loopback gRPC tests are in
 `tests/sscape_tests/observation_processor/`. After setting up the repository test
-environment, run:
+environment, run them with the same `PYTHONPATH` the root unit suite uses for
+the spatial performance libraries:
 
 ```bash
-tests/.venv/bin/python -m pytest tests/sscape_tests/observation_processor -q
+PYTHONPATH="spatial_performance_primitives/frustum_gaussian/python:spatial_performance_primitives${PYTHONPATH:+:$PYTHONPATH}" \
+  tests/.venv/bin/python -m pytest tests/sscape_tests/observation_processor -q
+```
+
+To run the full Scenescape unit suite (includes this package):
+
+```bash
+make run_sscape_unit_suite
 ```
 
 ## Kubernetes

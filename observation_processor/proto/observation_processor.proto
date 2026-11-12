@@ -101,12 +101,14 @@ message BoundingBoxPx {
 }
 
 enum ConditioningMode {
-  // CONDITIONING_MODE_FULL when the scene has a mesh, CONDITIONING_MODE_FRUSTUM_ONLY otherwise.
+  // CONDITIONING_MODE_FULL when a usable GLB mesh is available; otherwise
+  // CONDITIONING_MODE_FRUSTUM_ONLY (including when a declared mesh is missing,
+  // unreadable, or too large).
   CONDITIONING_MODE_AUTO = 0;
   // Frustum Gaussian, then amodal reasoner conditioning against the scene mesh.
   CONDITIONING_MODE_FULL = 1;
   // Frustum Gaussian only; the amodal reasoner is skipped. project_to_map still uses the
-  // scene mesh when the scene has one.
+  // scene mesh when a usable mesh is available.
   CONDITIONING_MODE_FRUSTUM_ONLY = 2;
 }
 

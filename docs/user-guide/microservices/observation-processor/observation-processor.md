@@ -29,10 +29,12 @@ The `mode` field selects the processing path:
 - `FRUSTUM_ONLY`: skip amodal mesh conditioning. Per-detection `project_to_map`
   can still use the mesh when one is available.
 
-The service warms camera geometry and mesh data before reporting ready. Manager
-database-change events schedule cache refreshes; requests continue using the
-last successfully warmed snapshot while a replacement is loading or if a
-refresh fails.
+The service warms camera geometry and mesh data before reporting ready. A mesh
+that fails to load for one scene is logged and skipped (the previous mesh is
+kept when available) so other scenes can still become ready; `AUTO` then uses
+frustum-only for that scene. Manager database-change events schedule cache
+refreshes; requests continue using the last successfully warmed snapshot while
+a replacement is loading or if a configuration-store refresh fails.
 
 ## gRPC API
 
