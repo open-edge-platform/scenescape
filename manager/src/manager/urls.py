@@ -18,6 +18,7 @@ from django.urls import re_path
 from manager import api
 
 urlpatterns = [
+  path('mcp', include('mcp_server.urls')),
   path('admin/', admin.site.urls),
   path('', views.index, name='index'),
   path('<uuid:scene_id>/', views.sceneDetail, name='sceneDetail'),
