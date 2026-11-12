@@ -173,7 +173,7 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 | Item | Detail | Commit / notes |
 |------|--------|----------------|
 | State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | |
-| Process noise | Independent `Q[vz,vz]` | |
+| Process noise | `Q[vz,vz]` scales with `|vz|` like planar along-track with speed (`qVel·(1+\|vz\|)·Δt`); independent of planar heading | |
 | Sticky `z_measured` | Track keeps measured-z once any update measured it (like `orientation_observed`) | |
 | `position_gate` helpers | `PositionGate.hpp`: `gatesZ` / `positionDof` / `positionChi2` / `appendPositionMeasurementRows` / `xyCostScaleForChi2Threshold3` — single XY-vs-XYZ policy for association, birth, UKF rows, and UI windows | |
 | Planar UKF update | `observedMeasurementRows` includes z when the detection measured it **or** the track has never measured z (floor lock); omits z only to protect sticky measured height from later planar ground points | |

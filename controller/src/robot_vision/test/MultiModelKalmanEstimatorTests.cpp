@@ -223,31 +223,35 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
 TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
 {
   // Velocity noise is aligned with the motion (along >> cross), scales linearly with dt and has a floor. CA repeats it
-  // on the acceleration and CTRV adds turn-rate noise; states a model resets to 0 get a small floor. vz gets the
-  // unscaled velocity noise in every model. Position, z and size get no direct noise.
+  // on the acceleration and CTRV adds turn-rate noise; states a model resets to 0 get a small floor. vz uses the same
+  // (1+|speed|) inflation on |vz|. Position, z and size get no direct noise.
   struct Case
   {
     const char *name;
     double processNoise;
     double vx;
     double vy;
+    double inputVz;
     double deltaT;
     double alongX;
     double alongY;
     double along;
     double cross;
-    double vz;
+    double vz; // expected Q[vz,vz]
     double yaw;
     double turnRate; // CTRV only
     double reset;    // states the model resets to 0
   };
   const Case cases[] = {
-    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
-    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
-    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-2, 2e-7, 2e-2, 2e-7},
-    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-9, 1e-4, 1e-9},
+    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-2, 2e-7, 2e-2, 2e-7},
+    {"climbing inflates vertical velocity noise", 1e-4, 0.0, 0.0, 5.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 6e-2, 1e-7, 1e-2,
+     1e-7},
+    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-9, 1e-4, 1e-9},
     {"tiny process noise hits the velocity and turn-rate floor",
      1e-8,
+     0.0,
      0.0,
      0.0,
      0.1,
@@ -269,7 +273,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
     {
       SCOPED_TRACE(std::string(modelName) + ": " + testCase.name);
       const cv::Mat noise = MultiModelKalmanEstimator::processNoiseCov(
-        model, testCase.processNoise, testCase.vx, testCase.vy, testCase.deltaT);
+        model, testCase.processNoise, testCase.vx, testCase.vy, testCase.inputVz, testCase.deltaT);
       const cv::Mat velocityBlock = noise(cv::Rect(idx::Vx, idx::Vx, 2, 2));
       const cv::Mat accelerationBlock = noise(cv::Rect(idx::Ax, idx::Ax, 2, 2));
       const cv::Mat along = (cv::Mat_<double>(2, 1) << testCase.alongX, testCase.alongY);
@@ -322,13 +326,16 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
   {
     double vx = 0.0;
     double vy = 0.0;
+    double vz = 0.0;
     for (size_t i = 0; i < before.size(); ++i)
     {
-      vx += mixing.at<double>(static_cast<int>(i), static_cast<int>(j)) * before[i].vx;
-      vy += mixing.at<double>(static_cast<int>(i), static_cast<int>(j)) * before[i].vy;
+      const double w = mixing.at<double>(static_cast<int>(i), static_cast<int>(j));
+      vx += w * before[i].vx;
+      vy += w * before[i].vy;
+      vz += w * before[i].vz;
     }
     const cv::Mat expected = MultiModelKalmanEstimator::processNoiseCov(
-      config.mMotionModels[j], config.mDefaultProcessNoise, vx, vy, kDeltaT);
+      config.mMotionModels[j], config.mDefaultProcessNoise, vx, vy, vz, kDeltaT);
     EXPECT_LT(cv::norm(run.estimator.mKalmanFilters[j]->getProcessNoiseCov(), expected, cv::NORM_INF), 1e-12)
       << "model " << j;
   }
@@ -342,7 +349,7 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
   const auto state = single.state();
   single.estimator.predict(kDeltaT);
   const cv::Mat expected = MultiModelKalmanEstimator::processNoiseCov(
-    MotionModel::CV, config.mDefaultProcessNoise, state.vx, state.vy, kDeltaT);
+    MotionModel::CV, config.mDefaultProcessNoise, state.vx, state.vy, state.vz, kDeltaT);
   EXPECT_LT(cv::norm(single.estimator.mKalmanFilters[0]->getProcessNoiseCov(), expected, cv::NORM_INF), 1e-12);
 
   // Without a model list the estimator runs CTRV, CV and CA, in that order.
@@ -357,8 +364,8 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
   ASSERT_EQ(defaults.mKalmanFilters.size(), std::size(defaultModels));
   for (size_t i = 0; i < std::size(defaultModels); ++i)
   {
-    const cv::Mat stationary
-      = MultiModelKalmanEstimator::processNoiseCov(defaultModels[i], config.mDefaultProcessNoise, 0.0, 0.0, kDeltaT);
+    const cv::Mat stationary = MultiModelKalmanEstimator::processNoiseCov(defaultModels[i], config.mDefaultProcessNoise,
+                                                                          0.0, 0.0, 0.0, kDeltaT);
     EXPECT_LT(cv::norm(defaults.mKalmanFilters[i]->getProcessNoiseCov(), stationary, cv::NORM_INF), 1e-12)
       << "model " << i;
   }
