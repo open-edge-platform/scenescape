@@ -1,6 +1,12 @@
-# ViPPET and DL Streamer Pipeline Server 2.0 Demo
+# MLOps Flow Demo
 
-This demo shows the Scenescape MLOps flow:
+> **⚠️ Experimental feature.** The MLOps Flow is experimental and supported
+> only with Docker Compose. See
+> [How to Use the MLOps Flow](../../docs/user-guide/other-topics/how-to-use-mlops-flow.md)
+> for the feature reference, and
+> [ADR 12](../../docs/adr/0012-mlops-integration-reuse.md) for its background.
+
+This demo shows the Scenescape MLOps Flow:
 
 1. Author camera pipelines in ViPPET (Visual Pipeline and Platform Evaluation Tool).
 2. Import them into Scenescape with **Sync with ViPPET** on the **Pipelines** page.
@@ -34,7 +40,7 @@ camera streams.
 From the repository root:
 
 ```bash
-make demo-vippet-dlsps2
+make demo-mlops-flow
 ```
 
 The target checks that ViPPET's Docker network and its shared models directory
@@ -43,7 +49,7 @@ it by name once it starts), then:
 
 - deploys Scenescape with
   [compose.scenescape-override.yml](./compose.scenescape-override.yml): the
-  pipeline integration flag (`ENABLE_MLOPS_FLOW=true`), `VIPPET_URL`,
+  MLOps Flow flag (`ENABLE_MLOPS_FLOW=true`), `VIPPET_URL`,
   `DLSPS_URL`, the `web`, `broker` and `ntpserv` services joined to
   ViPPET's network, and the broker published on host port `1883` (TLS; set
   `BROKER_PORT` to change it);
@@ -72,7 +78,7 @@ The defaults can be changed with these variables:
 | `DLSPS_URL`               | `http://dlsps.scenescape.intel.com:8080`                     |
 | `DLSPS2_IMAGE`            | `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-2.0-rc1` |
 | `DLSPS2_REST_SERVER_PORT` | `8080` (host port of the DLSPS REST API)                     |
-| `VIPPET_DLSPS2_RTSP_PORT` | `18554` (ViPPET's own media server already uses `8554`)      |
+| `MLOPS_FLOW_RTSP_PORT`    | `18554` (ViPPET's own media server already uses `8554`)      |
 | `DEMO_REBUILD_IMAGES`     | `true`; set to `false` to skip rebuilding images             |
 
 ## Create the Camera Pipelines in ViPPET
@@ -118,18 +124,17 @@ warning is shown; save the camera again to retry.
 
 ## Without the Feature Flag
 
-Outside this demo the integration is disabled by default. The **Sync with
+Outside this demo the MLOps Flow is disabled by default. The **Sync with
 ViPPET**, **+ New Pipeline**, edit and delete controls and the camera
 **Pipeline** selector are shown greyed out; hovering them explains how to
-enable the integration. Enable it with one of:
+enable the MLOps Flow. Enable it with one of:
 
 - the `--enable-mlops-flow` option of the Manager `webserver` command,
-- `ENABLE_MLOPS_FLOW=true` in the environment of the `web` service,
-- `web.enableMlopsFlow=true` in the Helm chart.
+- `ENABLE_MLOPS_FLOW=true` in the environment of the `web` service.
 
 ## Troubleshooting
 
-- `make demo-vippet-dlsps2` reports a missing network or models directory:
+- `make demo-mlops-flow` reports a missing network or models directory:
   start ViPPET with `make build run`, or set `VIPPET_NETWORK` to the network
   ViPPET runs on (`docker network ls`) and `VIPPET_SHARED_DIR` to
   `<ViPPET directory>/shared`.
@@ -153,7 +158,7 @@ enable the integration. Enable it with one of:
   ```
 
 - ViPPET was restarted while the demo was running: restart the demo
-  (`make demo-vippet-dlsps2-close`, then `make demo-vippet-dlsps2`) so the
+  (`make demo-mlops-flow-close`, then `make demo-mlops-flow`) so the
   Scenescape containers rejoin ViPPET's network.
 
 This override exposes the Scenescape broker and NTP server to all containers on
@@ -172,7 +177,7 @@ issued for `broker.scenescape.intel.com`.
 ## Stop the Demo
 
 ```bash
-make demo-vippet-dlsps2-close
+make demo-mlops-flow-close
 ```
 
 This stops the camera pipelines that Scenescape started, then stops DLSPS, the

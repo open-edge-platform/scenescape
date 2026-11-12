@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# ViPPET + DL Streamer Pipeline Server 2.0 demo: Queuing camera streams.
+# MLOps Flow demo: Queuing camera streams.
 # Used together with ../demo_scenes/Queuing/compose.queuing-video.yml by
-# `make demo-vippet-dlsps2`; see README.md.
+# `make demo-mlops-flow`; see README.md.
 #
 # Keeps only the RTSP loopers (mediaserver + queuing-cams) and makes them
 # reachable from ViPPET's network as rtsp://mediaserver:8554/queuing-cam1 and

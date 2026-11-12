@@ -142,15 +142,15 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
-- `ENABLE_MLOPS_FLOW`: Enables the ViPPET / DLSPS 2.0 pipeline integration (default off). Same as
-  the `webserver --enable-mlops-flow` option, which wins over the variable; Helm `web.enableMlopsFlow`.
-  See [MLOps flow feature flag](#mlops-flow-feature-flag)
+- `ENABLE_MLOPS_FLOW`: Enables the experimental MLOps Flow (ViPPET / DLSPS 2.0 pipeline integration; default
+  off; Docker Compose only, deliberately not exposed in the Helm chart). Same as the
+  `webserver --enable-mlops-flow` option, which wins over the variable.
+  See [MLOps Flow feature flag](#mlops-flow-feature-flag)
 - `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`).
-  Enables **Sync with ViPPET** on the Pipelines page. Passed through Docker Compose
-  (`VIPPET_URL`) and Helm (`web.vippetUrl`); empty disables the feature.
+  Enables **Sync with ViPPET** on the Pipelines page. Passed through Docker Compose; empty
+  disables the feature.
 - `DLSPS_URL`: DL Streamer Pipeline Server 2.0 REST root (e.g. `http://dlsps:8080`). Enables
-  starting/stopping camera pipelines. Passed through Docker Compose (`DLSPS_URL`) and Helm
-  (`web.dlspsUrl`); empty disables the feature.
+  starting/stopping camera pipelines. Passed through Docker Compose; empty disables the feature.
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
@@ -333,7 +333,7 @@ docker compose exec manager python manage.py showmigrations
   `post_delete` signal on `Cam` stops the instance after commit. Deleting a `Pipeline` does not
   call DLSPS. Instances are not reconciled after a DLSPS restart
 
-### MLOps flow feature flag
+### MLOps Flow feature flag
 
 - `settings.ENABLE_MLOPS_FLOW` (from `ENABLE_MLOPS_FLOW`, or `--enable-mlops-flow` exported to
   Apache by `config/webserver-init`) gates the whole Pipelines feature; default off
@@ -343,8 +343,8 @@ docker compose exec manager python manage.py showmigrations
 - Templates read `ENABLE_MLOPS_FLOW` and `MLOPS_FLOW_DISABLED_HINT` from the context processor and
   render greyed controls inside a `.mlops-flow-disabled` wrapper that carries the hint as `title`
 - Tests that exercise the enabled feature use `@override_settings(ENABLE_MLOPS_FLOW=True)`
-- Demo with an external ViPPET + DLSPS 2.0: `make demo-vippet-dlsps2`
-  (`sample_data/vippet_dlsps2/README.md`)
+- MLOps Flow demo with an external ViPPET: `make demo-mlops-flow`
+  (`sample_data/mlops_flow/README.md`)
 
 ### PostgreSQL
 

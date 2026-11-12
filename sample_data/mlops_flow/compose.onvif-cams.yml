@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# ViPPET + DL Streamer Pipeline Server 2.0 demo: virtual ONVIF cameras.
-# Started by `make demo-vippet-dlsps2` together with compose.dlsps2.yml and the
+# MLOps Flow demo: virtual ONVIF cameras.
+# Started by `make demo-mlops-flow` together with compose.dlsps2.yml and the
 # Queuing camera streams; see README.md.
 #
 # Wraps the two Queuing RTSP streams in virtual ONVIF devices
@@ -90,7 +90,7 @@ services:
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
     volumes:
-      - ./sample_data/vippet_dlsps2/schema-proxy.js:/demo/schema-proxy.js:ro
+      - ./sample_data/mlops_flow/schema-proxy.js:/demo/schema-proxy.js:ro
       - ${ONVIF_SCHEMAS_DIR:?set ONVIF_SCHEMAS_DIR to the fetch-onvif-schemas.sh output directory}:/schemas:ro
     user: "1000:1000"
     read_only: true

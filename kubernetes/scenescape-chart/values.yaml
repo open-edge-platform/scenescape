@@ -77,16 +77,6 @@ web:
   # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to:
   # ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
   allowedHosts: ""
-  # Enables the ViPPET / DL Streamer Pipeline Server integration (Pipelines page
-  # and camera pipeline selector) by passing --enable-mlops-flow to Manager.
-  # When false those controls are shown greyed out.
-  enableMlopsFlow: false
-  # ViPPET REST API root including /api/v1 (e.g. http://vippet:7860/api/v1).
-  # Enables "Sync with ViPPET" on the Pipelines page. Empty disables it.
-  vippetUrl: ""
-  # DL Streamer Pipeline Server 2.0 REST root (e.g. http://dlsps:8080).
-  # Enables starting camera pipelines on DLSPS. Empty disables it.
-  dlspsUrl: ""
   # Maximum accepted ptz_calibration quality.reprojection_rms_px, in pixels.
   # Empty keeps the Manager image default (12.0).
   ptzCalibrationResidualThresholdPx: ""

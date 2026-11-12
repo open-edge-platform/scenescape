@@ -5,7 +5,7 @@
 
 ViPPET and DLSPS are called synchronously from the calling request. Callers must be restricted
 to superusers because DLSPS executes the stored GStreamer strings as-is. Nothing here contacts
-ViPPET or DLSPS unless the MLOps flow is enabled (``settings.ENABLE_MLOPS_FLOW``).
+ViPPET or DLSPS unless the MLOps Flow is enabled (``settings.ENABLE_MLOPS_FLOW``).
 """
 
 import re
@@ -46,7 +46,7 @@ class PipelineSyncError(Exception):
 
 
 def mlops_flow_enabled() -> bool:
-  """Return True when Manager runs with the ViPPET / DLSPS integration enabled."""
+  """Return True when Manager runs with the MLOps Flow (ViPPET / DLSPS integration) enabled."""
   return bool(settings.ENABLE_MLOPS_FLOW)
 
 
@@ -138,7 +138,7 @@ def sync_vippet_pipelines(tag_filter: Optional[TagFilter] = None) -> SyncResult:
   skipped without fetching their pipeline string.
 
   Raises:
-    PipelineSyncError: The MLOps flow is disabled, ViPPET is not configured, or its pipeline
+    PipelineSyncError: The MLOps Flow is disabled, ViPPET is not configured, or its pipeline
       list could not be fetched.
   """
   if not mlops_flow_enabled():
@@ -268,7 +268,7 @@ def apply_camera_pipeline(cam_pk: int, *, pipeline_changed: bool) -> List[str]:
 
   The camera row is locked while DLSPS is called so concurrent saves cannot start duplicate
   instances. DLSPS failures never raise; they are logged and returned as user-facing warnings.
-  Does nothing while the MLOps flow is disabled.
+  Does nothing while the MLOps Flow is disabled.
   """
   if not mlops_flow_enabled():
     return []

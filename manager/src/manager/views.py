@@ -136,7 +136,7 @@ class SuperUserCheck(UserPassesTestMixin):
 
 
 class MlopsFlowSuperUserCheck(SuperUserCheck):
-  """Superuser-only pipeline integration views; forbidden while ENABLE_MLOPS_FLOW is off."""
+  """Superuser-only MLOps Flow views; forbidden while ENABLE_MLOPS_FLOW is off."""
 
   def test_func(self):
     return super().test_func() and settings.ENABLE_MLOPS_FLOW

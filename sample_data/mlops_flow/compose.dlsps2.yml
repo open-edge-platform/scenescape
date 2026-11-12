@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# ViPPET + DL Streamer Pipeline Server 2.0 demo: DLSPS 2.0 that runs the camera
-# pipelines Manager starts. Started by `make demo-vippet-dlsps2` together with
+# MLOps Flow demo: DLSPS 2.0 that runs the camera
+# pipelines Manager starts. Started by `make demo-mlops-flow` together with
 # ../demo_scenes/Queuing/compose.queuing-video.yml; paths are relative to the
 # repository root (--project-directory .). See README.md.
 #

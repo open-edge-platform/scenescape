@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# ViPPET + DL Streamer Pipeline Server 2.0 demo: Scenescape side.
-# Merged with docker-compose.yml by `make demo-vippet-dlsps2`; see README.md.
+# MLOps Flow demo: Scenescape side.
+# Merged with docker-compose.yml by `make demo-mlops-flow`; see README.md.
 #
 # ViPPET runs outside this stack (its own `make run`) on the
 # "<ViPPET dir>_default" Docker network. This override:
-#   - enables the pipeline integration in Manager and points it at ViPPET
+#   - enables the MLOps Flow in Manager and points it at ViPPET
 #     (http://vippet:7860, reached by joining ViPPET's network) and at the
 #     demo DLSPS 2.0 from compose.dlsps2.yml (on the Scenescape network);
 #   - joins the broker and NTP server to ViPPET's network, so pipelines that

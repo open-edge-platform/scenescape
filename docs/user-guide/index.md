@@ -153,6 +153,7 @@ Enabling Re-identification <./other-topics/how-to-enable-reidentification.md>
 Enabling Observability (Experimental) <./other-topics/how-to-enable-observability.md>
 Integrating Geti™ AI Models <./other-topics/how-to-integrate-geti-trained-model.md>
 Configuring DL Streamer Video Pipeline <./other-topics/how-to-configure-dlstreamer-video-pipeline.md>
+Using the MLOps Flow (Experimental) <./other-topics/how-to-use-mlops-flow.md>
 Model configuration file format <./other-topics/model-configuration-file-format.md>
 Running License Plate Recognition with 3D Object Detection <./other-topics/how-to-run-LPR-with-3D-object-detection.md>
 Managing Files in Volumes <./other-topics/how-to-manage-files-in-volumes.md>
