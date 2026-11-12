@@ -219,7 +219,36 @@ the existing `unique_detection_count` field in regulated scene messages.
 
 The service uses `REID_DATABASE` (`VDMS` or `QDRANT`), `REID_HOSTNAME`,
 `REID_PORT`, `REID_USE_TLS`, the existing Re-ID certificate variables, and
-`REID_DESCRIPTOR_TTL_SECS`. `REID_COLLECTION_CREATE_TOKEN` and
+`REID_DESCRIPTOR_TTL_SECS`. When retention is enabled, the service purges
+expired descriptors every `REID_PURGE_INTERVAL_SECS` (default `300` seconds);
+the configured TTL of `0` disables retention and scheduled purging. A purge
+failure is logged and the scheduler retries on the next interval without
+blocking the ingest loop.
+
+Optional OpenTelemetry metrics are enabled with `REID_ENABLE_METRICS=true` and
+`REID_METRICS_ENDPOINT`. The export interval is configured by
+`REID_METRICS_EXPORT_INTERVAL_S` (default `60`). Metrics use the
+`reid-service` resource identity and include
+`scenescape_reid_decision_latency` (first track observation through decision),
+`scenescape_reid_backend_query_duration`, and
+`scenescape_reid_backend_write_duration`.
+
+All three histograms record seconds. Backend query and write durations use
+explicit bucket boundaries at `0.001`, `0.005`, `0.01`, `0.025`, `0.05`, `0.1`,
+`0.25`, `0.5`, `1`, `2.5`, `5`, `10`, and `30` seconds. Decision latency uses
+`0.1`, `0.25`, `0.5`, `1`, `1.5`, `2`, `2.5`, `3`, `4`, `5`, `7.5`, `10`,
+`15`, `20`, and `30` seconds, matching the Controller's ReID latency buckets.
+Values above the highest boundary fall into the overflow bucket.
+
+The legacy Controller path still contains its own ReID matcher, direct backend
+access, purge timer, and Controller-named ReID metrics in
+`controller/src/controller/uuid_manager.py` and
+`controller/src/controller/observability/metrics.py`. The service scheduler
+does not by itself complete deployment cutover; disable/remove those Controller
+owners when the live deployment switches fully to `reid-service` to avoid
+duplicate purges and split telemetry.
+
+`REID_COLLECTION_CREATE_TOKEN` and
 `REID_POI_WRITE_TOKEN` enable their respective write operations. `REID_SERVICE_PORT`
 selects the gRPC port and defaults to `50051`.
 

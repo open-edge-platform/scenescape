@@ -15,25 +15,38 @@
 #include "rv/apollo/secure_matrix.hpp"
 #include "rv/tracking/Classification.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
+#include "rv/tracking/PositionGate.hpp"
 
 namespace rv {
 namespace tracking {
 
 constexpr double kDefaultClassBoundValue = 1000.;
+// A track whose position covariance S has det S at or below this is never assigned.
+constexpr double kMinPositionCovarianceDeterminant = 1e-12;
 
 // Legacy (DistanceType::MultiClassEuclidean, MCEMahalanobis); the services do not use it.
 double calculateMulticlassScaledDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   auto conflict = rv::tracking::classification::distance(measurement.classification, track.classification);
 
-  double distance = sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2));
+  double distance = std::sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2)
+                              + pow(measurement.z - track.z, 2));
 
   return distance * (1.0 + conflict);
 }
 
+/// XY when either side is planar (no measured Z): a ground point and a box centre differ in z by the reference, not by
+/// the motion. Full XYZ when both are, so measured stacked floors stay apart.
 double calculateEuclideanDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  return sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2));
+  const double dx = measurement.x - track.x;
+  const double dy = measurement.y - track.y;
+  if (!position_gate::gatesZ(track, measurement))
+  {
+    return std::hypot(dx, dy);
+  }
+  const double dz = measurement.z - track.z;
+  return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 // Legacy Mahalanobis cost (DistanceType::Mahalanobis, MCEMahalanobis); the services do not use it. It returns
@@ -88,6 +101,31 @@ double mahalanobisCostFromCache(const TrackedObject &measurement,
   return 0.5 * std::sqrt(reducedInnovation.dot(cache.covarianceWithoutYawInv * reducedInnovation));
 }
 
+/// XYZ block of the predicted measurement covariance S.
+cv::Matx33d positionCovariance(const TrackedObject &track)
+{
+  static_assert(MeasurementIndex::Y == MeasurementIndex::X + 1 && MeasurementIndex::Z == MeasurementIndex::X + 2,
+                "x, y, z must be adjacent in the measurement vector");
+  return track.predictedMeasurementCov.get_minor<3, 3>(MeasurementIndex::X, MeasurementIndex::X);
+}
+
+/// S^-1 of the position block when S is symmetric positive definite. A singular or indefinite S could give a negative
+/// d^2 that passes any gate and wins the assignment; LU alone would still invert a near-singular one.
+bool invertPositionCovariance(const cv::Matx33d &S, cv::Mat &Sinv)
+{
+  if (!cv::checkRange(S))
+  {
+    return false;
+  }
+  // Sylvester: SPD iff the leading principal minors are positive; the last one keeps the near-singular floor.
+  const double minor2 = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
+  if (S(0, 0) <= 0.0 || minor2 <= 0.0 || cv::determinant(S) <= kMinPositionCovarianceDeterminant)
+  {
+    return false;
+  }
+  return cv::invert(S, Sinv, cv::DECOMP_LU) != 0;
+}
+
 } // namespace
 
 // One pair, for tests; match() builds the cache once per track.
@@ -96,80 +134,112 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
   return mahalanobisCostFromCache(measurement, track, buildMahalanobisTrackCache(track));
 }
 
-namespace {
-
-/// Invert the 2x2 position block of S when it is symmetric positive definite.
-/// Rejects singular, indefinite, and negative-definite matrices: inverting those can yield a
-/// negative d^2 that always passes any chi-squared gate and is preferred by Hungarian.
-bool invertPositionCovariance(double s00, double s01, double s11, double &inv00, double &inv01, double &inv11)
-{
-  if (!std::isfinite(s00) || !std::isfinite(s01) || !std::isfinite(s11))
-  {
-    return false;
-  }
-  // Sylvester: SPD iff s00 > 0 and det > 0. Keep the same near-singular floor as before.
-  const double det = s00 * s11 - s01 * s01;
-  if (s00 <= 0.0 || det <= 1e-12)
-  {
-    return false;
-  }
-  inv00 = s11 / det;
-  inv01 = -s01 / det;
-  inv11 = s00 / det;
-  return true;
-}
-
-} // namespace
-
 // Unused: match() costs PositionMahalanobis with the per-track cache below.
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  const double pred_x = track.predictedMeasurementMean(0);
-  const double pred_y = track.predictedMeasurementMean(1);
+  const double pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
+  const double pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
+  const double pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
   const double dx = measurement.x - pred_x;
   const double dy = measurement.y - pred_y;
+  const double dz = measurement.z - pred_z;
 
-  double inv00 = 0.0;
-  double inv01 = 0.0;
-  double inv11 = 0.0;
-  if (!invertPositionCovariance(track.predictedMeasurementCov(0, 0), track.predictedMeasurementCov(0, 1),
-                                track.predictedMeasurementCov(1, 1), inv00, inv01, inv11))
+  const cv::Matx33d S = positionCovariance(track);
+
+  cv::Mat Sinv;
+  if (!invertPositionCovariance(S, Sinv))
   {
     return kDefaultClassBoundValue;
   }
 
-  return dx * (inv00 * dx + inv01 * dy) + dy * (inv01 * dx + inv11 * dy);
+  const double inv00 = Sinv.at<double>(0, 0);
+  const double inv01 = Sinv.at<double>(0, 1);
+  const double inv02 = Sinv.at<double>(0, 2);
+  const double inv11 = Sinv.at<double>(1, 1);
+  const double inv12 = Sinv.at<double>(1, 2);
+  const double inv22 = Sinv.at<double>(2, 2);
+
+  return dx * (inv00 * dx + inv01 * dy + inv02 * dz)
+       + dy * (inv01 * dx + inv11 * dy + inv12 * dz)
+       + dz * (inv02 * dx + inv12 * dy + inv22 * dz);
 }
 
 namespace {
 
-/// Per-track constants for PositionMahalanobis cost fill (S^{-1} is fixed for the frame).
+/// Per-track constants for PositionMahalanobis cost fill (S^{-1} is fixed for the frame): the inverse of the x/y/z
+/// block for pairs that both measured z, and of the x/y block for the others.
 struct PositionMahalanobisTrackCache
 {
   double pred_x = 0.0;
   double pred_y = 0.0;
+  double pred_z = 0.0;
   double inv00 = 0.0;
   double inv01 = 0.0;
+  double inv02 = 0.0;
   double inv11 = 0.0;
+  double inv12 = 0.0;
+  double inv22 = 0.0;
   bool valid = false;
+  double invXy00 = 0.0;
+  double invXy01 = 0.0;
+  double invXy11 = 0.0;
+  bool validXy = false;
+  bool z_measured = false;
 };
 
 PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
 {
   PositionMahalanobisTrackCache cache;
-  cache.pred_x = track.predictedMeasurementMean(0);
-  cache.pred_y = track.predictedMeasurementMean(1);
-  cache.valid = invertPositionCovariance(track.predictedMeasurementCov(0, 0), track.predictedMeasurementCov(0, 1),
-                                         track.predictedMeasurementCov(1, 1), cache.inv00, cache.inv01, cache.inv11);
+  cache.pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
+  cache.pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
+  cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
+  cache.z_measured = track.z_measured;
+
+  const cv::Matx33d S = positionCovariance(track);
+
+  // x/y block: SPD with det S_xy above the floor, as the 2x2 gate before z tracking.
+  const double detXy = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
+  if (std::isfinite(S(0, 0)) && std::isfinite(S(0, 1)) && std::isfinite(S(1, 1)) && S(0, 0) > 0.0
+      && detXy > kMinPositionCovarianceDeterminant)
+  {
+    cache.invXy00 = S(1, 1) / detXy;
+    cache.invXy01 = -S(0, 1) / detXy;
+    cache.invXy11 = S(0, 0) / detXy;
+    cache.validXy = true;
+  }
+
+  cv::Mat Sinv;
+  if (!invertPositionCovariance(S, Sinv))
+  {
+    return cache;
+  }
+  cache.inv00 = Sinv.at<double>(0, 0);
+  cache.inv01 = Sinv.at<double>(0, 1);
+  cache.inv02 = Sinv.at<double>(0, 2);
+  cache.inv11 = Sinv.at<double>(1, 1);
+  cache.inv12 = Sinv.at<double>(1, 2);
+  cache.inv22 = Sinv.at<double>(2, 2);
+  cache.valid = true;
   return cache;
 }
 
-double positionMahalanobisCostFromCache(double measurement_x, double measurement_y,
-                                        const PositionMahalanobisTrackCache &cache, double max_radius_m)
+/// Cost against match()'s single threshold chi2(p, 3). When position_gate::gatesZ is false, d² is on x/y only and
+/// scaled by xy_scale so both subspaces pass at the same p (see position_gate::xyCostScaleForChi2Threshold3).
+double positionMahalanobisCostFromCache(const TrackedObject &measurement, const PositionMahalanobisTrackCache &cache,
+                                        double max_radius_m, double xy_scale)
 {
-  const double dx = measurement_x - cache.pred_x;
-  const double dy = measurement_y - cache.pred_y;
-  if (std::hypot(dx, dy) > max_radius_m)
+  const double dx = measurement.x - cache.pred_x;
+  const double dy = measurement.y - cache.pred_y;
+  if (!position_gate::gatesZ(cache.z_measured, measurement.z_measured))
+  {
+    if (std::hypot(dx, dy) > max_radius_m || !cache.validXy)
+    {
+      return kDefaultClassBoundValue;
+    }
+    return xy_scale * (cache.invXy00 * dx * dx + 2.0 * cache.invXy01 * dx * dy + cache.invXy11 * dy * dy);
+  }
+  const double dz = measurement.z - cache.pred_z;
+  if (std::sqrt(dx * dx + dy * dy + dz * dz) > max_radius_m)
   {
     return kDefaultClassBoundValue;
   }
@@ -177,7 +247,9 @@ double positionMahalanobisCostFromCache(double measurement_x, double measurement
   {
     return kDefaultClassBoundValue;
   }
-  return dx * (cache.inv00 * dx + cache.inv01 * dy) + dy * (cache.inv01 * dx + cache.inv11 * dy);
+  return dx * (cache.inv00 * dx + cache.inv01 * dy + cache.inv02 * dz)
+       + dy * (cache.inv01 * dx + cache.inv11 * dy + cache.inv12 * dz)
+       + dz * (cache.inv02 * dx + cache.inv12 * dy + cache.inv22 * dz);
 }
 
 } // namespace
@@ -216,7 +288,10 @@ void match(const std::vector<TrackedObject> &tracks,
 
   if (distanceType == DistanceType::PositionMahalanobis)
   {
-    // Invert the 2x2 position covariance once per track, not once per (track, detection).
+    // threshold is chi2(p, 3); x/y-only pairs are scaled to the same p.
+    const double xy_scale = position_gate::xyCostScaleForChi2Threshold3(threshold);
+
+    // Invert the 3x3 position covariance once per track, not once per (track, detection).
     std::vector<PositionMahalanobisTrackCache> track_caches(tracks.size());
     for (size_t i = 0; i < tracks.size(); ++i)
     {
@@ -228,8 +303,8 @@ void match(const std::vector<TrackedObject> &tracks,
     {
       for (size_t j = 0; j < measurements.size(); ++j)
       {
-        (*costMatrix)(i, j) = positionMahalanobisCostFromCache(
-          measurements[j].x, measurements[j].y, track_caches[i], max_radius_m);
+        (*costMatrix)(i, j)
+          = positionMahalanobisCostFromCache(measurements[j], track_caches[i], max_radius_m, xy_scale);
       }
     }
   }
@@ -262,6 +337,7 @@ void match(const std::vector<TrackedObject> &tracks,
       case DistanceType::MultiClassEuclidean:
         distanceFunction = std::bind(&calculateMulticlassScaledDistance, std::placeholders::_1, std::placeholders::_2);
         break;
+      case DistanceType::EuclideanBirth:
       case DistanceType::Euclidean:
       default:
         distanceFunction = [max_radius_m](const TrackedObject &measurement, const TrackedObject &track) {
