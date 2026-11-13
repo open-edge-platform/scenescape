@@ -787,15 +787,8 @@ class _ComposeManager:
     self._current_gen = None  # active _compose_lifecycle generator
     self._failed_profiles = {}  # profile name -> exception message
 
-  def get_env(self, profile, visibility_topic="regulated", fresh=False):
-    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed.
-
-    When *fresh* is True the currently running stack is always torn down and
-    a brand-new stack is started, even if the requested profile matches the
-    active one. This reproduces the pristine single-test condition for tests
-    that are sensitive to resource accumulation in the long-lived shared
-    stack (e.g. WebGL/3D UI tests).
-    """
+  def get_env(self, profile, visibility_topic="regulated"):
+    """Return a ScenescapeEnv for *profile*, reusing or restarting as needed."""
     profile_key = f"{profile.name}:{visibility_topic}"
     if profile_key in self._failed_profiles:
       pytest.fail(
@@ -803,7 +796,7 @@ class _ComposeManager:
         f"{self._failed_profiles[profile_key]}"
       )
 
-    if self._current_profile_name == profile_key and not fresh:
+    if self._current_profile_name == profile_key:
       return self._current_env
 
     self._stop_current()
@@ -856,15 +849,12 @@ def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
 
 
 @pytest.fixture(scope="session")
-def _k8s_manager(repo_root, supass, tmp_path_factory, request, loopback_hosts):
-  """Session-scoped KinD cluster + Helm deployment manager."""
-  backend = request.config.getoption("--backend")
-  if backend not in ("kubernetes", "all"):
-    yield None
-    return
+def _k8s_manager(repo_root, supass, tmp_path_factory, loopback_hosts, _compose_manager):
+  """Session-scoped KinD cluster + Helm deployment manager, created on first use."""
   if not _K8S_AVAILABLE:
-    yield None
-    return
+    pytest.skip("pytest-kubernetes not installed; install with: pip install pytest-kubernetes")
+  if _compose_manager is not None:
+    _compose_manager.teardown()
   manager = K8sManager(repo_root, supass, tmp_path_factory)
   manager.setup()
   yield manager
@@ -936,10 +926,6 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
   Each test that needs an environment must explicitly request this fixture.
   It reads SCENESCAPE_SPEC from the test module to determine which profile
   to activate.
-
-  On teardown the database is automatically restored from the baseline
-  snapshot so that every test starts and ends with an identical
-  environment regardless of what it created or deleted during execution.
   """
   # When --env-profiles is active, _env_matrix_setup parametrizes a per-profile
   # FuncTestSpec into callspec.params; prefer that over the module-level default.
@@ -974,11 +960,7 @@ def scenescape_env(request, _compose_manager, secrets_dir, supass,
       pytest.skip("python-on-whales not installed; run from host venv")
     if _compose_manager is None:
       pytest.skip("Docker Compose manager not available")
-    # Tests marked @pytest.mark.fresh_stack get a brand-new stack so they run
-    # against a pristine environment rather than a long-lived stack.
-    fresh = request.node.get_closest_marker("fresh_stack") is not None
-    env = _compose_manager.get_env(
-      spec.profile, _spec_visibility_topic(spec), fresh=fresh)
+    env = _compose_manager.get_env(spec.profile, _spec_visibility_topic(spec))
     _inject_options(request.config, spec, secrets_dir, supass, env=env)
 
   yield env
@@ -1033,6 +1015,8 @@ def pytest_generate_tests(metafunc):
     return
 
   backend = metafunc.config.getoption("--backend")
+  if metafunc.definition.get_closest_marker("kubernetes_only"):
+    backend = "kubernetes"
   if backend == "all":
     if "_backend_type" not in metafunc.fixturenames:
       metafunc.fixturenames.append("_backend_type")
@@ -1063,14 +1047,6 @@ def pytest_collection_modifyitems(config, items):
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
 
-  # Skip kubernetes_only tests when backend is docker-only.
-  backend = config.getoption("--backend")
-  if backend == "docker":
-    skip_k8s = pytest.mark.skip(reason="kubernetes-only test (--backend=docker)")
-    for item in items:
-      if item.get_closest_marker("kubernetes_only"):
-        item.add_marker(skip_k8s)
-
   # Always sort by profile so _ComposeManager only restarts the stack on profile
   # transitions.  Use PROFILE_REGISTRY order when available so --env-profiles
   # matrix parametrisation runs in a predictable sequence.
@@ -1080,11 +1056,17 @@ def pytest_collection_modifyitems(config, items):
   except ImportError:
     profile_order = {}
 
+  def _on_k8s(item):
+    callspec = getattr(item, "callspec", None)
+    return ("_k8s_manager" in item.fixturenames
+            or (callspec is not None and callspec.params.get("_backend_type") == "kubernetes"))
+
+  # Kubernetes tests go last.
   def _sort_key(item):
     spec = _get_item_spec(item)
     if spec is None:
-      return (999, "")
-    return (profile_order.get(spec.profile.name, 998), spec.profile.name)
+      return (_on_k8s(item), 999, "")
+    return (_on_k8s(item), profile_order.get(spec.profile.name, 998), spec.profile.name)
 
   items[:] = sorted(items, key=_sort_key)
 
@@ -1175,7 +1157,6 @@ def pytest_runtest_logreport(report):
 def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
   config.addinivalue_line("markers", "kubernetes_only: test only runs with --backend=kubernetes or --backend=all")
-  config.addinivalue_line("markers", "fresh_stack: start a brand-new compose stack for this test instead of reusing the shared one")
 
 
 # ---------------------------------------------------------------------------

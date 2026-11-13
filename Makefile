@@ -401,8 +401,8 @@ build-sources-image: sources.Dockerfile
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
 		--build-arg no_proxy=$(no_proxy) \
-		--rm -t $(SOURCES_IMAGE):$(VERSION) . \
-	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
+		--rm -t intel/$(SOURCES_IMAGE):$(VERSION) . \
+	&& docker tag intel/$(SOURCES_IMAGE):$(VERSION) intel/$(SOURCES_IMAGE):latest
 	@echo "DONE ==> Building the image with 3rd party sources"
 
 # ======================= Model Installer ============================
@@ -427,6 +427,10 @@ SPATIAL_PERFORMANCE_PYTHONPATH := \
 UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
 	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
 UNIT_TEST_EXTRA_ARGS ?=
+RV_DIR := $(CURDIR)/controller/src/robot_vision
+RV_BUILD_STAMP := $(CURDIR)/tests/.venv/.robot_vision.built
+RV_BUILD_INPUTS := $(RV_DIR)/include $(RV_DIR)/src $(RV_DIR)/python $(RV_DIR)/cmake \
+	$(RV_DIR)/CMakeLists.txt $(RV_DIR)/pyproject.toml
 
 .PHONY: setup-tests
 setup-tests: init-secrets .env setup-pytest build-common
@@ -454,14 +458,17 @@ setup-pytest:
 		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
 			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
 	fi
-	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
+	@if [ ! -f "$(RV_BUILD_STAMP)" ] \
+		|| [ -n "$$(find $(RV_BUILD_INPUTS) -type d -name __pycache__ -prune -o -newer "$(RV_BUILD_STAMP)" -print -quit)" ] \
+		|| ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
 		for pkg in libopencv-dev libeigen3-dev; do \
 			dpkg -s $$pkg > /dev/null 2>&1 || { echo "ERROR: $$pkg is required to build robot_vision. See tests/README.md for installation instructions."; exit 1; }; \
 		done; \
 		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
-			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
+			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(RV_DIR) \
+			&& touch $(RV_BUILD_STAMP); \
 	fi
 	@FF_LOCATIONS="$$(which -a firefox 2>/dev/null || true)"; \
 	if [ -z "$$FF_LOCATIONS" ]; then \
@@ -648,51 +655,15 @@ GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$
 
 .PHONY: run_metric_tests
 run_metric_tests: setup-tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running metric tests..."
-	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
+	@echo "Running metric tests (black-box evaluation suite)..."
+	@mkdir -p $(TEST_DATA)/smoke tests/reports/test_reports
+	@LOGFILE=$(TEST_DATA)/smoke/black-box-metric-$(shell date -u +"%F-%T").log ; \
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) -s $(GENERATE_JUNITXML) \
+		tests/system/metric/test_black_box_evaluation.py \
+		-o junit_suite_name=black-box-metric | tee -i $$LOGFILE \
+	|| (echo "Metric tests failed" && exit 1)
 	@echo "DONE ==> Running metric tests"
-
-.PHONY: _run_metric_tests
-_run_metric_tests: idc-error-metric msoce-metric velocity-metric
-
-define metric-recipe =
-	$(eval TEST_SCRIPT=$1)
-	$(eval TEST_SUITE=$2)
-	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING METRIC TEST $@ \
-	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
-		METRIC="--metric $3" ; \
-		THRESHOLD="--threshold $4" ; \
-		FRAME_RATE="--camera_frame_rate $5" \
-	  ; fi \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; $(PYTEST) -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-			$${METRIC} $${THRESHOLD} $${FRAME_RATE} \
-			-o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-endef
-
-.PHONY: distance-msoce
-distance-msoce: # NEX-T10524
-	$(call metric-recipe, tests/system/metric/test_distance_thresh.py, distance-threshold)
-
-.PHONY: idc-error-metric
-idc-error-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
-
-.PHONY: msoce-metric
-msoce-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
-
-.PHONY: velocity-metric
-velocity-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
 # ============================= Lint ==================================
 

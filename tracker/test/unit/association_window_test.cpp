@@ -12,8 +12,10 @@
 namespace tracker {
 namespace {
 
-rv::tracking::TrackedObject trackWithPositionCovariance(double s00, double s01, double s11) {
+rv::tracking::TrackedObject trackWithPositionCovariance(double s00, double s01, double s11,
+                                                        bool z_measured = false) {
     rv::tracking::TrackedObject track;
+    track.z_measured = z_measured;
     track.predictedMeasurementCov = rv::tracking::TrackedObject::MeasurementMatrix::eye();
     track.predictedMeasurementCov(0, 0) = s00;
     track.predictedMeasurementCov(0, 1) = s01;
@@ -48,8 +50,8 @@ TEST(AssociationWindowTest, EuclideanIsCircleOfMaxRadius) {
 }
 
 TEST(AssociationWindowTest, MahalanobisEllipseFollowsRotatedCovariance) {
-    // S_xy = R(angle) diag(4, 1) R(angle)^T: semi-axes sqrt(chi2 * 4) and sqrt(chi2 * 1), major
-    // axis at angle.
+    // S_xy = R(angle) diag(4, 1) R(angle)^T: semi-axes sqrt(chi2(p, 2) * 4) and sqrt(chi2(p, 2) *
+    // 1), major axis at angle.
     const double chi2 = rv::chi2Threshold(0.95, 2);
     for (const double degrees : {0.0, 30.0, 90.0, -60.0, 135.0}) {
         SCOPED_TRACE(degrees);
@@ -90,6 +92,21 @@ TEST(AssociationWindowTest, MahalanobisClampsNegativeEigenvaluesToZero) {
     EXPECT_DOUBLE_EQ(window.semi_minor_m.value(), 0.0);
     EXPECT_NEAR(angleDifferenceModuloPi(window.angle_rad.value(), std::numbers::pi / 4.0), 0.0,
                 1e-9);
+}
+
+TEST(AssociationWindowTest, MahalanobisWindowUsesTheTrackDegreesOfFreedom) {
+    // The XY shadow of the gate: chi2(p, 2) for a track without measured z, whose pairs are gated
+    // on x and y only; chi2(p, 3) once the track has measured z (pairs with a measured-z detection
+    // gate x, y and z).
+    const auto planar = buildAssociationWindow(mahalanobisConfig(0.99),
+                                               trackWithPositionCovariance(1.0, 0.0, 0.25));
+    EXPECT_NEAR(planar.semi_major_m.value(), std::sqrt(rv::chi2Threshold(0.99, 2) * 1.0), 1e-9);
+    EXPECT_NEAR(planar.semi_minor_m.value(), std::sqrt(rv::chi2Threshold(0.99, 2) * 0.25), 1e-9);
+
+    const auto measured = buildAssociationWindow(mahalanobisConfig(0.99),
+                                                 trackWithPositionCovariance(1.0, 0.0, 0.25, true));
+    EXPECT_NEAR(measured.semi_major_m.value(), std::sqrt(rv::chi2Threshold(0.99, 3) * 1.0), 1e-9);
+    EXPECT_NEAR(measured.semi_minor_m.value(), std::sqrt(rv::chi2Threshold(0.99, 3) * 0.25), 1e-9);
 }
 
 TEST(AssociationWindowTest, MahalanobisClipsSemiAxesToMaxRadius) {

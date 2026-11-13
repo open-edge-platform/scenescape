@@ -221,7 +221,7 @@ pytest tests/ui/test_out_of_box.py --backend=kubernetes
 pytest --backend=kubernetes
 
 # Run only tests that require Kubernetes
-pytest -m kubernetes_only --backend=kubernetes
+pytest -m kubernetes_only
 
 # Run all tests against both backends (parametrized)
 pytest --backend=all
@@ -304,9 +304,9 @@ pytest tests/sscape_tests
 
 ## Test markers
 
-| Marker            | Description                                                                       |
-| ----------------- | --------------------------------------------------------------------------------- |
-| `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
+| Marker            | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| `kubernetes_only` | Test always runs against Kubernetes, regardless of `--backend` |
 
 ## Test isolation
 
