@@ -32,6 +32,7 @@ from manager.dlsps import (
   DLSPSNotFoundError,
   PipelineState,
   PipelineStatus,
+  PipelineSummary,
   RestartConfig,
 )
 from manager.models import Cam, PendingDLSPSStop, Pipeline
@@ -488,22 +489,22 @@ def _find_launched_instance(client: DLSPSClient, launch_id: uuid.UUID,
   Instances recorded by a camera other than ``owner_pk`` are never returned.
 
   Raises:
-    DLSPSError: DLSPS could not be queried, or a live instance has no launch command, so the
-      attempt's instance cannot be ruled out.
+    DLSPSError: DLSPS could not be queried, or a live instance has an invalid ID or no launch
+      command, so the attempt's instance cannot be ruled out.
   """
   marker = launch_marker(launch_id)
-  missing_launch_command = None
+  lookup_error = None
   for status in client.list_pipeline_statuses():
     if status.state not in ALIVE_STATES:
       continue
-    try:
-      summary = client.get_pipeline(status.id)
-    except DLSPSNotFoundError:
+    found, error = _live_instance_summary(client, status)
+    if error is not None:
+      lookup_error = error
       continue
-    if summary.launch_command is None:
-      missing_launch_command = status.id
+    if found is None:
       continue
-    if not summary.launch_command.endswith(marker):
+    summary, launch_command = found
+    if not launch_command.endswith(marker):
       continue
     instance_id = _parse_instance_id(summary.id)
     if Cam.objects.filter(dlsps_instance_id=instance_id).exclude(pk=owner_pk).exists():
@@ -511,9 +512,26 @@ def _find_launched_instance(client: DLSPSClient, launch_id: uuid.UUID,
                   "recorded by another camera; not adopting it")
       continue
     return instance_id
-  if missing_launch_command is not None:
-    raise DLSPSError(f"DLSPS reported no launch command for live instance {missing_launch_command}")
+  if lookup_error is not None:
+    raise lookup_error
   return None
+
+
+def _live_instance_summary(
+    client: DLSPSClient, status: PipelineStatus
+    ) -> Tuple[Optional[Tuple[PipelineSummary, str]], Optional[DLSPSError]]:
+  """Fetch a live instance, retaining inconclusive ID or missing-command errors for the scan."""
+  try:
+    status_id = _parse_instance_id(status.id)
+  except DLSPSError as e:
+    return None, e
+  try:
+    summary = client.get_pipeline(status_id)
+  except DLSPSNotFoundError:
+    return None, None
+  if summary.launch_command is None:
+    return None, DLSPSError(f"DLSPS reported no launch command for live instance {status.id}")
+  return (summary, summary.launch_command), None
 
 
 def _parse_instance_id(value: str) -> uuid.UUID:

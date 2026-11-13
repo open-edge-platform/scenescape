@@ -834,6 +834,52 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TransactionTestCase):
     self.dlsps.create_pipeline.assert_called_once()
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
+  def test_unanswered_start_with_malformed_live_id_warns_and_preserves_intent(self):
+    camera = self.make_camera(pipeline=self.first, scene=self.scene)
+    self.fail_start_without_creating()
+    reconcile_camera_pipeline(camera.pk)
+    camera.refresh_from_db()
+    intent = (camera.dlsps_launch_id, camera.dlsps_pipeline_digest)
+    self.dlsps.list_pipeline_statuses.side_effect = None
+    self.dlsps.list_pipeline_statuses.return_value = [pipeline_status('invalid-id', RUNNING)]
+    with patch('manager.pipeline_runtime.log.error') as error:
+      warnings = self.update_camera(camera, self.first)
+    self.assertIn('could not check whether its last pipeline start reached', warnings[0])
+    self.assertIn('invalid-id', error.call_args.args[0])
+    camera.refresh_from_db()
+    self.assertEqual((camera.dlsps_launch_id, camera.dlsps_pipeline_digest), intent)
+    self.assertTrue(camera.dlsps_start_uncertain)
+    self.dlsps.create_pipeline.assert_called_once()
+    self.dlsps.get_pipeline.assert_not_called()
+    self.dlsps.delete_pipeline.assert_not_called()
+
+  def test_unanswered_start_finds_match_after_malformed_live_id(self):
+    camera = self.make_camera(pipeline=self.first)
+    self.fail_start_without_creating()
+    reconcile_camera_pipeline(camera.pk)
+    self.run_instance_of_launch(camera, NEW_ID)
+    self.dlsps.list_pipeline_statuses.side_effect = None
+    self.dlsps.list_pipeline_statuses.return_value = [
+      pipeline_status('invalid-id', RUNNING), pipeline_status(NEW_ID, RUNNING)]
+    self.assertEqual(reconcile_camera_pipeline(camera.pk), [])
+    self.assertEqual(self.instance_id_of(camera), NEW_ID)
+    self.dlsps.create_pipeline.assert_called_once()
+    self.dlsps.get_pipeline.assert_called_once_with(NEW_ID)
+    self.dlsps.delete_pipeline.assert_not_called()
+
+  def test_unanswered_start_ignores_malformed_terminal_id(self):
+    camera = self.make_camera(pipeline=self.first)
+    self.fail_start_without_creating()
+    reconcile_camera_pipeline(camera.pk)
+    self.dlsps.create_pipeline.side_effect = self._fake_create
+    self.dlsps.list_pipeline_statuses.side_effect = None
+    self.dlsps.list_pipeline_statuses.return_value = [
+      pipeline_status('invalid-id', PipelineState.ABORTED)]
+    self.assertEqual(reconcile_camera_pipeline(camera.pk), [])
+    self.assertEqual(self.instance_id_of(camera), NEW_ID)
+    self.assertEqual(self.dlsps.create_pipeline.call_count, 2)
+    self.dlsps.get_pipeline.assert_not_called()
+
   def test_camera_id_must_be_one_mqtt_topic_level(self):
     for sensor_id in ('cam#1', 'a/b', 'a+b'):
       with self.subTest(sensor_id=sensor_id):
@@ -1086,6 +1132,34 @@ class PipelineLifecycleTests(CameraFixturesMixin, TransactionTestCase):
     entry = PendingDLSPSStop.objects.get()
     self.assertEqual((entry.instance_id, entry.attempts), (None, 1))
     self.dlsps.delete_pipeline.assert_not_called()
+
+  def test_launch_only_pending_stop_is_kept_for_malformed_live_id(self):
+    PendingDLSPSStop.objects.create(launch_id=NEW_ID)
+    self.dlsps.list_pipeline_statuses.side_effect = None
+    self.dlsps.list_pipeline_statuses.return_value = [pipeline_status('invalid-id', RUNNING)]
+    with patch('manager.pipeline_runtime.log.warning') as warning:
+      retry_pending_stops()
+    entry = PendingDLSPSStop.objects.get()
+    self.assertEqual((entry.instance_id, entry.launch_id, entry.attempts), (None, NEW_ID, 1))
+    self.assertIn('invalid-id', warning.call_args.args[0])
+    self.dlsps.get_pipeline.assert_not_called()
+    self.dlsps.delete_pipeline.assert_not_called()
+    self.dlsps.create_pipeline.assert_not_called()
+
+  def test_pending_stop_finds_match_after_malformed_live_id_and_missing_metadata(self):
+    PendingDLSPSStop.objects.create(launch_id=NEW_ID)
+    self.instances[OLD_ID] = (RUNNING, '')
+    target_id = uuid.uuid4()
+    self.instances[target_id] = (RUNNING, '')
+    self.launches[target_id] = 'first ! fakesink' + launch_marker(NEW_ID)
+    self.dlsps.list_pipeline_statuses.side_effect = None
+    self.dlsps.list_pipeline_statuses.return_value = [
+      pipeline_status('invalid-id', RUNNING), pipeline_status(OLD_ID, RUNNING),
+      pipeline_status('terminal-invalid', PipelineState.ABORTED),
+      pipeline_status(target_id, RUNNING)]
+    retry_pending_stops()
+    self.dlsps.delete_pipeline.assert_called_once_with(target_id)
+    self.assertFalse(PendingDLSPSStop.objects.exists())
 
   def test_pending_stop_finds_its_marker_after_missing_launch_metadata(self):
     PendingDLSPSStop.objects.create(launch_id=NEW_ID)

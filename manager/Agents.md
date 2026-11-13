@@ -348,9 +348,9 @@ docker compose exec manager python manage.py showmigrations
   If the worker exits or a start has no usable answer (connection error/timeout, 5xx, invalid
   body), the committed launch id remains (`Cam.dlsps_start_uncertain` is True). The next
   reconcile adopts the live instance whose `launch_command` ends with that marker (never one
-  recorded by another camera). `_find_launched_instance` scans the full list and treats missing
-  metadata as inconclusive only if no match was found. Known rejections (400, 404, 409, 422,
-  or local validation) clear the intent; ambiguous failures do not. A timed-out request may still
+  recorded by another camera). `_find_launched_instance` scans the full list and treats malformed
+  live IDs and missing metadata as inconclusive only if no match was found. Known rejections
+  (400, 404, 409, 422, or local validation) clear the intent; ambiguous failures do not. A timed-out request may still
   reach DLSPS after an empty scan, so a retry can create a duplicate without server-side idempotency.
   Content digests are only for "does the recorded instance run the desired string", never for identity
 - `bind_pipeline_to_camera` tokenizes the launch string (quotes, backslash escapes, `key = value`)
