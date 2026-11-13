@@ -23,6 +23,9 @@ import robot_vision as rv
 
 from tracking_replay import ASSOCIATIONS, MODES, replay
 
+# Real trackers start a UUIDManager timer each; shut them down after every test.
+pytestmark = pytest.mark.usefixtures("shutdown_uuid_managers")
+
 
 def test_normalize_association_config_defaults():
   config = normalize_association_config()
