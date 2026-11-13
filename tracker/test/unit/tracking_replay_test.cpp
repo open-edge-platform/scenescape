@@ -253,12 +253,15 @@ TEST_F(TrackingReplayTest, WritesGoldenWhenRequested) {
         GTEST_SKIP() << "TRACKER_REPLAY_GOLDEN not set";
     }
     std::ofstream golden(path);
+    ASSERT_TRUE(golden.is_open()) << "cannot open " << path;
     for (const auto& [name, config] : {std::pair{"euclidean", euclidean_config()},
                                        std::pair{"position_mahalanobis", mahalanobis_config()}}) {
         for (const auto& line : replay(config)) {
             golden << name << ' ' << line << '\n';
         }
     }
+    golden.close();
+    EXPECT_FALSE(golden.fail()) << "incomplete write to " << path;
 }
 
 } // namespace
