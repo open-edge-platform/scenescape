@@ -15,7 +15,8 @@ from controller.ilabs_tracking import (IntelLabsTracking, _quaternion_to_yaw,
                                        association_match_params,
                                        build_association_window,
                                        normalize_association_config,
-                                       normalize_filter_config)
+                                       normalize_filter_config,
+                                       warn_association_config)
 from scene_common.geometry import Point
 
 import robot_vision as rv
@@ -318,6 +319,49 @@ def test_update_tracks_warns_when_tracking_radius_is_ignored(monkeypatch, associ
   other.tracker = tracker.tracker
   other.update_tracks([car], 5.0)
   assert len(warnings) == (2 if warns else 0)
+
+
+def _capture_logs(monkeypatch):
+  messages = []
+  for level in ('error', 'warning'):
+    monkeypatch.setattr(f'controller.ilabs_tracking.log.{level}', lambda *args: messages.append(args))
+  return messages
+
+
+@pytest.mark.parametrize('emit', [
+  pytest.param(lambda: normalize_association_config({'method': 'euclidean', 'max_radius_m': 'far'}),
+               id='max_radius_m not a number'),
+  pytest.param(lambda: normalize_association_config({'method': 'euclidean', 'max_radius_m': -3.0}),
+               id='max_radius_m negative'),
+  pytest.param(lambda: normalize_association_config({'gate_probability': 'high'}), id='gate_probability not a number'),
+  pytest.param(lambda: normalize_association_config({'gate_probability': 2.0}), id='gate_probability out of range'),
+  pytest.param(lambda: normalize_association_config({'method': 'euclidean', 'birth_cluster_radius_m': -1.0}),
+               id='birth_cluster_radius_m'),
+  pytest.param(lambda: normalize_filter_config('filter'), id='filter not an object'),
+  pytest.param(lambda: normalize_filter_config({'motion_models': ['CV']}), id='filter unknown field'),
+  pytest.param(lambda: normalize_filter_config({'process_noise': -1.0}), id='filter invalid value'),
+  pytest.param(lambda: warn_association_config(
+    normalize_association_config({'method': 'position_mahalanobis', 'max_radius_m': 2.0})),
+               id='tight mahalanobis ceiling'),
+])
+def test_config_diagnostics_are_formatted_before_logging(monkeypatch, emit):
+  # scene_common.log joins its arguments with spaces and does not substitute %s / %r.
+  messages = _capture_logs(monkeypatch)
+  emit()
+  assert messages
+  for args in messages:
+    assert len(args) == 1 and '%' not in args[0], args
+
+
+def test_ignored_tracking_radius_warning_is_formatted_before_logging(monkeypatch):
+  messages = _capture_logs(monkeypatch)
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.association_config = normalize_association_config({'method': 'euclidean', 'max_radius_m': 3.0})
+  tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: None)
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  tracker.update_tracks([SimpleNamespace(name='car', tracking_radius=10.0)], 1.0)
+  assert messages == [
+    ('Object tracking_radius 10.0 is ignored: association.method is euclidean with max_radius_m 3.0',)]
 
 
 @pytest.mark.parametrize("yaw", [
