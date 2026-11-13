@@ -815,23 +815,53 @@ TEST(ObjectMatchingTest, EuclideanGatesZOnlyWhenBothSidesMeasuredIt)
 
 TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithDegenerateCovariance)
 {
-  // |det S| < 1e-12 on the x/y/z block (S_zz = 1 here, so det S_xy) gives the bound cost (1000), so the track is
-  // not assigned below that threshold, not even a detection exactly at the prediction.
+  // A singular or nearly singular S (an axis whose variance given the other axes is below 1e-12 of its own) gives the
+  // bound cost (1000), so the track is not assigned below that threshold, not even a detection exactly at the
+  // prediction. A sharp but well-conditioned S is assigned, whatever its determinant.
   struct Case
   {
     const char *name;
     double s00, s01, s11;
     size_t expected;
   };
-  for (const auto &[name, s00, s01, s11, expected] : {Case{"zero", 0.0, 0.0, 0.0, 0U},
-                                                      Case{"rank one", 1.0, 1.0, 1.0, 0U},
-                                                      Case{"det 1e-14", 1e-7, 0.0, 1e-7, 0U},
-                                                      Case{"det 1e-10", 1e-5, 0.0, 1e-5, 1U}})
+  for (const auto &[name, s00, s01, s11, expected] :
+       {Case{"zero", 0.0, 0.0, 0.0, 0U},
+        Case{"rank one", 1.0, 1.0, 1.0, 0U},
+        Case{"nearly rank one", 1.0, 1.0 - 1e-14, 1.0, 0U},
+        Case{"nearly rank one, small", 1e-4, 1e-4 * (1.0 - 1e-14), 1e-4, 0U},
+        Case{"sharp, det 1e-14", 1e-7, 0.0, 1e-7, 1U},
+        Case{"det 1e-10", 1e-5, 0.0, 1e-5, 1U}})
   {
     SCOPED_TRACE(name);
     EXPECT_EQ(
       assignedCount(makePositionTrack(s00, s01, s11), makePerson(0.0, 0.0), DistanceType::PositionMahalanobis, 100.0),
       expected);
+  }
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGateWithSharpMeasurementNoiseAssignsDetectionAtPrediction)
+{
+  // H P H^T = v I and R = v I give S = 2v I: perfectly conditioned, but det S = 8v^3 is below 1e-12 for v = 1e-5
+  // (x/y/z) and det S_xy = 4v^2 for v = 1e-7 (x/y). A detection at the prediction must be assigned (Copilot review
+  // of #2129).
+  for (const double variance : {1e-5, 1e-7})
+  {
+    for (const bool zMeasured : {true, false})
+    {
+      SCOPED_TRACE(testing::Message() << "variance " << variance << (zMeasured ? ", x/y/z" : ", x/y"));
+      TrackedObject track;
+      track.predictedMeasurementMean = TrackedObject::MeasurementVector::zeros();
+      track.predictedStateMeasurementCov = TrackedObject::MeasurementMatrix::eye() * variance;
+      track.predictedMeasurementCov = TrackedObject::MeasurementMatrix::eye() * (variance + 0.2);
+      track.z_measured = zMeasured;
+      auto detection = makeDetection(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+      detection.z_measured = zMeasured;
+      detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::eye() * variance;
+
+      EXPECT_NEAR(calculatePositionMahalanobisSquaredDistance(detection, track), 0.0, 1e-9);
+      EXPECT_EQ(assignedCount(track, detection, DistanceType::PositionMahalanobis, rv::chi2Threshold(0.99, 3), 10.0),
+                1U);
+    }
   }
 }
 

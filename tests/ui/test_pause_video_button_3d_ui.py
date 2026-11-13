@@ -201,7 +201,6 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
         image_monitor.stop()
     return
 
-@pytest.mark.fresh_stack
 @common.mock_display
 @pytest.mark.test_name("NEX-T10482")
 def test_pause_video_button_3d_ui(scenescape_env, request, result_recorder):

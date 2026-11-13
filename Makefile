@@ -414,6 +414,10 @@ UNIT_COV_CONFIG := $(TESTS_DIR)/config.coveragerc
 UNIT_COV_FAIL_UNDER ?= 70
 UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
 	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
+RV_DIR := $(CURDIR)/controller/src/robot_vision
+RV_BUILD_STAMP := $(CURDIR)/tests/.venv/.robot_vision.built
+RV_BUILD_INPUTS := $(RV_DIR)/include $(RV_DIR)/src $(RV_DIR)/python $(RV_DIR)/cmake \
+	$(RV_DIR)/CMakeLists.txt $(RV_DIR)/pyproject.toml
 
 .PHONY: setup-tests
 setup-tests: init-secrets .env setup-pytest build-common
@@ -441,14 +445,17 @@ setup-pytest:
 		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
 			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
 	fi
-	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
+	@if [ ! -f "$(RV_BUILD_STAMP)" ] \
+		|| [ -n "$$(find $(RV_BUILD_INPUTS) -type d -name __pycache__ -prune -o -newer "$(RV_BUILD_STAMP)" -print -quit)" ] \
+		|| ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
 		for pkg in libopencv-dev libeigen3-dev; do \
 			dpkg -s $$pkg > /dev/null 2>&1 || { echo "ERROR: $$pkg is required to build robot_vision. See tests/README.md for installation instructions."; exit 1; }; \
 		done; \
 		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
-			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
+			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(RV_DIR) \
+			&& touch $(RV_BUILD_STAMP); \
 	fi
 	@FF_LOCATIONS="$$(which -a firefox 2>/dev/null || true)"; \
 	if [ -z "$$FF_LOCATIONS" ]; then \

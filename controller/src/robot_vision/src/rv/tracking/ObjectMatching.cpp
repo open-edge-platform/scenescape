@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <limits>
@@ -21,8 +22,12 @@ namespace rv {
 namespace tracking {
 
 constexpr double kDefaultClassBoundValue = 1000.;
-// A track whose position covariance S has det S at or below this is never assigned.
-constexpr double kMinPositionCovarianceDeterminant = 1e-12;
+// Position covariance S is accepted when every axis keeps more than this fraction of its variance given the axes
+// before it (the LDL^T pivot d_k against S_kk, i.e. 1 - R_k^2). Scale-invariant, unlike a determinant floor, which
+// rejects a sharp but well-conditioned S (2e-5 I has det 8e-15). Otherwise the track is never assigned.
+constexpr double kMinRelativePositionPivot = 1e-12;
+// Smallest accepted variance on a position axis (m^2; 1 nm sigma), so that S^-1 stays finite.
+constexpr double kMinPositionVariance = 1e-18;
 
 // Legacy (DistanceType::MultiClassEuclidean, MCEMahalanobis); the services do not use it.
 double calculateMulticlassScaledDistance(const TrackedObject &measurement, const TrackedObject &track)
@@ -131,21 +136,39 @@ cv::Matx33d positionCovariance(const TrackedObject &measurement, const TrackedOb
   return positionBlock(track.predictedStateMeasurementCov) + positionBlock(*measurement.measurementNoiseCov);
 }
 
+/// Whether the leading size x size block of S is finite, symmetric positive definite and not nearly singular: every
+/// variance exceeds kMinPositionVariance and every LDL^T pivot d_k = minor_k / minor_(k-1) exceeds
+/// kMinRelativePositionPivot * S_kk.
+bool isWellConditionedPositionBlock(const cv::Matx33d &S, int size)
+{
+  for (int row = 0; row < size; ++row)
+  {
+    for (int col = 0; col < size; ++col)
+    {
+      if (!std::isfinite(S(row, col)))
+      {
+        return false;
+      }
+    }
+  }
+  const std::array<double, 4> minors
+    = {1.0, S(0, 0), S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0), size == 3 ? cv::determinant(S) : 0.0};
+  for (int k = 0; k < size; ++k)
+  {
+    const double pivot = minors[k + 1] / minors[k];
+    if (!(S(k, k) > kMinPositionVariance) || !(pivot > kMinRelativePositionPivot * S(k, k)))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
 /// S^-1 of the position block when S is symmetric positive definite. A singular or indefinite S could give a negative
 /// d^2 that passes any gate and wins the assignment; LU alone would still invert a near-singular one.
 bool invertPositionCovariance(const cv::Matx33d &S, cv::Mat &Sinv)
 {
-  if (!cv::checkRange(S))
-  {
-    return false;
-  }
-  // Sylvester: SPD iff the leading principal minors are positive; the last one keeps the near-singular floor.
-  const double minor2 = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
-  if (S(0, 0) <= 0.0 || minor2 <= 0.0 || cv::determinant(S) <= kMinPositionCovarianceDeterminant)
-  {
-    return false;
-  }
-  return cv::invert(S, Sinv, cv::DECOMP_LU) != 0;
+  return isWellConditionedPositionBlock(S, 3) && cv::invert(S, Sinv, cv::DECOMP_LU) != 0;
 }
 
 } // namespace
@@ -188,11 +211,10 @@ PositionMahalanobisTrackCache buildPositionMahalanobisCache(const TrackedObject 
   cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
   cache.z_measured = track.z_measured;
 
-  // x/y block: SPD with det S_xy above the floor, as the 2x2 gate before z tracking.
-  const double detXy = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
-  if (std::isfinite(S(0, 0)) && std::isfinite(S(0, 1)) && std::isfinite(S(1, 1)) && S(0, 0) > 0.0
-      && detXy > kMinPositionCovarianceDeterminant)
+  // x/y block: the same check on the leading 2x2 block.
+  if (isWellConditionedPositionBlock(S, 2))
   {
+    const double detXy = S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0);
     cache.invXy00 = S(1, 1) / detXy;
     cache.invXy01 = -S(0, 1) / detXy;
     cache.invXy11 = S(0, 0) / detXy;
