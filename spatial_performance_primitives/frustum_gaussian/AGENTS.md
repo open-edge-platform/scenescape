@@ -1,7 +1,12 @@
 # frustum-gaussian — AI Agent Guide
 
-This file provides context for AI coding agents working in this repository.
+This file provides context for AI coding agents working in this package.
 Read it before making any changes.
+
+Library scope only: APIs, invariants, and local tests. Service wiring (gRPC,
+Manager, Compose) belongs in
+[docs/design/observation-processor-service.md](../../docs/design/observation-processor-service.md)
+and the Observation Processor user guide — do not restate those here.
 
 ---
 

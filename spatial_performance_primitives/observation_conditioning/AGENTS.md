@@ -3,6 +3,11 @@
 This file provides context for AI coding agents working in this package.
 Read it before making any changes.
 
+Library scope only: APIs, invariants, and local tests. How Observation Processor
+warms meshes, chooses AUTO/FULL/FRUSTUM_ONLY, or serves gRPC is documented in
+[docs/design/observation-processor-service.md](../../docs/design/observation-processor-service.md)
+— do not duplicate service behavior here.
+
 ---
 
 ## What this library is
@@ -40,9 +45,6 @@ Import root is `spatial_performance_primitives/` on `PYTHONPATH`:
 ```python
 from observation_conditioning import AmodalReasoner
 ```
-
-The Observation Processor image copies this directory to
-`/app/observation_conditioning`.
 
 ---
 

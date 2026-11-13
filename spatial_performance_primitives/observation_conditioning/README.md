@@ -5,8 +5,11 @@
 floor contact, occlusion, and walls/backings. The core entry point is the `AmodalReasoner` class:
 you build it once per camera (it bakes a depth map from the mesh), then call `generate()` per frame.
 
-For the math and design, see [`amodal_reasoner_algorithm.md`](amodal_reasoner_algorithm.md). This
-guide is just the "how to run it" summary.
+For the math, see [`amodal_reasoner_algorithm.md`](amodal_reasoner_algorithm.md). Agent edit
+constraints are in [`AGENTS.md`](AGENTS.md). How Observation Processor deploys this package
+(gRPC modes, Manager cache, TLS) is only in the
+[service design doc](../../docs/design/observation-processor-service.md) — do not duplicate it
+here.
 
 ---
 

@@ -4,6 +4,7 @@ A fast C++/Python library that converts 2D bounding box detections and oriented 
 
 > **How it works:** [ALGORITHM.md](ALGORITHM.md) — projection derivation, depth bounds, object modes, pipeline architecture
 > **Performance:** see the summary table under **Benchmarks** below
+> **Service integration:** [Observation Processor design](../../docs/design/observation-processor-service.md) — do not duplicate service contracts here
 
 ## Concept
 
@@ -41,7 +42,7 @@ target_link_libraries(my_target PRIVATE frustum_gaussian_core)
 ```cpp
 #include <frustum_gaussian/frustum.hpp>
 
-fg::Intrinsics K(fx, fy, cx, cy, width, height);benchmarks
+fg::Intrinsics K(fx, fy, cx, cy, width, height);
 fg::ShapePrior prior(0.5f, 0.5f, 1.7f,   // mu_x, mu_y, mu_z (meters)
                      0.1f, 0.1f, 0.15f);  // sigma_x, sigma_y, sigma_z (meters)
 

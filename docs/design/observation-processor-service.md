@@ -18,23 +18,26 @@ SPDX-License-Identifier: Apache-2.0
 
 The **Observation Processor** is the first deployable slice of ADR 13’s
 **Spatial Transform & Projection Service**. It converts one camera frame of 2D
-detections into world-space measurements suitable for the Tracker, using:
-
-- **`frustum_gaussian`** — ray-elongated 3D Gaussian projection from image boxes
-  and category size priors
-- **`observation_conditioning`** (optional) — mesh-aware depth conditioning
-  (floor/shelf contact, occlusion, walls) against a static scene GLB
+detections into world-space measurements suitable for the Tracker, composing
+the vendored `frustum_gaussian` and optional `observation_conditioning`
+libraries (see §5.2).
 
 Static scene, camera, and asset data are resolved out-of-band from the Manager
 REST API. Clients call a unary TLS gRPC RPC (`ProcessDetections`). Compose
 exposes the service under the `observation-processor` profile; Controller
 cutover to this path is not required for the initial landing.
 
-User-facing runbooks live in the
-[Observation Processor user guide](../user-guide/microservices/observation-processor/observation-processor.md)
-and [service README](../../observation_processor/README.md). Algorithm detail
-for the libraries is in
-[`spatial_performance_primitives/`](../../spatial_performance_primitives/).
+### Documentation map (avoid duplication)
+
+| Doc                                                                                                                                                | Owns                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| This design doc                                                                                                                                    | Service boundary, gRPC contract, Manager cache/TLS, rollout vs ADR 13 |
+| [User guide](../user-guide/microservices/observation-processor/observation-processor.md) / [service README](../../observation_processor/README.md) | How to build, run, and call the service                               |
+| [`frustum_gaussian` README / AGENTS / ALGORITHM](../../spatial_performance_primitives/frustum_gaussian/)                                           | Projection kernel API, math, build/test, library invariants           |
+| [`observation_conditioning` README / AGENTS / algorithm](../../spatial_performance_primitives/observation_conditioning/)                           | Amodal mesh conditioning API, math, library invariants                |
+
+Do not restate library algorithms or API examples here; do not restate service
+modes, cache, or TLS in the SPP package docs.
 
 ## 2. Goals
 
@@ -106,14 +109,15 @@ flowchart LR
 
 ### 5.2 Libraries
 
-| Package                    | Role                                                                   |
-| -------------------------- | ---------------------------------------------------------------------- |
-| `frustum_gaussian`         | Undistorted box → ray Gaussian (`project_frustum_batch` + world xform) |
-| `observation_conditioning` | `AmodalReasoner`: condition depth using a baked mesh depth/normal map  |
+Vendored under `spatial_performance_primitives/`. Roles and APIs are defined
+only in those packages:
 
-Both packages are documented for agents and humans under
-`spatial_performance_primitives/*/README.md` and `AGENTS.md`. Math notes:
-`ALGORITHM.md` / `amodal_reasoner_algorithm.md`.
+- [`frustum_gaussian`](../../spatial_performance_primitives/frustum_gaussian/README.md)
+  — 2D box → ray-elongated Gaussian; [AGENTS](../../spatial_performance_primitives/frustum_gaussian/AGENTS.md),
+  [ALGORITHM](../../spatial_performance_primitives/frustum_gaussian/ALGORITHM.md)
+- [`observation_conditioning`](../../spatial_performance_primitives/observation_conditioning/README.md)
+  — optional mesh depth conditioning; [AGENTS](../../spatial_performance_primitives/observation_conditioning/AGENTS.md),
+  [algorithm notes](../../spatial_performance_primitives/observation_conditioning/amodal_reasoner_algorithm.md)
 
 ### 5.3 Conditioning modes
 

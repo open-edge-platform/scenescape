@@ -456,7 +456,7 @@ The `ray` field is rotated (not translated) — it remains a direction vector.
 ## 7. References
 
 - [README](README.md) — quick-start, C++ and Python APIs, build instructions, latency summary
-- Observation Processor service — consumes this library plus `observation_conditioning`
+- [Observation Processor design](../../docs/design/observation-processor-service.md) — service that consumes this library
 - Eigen3 — [https://eigen.tuxfamily.org](https://eigen.tuxfamily.org)
 - Intel oneTBB — [https://github.com/oneapi-src/oneTBB](https://github.com/oneapi-src/oneTBB)
 $$
