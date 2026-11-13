@@ -329,9 +329,12 @@ def _split_drops(metric_values: Dict[str, Dict[str, Any]]) -> Tuple[int, Dict[st
   """Split the drops into message-level drops and per-category drops.
 
   Message-level drops (``rejected_*``, ``fell_behind``, ``ptz_dwell``, or any drop
-  without a category) lose the whole message, so they affect every category.  Per-category
-  drops (:data:`PER_CATEGORY_DROP_REASONS`) lose one category's detections of a message.
-  Counters without a per-category breakdown are taken as message-level.
+  without a category) lose the whole message, but their counters carry no category, so the
+  affected categories are unknown.  They are therefore counted against every category,
+  which makes a category's loss an upper bound when the categories are unevenly spread over
+  the messages (a drop of a message without the category is still counted against it).
+  Per-category drops (:data:`PER_CATEGORY_DROP_REASONS`) lose one category's detections of
+  a message.  Counters without a per-category breakdown are taken as message-level.
 
   Returns:
       ``(message_level, {category: per_category_drops})``.

@@ -373,6 +373,16 @@ class TestCheckDroppedFramesCategories:
     assert result["categories"]["person"]["dropped"] == 32
     assert result["ratio"] == pytest.approx(0.02)
 
+  def test_message_level_drops_are_an_upper_bound_for_a_rare_category(self):
+    # Documented limit: the counter has no category, so one dropped person-only message is
+    # also counted against the rare "car" category, which lost nothing itself.
+    values = self._values({"": {"ptz_dwell": 1}}, messages=1000)
+    result = metrics_recorder.check_dropped_frames(
+        values, inputs_per_category={"person": 990, "car": 10})
+    assert result["categories"]["car"]["ratio"] == pytest.approx(0.1)
+    assert result["worst_category"] == "car"
+    assert result["exceeded"] is True
+
   def test_category_drops_without_inputs_use_the_received_count(self):
     result = metrics_recorder.check_dropped_frames(self._values({"person": {"tracker_busy": 96}}))
     assert result["categories"]["person"]["inputs"] == 1600

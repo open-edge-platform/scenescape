@@ -267,7 +267,10 @@ count and the loss per category, and emits a `WARNING` when the loss of any cate
 Each category has its own work queue and drops independently (`tracker_busy`, `dropped_queue_full`,
 `dropped_max_workers`), so the loss is judged per category: the category's own drops plus the drops
 of whole messages (`rejected_*`, `fell_behind`, `ptz_dwell`), over the messages that category
-received. A category receives messages from its first appearance on: the Controller then dispatches
+received. The counters of whole-message drops carry no category, so they are counted against every
+category: with categories unevenly spread over the messages (for example a rare category) this
+over-reports the loss of the other categories, an upper bound that cannot hide a failure; these
+drops are 0 in the Unity and Wildtrack runs. A category receives messages from its first appearance on: the Controller then dispatches
 only the messages that carry it (and the empty ones), the Tracker Service every message. The warning uses the worst
 category, so one failing category is not hidden by the others. Counters without a per-category
 breakdown fall back to all drops over the received messages: the total of the
