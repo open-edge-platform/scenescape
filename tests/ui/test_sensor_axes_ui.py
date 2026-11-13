@@ -85,10 +85,9 @@ def wait_for_axes_helper_state(browser, sensor_name, predicate, timeout=15.0, po
   return state
 
 
-@pytest.mark.fresh_stack
 @common.mock_display
 @pytest.mark.test_name("NEX-T29213")
-def test_sensor_axes_main(params, result_recorder):
+def test_sensor_axes_main(demo_scene, params, result_recorder):
   """! Checks that a circular perceptual sensor's scene-graph node owns a
   THREE.AxesHelper with a real position, that toggling the sensor visible
   flips the node's visibility, and that deleting the sensor removes the node
