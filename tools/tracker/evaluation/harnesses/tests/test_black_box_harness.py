@@ -996,6 +996,22 @@ class TestCountCategoryInputs:
   def test_no_categories(self):
     assert _count_category_inputs([{"objects": {}}, {}], CONTAINER_TYPE_CONTROLLER) == {}
 
+  @pytest.mark.parametrize("container_type", [CONTAINER_TYPE_CONTROLLER, CONTAINER_TYPE_TRACKER])
+  def test_category_counts_from_its_first_appearance(self, container_type):
+    # Neither service sends messages to a category before it has appeared.
+    frames = [{"objects": {}}] * 990 + [{"objects": {"vehicle": []}}] * 10
+    assert _count_category_inputs(frames, container_type) == {"vehicle": 10}
+
+  def test_controller_skips_non_empty_messages_without_the_category(self):
+    frames = [
+        {"objects": {"person": []}},
+        {"objects": {"car": []}},
+        {"objects": {"person": []}},
+        {"objects": {}},
+    ]
+    assert _count_category_inputs(frames, CONTAINER_TYPE_CONTROLLER) == {"person": 3, "car": 2}
+    assert _count_category_inputs(frames, CONTAINER_TYPE_TRACKER) == {"person": 4, "car": 3}
+
   def test_process_inputs_records_the_category_inputs(
       self, harness, scene_config, tracker_config_file, sample_frames
   ):
@@ -1020,6 +1036,42 @@ class TestCountCategoryInputs:
       list(harness.process_inputs(iter(sample_frames)))
     # sample_frames: person in 2 messages, FW190D in 1, one message without objects.
     assert harness._category_inputs == {"person": 3, "FW190D": 2}
+
+  @pytest.mark.parametrize("camera_order, expected", [
+      (None, 1),
+      (["Cam_x2_0", "Cam_x1_0"], 2),
+  ])
+  def test_category_inputs_follow_the_camera_order_publication_order(
+      self, harness, scene_config, tracker_config_file, camera_order, expected
+  ):
+    """The empty message is counted only when it is published after the category appeared."""
+    frames = [
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x2_0", "timestamp": "2014-09-08T04:00:00.000Z",
+         "objects": {"vehicle": []}},
+    ]
+    harness.set_scene_config(scene_config)
+    config = {
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
+        "container_type": "controller",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+    }
+    if camera_order:
+      config["camera_order"] = camera_order
+    harness.set_custom_config(config)
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"), \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=MagicMock()), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep"):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+    assert harness._category_inputs == {"vehicle": expected}
 
 
 class TestVerifyDroppedFrames:

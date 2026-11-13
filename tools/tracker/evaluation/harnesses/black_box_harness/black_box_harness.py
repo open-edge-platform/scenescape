@@ -342,17 +342,20 @@ def _stagger_offsets(frames: List[Dict[str, Any]], stagger_s: float) -> List[flo
 def _count_category_inputs(frames: List[Dict[str, Any]], container_type: Optional[str]) -> Dict[str, int]:
   """Return how many of *frames* each object category receives, by category.
 
-  The Tracker Service gives every category every message.  The Controller
-  dispatches only the categories a message carries, or all of them when it
-  carries none.
+  *frames* must be in publication order.  A category receives messages only from
+  its first appearance on: the services create its tracker or scope then.  The
+  Tracker Service then gives it every message, the Controller only the messages
+  that carry it and the empty ones.
   """
-  categories = {category for frame in frames for category in frame.get("objects") or {}}
-  if container_type == CONTAINER_TYPE_TRACKER:
-    return {category: len(frames) for category in categories}
-  return {
-      category: sum(1 for frame in frames if not frame.get("objects") or category in frame["objects"])
-      for category in categories
-  }
+  inputs: Dict[str, int] = {}
+  for frame in frames:
+    objects = frame.get("objects") or {}
+    for category in objects:
+      inputs.setdefault(category, 0)
+    for category in inputs:
+      if container_type == CONTAINER_TYPE_TRACKER or not objects or category in objects:
+        inputs[category] += 1
+  return inputs
 
 
 def _merge_outputs_by_timestamp(
@@ -564,7 +567,11 @@ class BlackBoxHarness(TrackerHarness):
 
     try:
       input_frames: List[Dict[str, Any]] = list(inputs)
-      self._category_inputs = _count_category_inputs(input_frames, self._container_type)
+      published_frames = (
+          _sort_by_camera_order(input_frames, self._camera_order)
+          if self._camera_order else input_frames
+      )
+      self._category_inputs = _count_category_inputs(published_frames, self._container_type)
       self._write_inputs(input_frames, tmp_dir)
 
       host_port = self._broker_port if self._broker_port > 0 else _free_port()
