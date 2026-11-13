@@ -21,9 +21,11 @@ from harnesses.black_box_harness.black_box_harness import (
     DEFAULT_DRAIN_TIMEOUT,
     DEFAULT_STARTUP_WAIT,
     _build_tracker_service_config,
+    _count_category_inputs,
     _free_port,
     _merge_outputs_by_timestamp,
     _parse_ts,
+    _stagger_offsets,
 )
 
 REF_CAMERA_FPS = 30  # Reference camera frame rate used in tracker configuration
@@ -810,6 +812,318 @@ class TestFramePacing:
     assert published == ["Cam_x2_0", "Cam_x1_0"], (
         f"Expected input order preserved when no camera_order, got: {published}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Same-timestamp staggering
+# ---------------------------------------------------------------------------
+
+class TestStaggerOffsets:
+  def test_offsets_count_frames_within_a_same_timestamp_run(self):
+    frames = [
+        {"timestamp": "t0"}, {"timestamp": "t0"}, {"timestamp": "t0"},
+        {"timestamp": "t1"}, {"timestamp": "t1"},
+    ]
+    assert _stagger_offsets(frames, 0.03) == pytest.approx([0.0, 0.03, 0.06, 0.0, 0.03])
+
+  def test_zero_stagger_yields_no_offsets(self):
+    frames = [{"timestamp": "t0"}, {"timestamp": "t0"}]
+    assert _stagger_offsets(frames, 0.0) == [0.0, 0.0]
+
+  def test_non_adjacent_equal_timestamps_start_a_new_run(self):
+    frames = [{"timestamp": "t0"}, {"timestamp": "t1"}, {"timestamp": "t0"}]
+    assert _stagger_offsets(frames, 0.03) == [0.0, 0.0, 0.0]
+
+  def test_frames_without_timestamp_are_not_delayed(self):
+    frames = [{"id": "a"}, {"id": "b"}, {"timestamp": "t0"}, {"timestamp": "t0"}]
+    assert _stagger_offsets(frames, 0.03) == pytest.approx([0.0, 0.0, 0.0, 0.03])
+
+  def test_empty_input(self):
+    assert _stagger_offsets([], 0.03) == []
+
+
+class TestStaggerConfig:
+  def _config(self, tracker_config_file, **extra):
+    return {
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
+        "container_type": "controller",
+        **extra,
+    }
+
+  def test_defaults_to_no_stagger(self, harness, tracker_config_file):
+    harness.set_custom_config(self._config(tracker_config_file))
+    assert harness._same_timestamp_stagger_s == 0.0
+
+  def test_converts_milliseconds_to_seconds(self, harness, tracker_config_file):
+    harness.set_custom_config(self._config(tracker_config_file, same_timestamp_stagger_ms=30))
+    assert harness._same_timestamp_stagger_s == pytest.approx(0.03)
+
+  def test_rejects_negative_stagger(self, harness, tracker_config_file):
+    with pytest.raises(ValueError, match="same_timestamp_stagger_ms"):
+      harness.set_custom_config(self._config(tracker_config_file, same_timestamp_stagger_ms=-1))
+
+  def test_reset_clears_stagger_and_category_inputs(self, harness, tracker_config_file):
+    harness.set_custom_config(self._config(tracker_config_file, same_timestamp_stagger_ms=30))
+    harness._category_inputs = {"person": 3}
+    harness.reset()
+    assert harness._same_timestamp_stagger_s == 0.0
+    assert harness._category_inputs == {}
+
+
+class TestStaggeredPublishing:
+  """The k-th frame of a same-timestamp group is published k * stagger after the first."""
+
+  @pytest.fixture(autouse=True)
+  def mock_wait_for_port(self):
+    with patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"):
+      yield
+
+  def _sleeps_for(self, harness, scene_config, tracker_config_file, frames, **extra):
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
+        "container_type": "controller",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+        **extra,
+    })
+    sleeps = []
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=MagicMock()), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep",
+               side_effect=sleeps.append), \
+         patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
+               return_value=0.0):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+    return sleeps
+
+  @pytest.fixture
+  def burst_frames(self):
+    return [
+        {"id": f"cam{i}", "timestamp": "2024-01-01T00:00:00.000Z", "objects": {}}
+        for i in range(3)
+    ]
+
+  def test_same_timestamp_frames_are_spaced_by_the_stagger(
+      self, harness, scene_config, tracker_config_file, burst_frames
+  ):
+    sleeps = self._sleeps_for(
+        harness, scene_config, tracker_config_file, burst_frames, same_timestamp_stagger_ms=30)
+    assert [s for s in sleeps if s == pytest.approx(0.03)] != []
+    assert [s for s in sleeps if s == pytest.approx(0.06)] != []
+
+  def test_no_stagger_publishes_same_timestamp_frames_back_to_back(
+      self, harness, scene_config, tracker_config_file, burst_frames
+  ):
+    sleeps = self._sleeps_for(harness, scene_config, tracker_config_file, burst_frames)
+    assert [s for s in sleeps if 0.0 < s < 0.5] == []
+
+  @pytest.mark.parametrize("late_s", [0.0, 0.1])
+  def test_late_wake_up_keeps_the_group_spaced(
+      self, harness, scene_config, tracker_config_file, late_s
+  ):
+    """A late wake-up delays the group but does not collapse it into a burst."""
+    frames = [
+        {"id": f"cam{i}", "timestamp": ts, "objects": {}}
+        for ts in ("2024-01-01T00:00:00.000Z", "2024-01-01T00:00:00.500Z")
+        for i in range(3)
+    ]
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
+        "container_type": "controller",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+        "same_timestamp_stagger_ms": 30,
+    })
+    clock = [0.0]
+    published = []
+
+    def sleep(duration):
+      # The wake-up before the second group is late; later sleeps are exact.
+      overshoot = late_s if len(published) == 3 else 0.0
+      clock[0] += duration + overshoot
+
+    client = MagicMock()
+    client.publish.side_effect = lambda topic, payload: published.append(clock[0])
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"), \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client", return_value=client), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep", side_effect=sleep), \
+         patch("harnesses.black_box_harness.black_box_harness.time.monotonic",
+               side_effect=lambda: clock[0]):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+
+    first_group, second_group = published[:3], published[3:]
+    assert first_group[1] - first_group[0] == pytest.approx(0.03)
+    assert first_group[2] - first_group[0] == pytest.approx(0.06)
+    assert second_group[0] - first_group[0] == pytest.approx(0.5 + late_s)
+    assert second_group[1] - second_group[0] == pytest.approx(0.03)
+    assert second_group[2] - second_group[0] == pytest.approx(0.06)
+
+
+# ---------------------------------------------------------------------------
+# Dropped-message ratio per category
+# ---------------------------------------------------------------------------
+
+class TestCountCategoryInputs:
+  @pytest.fixture
+  def frames(self):
+    return [
+        {"objects": {"person": [], "FW190D": []}},
+        {"objects": {"person": []}},
+        {"objects": {}},
+    ]
+
+  def test_controller_counts_messages_carrying_the_category_and_empty_messages(self, frames):
+    assert _count_category_inputs(frames, CONTAINER_TYPE_CONTROLLER) == {"person": 3, "FW190D": 2}
+
+  def test_tracker_service_gives_every_category_every_message(self, frames):
+    assert _count_category_inputs(frames, CONTAINER_TYPE_TRACKER) == {"person": 3, "FW190D": 3}
+
+  def test_no_categories(self):
+    assert _count_category_inputs([{"objects": {}}, {}], CONTAINER_TYPE_CONTROLLER) == {}
+
+  @pytest.mark.parametrize("container_type", [CONTAINER_TYPE_CONTROLLER, CONTAINER_TYPE_TRACKER])
+  def test_category_counts_from_its_first_appearance(self, container_type):
+    # Neither service sends messages to a category before it has appeared.
+    frames = [{"objects": {}}] * 990 + [{"objects": {"vehicle": []}}] * 10
+    assert _count_category_inputs(frames, container_type) == {"vehicle": 10}
+
+  def test_controller_skips_non_empty_messages_without_the_category(self):
+    frames = [
+        {"objects": {"person": []}},
+        {"objects": {"car": []}},
+        {"objects": {"person": []}},
+        {"objects": {}},
+    ]
+    assert _count_category_inputs(frames, CONTAINER_TYPE_CONTROLLER) == {"person": 3, "car": 2}
+    assert _count_category_inputs(frames, CONTAINER_TYPE_TRACKER) == {"person": 4, "car": 3}
+
+  def test_process_inputs_records_the_category_inputs(
+      self, harness, scene_config, tracker_config_file, sample_frames
+  ):
+    harness.set_scene_config(scene_config)
+    harness.set_custom_config({
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
+        "container_type": "controller",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+    })
+    sample_frames[0]["objects"]["FW190D"] = []
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"), \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=MagicMock()), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep"):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(sample_frames)))
+    # sample_frames: person in 2 messages, FW190D in 1, one message without objects.
+    assert harness._category_inputs == {"person": 3, "FW190D": 2}
+
+  @pytest.mark.parametrize("camera_order, expected", [
+      (None, 1),
+      (["Cam_x2_0", "Cam_x1_0"], 2),
+  ])
+  def test_category_inputs_follow_the_camera_order_publication_order(
+      self, harness, scene_config, tracker_config_file, camera_order, expected
+  ):
+    """The empty message is counted only when it is published after the category appeared."""
+    frames = [
+        {"id": "Cam_x1_0", "timestamp": "2014-09-08T04:00:00.000Z", "objects": {}},
+        {"id": "Cam_x2_0", "timestamp": "2014-09-08T04:00:00.000Z",
+         "objects": {"vehicle": []}},
+    ]
+    harness.set_scene_config(scene_config)
+    config = {
+        "tracker_config_path": tracker_config_file,
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
+        "container_type": "controller",
+        "drain_timeout": 0.0,
+        "startup_wait_s": 0.0,
+    }
+    if camera_order:
+      config["camera_order"] = camera_order
+    harness.set_custom_config(config)
+    with patch("harnesses.black_box_harness.black_box_harness.docker") as mock_docker, \
+         patch("harnesses.black_box_harness.black_box_harness._wait_for_port"), \
+         patch("harnesses.black_box_harness.black_box_harness._run_mock_manager"), \
+         patch("harnesses.black_box_harness.black_box_harness.mqtt.Client",
+               return_value=MagicMock()), \
+         patch("harnesses.black_box_harness.black_box_harness.time.sleep"):
+      mock_docker.network.create = MagicMock()
+      mock_docker.network.remove = MagicMock()
+      mock_docker.run = MagicMock(return_value=MagicMock())
+      list(harness.process_inputs(iter(frames)))
+    assert harness._category_inputs == {"vehicle": expected}
+
+
+class TestVerifyDroppedFrames:
+  def _values(self, by_category, messages=1600):
+    total = sum(v for reasons in by_category.values() for v in reasons.values())
+    return {
+        "scenescape_controller_mqtt_messages_dropped": {
+            "kind": "sum", "unit": "1",
+            "stats": {"total": total, "by_category": by_category, "delta": {}},
+        },
+        "scenescape_controller_mqtt_messages": {
+            "kind": "sum", "unit": "1", "stats": {"total": messages, "delta": {}},
+        },
+    }
+
+  def _verify(self, harness, values):
+    with patch("harnesses.black_box_harness.black_box_harness.metrics_recorder"
+               ".collect_metric_values", return_value=values):
+      harness._verify_dropped_frames(Path("unused"))
+
+  def test_one_category_over_the_threshold_is_flagged_while_the_other_is_not(self, harness, capsys):
+    # The average of the two categories is 0.97% but FW190D lost 1.19%.
+    harness._category_inputs = {"person": 1600, "FW190D": 1593}
+    self._verify(harness, self._values(
+        {"person": {"tracker_busy": 12}, "FW190D": {"tracker_busy": 19}}))
+    out = capsys.readouterr().out
+    assert "Dropped messages: 31 counted; loss per category: " \
+           "FW190D 1.19% of 1593, person 0.75% of 1600 messages" in out
+    assert "WARNING" in out
+    assert "of category FW190D 1.19%" in out
+
+  def test_all_categories_below_the_threshold_is_not_flagged(self, harness, capsys):
+    harness._category_inputs = {"person": 1600, "FW190D": 1600}
+    self._verify(harness, self._values(
+        {"person": {"tracker_busy": 4}, "FW190D": {"tracker_busy": 8}}))
+    out = capsys.readouterr().out
+    assert "FW190D 0.50% of 1600, person 0.25% of 1600" in out
+    assert "WARNING" not in out
+
+  def test_without_category_data_prints_the_overall_ratio(self, harness, capsys):
+    values = {
+        "scenescape_controller_mqtt_messages_dropped": {
+            "kind": "sum", "unit": "1", "stats": {"total": 50, "delta": {}},
+        },
+        "scenescape_controller_mqtt_messages": {
+            "kind": "sum", "unit": "1", "stats": {"total": 1000, "delta": {}},
+        },
+    }
+    self._verify(harness, values)
+    out = capsys.readouterr().out
+    assert "Dropped messages: 50 (5.00% of 1000 received messages)" in out
+    assert "WARNING" in out and "category" not in out.split("WARNING")[1]
 
 
 # ---------------------------------------------------------------------------
