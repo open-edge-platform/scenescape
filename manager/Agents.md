@@ -325,7 +325,9 @@ docker compose exec manager python manage.py showmigrations
   access files and networks inside the DLSPS container, and restrict exposing APIs to administrators
 - `manager.pipeline_runtime.reconcile_camera_pipeline()` runs after a camera is saved on the
   create, update and calibrate pages, and for the cameras of a pipeline whose string changed (UI
-  edit or ViPPET sync). Under a `select_for_update` lock it compares the desired state (selected
+  edit or ViPPET sync). Calls inside a transaction are deferred with `transaction.on_commit`;
+  warning callbacks deliver deferred warnings to the UI or log them for REST. Under a
+  `select_for_update` lock it compares the desired state (selected
   pipeline bound to the current `sensor_id`, sha256 in `Cam.dlsps_pipeline_digest`) with the
   recorded `Cam.dlsps_instance_id` and its live DLSPS status: a dead (ERROR/COMPLETED/ABORTED/404)
   instance is forgotten (ERROR is reported), a live one with another digest is stopped, and a
@@ -334,18 +336,23 @@ docker compose exec manager python manage.py showmigrations
   QUEUED instances (newer DLSPS stops those too), so `_stop_and_confirm` repeats the request until
   accepted and polls the status until it is terminal or 404, for up to
   `settings.DLSPS_STOP_TIMEOUT_S` (default 10). An unconfirmed stop keeps the recorded instance and
-  starts nothing, so a camera never runs two instances. DLSPS rc1 reports ABORTED as soon as it
-  accepts the stop (its worker exits about a second later; newer DLSPS reports ABORTED after
+  starts no replacement. DLSPS rc1 reports ABORTED as soon as it accepts the stop (its worker exits
+  about a second later; newer DLSPS reports ABORTED after
   teardown), while a replacement validates for several seconds before processing frames. DLSPS
   failures never block the save; they are logged and shown as `messages` warnings
-- Every start appends `launch_marker(launch_id)` (an unlinked `identity name=sscape-launch-<uuid>`)
-  to the launch string and records the attempt in `Cam.dlsps_launch_id`; inline DLSPS starts keep
-  no other caller data. A start without a usable answer (connection error/timeout, 5xx, invalid
-  body) records only the launch id (`Cam.dlsps_start_uncertain` is then True). The next reconcile
-  adopts the live instance whose `launch_command` ends with that marker (`_find_launched_instance`,
-  never one recorded by another camera) and starts nothing while DLSPS cannot be listed or a live
-  instance has no launch command. Only 4xx responses count as confirmed rejections. Content
-  digests are only for "does the recorded instance run the desired string", never for identity
+- Every start first commits an intent in `Cam.dlsps_launch_id` and `dlsps_pipeline_digest` in a
+  durable transaction, then reacquires the camera lock, checks the intent and desired pipeline,
+  and sends the start. A concurrent delete, replacement or changed selection cannot start the
+  stale intent. The launch string includes `launch_marker(launch_id)` (an unlinked
+  `identity name=sscape-launch-<uuid>`), since inline DLSPS starts keep no other caller data.
+  If the worker exits or a start has no usable answer (connection error/timeout, 5xx, invalid
+  body), the committed launch id remains (`Cam.dlsps_start_uncertain` is True). The next
+  reconcile adopts the live instance whose `launch_command` ends with that marker (never one
+  recorded by another camera). `_find_launched_instance` scans the full list and treats missing
+  metadata as inconclusive only if no match was found. Known rejections (400, 404, 409, 422,
+  or local validation) clear the intent; ambiguous failures do not. A timed-out request may still
+  reach DLSPS after an empty scan, so a retry can create a duplicate without server-side idempotency.
+  Content digests are only for "does the recorded instance run the desired string", never for identity
 - `bind_pipeline_to_camera` tokenizes the launch string (quotes, backslash escapes, `key = value`)
   and only rewrites `sscape_post_inference_data_publish` element tokens, never quoted text
 - Camera IDs are one MQTT topic level: `validators.camera_id_topic_error` is used by both
@@ -355,7 +362,8 @@ docker compose exec manager python manage.py showmigrations
   `update_fields` skips them for existing rows, so a stale form or REST save cannot overwrite a
   newer handle. Camera POSTs (`views._cameras_for`, in a transaction) and REST updates
   (`CamSerializer.refresh_locked`) also lock and re-read the row before applying changes, so a
-  stale save cannot revert a concurrently selected pipeline
+  stale save cannot revert a concurrently selected pipeline. The serializer refreshes the
+  original ID/name snapshots too, so rename notifications describe the last committed values
 - A `pre_delete` signal on `Cam` (also fired for queryset and `Sensor` cascade deletes) re-reads
   the runtime fields under the row lock and writes a `PendingDLSPSStop` (instance id, or launch id
   for an unconfirmed start) in the deletion transaction; a launch-only entry stores the instance

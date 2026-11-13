@@ -11,10 +11,10 @@
 #     demo DLSPS 2.0 from compose.dlsps2.yml (on the Scenescape network);
 #   - joins the broker and NTP server to ViPPET's network, so pipelines that
 #     ViPPET runs itself (validation, previews) can publish to Scenescape;
-#   - publishes the broker on host port BROKER_PORT (default 1883), so MQTT
-#     clients outside Docker can watch the pipeline output.
+#   - publishes the broker on loopback host port BROKER_PORT (default 1883), so
+#     local MQTT clients can watch the pipeline output.
 # Demo only: it exposes the broker and NTP server to every container on
-# ViPPET's network, and the broker to the host network.
+# ViPPET's network.
 
 networks:
   vippet:
@@ -35,7 +35,7 @@ services:
 
   broker:
     ports:
-      - "${BROKER_PORT:-1883}:1883"
+      - "127.0.0.1:${BROKER_PORT:-1883}:1883"
     networks:
       vippet:
         aliases:

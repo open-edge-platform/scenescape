@@ -126,9 +126,9 @@ Related events:
 - Concurrent saves of the same camera, from the camera pages or the REST API, are
   applied one after another, each from the latest saved state.
 
-A camera never runs two instances. Before starting a replacement, Manager waits
-up to 10 seconds (`DLSPS_STOP_TIMEOUT_S` in the `web` environment) for DLSPS to
-report that the old instance has ended. If it has not ended by then (DLSPS
+Before starting a replacement, Manager waits up to 10 seconds
+(`DLSPS_STOP_TIMEOUT_S` in the `web` environment) for DLSPS to report that the
+old instance has ended. If it has not ended by then (DLSPS
 versions that cannot stop a `QUEUED` instance are asked again until it runs), or
 if DLSPS is unreachable, the old instance stays recorded, no new one is started,
 and a warning asks you to save the camera again. If DLSPS rejects a start, the camera is still saved
@@ -138,19 +138,24 @@ request (for example, it times out), the camera page shows
 start's `sscape-launch-<uuid>` element and keeps it instead of starting a second
 one. Instances of other starts, including other cameras running an identical
 string, are never taken over, and nothing is started while DLSPS cannot be
-checked. Deleting a camera queues the
-stop of its instance together with the deletion; a stop that cannot be
-confirmed right away is retried on later camera saves and syncs, up to 10
-times.
+checked. Manager commits the camera configuration before reconciling and
+records a unique launch attempt before contacting DLSPS. If the worker exits
+after the start, the next save can find the instance using that attempt.
+Deleting a camera queues the stop of its instance together with the deletion;
+a stop that cannot be confirmed right away is retried on later camera saves
+and syncs, up to 10 times.
 
 Limitations:
 
+- A timed-out start can still reach DLSPS after an empty recovery scan. DLSPS
+  has no caller-supplied idempotency key, so retrying may create a duplicate;
+  check DLSPS for duplicates after retrying an unconfirmed start.
 - Instances are not recreated automatically if DLSPS restarts; save the camera
   again to start a new one.
-- Sync and DLSPS calls run while the page request is processed, so they can
-  take several seconds when ViPPET has many pipelines, an instance is being
-  stopped, or a service is slow.
-- If the page request fails after DLSPS started an instance, Manager does not
-  record it; stop such an instance through the DLSPS REST API.
+- ViPPET calls run during the request, and DLSPS reconciliation runs after its
+  transaction commits but before the response is sent. Either can take several
+  seconds when a service is slow.
+- If the worker exits before the post-commit reconciliation runs, save the
+  camera again to apply its selection. There is no background retry job.
 - This mechanism is independent of the camera-settings based pipelines described
   in [How to Configure Deep Learning Streamer Video Pipeline](./how-to-configure-dlstreamer-video-pipeline.md).

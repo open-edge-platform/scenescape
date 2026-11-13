@@ -3,9 +3,10 @@
 
 """Connect stored pipelines with ViPPET (import) and DLSPS 2.0 (per-camera runtime).
 
-ViPPET and DLSPS are called synchronously from the calling request. Callers must be restricted
-to superusers because DLSPS executes the stored GStreamer strings as-is. Nothing here contacts
-ViPPET or DLSPS unless the MLOps Flow is enabled (``settings.ENABLE_MLOPS_FLOW``).
+ViPPET is called during the request. DLSPS reconciliation runs after any enclosing transaction
+commits. Callers must be restricted to superusers because DLSPS executes the stored GStreamer
+strings as-is. Nothing here contacts ViPPET or DLSPS unless the MLOps Flow is enabled
+(``settings.ENABLE_MLOPS_FLOW``).
 """
 
 import hashlib
@@ -13,8 +14,10 @@ import re
 import time
 import unicodedata
 import uuid
+from contextlib import ExitStack
 from dataclasses import dataclass, field
-from typing import FrozenSet, Iterable, List, Optional, Set, Tuple
+from http import HTTPStatus
+from typing import Callable, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -132,7 +135,7 @@ class VippetPipelineDefinition:
 
 @dataclass
 class SyncResult:
-  """Outcome of a ViPPET sync, reported to the user."""
+  """Outcome of a ViPPET sync, including warnings from immediate reconciliation."""
 
   created: List[str] = field(default_factory=list)
   updated: List[str] = field(default_factory=list)
@@ -143,7 +146,8 @@ class SyncResult:
   pipelines_matched: int = 0
 
 
-def sync_vippet_pipelines(tag_filter: Optional[TagFilter] = None) -> SyncResult:
+def sync_vippet_pipelines(tag_filter: Optional[TagFilter] = None, *,
+                          on_warnings: Optional[Callable[[List[str]], None]] = None) -> SyncResult:
   """Import ViPPET vision pipeline variants as ``Pipeline`` rows.
 
   Rows are matched on ``vippet_pipeline_id`` (``<pipeline id>/<variant id>``) and named
@@ -154,6 +158,9 @@ def sync_vippet_pipelines(tag_filter: Optional[TagFilter] = None) -> SyncResult:
   ``tag_filter`` limits which ViPPET pipelines are imported. Variants that were imported before
   are still updated even when their pipeline no longer matches; other non-matching variants are
   skipped without fetching their pipeline string.
+
+  Deferred reconciliation warnings are delivered through ``on_warnings``, or logged when no
+  callback is supplied.
 
   Raises:
     PipelineSyncError: The MLOps Flow is disabled, ViPPET is not configured, or its pipeline
@@ -166,7 +173,7 @@ def sync_vippet_pipelines(tag_filter: Optional[TagFilter] = None) -> SyncResult:
   for definition in _fetch_vippet_definitions(result, tag_filter or TagFilter()):
     pipeline = _store_definition(definition, result)
     if pipeline is not None:
-      result.warnings.extend(reconcile_pipeline_cameras(pipeline))
+      result.warnings.extend(reconcile_pipeline_cameras(pipeline, on_warnings=on_warnings))
   return result
 
 
@@ -266,13 +273,14 @@ def _update_definition(existing: Pipeline, definition: VippetPipelineDefinition,
   return existing if string_changed else None
 
 
-def reconcile_pipeline_cameras(pipeline: Pipeline) -> List[str]:
+def reconcile_pipeline_cameras(
+    pipeline: Pipeline, *, on_warnings: Optional[Callable[[List[str]], None]] = None) -> List[str]:
   """Reconcile the DLSPS instance of each camera using ``pipeline``; return user warnings."""
   if not mlops_flow_enabled():
     return []
   warnings = []
   for cam_pk in pipeline.cameras.values_list('pk', flat=True):
-    warnings.extend(reconcile_camera_pipeline(cam_pk))
+    warnings.extend(reconcile_camera_pipeline(cam_pk, on_warnings=on_warnings))
   return warnings
 
 
@@ -340,7 +348,8 @@ def launch_marker(launch_id: uuid.UUID) -> str:
   return f" identity name={LAUNCH_MARKER_PREFIX}{launch_id}"
 
 
-def reconcile_camera_pipeline(cam_pk: int) -> List[str]:
+def reconcile_camera_pipeline(
+    cam_pk: int, *, on_warnings: Optional[Callable[[List[str]], None]] = None) -> List[str]:
   """Make the camera's DLSPS instance match its selected pipeline.
 
   The desired state is the selected pipeline bound to the camera's current ID. The recorded
@@ -352,33 +361,67 @@ def reconcile_camera_pipeline(cam_pk: int) -> List[str]:
   instance carrying that attempt's launch marker (if any) is adopted before anything new is
   started, and nothing is started while DLSPS cannot be checked.
 
-  The camera row is locked while DLSPS is called. An instance that cannot be confirmed stopped
-  stays recorded and no replacement is started, so one camera never runs two instances.
-  DLSPS failures never raise; they are logged and returned as user-facing warnings.
+  When called inside a transaction, reconciliation is deferred until commit. Before a start,
+  its unique launch id and digest are committed independently; the camera row is then locked
+  again while DLSPS is called. A rollback or worker exit cannot erase the recovery handle.
+  An instance that cannot be confirmed stopped stays recorded and no replacement is started.
+
+  Warnings are returned for immediate reconciliation and passed to ``on_warnings``, if supplied,
+  for both immediate and deferred reconciliation. Deferred warnings without a callback are logged.
   Does nothing while the MLOps Flow is disabled.
   """
   if not mlops_flow_enabled():
     return []
+  if transaction.get_connection().in_atomic_block:
+    transaction.on_commit(lambda: _reconcile_and_report(cam_pk, on_warnings, deferred=True))
+    return []
+  if not transaction.get_autocommit():
+    raise transaction.TransactionManagementError(
+      "DLSPS reconciliation requires autocommit or a transaction.atomic() block.")
+  return _reconcile_and_report(cam_pk, on_warnings)
+
+
+def _reconcile_and_report(cam_pk: int, on_warnings: Optional[Callable[[List[str]], None]],
+                          deferred: bool = False) -> List[str]:
+  if not mlops_flow_enabled():
+    return []
+  warnings = _reconcile_camera_pipeline_now(cam_pk)
+  if on_warnings is not None:
+    on_warnings(warnings)
+  elif deferred:
+    for warning in warnings:
+      log.warning(f"Deferred DLSPS reconciliation: {warning}")
+  return warnings
+
+
+def _reconcile_camera_pipeline_now(cam_pk: int) -> List[str]:
   retry_pending_stops()
-  with transaction.atomic():
-    cam = Cam.objects.select_for_update().get(pk=cam_pk)
-    desired = _bound_pipeline(cam)
-    if cam.dlsps_instance_id is None and cam.dlsps_launch_id is None and desired is None:
-      return []
-    try:
-      client = DLSPSClient()
-    except ValueError:
-      return [f"Camera '{cam.name}': DLSPS is not configured (set {DLSPS_URL_ENV}); "
-              "its pipeline was not started or stopped."]
-    with client:
-      return _reconcile(client, cam, desired)
+  with ExitStack() as stack:
+    with transaction.atomic(durable=True):
+      cam = Cam.objects.select_for_update().filter(pk=cam_pk).first()
+      if cam is None:
+        return []
+      desired = _bound_pipeline(cam)
+      if cam.dlsps_instance_id is None and cam.dlsps_launch_id is None and desired is None:
+        return []
+      try:
+        client = stack.enter_context(DLSPSClient())
+      except ValueError:
+        return [f"Camera '{cam.name}': DLSPS is not configured (set {DLSPS_URL_ENV}); "
+                "its pipeline was not started or stopped."]
+      warnings, launch_id = _prepare_reconciliation(client, cam, desired)
+    if launch_id is not None:
+      warnings.extend(_start_prepared_pipeline(client, cam_pk, launch_id))
+    return warnings
 
 
-def _reconcile(client: DLSPSClient, cam: Cam, desired: Optional[Tuple[str, str]]) -> List[str]:
+def _prepare_reconciliation(
+    client: DLSPSClient, cam: Cam,
+    desired: Optional[Tuple[str, str]]) -> Tuple[List[str], Optional[uuid.UUID]]:
   if cam.dlsps_start_uncertain and not _resolve_uncertain_start(client, cam):
-    return [f"Camera '{cam.name}': could not check whether its last pipeline start reached "
-            "DLSPS, so no new pipeline was started. Save the camera again to retry. See "
-            "Manager logs for details."]
+    return ([f"Camera '{cam.name}': could not check whether its last pipeline start reached "
+             "DLSPS, so no new pipeline was started. Save the camera again to retry. See "
+             "Manager logs for details."], None)
   warnings: List[str] = []
   if cam.dlsps_instance_id is not None:
     try:
@@ -386,22 +429,40 @@ def _reconcile(client: DLSPSClient, cam: Cam, desired: Optional[Tuple[str, str]]
     except DLSPSError as e:
       log.error(f"Failed to query DLSPS instance {cam.dlsps_instance_id} "
                 f"of camera {cam.sensor_id}: {e}")
-      return [f"Camera '{cam.name}': could not check its DLSPS pipeline, so it was not "
-              "updated. Save the camera again to retry. See Manager logs for details."]
+      return ([f"Camera '{cam.name}': could not check its DLSPS pipeline, so it was not "
+               "updated. Save the camera again to retry. See Manager logs for details."], None)
     if not _is_alive(status):
       warnings.extend(_report_ended_instance(cam, status))
       _set_runtime(cam, None, None)
     elif desired is not None and cam.dlsps_pipeline_digest == desired[1]:
-      return warnings
+      return warnings, None
     elif _stop_and_confirm(client, cam.dlsps_instance_id, status):
       _set_runtime(cam, None, None)
     else:
       return warnings + [
         f"Camera '{cam.name}': its running DLSPS pipeline has not stopped yet, so the new "
-        "pipeline was not started. Save the camera again to retry."]
+        "pipeline was not started. Save the camera again to retry."], None
   if desired is not None:
-    warnings.extend(_start_camera_instance(client, cam, *desired))
-  return warnings
+    launch_id = uuid.uuid4()
+    _set_runtime(cam, None, desired[1], launch_id)
+    return warnings, launch_id
+  return warnings, None
+
+
+def _start_prepared_pipeline(client: DLSPSClient, cam_pk: int, launch_id: uuid.UUID) -> List[str]:
+  """Start only if this committed intent still belongs to the camera's current selection."""
+  with transaction.atomic(durable=True):
+    cam = Cam.objects.select_for_update().filter(pk=cam_pk).first()
+    if cam is None or cam.dlsps_launch_id != launch_id or cam.dlsps_instance_id is not None:
+      return []
+    desired = _bound_pipeline(cam)
+    if desired is None or desired[1] != cam.dlsps_pipeline_digest:
+      _set_runtime(cam, None, None)
+      if desired is not None:
+        return [f"Camera '{cam.name}': its pipeline changed while a start was being prepared. "
+                "Save the camera again to retry."]
+      return []
+    return _start_camera_instance(client, cam, *desired, launch_id)
 
 
 def _resolve_uncertain_start(client: DLSPSClient, cam: Cam) -> bool:
@@ -431,6 +492,7 @@ def _find_launched_instance(client: DLSPSClient, launch_id: uuid.UUID,
       attempt's instance cannot be ruled out.
   """
   marker = launch_marker(launch_id)
+  missing_launch_command = None
   for status in client.list_pipeline_statuses():
     if status.state not in ALIVE_STATES:
       continue
@@ -439,7 +501,8 @@ def _find_launched_instance(client: DLSPSClient, launch_id: uuid.UUID,
     except DLSPSNotFoundError:
       continue
     if summary.launch_command is None:
-      raise DLSPSError(f"DLSPS reported no launch command for live instance {status.id}")
+      missing_launch_command = status.id
+      continue
     if not summary.launch_command.endswith(marker):
       continue
     instance_id = _parse_instance_id(summary.id)
@@ -448,6 +511,8 @@ def _find_launched_instance(client: DLSPSClient, launch_id: uuid.UUID,
                   "recorded by another camera; not adopting it")
       continue
     return instance_id
+  if missing_launch_command is not None:
+    raise DLSPSError(f"DLSPS reported no launch command for live instance {missing_launch_command}")
   return None
 
 
@@ -526,17 +591,16 @@ def _request_stop(client: DLSPSClient, instance_id: uuid.UUID) -> bool:
 
 
 def _start_camera_instance(client: DLSPSClient, cam: Cam, bound_pipeline: str,
-                           digest: str) -> List[str]:
+                           digest: str, launch_id: uuid.UUID) -> List[str]:
   pipeline = cam.pipeline
-  launch_id = uuid.uuid4()
   try:
     response = client.create_pipeline(bound_pipeline + launch_marker(launch_id),
                                       restart_config=RESTART_CONFIG)
   except (ValueError, *START_REJECTIONS) as e:
-    log.error(f"Failed to start DLSPS pipeline '{pipeline.name}' for camera {cam.sensor_id}: {e}")
-    return [f"Camera '{cam.name}': failed to start pipeline '{pipeline.name}' on DLSPS. "
-            "Save the camera again to retry. See Manager logs for details."]
+    return _report_start_rejection(cam, e)
   except DLSPSError as e:
+    if e.status_code == HTTPStatus.UNPROCESSABLE_ENTITY:
+      return _report_start_rejection(cam, e)
     return _record_uncertain_start(cam, digest, launch_id, e)
   try:
     instance_id = uuid.UUID(response)
@@ -545,6 +609,14 @@ def _start_camera_instance(client: DLSPSClient, cam: Cam, bound_pipeline: str,
   _set_runtime(cam, instance_id, digest, launch_id)
   log.info(f"Camera {cam.sensor_id} runs pipeline '{pipeline.name}' as DLSPS instance {instance_id}")
   return []
+
+
+def _report_start_rejection(cam: Cam, error: Exception) -> List[str]:
+  log.error(f"Failed to start DLSPS pipeline '{cam.pipeline.name}' for camera {cam.sensor_id}: "
+            f"{error}")
+  _set_runtime(cam, None, None)
+  return [f"Camera '{cam.name}': failed to start pipeline '{cam.pipeline.name}' on DLSPS. "
+          "Save the camera again to retry. See Manager logs for details."]
 
 
 def _record_uncertain_start(cam: Cam, digest: str, launch_id: uuid.UUID,

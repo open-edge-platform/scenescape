@@ -9,6 +9,7 @@ import time
 import traceback
 import uuid
 from collections import namedtuple
+from functools import partial
 import tempfile
 import subprocess
 from pathlib import Path
@@ -641,7 +642,7 @@ class PipelineUpdateView(MlopsFlowSuperUserCheck, UpdateView):
   def form_valid(self, form):
     response = super().form_valid(form)
     if 'pipeline' in form.changed_data:
-      _add_warnings(self.request, reconcile_pipeline_cameras(self.object))
+      reconcile_pipeline_cameras(self.object, on_warnings=partial(_add_warnings, self.request))
     return response
 
 
@@ -667,14 +668,13 @@ class PipelineSyncView(MlopsFlowSuperUserCheck, View):
     }
     tag_filter = form.cleaned_data['tag_filter']
     try:
-      result = sync_vippet_pipelines(tag_filter)
+      result = sync_vippet_pipelines(tag_filter, on_warnings=partial(_add_warnings, request))
     except PipelineSyncError as e:
       messages.error(request, str(e))
       return redirect('pipeline_list')
     messages.success(request, _sync_summary(result, tag_filter))
     if result.skipped:
       messages.warning(request, "Skipped: " + "; ".join(result.skipped))
-    _add_warnings(request, result.warnings)
     return redirect('pipeline_list')
 
 
@@ -703,7 +703,7 @@ def _cameras_for(request):
 
 
 def _reconcile_camera_pipeline(request, cam):
-  _add_warnings(request, reconcile_camera_pipeline(cam.pk))
+  reconcile_camera_pipeline(cam.pk, on_warnings=partial(_add_warnings, request))
 
 
 # Scene Child CRUD

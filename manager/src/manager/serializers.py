@@ -398,8 +398,13 @@ class CamSerializer(NonNullSerializer):
     """Restart the camera's DLSPS pipeline so it publishes under the new camera ID."""
     if not settings.ENABLE_MLOPS_FLOW:
       return
-    for warning in reconcile_camera_pipeline(instance.pk):
-      log.warning(f"REST update of camera {instance.sensor_id}: {warning}")
+    sensor_id = instance.sensor_id
+
+    def report_warnings(warnings):
+      for warning in warnings:
+        log.warning(f"REST update of camera {sensor_id}: {warning}")
+
+    reconcile_camera_pipeline(instance.pk, on_warnings=report_warnings)
 
   def create(self, validated_data):
     return self.create_update(validated_data)
@@ -417,9 +422,11 @@ class CamSerializer(NonNullSerializer):
     a pipeline selected in the UI) would be overwritten with the stale values of the fields this
     request does not set, and the DLSPS pipeline would no longer match the camera.
     """
-    if not Cam.objects.select_for_update().filter(pk=instance.pk).exists():
+    if Cam.objects.select_for_update().filter(pk=instance.pk).first() is None:
       raise NotFound(f"Camera {instance.sensor_id} no longer exists.")
     instance.refresh_from_db()
+    instance._original_sensor_id = instance.sensor_id
+    instance._original_name = instance.name
 
   def map_resolution_fields(self, validated_data):
     resolution = self.initial_data.get('resolution', None)

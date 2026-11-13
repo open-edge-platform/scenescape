@@ -51,8 +51,9 @@ it by name once it starts), then:
   [compose.scenescape-override.yml](./compose.scenescape-override.yml): the
   MLOps Flow flag (`ENABLE_MLOPS_FLOW=true`), `VIPPET_URL`,
   `DLSPS_URL`, the `web`, `broker` and `ntpserv` services joined to
-  ViPPET's network, and the broker published on host port `1883` (TLS; set
-  `BROKER_PORT` to change it);
+  ViPPET's network, and the broker published on host loopback port `1883` (TLS;
+  set `BROKER_PORT` to change it). The broker allows anonymous clients, so TLS
+  alone does not authenticate them;
 - starts DLSPS 2.0 with [compose.dlsps2.yml](./compose.dlsps2.yml) as container
   `dlsps2-pipeline-server` on the Scenescape network
   (`http://dlsps.scenescape.intel.com:8080`; REST API also on `127.0.0.1:8080` of
