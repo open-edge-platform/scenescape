@@ -492,6 +492,82 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionUsesDefaultNoiseForDetectionsWi
     (*fused.measurementNoiseCov)(MeasurementIndex::X, MeasurementIndex::X), 1.0 / (1.0 / 0.01 + 1.0 / 0.2), 1e-12);
 }
 
+// The fused measurement of the only track after two frames, so the first one births it and the second fuses.
+const TrackedObject &fusedMeasurementAfterTwoFrames(rv::tracking::MultipleObjectTracker &tracker,
+                                                    const DetectionsPerCamera &cameras)
+{
+  for (int frame = 0; frame < 2; ++frame)
+  {
+    tracker.track(cameras, atMs(10 + 100 * frame));
+  }
+  const auto &measurements = tracker.mTrackManager.mMeasurementMap;
+  EXPECT_EQ(measurements.size(), 1U);
+  return measurements.begin()->second;
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRTakesZFromMeasuredDetectionsOnly)
+{
+  // A planar camera has no z, only the ground point 0; its z row must not pull the measured box centre down.
+  auto tracker = makeFusionTracker();
+  auto planar = makeDetection(7.0, 7.0, 0.0, 0.5, 0.5, 1.8);
+  planar.measurementNoiseCov = diagonalMeasurementNoise(0.01, 0.01, 0.2);
+  auto measured = makeDetection(7.2, 7.0, 0.9, 0.5, 0.5, 1.8);
+  measured.z_measured = true;
+  measured.measurementNoiseCov = diagonalMeasurementNoise(0.04, 0.04, 0.05);
+
+  const auto &fused = fusedMeasurementAfterTwoFrames(tracker, DetectionsPerCamera{{planar}, {measured}});
+
+  EXPECT_NEAR(fused.z, 0.9, 1e-9);
+  ASSERT_TRUE(fused.measurementNoiseCov);
+  EXPECT_NEAR((*fused.measurementNoiseCov)(MeasurementIndex::Z, MeasurementIndex::Z), 0.05, 1e-9);
+  EXPECT_TRUE(fused.z_measured);
+  // x and y still fuse over both detections.
+  EXPECT_NEAR(fused.x, (7.0 / 0.01 + 7.2 / 0.04) / (1.0 / 0.01 + 1.0 / 0.04), 1e-9);
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRTakesZFromMeasuredDetectionsInAnyCameraOrder)
+{
+  auto planar = makeDetection(7.0, 7.0, 0.0, 0.5, 0.5, 1.8);
+  planar.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+  auto measuredA = makeDetection(7.1, 7.0, 0.9, 0.5, 0.5, 1.8);
+  measuredA.z_measured = true;
+  measuredA.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.1);
+  auto measuredB = makeDetection(7.0, 7.1, 1.1, 0.5, 0.5, 1.8);
+  measuredB.z_measured = true;
+  measuredB.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.3);
+
+  for (const auto &cameras : {DetectionsPerCamera{{planar}, {measuredA}, {measuredB}},
+                              DetectionsPerCamera{{measuredA}, {planar}, {measuredB}},
+                              DetectionsPerCamera{{measuredA}, {measuredB}, {planar}}})
+  {
+    auto tracker = makeFusionTracker();
+    const auto &fused = fusedMeasurementAfterTwoFrames(tracker, cameras);
+
+    EXPECT_NEAR(fused.z, (0.9 / 0.1 + 1.1 / 0.3) / (1.0 / 0.1 + 1.0 / 0.3), 1e-9);
+    ASSERT_TRUE(fused.measurementNoiseCov);
+    EXPECT_NEAR(
+      (*fused.measurementNoiseCov)(MeasurementIndex::Z, MeasurementIndex::Z), 1.0 / (1.0 / 0.1 + 1.0 / 0.3), 1e-9);
+  }
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRKeepsPlanarZWhenNoDetectionMeasuredIt)
+{
+  // Planar-only tracks keep the floor lock: z is fused over all members as before.
+  auto tracker = makeFusionTracker();
+  auto cam0 = makeDetection(7.0, 7.0, 0.0, 0.5, 0.5, 1.8);
+  cam0.measurementNoiseCov = diagonalMeasurementNoise(0.01, 0.01, 0.1);
+  auto cam1 = makeDetection(7.1, 7.0, 0.2, 0.5, 0.5, 1.8);
+  cam1.measurementNoiseCov = diagonalMeasurementNoise(0.01, 0.01, 0.3);
+
+  const auto &fused = fusedMeasurementAfterTwoFrames(tracker, DetectionsPerCamera{{cam0}, {cam1}});
+
+  EXPECT_NEAR(fused.z, (0.0 / 0.1 + 0.2 / 0.3) / (1.0 / 0.1 + 1.0 / 0.3), 1e-9);
+  ASSERT_TRUE(fused.measurementNoiseCov);
+  EXPECT_NEAR(
+    (*fused.measurementNoiseCov)(MeasurementIndex::Z, MeasurementIndex::Z), 1.0 / (1.0 / 0.1 + 1.0 / 0.3), 1e-9);
+  EXPECT_FALSE(fused.z_measured);
+}
+
 TEST(MultipleObjectTrackerTest, MultiCameraFusionWithoutMeasurementNoiseLeavesRUnset)
 {
   // Legacy path: no detection carries R, so the fused measurement is the plain average with the default R.
