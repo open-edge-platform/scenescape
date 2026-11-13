@@ -21,6 +21,7 @@ urlpatterns = [
   path('admin/', admin.site.urls),
   path('', views.index, name='index'),
   path('<uuid:scene_id>/', views.sceneDetail, name='sceneDetail'),
+  path('<uuid:scene_id>/children/metadata/', views.child_scene_metadata, name='child_scene_metadata'),
   path('<uuid:scene_id>/roi', views.saveROI, name='save-roi'),
   path('scene/list/', views.SceneListView.as_view(), name='scene_list'),
   path('scene/create/', views.SceneCreateView.as_view(), name='scene_create'),

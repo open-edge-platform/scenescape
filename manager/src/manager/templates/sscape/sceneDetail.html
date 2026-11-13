@@ -101,6 +101,11 @@ SPDX-License-Identifier: Apache-2.0
     id="child_sensors"
     value="{{ child_sensors }}"
   />
+  <input
+    type="hidden"
+    id="child_metadata_url"
+    value="{% url 'child_scene_metadata' scene.id %}"
+  />
 
   {% if user.is_superuser %}
     <form action="{% url 'save-roi' scene.id %}" method="post" id="roi-form">
