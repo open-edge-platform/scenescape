@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2015 OpenCV Foundation, all rights reserved.
 // SPDX-FileCopyrightText: (C) 2019 - 2023 Intel Corp.
-// SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/UnscentedKalmanFilter.hpp"
@@ -239,12 +239,56 @@ Mat UnscentedKalmanFilterMod::predict(InputArray _control)
   // compute the estimate of the y* cross-covariance matrix
   // Syy = SUM_{i=0}^{2*DP}( Wc[i]*hc_i*hc_i.t ) + R
   yyCov = measurementSPFuncValsCenter * Wc * measurementSPFuncValsCenter.t() + measurementNoiseCov;
+  defaultYyCov.release();
 
 
   return state.clone();
 }
 
 Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
+{
+  useDefaultMeasurementNoise();
+  return updateAllRows(_measurement);
+}
+
+Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector<int> &observedRows)
+{
+  useDefaultMeasurementNoise();
+  return updateObservedRows(_measurement, observedRows);
+}
+
+Mat UnscentedKalmanFilterMod::correct(InputArray _measurement,
+                                      const std::vector<int> &observedRows,
+                                      InputArray _measurementNoise)
+{
+  if (_measurementNoise.empty())
+  {
+    return correct(_measurement, observedRows);
+  }
+
+  CV_Assert(_measurementNoise.rows() == MP && _measurementNoise.cols() == MP);
+  Mat noise;
+  _measurementNoise.getMat().convertTo(noise, dataType);
+  if (defaultYyCov.empty())
+  {
+    defaultYyCov = yyCov.clone();
+  }
+  // Syy was built in predict() with the default R; use this measurement's R instead.
+  yyCov = getPredictedMeasurementCovWithoutNoise() + noise;
+  return updateObservedRows(_measurement, observedRows);
+}
+
+void UnscentedKalmanFilterMod::useDefaultMeasurementNoise()
+{
+  if (!defaultYyCov.empty())
+  {
+    // An earlier correct since the last predict used its own R; this one uses the default.
+    yyCov = defaultYyCov;
+    defaultYyCov.release();
+  }
+}
+
+Mat UnscentedKalmanFilterMod::updateAllRows(InputArray _measurement)
 {
   Mat measurement = _measurement.getMat();
   // Cross-covariance must use the same predicted-state sigma points as Syy.
@@ -269,14 +313,14 @@ Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
   return state.clone();
 }
 
-Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector<int> &observedRows)
+Mat UnscentedKalmanFilterMod::updateObservedRows(InputArray _measurement, const std::vector<int> &observedRows)
 {
   if (static_cast<int>(observedRows.size()) == MP)
   {
-    return correct(_measurement);
+    return updateAllRows(_measurement);
   }
 
-  // Same update as correct(measurement), restricted to the observed rows of y, y* and Syy.
+  // Same update as updateAllRows, restricted to the observed rows of y, y* and Syy.
   Mat measurement = _measurement.getMat();
   Mat predictedStateSPCenter;
   subtract(sigmaPoints, repeat(state, 1, 2 * DP + 1), predictedStateSPCenter);
@@ -287,6 +331,11 @@ Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector
   errorCov = errorCov - gain * xyCov.t();
 
   return state.clone();
+}
+
+Mat UnscentedKalmanFilterMod::getPredictedMeasurementCovWithoutNoise() const
+{
+  return measurementSPFuncValsCenter * Wc * measurementSPFuncValsCenter.t();
 }
 
 Mat UnscentedKalmanFilterMod::getProcessNoiseCov() const

@@ -24,6 +24,7 @@ This document specifies how [ADR-0019](../adr/0019-probabilistic-tracking-associ
 - Scale gates with object motion / coast (Phase 1) and with viewpoint / range measurement uncertainty (Phase 2).
 - Align UKF correct with association noise (Phase 3).
 - Keep controller and tracker service behaviorally aligned via shared `robot_vision` and shared association config.
+- Publish each track's location uncertainty in both services (§5.7).
 - Ship each phase behind a config flag, validated with the evaluation pipeline before the next phase.
 
 ## 3. Non-Goals
@@ -43,7 +44,7 @@ This document specifies how [ADR-0019](../adr/0019-probabilistic-tracking-associ
 | Problem                                                                        | Phase           | Notes                                                                         |
 | ------------------------------------------------------------------------------ | --------------- | ----------------------------------------------------------------------------- |
 | Association should adapt to **object motion / coast** (not a fixed meter disk) | **1**           | `position_mahalanobis` on `S_pred` + χ²; `max_radius_m` = safety ceiling only |
-| **Cameras disagree** on world pose; LocA under multi-view projection bias      | **2**           | Geometry-derived **R_meas**; `S_pred + R`; not Phase 1 gating                 |
+| **Cameras disagree** on world pose; LocA under multi-view projection bias      | **2**           | Geometry-derived **R_meas**; `H P Hᵀ + R`; not Phase 1 gating                 |
 | UKF **correct** still uses fixed R while association is probabilistic          | **3**           | Per-measurement R in the filter update                                        |
 | Detector confidence / multi-cam class fusion in probabilistic pipeline         | **3–4** (later) | Fold into R / metadata fusion                                                 |
 
@@ -91,7 +92,7 @@ flowchart LR
     XFORM --> CORR
 ```
 
-Phase 1 omits `R_meas` (association uses `S_pred` only; correct still uses fixed R). Phase 2 adds `R_meas` to association. Phase 3 threads `R_meas` into correct.
+Phase 1 omits `R_meas` (association uses `S_pred` only; correct still uses fixed R). Phase 2 adds `R_meas` to association. Phase 3 threads `R_meas` into correct. There is no separate association method for `R_meas`: a detection that carries R is gated on `H P Hᵀ + R_meas`, `S_pred` with the detection's R in place of the default R, and updates the filter with R, and whether the producer sets R is the switch (§5.3).
 
 ### 5.2 Phase 1 — Track-side position Mahalanobis
 
@@ -120,11 +121,10 @@ otherwise:
 
 **Methods:**
 
-| Method                          | Meaning                                                                |
-| ------------------------------- | ---------------------------------------------------------------------- |
-| `euclidean`                     | Legacy meter gate (rollback)                                           |
-| `position_mahalanobis`          | Phase 1 — track-side `S_pred` (default without an `association` block) |
-| `position_mahalanobis_combined` | Phase 2+ — `S_pred + R_meas`                                           |
+| Method                 | Meaning                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `euclidean`            | Legacy meter gate (rollback)                                                                                                    |
+| `position_mahalanobis` | Phase 1 — track-side `S_pred`; per pair `H P Hᵀ + R_meas` when the detection carries R (default without an `association` block) |
 
 ### 5.3 Phase 2 — Geometry-derived measurement covariance
 
@@ -142,28 +142,28 @@ Optional: Σ_xy *= (1 / cos(θ))²   # θ = ray vs ground normal
 
 Calibrate **α** offline from evaluation datasets (grid search maximizing AssA subject to LocA ≥ baseline).
 
-| Element     | Design choice                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------- |
-| Owner       | `CoordinateTransformer` populates `position_covariance_xy` on `Detection`                      |
-| Association | `DistanceType::PositionMahalanobisCombined`; `S_assoc = S_pred[xy] + R_meas[xy]`               |
-| Fallback    | Missing `R_meas` → Phase 1 behavior                                                            |
-| Config      | `measurement_uncertainty.*` (pixel fraction, confidence scaling, min sigma, incidence scaling) |
+| Element     | Design choice                                                                                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner       | `CoordinateTransformer` populates `position_covariance_xy` on `Detection`                                                                                                  |
+| Association | `DistanceType::PositionMahalanobis` with a per-pair `S_assoc = H P Hᵀ + R_meas` (no default R) whenever the detection carries R; no separate method; `euclidean` ignores R |
+| Fallback    | Missing `R_meas` → Phase 1 behavior (bit-identical)                                                                                                                        |
+| Config      | `measurement_uncertainty.*` (pixel fraction, confidence scaling, min sigma, incidence scaling)                                                                             |
 
 ### 5.4 Phase 3 — Per-measurement UKF update
 
-| Element      | Design choice                                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------------------- |
-| API          | `MultiModelKalmanEstimator::correct(measurement, R_optional)`; default R from `TrackManagerConfig` when omitted |
-| Integration  | Set measurement covariance on `TrackedObject` before `setMeasurement` in tracker worker / controller            |
-| Filter knobs | Global `filter.process_noise`, `filter.base_measurement_noise` in tracker config                                |
-| Later        | Fuse classification/confidence across multi-cam matches; deprecate `tracking_radius` in manager API/docs        |
+| Element      | Design choice                                                                                                                                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API          | `MultiModelKalmanEstimator::correct(measurement, ...)` reads R from the measurement's optional `measurementNoiseCov` (Python `measurement_noise_covariance`); the default R (`filter.base_measurement_noise`) applies when it is absent |
+| Integration  | The producer (tracker worker or Controller) sets the covariance on `TrackedObject` before `setMeasurement`; association and update both use it, with no association-method switch (§5.3)                                                |
+| Filter knobs | Global `filter.process_noise`, `filter.base_measurement_noise`, `filter.init_state_covariance` in tracker config                                                                                                                        |
+| Later        | Fuse classification/confidence across multi-cam matches; deprecate `tracking_radius` in manager API/docs                                                                                                                                |
 
 ### 5.5 Configuration model (target after Phase 3)
 
 ```json
 {
   "association": {
-    "method": "position_mahalanobis_combined",
+    "method": "position_mahalanobis",
     "gate_probability": 0.99,
     "max_radius_m": 10.0
   },
@@ -175,10 +175,13 @@ Calibrate **α** offline from evaluation datasets (grid search maximizing AssA s
   },
   "filter": {
     "process_noise": 1e-4,
-    "base_measurement_noise": 0.2
+    "base_measurement_noise": 0.2,
+    "init_state_covariance": 1.0
   }
 }
 ```
+
+`association.birth_cluster_radius_m` (default 2 m, Euclidean) sets the radius that groups new detections of one object seen by different cameras; independent of `method` and `max_radius_m`, and when set it wins over the Controller's `tracking_radius` gate. The `filter` block is global and read at startup in both services (Controller top level, Tracker `tracking.filter`); an absent block runs robot_vision's production constants bit for bit. See [how-to-configure-tracker](../user-guide/microservices/controller/how-to-configure-tracker.md#kalman-filter-settings).
 
 Phase 1 default without an `association` block: `method: position_mahalanobis`, `max_radius_m: 10.0` (no `measurement_uncertainty` block required). The shipped configs keep `euclidean` until the Phase 1 evaluation; `tracker-config-mahalanobis.json` (Controller) and `tracker-mahalanobis.json` (Tracker service) select Phase 1. Environment overrides follow tracker service `TRACKER_*` conventions.
 
@@ -192,6 +195,16 @@ Phase 1 default without an `association` block: `method: position_mahalanobis`, 
 | 0.999            | 13.816               | 16.266               |
 
 Default recommendation: **0.99**.
+
+### 5.7 Track location uncertainty in the output
+
+Both services publish the track's position uncertainty for external consumers; `association_window` (§5.2) stays the UI's gate.
+
+| Element   | Design choice                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| Quantity  | Position block of the posterior covariance P after the update (IMM-combined), world axes, m²   |
+| Dimension | x, y; z only for tracks with measured z (`z_measured`)                                         |
+| Producers | Tracker Service and Scene Controller, same field in the data formats and the scene-data schema |
 
 ## 6. Alternatives Considered
 
@@ -213,8 +226,8 @@ See [ADR-0019 §Alternatives](../adr/0019-probabilistic-tracking-association.md#
 ## 8. Rollout / Migration Plan
 
 1. **Phase 1** — ship `position_mahalanobis` as production default after gated eval; `euclidean` remains rollback. Equal-weight multi-cam fusion + ~2 m birth clustering as stopgaps.
-2. **Phase 2** — opt-in `position_mahalanobis_combined`; default stays Phase 1 until combined sign-off.
-3. **Phase 3** — flip default to combined after eval; deprecate `tracking_radius` in object-library docs/API.
+2. **Phase 2** — opt-in R producer (no new association method); without R every detection is Phase 1.
+3. **Phase 3** — enable the R producer by default after eval; deprecate `tracking_radius` in object-library docs/API.
 
 Detailed tasks, dates, and exit checkboxes: [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
 
@@ -241,6 +254,7 @@ Phase-specific unit tests and sign-off notes are tracked in the [implementation 
 - Whether incidence-angle scaling is required on gated datasets or optional.
 - Scope of multi-cam class/confidence fusion vs pure R threading in Phase 3.
 - Residual Phase 1 acceptances (Controller-TC jerk budget, Wildtrack IDSW) to revisit with Phase 2 R.
+- Track location uncertainty (§5.7): field name and shape, and whether it is always published.
 
 ## 11. References
 

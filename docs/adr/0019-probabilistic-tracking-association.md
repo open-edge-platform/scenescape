@@ -35,7 +35,7 @@ Additional decisions locked with this ADR:
 - Publish each track's gate as `association_window` (circle or χ² ellipse) so the Manager 2D/3D views can show it; the views draw it at the corrected position, not the predicted one the gate uses.
 - Until Phase 2: equal-weight multi-cam geometry averaging and Euclidean ~2 m detection↔detection birth clustering are accepted stopgaps (raw detections lack track `S_pred`).
 
-Phase 1 is accepted: `position_mahalanobis` is the default without an `association` block, while the shipped configs keep `euclidean` until its evaluation, with Mahalanobis alternative configs. Phases 2–3 remain proposed. Engineering detail lives in the [design document](../design/probabilistic-tracking-association.md); task tracking in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
+Phase 1 is accepted: `position_mahalanobis` is the default without an `association` block, while the shipped configs keep `euclidean` until its evaluation, with Mahalanobis alternative configs. Phases 2–3 remain proposed; they add no association method: a detection that carries R is gated on `H P Hᵀ + R` (`S_pred` with its R in place of the default R) and updates the filter with R, and whether the producer sets R is the opt-in. Engineering detail lives in the [design document](../design/probabilistic-tracking-association.md); task tracking in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
 
 ## Alternatives Considered
 

@@ -139,7 +139,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
 
   EMPTY_FRAME_CAMERA_ID = "__empty_frame__"
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, association_config=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, time_chunking_rate_fps, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, association_config=None, filter_config=None):
     # Call parent constructor to initialize IntelLabsTracking
     super().__init__(
       max_unreliable_time,
@@ -149,6 +149,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
       suspended_track_timeout_secs,
       reid_config_data,
       association_config=association_config,
+      filter_config=filter_config,
     )
     self.time_chunking_rate_fps = time_chunking_rate_fps
     self.suspended_track_timeout_secs = suspended_track_timeout_secs
@@ -227,6 +228,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
             self.suspended_track_timeout_secs,
             self.reid_config_data,
             association_config=self.association_config,
+            filter_config=self.filter_config,
           )
           tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
           self.trackers[category] = tracker
