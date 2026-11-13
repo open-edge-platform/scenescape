@@ -24,7 +24,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_WAIT_TIME = 5
 TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
-@pytest.mark.fresh_stack
 @pytest.mark.test_name("NEX-T10426")
 def test_manual_camera_calibration(demo_scene, params, result_recorder):
   """! Checks that the camera calibration can be set manually and saved.
