@@ -729,7 +729,9 @@ def test_normalize_filter_config_keeps_valid_values_and_fills_the_rest():
 
 
 @pytest.mark.parametrize('key', ['process_noise', 'base_measurement_noise', 'init_state_covariance'])
-@pytest.mark.parametrize('value', [0, 0.0, -1.0, math.nan, math.inf, -math.inf, True, False, '0.2', None, [], {}])
+@pytest.mark.parametrize('value', [0, 0.0, -1.0, math.nan, math.inf, -math.inf,
+                                   pytest.param(10**400, id='int_overflowing_float'), True, False, '0.2', None,
+                                   [], {}])
 def test_normalize_filter_config_invalid_value_uses_the_default_of_that_field(monkeypatch, key, value):
   errors = []
   monkeypatch.setattr('controller.ilabs_tracking.log.error', lambda *args: errors.append(args))
@@ -772,7 +774,8 @@ def test_normalize_association_config_keeps_valid_birth_cluster_radius(radius, e
     assert isinstance(config['birth_cluster_radius_m'], float)
 
 
-@pytest.mark.parametrize('radius', [-1.0, math.nan, math.inf, True, '2', [], {}])
+@pytest.mark.parametrize('radius', [-1.0, math.nan, math.inf, pytest.param(10**400, id='int_overflowing_float'), True,
+                                    '2', [], {}])
 def test_normalize_association_config_invalid_birth_cluster_radius_is_dropped(monkeypatch, radius):
   errors = []
   monkeypatch.setattr('controller.ilabs_tracking.log.error', lambda *args: errors.append(args))

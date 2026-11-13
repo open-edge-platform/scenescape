@@ -72,7 +72,10 @@ def _parse_number(value, valid):
   """Return ``value`` as a float when it is a JSON number (not a bool) that passes ``valid``, else None."""
   if isinstance(value, bool) or not isinstance(value, (int, float)):
     return None
-  number = float(value)
+  try:
+    number = float(value)
+  except OverflowError:  # an int beyond the float range
+    return None
   if not math.isfinite(number) or not valid(number):
     return None
   return number
