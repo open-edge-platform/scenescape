@@ -48,10 +48,10 @@ def _parse_max_radius_m(value, default_max_radius_m):
   try:
     max_radius_m = float(value)
   except (TypeError, ValueError):
-    log.error("Invalid association max_radius_m %r; using %s", value, default_label)
+    log.error(f"Invalid association max_radius_m {value!r}; using {default_label}")
     return default_max_radius_m
   if not math.isfinite(max_radius_m) or max_radius_m < 0.0:
-    log.error("Association max_radius_m %s must be finite and >= 0; using %s", max_radius_m, default_label)
+    log.error(f"Association max_radius_m {max_radius_m} must be finite and >= 0; using {default_label}")
     return default_max_radius_m
   return max_radius_m
 
@@ -72,7 +72,10 @@ def _parse_number(value, valid):
   """Return ``value`` as a float when it is a JSON number (not a bool) that passes ``valid``, else None."""
   if isinstance(value, bool) or not isinstance(value, (int, float)):
     return None
-  number = float(value)
+  try:
+    number = float(value)
+  except OverflowError:  # an int beyond the float range
+    return None
   if not math.isfinite(number) or not valid(number):
     return None
   return number
@@ -90,12 +93,12 @@ def normalize_filter_config(filter_config=None):
   if filter_config is None:
     return defaults
   if not isinstance(filter_config, dict):
-    log.error("Invalid filter config in tracker config file: expected an object, got %r; using the defaults",
-              filter_config)
+    log.error(f"Invalid filter config in tracker config file: expected an object, got {filter_config!r}; "
+              "using the defaults")
     return defaults
   unknown = sorted(str(key) for key in filter_config if key not in FILTER_CONFIG_KEYS)
   if unknown:
-    log.warning("Ignoring unknown filter config fields: %s", ", ".join(unknown))
+    log.warning(f"Ignoring unknown filter config fields: {', '.join(unknown)}")
   config = {}
   for key in FILTER_CONFIG_KEYS:
     if key not in filter_config:
@@ -103,7 +106,7 @@ def normalize_filter_config(filter_config=None):
       continue
     value = _parse_number(filter_config[key], lambda number: number > 0.0)
     if value is None:
-      log.error("Invalid filter %s %r: expected a finite number > 0; using %s", key, filter_config[key], defaults[key])
+      log.error(f"Invalid filter {key} {filter_config[key]!r}: expected a finite number > 0; using {defaults[key]}")
       value = defaults[key]
     config[key] = value
   return config
@@ -134,15 +137,12 @@ def normalize_association_config(association_config=None):
   try:
     gate_probability = float(config.get("gate_probability", DEFAULT_ASSOCIATION_GATE_PROBABILITY))
   except (TypeError, ValueError):
-    log.error("Invalid association gate_probability %r; using %s",
-              config.get("gate_probability"), DEFAULT_ASSOCIATION_GATE_PROBABILITY)
+    log.error(f"Invalid association gate_probability {config.get('gate_probability')!r}; "
+              f"using {DEFAULT_ASSOCIATION_GATE_PROBABILITY}")
     gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
   if not 0.0 < gate_probability <= 1.0:
-    log.error(
-      "Association gate_probability %s out of range (0, 1]; using %s",
-      gate_probability,
-      DEFAULT_ASSOCIATION_GATE_PROBABILITY,
-    )
+    log.error(f"Association gate_probability {gate_probability} out of range (0, 1]; "
+              f"using {DEFAULT_ASSOCIATION_GATE_PROBABILITY}")
     gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
   config["gate_probability"] = gate_probability
 
@@ -153,8 +153,8 @@ def normalize_association_config(association_config=None):
   if "birth_cluster_radius_m" in config:
     birth_cluster_radius_m = _parse_number(config["birth_cluster_radius_m"], lambda number: number >= 0.0)
     if birth_cluster_radius_m is None:
-      log.error("Invalid association birth_cluster_radius_m %r: expected a finite number >= 0; "
-                "using the default birth clustering", config["birth_cluster_radius_m"])
+      log.error(f"Invalid association birth_cluster_radius_m {config['birth_cluster_radius_m']!r}: "
+                "expected a finite number >= 0; using the default birth clustering")
       del config["birth_cluster_radius_m"]
     else:
       config["birth_cluster_radius_m"] = birth_cluster_radius_m
@@ -167,12 +167,9 @@ def warn_association_config(association_config):
   if (association_config["method"] == ASSOCIATION_METHOD_POSITION_MAHALANOBIS
       and max_radius_m <= DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M + 1e-6):
     log.warning(
-      "association.method is position_mahalanobis with max_radius_m=%s; "
-      "ADR-0019 recommends raising max_radius_m (e.g. %s) so the chi-squared "
-      "gate can widen with predicted uncertainty",
-      max_radius_m,
-      DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,
-    )
+      f"association.method is position_mahalanobis with max_radius_m={max_radius_m}; "
+      f"ADR-0019 recommends raising max_radius_m (e.g. {DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M}) "
+      "so the chi-squared gate can widen with predicted uncertainty")
 
 
 def uses_tracking_radius(association_config):
@@ -460,11 +457,8 @@ class IntelLabsTracking(Tracking):
       radius = getattr(obj, 'tracking_radius', DEFAULT_TRACKING_RADIUS)
       if abs(radius - DEFAULT_TRACKING_RADIUS) > 1e-6:
         log.warning(
-          "Object tracking_radius %s is ignored: association.method is %s with max_radius_m %s",
-          radius,
-          self.association_config["method"],
-          self.association_config["max_radius_m"],
-        )
+          f"Object tracking_radius {radius} is ignored: association.method is "
+          f"{self.association_config['method']} with max_radius_m {self.association_config['max_radius_m']}")
         self._ignored_tracking_radius_warned = True
         return
 
