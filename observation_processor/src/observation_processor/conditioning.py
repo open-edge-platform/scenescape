@@ -278,6 +278,27 @@ def assemble_measurements(request: pb.ProcessDetectionsRequest, response: pb.Pro
     ))
 
 
+def resolve_mode_and_mesh(request: pb.ProcessDetectionsRequest,
+                          snapshot: SceneProvider, scene) -> tuple[int, bool]:
+  """Resolve AUTO/FULL/FRUSTUM_ONLY and whether a usable mesh is available."""
+  mode = request.mode
+  require_mesh = mode == pb.CONDITIONING_MODE_FULL
+  has_mesh = snapshot.has_usable_mesh(request.scene_id, require_mesh=require_mesh)
+  if mode != pb.CONDITIONING_MODE_AUTO:
+    return mode, has_mesh
+  if has_mesh:
+    return pb.CONDITIONING_MODE_FULL, True
+  if snapshot.scene_has_mesh(scene):
+    log.warning(
+      f"observation-processor: scene {request.scene_id} declares a GLB mesh "
+      "but it is unusable; AUTO selected FRUSTUM_ONLY")
+  return pb.CONDITIONING_MODE_FRUSTUM_ONLY, False
+
+
+def _needs_reasoner(has_mesh: bool, mode: int, batch: DetectionBatch) -> bool:
+  return has_mesh and (mode == pb.CONDITIONING_MODE_FULL or np.any(batch.project_to_map))
+
+
 def process_detections(request: pb.ProcessDetectionsRequest,
                        provider: SceneProvider) -> pb.ProcessDetectionsResponse:
   """Resolve one configuration snapshot and execute the complete projection pipeline."""
@@ -285,27 +306,16 @@ def process_detections(request: pb.ProcessDetectionsRequest,
   snapshot = provider.snapshot()
   scene = snapshot.get_scene(request.scene_id)
   camera = snapshot.get_camera(request.scene_id, request.camera_id)
-  coefficients = camera.distortion_coefficients
-  mode = request.mode
-  if mode == pb.CONDITIONING_MODE_FULL:
-    has_mesh = snapshot.has_usable_mesh(request.scene_id, require_mesh=True)
-  else:
-    has_mesh = snapshot.has_usable_mesh(request.scene_id, require_mesh=False)
-    if mode == pb.CONDITIONING_MODE_AUTO:
-      mode = pb.CONDITIONING_MODE_FULL if has_mesh else pb.CONDITIONING_MODE_FRUSTUM_ONLY
-      if not has_mesh and snapshot.scene_has_mesh(scene):
-        log.warning(
-          f"observation-processor: scene {request.scene_id} declares a GLB mesh "
-          "but it is unusable; AUTO selected FRUSTUM_ONLY")
+  mode, has_mesh = resolve_mode_and_mesh(request, snapshot, scene)
   response = pb.ProcessDetectionsResponse(
     scene_id=request.scene_id, camera_id=request.camera_id, timestamp=request.timestamp, mode=mode)
   if not request.detections:
     return response
-  batch = prepare_batch(request, snapshot, camera, coefficients)
+  batch = prepare_batch(request, snapshot, camera, camera.distortion_coefficients)
   observations = project_batch(batch, camera)
   observations["origin"] = camera.pose_mat[:3, 3].copy()
   reasoner = None
-  if has_mesh and (mode == pb.CONDITIONING_MODE_FULL or np.any(batch.project_to_map)):
+  if _needs_reasoner(has_mesh, mode, batch):
     reasoner = snapshot.get_reasoner(request.scene_id, request.camera_id)
   assemble_measurements(request, response, batch, observations, reasoner, camera)
   return response

@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Design Document: Observation Processor Service
 
-- **Author(s)**: [Sarat Poluri](https://github.com/saratpoluri), [Jacek Chrapkowski](https://github.com/jacekchrapkowski)
+- **Author(s)**: [Sarat Poluri](https://github.com/saratpoluri), [Robert A Watts](https://github.com/rawatts),[Jacek Chrapkowski](https://github.com/jacekchrapkowski), Tomasz Dorau(https://github.com/tdorauintc), Michael Gadda (https://github.com/mgaddaintel)
 - **Date**: 2026-11-12
 - **Status**: `Proposed`
 - **Related ADRs**:
