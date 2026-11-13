@@ -8,6 +8,9 @@ frame's 2D detections into world-space measurements for scene tracking. It
 combines the `frustum_gaussian` projection library with optional scene-mesh
 conditioning from `observation_conditioning`.
 
+Design context (architecture, contracts, rollout) is in
+[Observation Processor Service](../../../design/observation-processor-service.md).
+
 The service is available through the Docker Compose
 `observation-processor` profile.
 
