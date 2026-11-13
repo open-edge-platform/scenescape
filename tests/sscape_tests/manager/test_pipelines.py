@@ -8,13 +8,13 @@ from uuid import UUID
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
-from django.test import Client, TestCase, TransactionTestCase
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from manager.api import ManageThing
 from manager.forms import CamCalibrateForm, CamCreateForm, CamUpdateForm, PipelineForm
-from manager.models import Cam, Pipeline, Scene
+from manager.models import Cam, PendingDLSPSStop, Pipeline, Scene
 from manager.serializers import CamSerializer
 from manager.views import CamUpdateView
 
@@ -59,6 +59,7 @@ class PipelineFormTests(TestCase):
     self.assertNotIn('vippet_pipeline_id', PipelineForm.base_fields)
 
 
+@override_settings(ENABLE_MLOPS_FLOW=True)
 class PipelineTests(TestCase):
 
   @classmethod
@@ -270,7 +271,7 @@ class PipelineTests(TestCase):
     executor = MigrationExecutor(connection)
     self.assertEqual(executor.loader.detect_conflicts(), {})
     self.assertEqual(executor.loader.graph.leaf_nodes('manager'),
-                     [('manager', '0012_merge_pipeline_and_camera_pose')])
+                     [('manager', '0013_cam_dlsps_pipeline_digest_pendingdlspsstop')])
     state = executor.loader.project_state()
     historical = state.apps.get_model('manager', 'Pipeline')
     for name in ('id', 'name', 'pipeline', 'vippet_pipeline_id'):
@@ -286,8 +287,13 @@ class PipelineTests(TestCase):
     })
     self.assertEqual(merge.Migration.operations, [])
     historical_camera = state.apps.get_model('manager', 'Cam')
-    self.assertEqual(historical_camera._meta.get_field('dlsps_instance_id').deconstruct()[1:],
-                     Cam._meta.get_field('dlsps_instance_id').deconstruct()[1:])
+    for name in ('dlsps_instance_id', 'dlsps_pipeline_digest', 'dlsps_launch_id'):
+      self.assertEqual(historical_camera._meta.get_field(name).deconstruct()[1:],
+                       Cam._meta.get_field(name).deconstruct()[1:])
+    historical_stop = state.apps.get_model('manager', 'PendingDLSPSStop')
+    for field in PendingDLSPSStop._meta.get_fields():
+      self.assertEqual(historical_stop._meta.get_field(field.name).deconstruct()[1:],
+                       field.deconstruct()[1:])
 
 
 class PipelineMigrationTests(TransactionTestCase):

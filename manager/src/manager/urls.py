@@ -52,6 +52,7 @@ urlpatterns = [
   path('pipeline/create/', views.PipelineCreateView.as_view(), name='pipeline_create'),
   path('pipeline/update/<int:pk>/', views.PipelineUpdateView.as_view(), name='pipeline_update'),
   path('pipeline/delete/<int:pk>/', views.PipelineDeleteView.as_view(), name='pipeline_delete'),
+  path('pipeline/sync/', views.PipelineSyncView.as_view(), name='pipeline_sync'),
   path('child/create/', views.ChildCreateView.as_view(), name='child_create'),
   path('child/update/<int:pk>/', views.ChildUpdateView.as_view(), name='child_update'),
   path('child/delete/<int:pk>/', views.ChildDeleteView.as_view(), name='child_delete'),

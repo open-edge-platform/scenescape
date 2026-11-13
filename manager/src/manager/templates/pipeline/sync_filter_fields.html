@@ -1,0 +1,22 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{{ sync_form.tags }}
+<span
+  class="ml-2"
+  role="radiogroup"
+  aria-labelledby="pipeline-sync-match-label"
+  id="pipeline-sync-match"
+>
+  <span class="mr-1 text-muted" id="pipeline-sync-match-label">Match</span>
+  {% for choice in sync_form.tag_match %}
+    <span class="form-check form-check-inline">
+      {{ choice.tag }}
+      <label class="form-check-label" for="{{ choice.id_for_label }}"
+        >{{ choice.choice_label }}</label
+      >
+    </span>
+  {% endfor %}
+</span>

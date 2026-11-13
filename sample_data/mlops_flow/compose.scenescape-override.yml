@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# MLOps Flow demo: Scenescape side.
+# Merged with docker-compose.yml by `make demo-mlops-flow`; see README.md.
+#
+# ViPPET runs outside this stack (its own `make run`) on the
+# "<ViPPET dir>_default" Docker network. This override:
+#   - enables the MLOps Flow in Manager and points it at ViPPET
+#     (http://vippet:7860, reached by joining ViPPET's network) and at the
+#     demo DLSPS 2.0 from compose.dlsps2.yml (on the Scenescape network);
+#   - joins the broker and NTP server to ViPPET's network, so pipelines that
+#     ViPPET runs itself (validation, previews) can publish to Scenescape;
+#   - publishes the broker on loopback host port BROKER_PORT (default 1883), so
+#     local MQTT clients can watch the pipeline output.
+# Demo only: it exposes the broker and NTP server to every container on
+# ViPPET's network.
+
+networks:
+  vippet:
+    external: true
+    name: ${VIPPET_NETWORK:-visual-pipeline-and-platform-evaluation-tool_default}
+
+services:
+  web:
+    networks:
+      vippet:
+    environment:
+      - ENABLE_MLOPS_FLOW=true
+      - VIPPET_URL=${VIPPET_URL:-http://vippet:7860/api/v1}
+      - DLSPS_URL=${DLSPS_URL:-http://dlsps.scenescape.intel.com:8080}
+      # Keep ViPPET / DLSPS traffic off any corporate HTTP proxy.
+      - no_proxy=${no_proxy:-${NO_PROXY:-}},.scenescape.intel.com,vippet
+      - NO_PROXY=${NO_PROXY:-${no_proxy:-}},.scenescape.intel.com,vippet
+
+  broker:
+    ports:
+      - "127.0.0.1:${BROKER_PORT:-1883}:1883"
+    networks:
+      vippet:
+        aliases:
+          - broker.scenescape.intel.com
+
+  ntpserv:
+    networks:
+      vippet:
+        aliases:
+          - ntpserv

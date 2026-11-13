@@ -8,6 +8,7 @@
 import json
 import os
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -161,3 +162,24 @@ def test_override_compose_env_scopes_dbroot_and_restores(dbroot_probe, previous)
       os.environ.pop("DBROOT", None)
     else:
       os.environ["DBROOT"] = saved
+
+
+@pytest.mark.parametrize(('port', 'expected'), [(None, '1883'), ('11883', '11883')])
+def test_mlops_demo_broker_is_only_published_on_loopback(tmp_path, port, expected):
+  root = Path(__file__).resolve().parents[2]
+  env = {**os.environ, 'SECRETSDIR': str(tmp_path)}
+  env.pop('BROKER_PORT', None)
+  if port is not None:
+    env['BROKER_PORT'] = port
+  result = subprocess.run(
+    ['docker', 'compose', '--env-file', '/dev/null',
+     '-f', 'sample_data/compose/compose.dl-streamer-example.yml',
+     '-f', 'sample_data/mlops_flow/compose.scenescape-override.yml',
+     'config', '--format', 'json'],
+    cwd=root, env=env, capture_output=True, text=True, check=False,
+  )
+  assert result.returncode == 0, result.stderr
+  ports = json.loads(result.stdout)['services']['broker']['ports']
+  assert {(entry.get('host_ip'), entry['published'], entry['target']) for entry in ports} == {
+    ('127.0.0.1', expected, 1883)
+  }

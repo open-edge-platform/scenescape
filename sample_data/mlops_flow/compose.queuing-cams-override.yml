@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# MLOps Flow demo: Queuing camera streams.
+# Used together with ../demo_scenes/Queuing/compose.queuing-video.yml by
+# `make demo-mlops-flow`; see README.md.
+#
+# Keeps only the RTSP loopers (mediaserver + queuing-cams) and makes them
+# reachable from ViPPET's network as rtsp://mediaserver:8554/queuing-cam1 and
+# rtsp://mediaserver:8554/queuing-cam2. The legacy DL Streamer container is
+# moved to an unused profile: in this demo DLSPS 2.0 runs the camera pipelines
+# that Manager starts.
+
+networks:
+  vippet:
+    external: true
+    name: ${VIPPET_NETWORK:-visual-pipeline-and-platform-evaluation-tool_default}
+
+services:
+  mediaserver:
+    networks:
+      vippet:
+        aliases:
+          - mediaserver
+
+  queuing-video:
+    profiles:
+      - legacy-dlsps

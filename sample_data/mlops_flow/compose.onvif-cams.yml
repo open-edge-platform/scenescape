@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# MLOps Flow demo: virtual ONVIF cameras.
+# Started by `make demo-mlops-flow` together with compose.dlsps2.yml and the
+# Queuing camera streams; see README.md.
+#
+# Wraps the two Queuing RTSP streams in virtual ONVIF devices
+# (https://github.com/daniela-hase/onvif-server, MIT) so ViPPET's
+# sensor-manager discovers them over WS-Discovery as regular network cameras:
+#
+#   ONVIF device                     Stream URI returned by GetStreamUri
+#   <ONVIF_HOST_IP>:18081 (cam1)     rtsp://<ONVIF_HOST_IP>:18554/queuing-cam1
+#   <ONVIF_HOST_IP>:18082 (cam2)     rtsp://<ONVIF_HOST_IP>:18554/queuing-cam2
+#
+# Both appear in ViPPET as "ONVIF Camera <ONVIF_HOST_IP>"; the port tells them
+# apart. The devices accept any username and password when they are
+# authorized in ViPPET. The stream URI is the demo media server's published
+# port, reachable from ViPPET, its pipelines and DLSPS.
+#
+# Host networking is required: sensor-manager also runs on the host network
+# and multicasts its probe (239.255.255.250:3702) from the interface of
+# ONVIF_HOST_IP (detected from `ip route get 239.255.255.250`). Demo only: the
+# ONVIF endpoints are reachable from the LAN without authentication.
+#
+# onvif-server loads the ONVIF WSDLs and the schemas they import over the
+# network at startup. They are downloaded beforehand by fetch-onvif-schemas.sh
+# into ONVIF_SCHEMAS_DIR and served to it by schema-proxy.js on
+# 127.0.0.1:ONVIF_SCHEMA_PROXY_PORT, so the container needs no internet access.
+
+name: scenescape
+
+services:
+  onvif-cams:
+    image: ghcr.io/daniela-hase/onvif-server@sha256:22cb34ce3707c12db4a49f29b1432437833d553fa723cdcb268a8e9f5522cd96
+    network_mode: host
+    working_dir: /app
+    # Compose fills in the variables below; the read-only container writes the
+    # result to its /config tmpfs, starts the schema proxy and replaces the
+    # shell with onvif-server.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        node /demo/schema-proxy.js /schemas $$SCHEMA_PROXY_PORT &
+        until node -e "require('net').connect($$SCHEMA_PROXY_PORT, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"; do sleep 0.2; done
+        cat > /config/onvif.yaml <<'ONVIF'
+        onvif:
+          - name: queuing-cam1
+            hostname: ${ONVIF_HOST_IP:?set ONVIF_HOST_IP to the host IP used for multicast}
+            uuid: 5f1c2a8e-3b4d-4e6f-9a01-1a2b3c4d5e01
+            ports:
+              server: ${ONVIF_QCAM1_PORT:-18081}
+              rtsp: ${ONVIF_RTSP_PORT:-18554}
+            highQuality:
+              rtsp: /queuing-cam1
+              width: 1280
+              height: 720
+              framerate: 10
+              bitrate: 1024
+              quality: 4
+            # No target ports: onvif-server does not proxy, clients use the media server directly.
+            target:
+              hostname: 127.0.0.1
+              ports: {}
+          - name: queuing-cam2
+            hostname: ${ONVIF_HOST_IP}
+            uuid: 5f1c2a8e-3b4d-4e6f-9a01-1a2b3c4d5e02
+            ports:
+              server: ${ONVIF_QCAM2_PORT:-18082}
+              rtsp: ${ONVIF_RTSP_PORT:-18554}
+            highQuality:
+              rtsp: /queuing-cam2
+              width: 1280
+              height: 720
+              framerate: 10
+              bitrate: 1024
+              quality: 4
+            target:
+              hostname: 127.0.0.1
+              ports: {}
+        ONVIF
+        export http_proxy=http://127.0.0.1:$$SCHEMA_PROXY_PORT https_proxy=http://127.0.0.1:$$SCHEMA_PROXY_PORT
+        exec node main.js /config/onvif.yaml
+    environment:
+      - SCHEMA_PROXY_PORT=${ONVIF_SCHEMA_PROXY_PORT:-18099}
+      - no_proxy=${no_proxy},.scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
+    volumes:
+      - ./sample_data/mlops_flow/schema-proxy.js:/demo/schema-proxy.js:ro
+      - ${ONVIF_SCHEMAS_DIR:?set ONVIF_SCHEMAS_DIR to the fetch-onvif-schemas.sh output directory}:/schemas:ro
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /config:uid=1000,gid=1000,mode=0700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - mediaserver
+    restart: unless-stopped
+    pids_limit: 100

@@ -9,11 +9,13 @@ import time
 import traceback
 import uuid
 from collections import namedtuple
+from functools import partial
 import tempfile
 import subprocess
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.admin.views.decorators import user_passes_test
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth import authenticate, login, logout
@@ -24,11 +26,13 @@ from django.contrib.auth import user_logged_in, user_login_failed
 from django.contrib.sessions.models import Session
 from rest_framework.authtoken.models import Token
 from django.db import IntegrityError, transaction
+from django.utils.decorators import method_decorator
 from django.dispatch.dispatcher import receiver
 from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
@@ -39,6 +43,8 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from manager.api import IsAdminOrReadOnly
 from manager import osm_query, osm_roi
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
+from manager.pipeline_runtime import PipelineSyncError, reconcile_camera_pipeline, \
+  reconcile_pipeline_cameras, sync_vippet_pipelines
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, Pipeline, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -46,7 +52,8 @@ from manager.models import Scene, ChildScene, \
   SingletonAreaPoint, UserSession, FailedLogin, \
   RegionOccupancyThreshold, SceneImport, sendUpdateCommand
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
-  SceneUpdateForm, SceneImportForm, CamCreateForm, CamUpdateForm, SingletonCreateForm, ChildSceneForm, PipelineForm
+  SceneUpdateForm, SceneImportForm, CamCreateForm, CamUpdateForm, SingletonCreateForm, ChildSceneForm, PipelineForm, \
+  PipelineSyncForm
 from manager.validators import add_form_error, validate_uuid
 
 
@@ -128,6 +135,13 @@ def remove_other_sessions(sender, user, request, **kwargs):
 class SuperUserCheck(UserPassesTestMixin):
   def test_func(self):
     return self.request.user.is_superuser
+
+
+class MlopsFlowSuperUserCheck(SuperUserCheck):
+  """Superuser-only MLOps Flow views; forbidden while ENABLE_MLOPS_FLOW is off."""
+
+  def test_func(self):
+    return super().test_func() and settings.ENABLE_MLOPS_FLOW
 
 def superuser_required(view_func=None, redirect_field_name=REDIRECT_FIELD_NAME,
                    login_url='sign_in'):
@@ -382,7 +396,9 @@ class CamCreateView(SuperUserCheck, CreateView):
 
   def form_valid(self, form):
     form.instance.type = 'camera'
-    return super(CamCreateView, self).form_valid(form)
+    response = super(CamCreateView, self).form_valid(form)
+    _reconcile_camera_pipeline(self.request, self.object)
+    return response
 
   # Return 400 Bad Request when form validation fails
   def form_invalid(self, form):
@@ -412,10 +428,19 @@ class CamListView(LoginRequiredMixin, ListView):
   model = Cam
   template_name = "cam/cam_list.html"
 
+@method_decorator(transaction.atomic, name='post')
 class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
   form_class = CamUpdateForm
   template_name = "cam/cam_update.html"
+
+  def get_queryset(self):
+    return _cameras_for(self.request)
+
+  def form_valid(self, form):
+    response = super().form_valid(form)
+    _reconcile_camera_pipeline(self.request, self.object)
+    return response
 
   def get_success_url(self):
     if self.object.scene is not None:
@@ -584,29 +609,101 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
   template_name = "asset/asset_update.html"
   success_url = reverse_lazy('asset_list')
 
+
+PIPELINE_SYNC_SESSION_KEY = 'pipeline_sync_filter'
+
+
 class PipelineListView(LoginRequiredMixin, ListView):
   model = Pipeline
   template_name = "pipeline/pipeline_list.html"
 
+  def get_context_data(self, **kwargs):
+    context = super().get_context_data(**kwargs)
+    last_filter = self.request.session.get(PIPELINE_SYNC_SESSION_KEY) or {}
+    context['sync_form'] = PipelineSyncForm(
+      initial={key: last_filter[key] for key in ('tags', 'tag_match') if key in last_filter},
+      disabled=not settings.ENABLE_MLOPS_FLOW)
+    return context
 
-class PipelineCreateView(SuperUserCheck, CreateView):
+
+class PipelineCreateView(MlopsFlowSuperUserCheck, CreateView):
   model = Pipeline
   form_class = PipelineForm
   template_name = "pipeline/pipeline_form.html"
   success_url = reverse_lazy('pipeline_list')
 
 
-class PipelineUpdateView(SuperUserCheck, UpdateView):
+class PipelineUpdateView(MlopsFlowSuperUserCheck, UpdateView):
   model = Pipeline
   form_class = PipelineForm
   template_name = "pipeline/pipeline_form.html"
   success_url = reverse_lazy('pipeline_list')
 
+  def form_valid(self, form):
+    response = super().form_valid(form)
+    if 'pipeline' in form.changed_data:
+      reconcile_pipeline_cameras(self.object, on_warnings=partial(_add_warnings, self.request))
+    return response
 
-class PipelineDeleteView(SuperUserCheck, DeleteView):
+
+class PipelineDeleteView(MlopsFlowSuperUserCheck, DeleteView):
   model = Pipeline
   template_name = "pipeline/pipeline_delete.html"
   success_url = reverse_lazy('pipeline_list')
+
+
+class PipelineSyncView(MlopsFlowSuperUserCheck, View):
+  http_method_names = ['post']
+
+  def post(self, request):
+    form = PipelineSyncForm(request.POST)
+    if not form.is_valid():
+      for errors in form.errors.values():
+        for error in errors:
+          messages.error(request, f"Sync with ViPPET: {error}")
+      return redirect('pipeline_list')
+    request.session[PIPELINE_SYNC_SESSION_KEY] = {
+      'tags': form.cleaned_data['tags'],
+      'tag_match': form.cleaned_data['tag_match'] or PipelineSyncForm.MATCH_ANY,
+    }
+    tag_filter = form.cleaned_data['tag_filter']
+    try:
+      result = sync_vippet_pipelines(tag_filter, on_warnings=partial(_add_warnings, request))
+    except PipelineSyncError as e:
+      messages.error(request, str(e))
+      return redirect('pipeline_list')
+    messages.success(request, _sync_summary(result, tag_filter))
+    if result.skipped:
+      messages.warning(request, "Skipped: " + "; ".join(result.skipped))
+    return redirect('pipeline_list')
+
+
+def _sync_summary(result, tag_filter):
+  counts = (f"{len(result.created)} created, {len(result.updated)} updated, "
+            f"{result.unchanged} unchanged.")
+  if not tag_filter.labels:
+    return f"Synced with ViPPET: {counts}"
+  return (f"Synced with ViPPET ({tag_filter.describe()}): {result.pipelines_matched} of "
+          f"{result.pipelines_total} pipelines matched; {counts}")
+
+
+def _add_warnings(request, warnings):
+  for warning in warnings:
+    messages.warning(request, warning)
+
+
+def _cameras_for(request):
+  """Cameras to load for ``request``.
+
+  A POST holds the loaded camera row until the request's transaction ends, so concurrent saves of
+  one camera apply in turn from the latest state and each reconciles its DLSPS pipeline against
+  what is committed.
+  """
+  return Cam.objects.select_for_update() if request.method == 'POST' else Cam.objects.all()
+
+
+def _reconcile_camera_pipeline(request, cam):
+  reconcile_camera_pipeline(cam.pk, on_warnings=partial(_add_warnings, request))
 
 
 # Scene Child CRUD
@@ -742,8 +839,9 @@ def account_locked(request):
   return render(request, 'sscape/account_locked.html')
 
 @superuser_required
+@transaction.atomic
 def cameraCalibrate(request, sensor_id):
-  cam_inst = get_object_or_404(Cam, pk=sensor_id)
+  cam_inst = get_object_or_404(_cameras_for(request), pk=sensor_id)
 
   if request.method == 'POST':
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)
@@ -788,6 +886,7 @@ def cameraCalibrate(request, sensor_id):
           })
 
       instance = form.save()
+      _reconcile_camera_pipeline(request, instance)
       return redirect(sceneDetail, scene_id=instance.scene_id)
     else:
       log.warning('Form not valid!')

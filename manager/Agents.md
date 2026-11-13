@@ -142,11 +142,15 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
+- `ENABLE_MLOPS_FLOW`: Enables the experimental MLOps Flow (ViPPET / DLSPS 2.0 pipeline integration; default
+  off; Docker Compose only, deliberately not exposed in the Helm chart). Same as the
+  `webserver --enable-mlops-flow` option, which wins over the variable.
+  See [MLOps Flow feature flag](#mlops-flow-feature-flag)
 - `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`).
-  The `manager.vippet` library reads it when explicitly instantiated; there is no default, and
-  construction raises `ValueError` if neither this variable nor `base_url` is provided.
-  Library-only for now: it is not passed through Docker Compose or Helm and has no Manager
-  caller yet. Add deployment wiring and a user-guide entry with the first caller.
+  Enables **Sync with ViPPET** on the Pipelines page. Passed through Docker Compose; empty
+  disables the feature.
+- `DLSPS_URL`: DL Streamer Pipeline Server 2.0 REST root (e.g. `http://dlsps:8080`). Enables
+  starting/stopping camera pipelines. Passed through Docker Compose; empty disables the feature.
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
@@ -296,9 +300,18 @@ docker compose exec manager python manage.py showmigrations
 - Only `vision` pipelines are exposed; `time_series` pipelines are hidden and reported as not found
 - HTTP failures raise `ViPPETError` subclasses (`ViPPETUnavailableError` also covers ViPPET's 503
   while it initializes); invalid arguments or base URL raise `ValueError` before any request
-- The returned string is meant to be persisted by value and later submitted to DLSPS 2.0
+- The returned string is persisted by value in `Pipeline.pipeline` and later submitted to DLSPS 2.0
   `POST /pipelines`; it still references ViPPET-side model/video paths
-- Library only; Manager views and UI do not call ViPPET yet
+- Used by `manager.pipeline_runtime.sync_vippet_pipelines()` (Pipelines page **Sync with ViPPET**,
+  `PipelineSyncView`, superuser + POST only): one `Pipeline` row per variant, named
+  `"<pipeline name> (<variant name>)"`, matched on `vippet_pipeline_id = "<pipeline id>/<variant id>"`.
+  Rows gone from ViPPET are kept; name clashes with other rows are skipped and reported
+- Optional tag filter: `sync_vippet_pipelines(tag_filter)` takes a `TagFilter` built by
+  `parse_tag_filter(text, match_all)` (comma-separated, case-insensitive whole-tag match, Any/All,
+  max 20 tags of 100 chars). Non-matching ViPPET pipelines are skipped without fetching their
+  strings, but variants already imported are still updated. `PipelineSyncForm` validates the input;
+  `PipelineSyncView` stores the last filter in the session (`pipeline_sync_filter`) and the list
+  view pre-fills it
 
 ### DL Streamer Pipeline Server 2.0
 
@@ -310,9 +323,70 @@ docker compose exec manager python manage.py showmigrations
 - Starting a pipeline is asynchronous: poll `get_pipeline_status` to detect `ERROR` after start
 - Pipeline strings are executed as-is; use trusted server-side templates only because elements can
   access files and networks inside the DLSPS container, and restrict exposing APIs to administrators
-- `DLSPS_URL` is supported by the client when explicitly set, but is not currently wired through
-  Manager's Compose or Helm deployment configuration
-- Library only; Manager does not yet create DLSPS pipelines automatically
+- `manager.pipeline_runtime.reconcile_camera_pipeline()` runs after a camera is saved on the
+  create, update and calibrate pages, and for the cameras of a pipeline whose string changed (UI
+  edit or ViPPET sync). Calls inside a transaction are deferred with `transaction.on_commit`;
+  warning callbacks deliver deferred warnings to the UI or log them for REST. Under a
+  `select_for_update` lock it compares the desired state (selected
+  pipeline bound to the current `sensor_id`, sha256 in `Cam.dlsps_pipeline_digest`) with the
+  recorded `Cam.dlsps_instance_id` and its live DLSPS status: a dead (ERROR/COMPLETED/ABORTED/404)
+  instance is forgotten (ERROR is reported), a live one with another digest is stopped, and a
+  missing one is started with `restart_config` enabled. Never decide from `form.changed_data`
+- Stops are confirmed: `DELETE` only requests a stop, and DLSPS 2.0 rc1 rejects it (409) for
+  QUEUED instances (newer DLSPS stops those too), so `_stop_and_confirm` repeats the request until
+  accepted and polls the status until it is terminal or 404, for up to
+  `settings.DLSPS_STOP_TIMEOUT_S` (default 10). An unconfirmed stop keeps the recorded instance and
+  starts no replacement. DLSPS rc1 reports ABORTED as soon as it accepts the stop (its worker exits
+  about a second later; newer DLSPS reports ABORTED after
+  teardown), while a replacement validates for several seconds before processing frames. DLSPS
+  failures never block the save; they are logged and shown as `messages` warnings
+- Every start first commits an intent in `Cam.dlsps_launch_id` and `dlsps_pipeline_digest` in a
+  durable transaction, then reacquires the camera lock, checks the intent and desired pipeline,
+  and sends the start. A concurrent delete, replacement or changed selection cannot start the
+  stale intent. The launch string includes `launch_marker(launch_id)` (an unlinked
+  `identity name=sscape-launch-<uuid>`), since inline DLSPS starts keep no other caller data.
+  If the worker exits or a start has no usable answer (connection error/timeout, 5xx, invalid
+  body), the committed launch id remains (`Cam.dlsps_start_uncertain` is True). The next
+  reconcile adopts the live instance whose `launch_command` ends with that marker (never one
+  recorded by another camera). `_find_launched_instance` scans the full list and treats malformed
+  live IDs and missing metadata as inconclusive only if no match was found. Known rejections
+  (400, 404, 409, 422, or local validation) clear the intent; ambiguous failures do not. A timed-out request may still
+  reach DLSPS after an empty scan, so a retry can create a duplicate without server-side idempotency.
+  Content digests are only for "does the recorded instance run the desired string", never for identity
+- `bind_pipeline_to_camera` tokenizes the launch string (quotes, backslash escapes, `key = value`)
+  and only rewrites `sscape_post_inference_data_publish` element tokens, never quoted text
+- Camera IDs are one MQTT topic level: `validators.camera_id_topic_error` is used by both
+  `CamSerializer` and `CameraPipelineForm.clean_sensor_id`
+- `Cam.RUNTIME_FIELDS` (`dlsps_instance_id`, `dlsps_pipeline_digest`, `dlsps_launch_id`) are written
+  only by `pipeline_runtime` (`_set_runtime`, a queryset update). `Cam.save()` without
+  `update_fields` skips them for existing rows, so a stale form or REST save cannot overwrite a
+  newer handle. Camera POSTs (`views._cameras_for`, in a transaction) and REST updates
+  (`CamSerializer.refresh_locked`) also lock and re-read the row before applying changes, so a
+  stale save cannot revert a concurrently selected pipeline. The serializer refreshes the
+  original ID/name snapshots too, so rename notifications describe the last committed values
+- A `pre_delete` signal on `Cam` (also fired for queryset and `Sensor` cascade deletes) re-reads
+  the runtime fields under the row lock and writes a `PendingDLSPSStop` (instance id, or launch id
+  for an unconfirmed start) in the deletion transaction; a launch-only entry stores the instance
+  id once resolved (merging into an entry that already covers it), so retries check that instance; the stop is attempted after commit and
+  retried (bounded, `MAX_PENDING_STOP_ATTEMPTS`) by `retry_pending_stops()` at the start of every
+  reconcile and sync. A REST update that changes `sensor_id` reconciles the camera
+  (`CamSerializer.rebind_camera_pipeline`; warnings are only logged). Deleting a `Pipeline` does not call DLSPS. Instances are not
+  recreated after a DLSPS restart until the camera is saved
+- Camera pages show the live instance state via the `dlsps_instance_status` template tag
+  (`templatetags/pipeline_tags.py`, 2 s timeout, `UNKNOWN` when DLSPS is unreachable)
+
+### MLOps Flow feature flag
+
+- `settings.ENABLE_MLOPS_FLOW` (from `ENABLE_MLOPS_FLOW`, or `--enable-mlops-flow` exported to
+  Apache by `config/webserver-init`) gates the whole Pipelines feature; default off
+- Off: `MlopsFlowSuperUserCheck` makes pipeline create/update/delete/sync views return 403 (the list
+  stays readable); `CameraPipelineForm` marks `pipeline` as a disabled field, so posted values are
+  ignored; `pipeline_runtime` entry points and the `Cam` `pre_delete` signal never call ViPPET or DLSPS
+- Templates read `ENABLE_MLOPS_FLOW` and `MLOPS_FLOW_DISABLED_HINT` from the context processor and
+  render greyed controls inside a `.mlops-flow-disabled` wrapper that carries the hint as `title`
+- Tests that exercise the enabled feature use `@override_settings(ENABLE_MLOPS_FLOW=True)`
+- MLOps Flow demo with an external ViPPET: `make demo-mlops-flow`
+  (`sample_data/mlops_flow/README.md`)
 
 ### PostgreSQL
 
