@@ -57,12 +57,11 @@ Use the following short names to refer to each model in the chain:
 | -------------------- | -------------------------------------------- | ---------- | ----------------------------------------- |
 | **Person Detection** | person-detection-retail-0013                 | retail     | General person detection                  |
 |                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16 | Crossroad multi-class detection           |
-| **Person Analysis**  | person-reidentification-retail-0277          | reid       | Person re-identification                  |
+| **Person Analysis**  | mars-small128                                | reid       | Person re-identification                  |
 |                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
 |                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
 | **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
 | **Pose Estimation**  | yolo11n-pose                                 | pose       | Person pose estimation with keypoints     |
-| **ReID (Public)**    | mars-small128                                | marsreid   | Lightweight person re-identification      |
 
 ##### Common Chaining Patterns
 
@@ -84,14 +83,14 @@ retail=GPU+agegender=GPU
 
 ```text
 # Pose estimation with re-identification
-pose+marsreid
+pose+reid
 ```
 
-> **Note**: The `yolo11n-pose` and `mars-small128` models are not included in the default model set. They must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
+> **Note**: The `yolo11n-pose` models is not included in the default model set. It must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g., `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g., `pose+reid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 **Vehicle Analytics Workflows:**
 
