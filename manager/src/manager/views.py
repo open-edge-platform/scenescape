@@ -25,6 +25,7 @@ from django.contrib.auth import user_logged_in, user_login_failed
 from django.contrib.sessions.models import Session
 from rest_framework.authtoken.models import Token
 from django.db import IntegrityError, transaction
+from django.utils.decorators import method_decorator
 from django.dispatch.dispatcher import receiver
 from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -426,10 +427,14 @@ class CamListView(LoginRequiredMixin, ListView):
   model = Cam
   template_name = "cam/cam_list.html"
 
+@method_decorator(transaction.atomic, name='post')
 class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
   form_class = CamUpdateForm
   template_name = "cam/cam_update.html"
+
+  def get_queryset(self):
+    return _cameras_for(self.request)
 
   def form_valid(self, form):
     response = super().form_valid(form)
@@ -687,6 +692,16 @@ def _add_warnings(request, warnings):
     messages.warning(request, warning)
 
 
+def _cameras_for(request):
+  """Cameras to load for ``request``.
+
+  A POST holds the loaded camera row until the request's transaction ends, so concurrent saves of
+  one camera apply in turn from the latest state and each reconciles its DLSPS pipeline against
+  what is committed.
+  """
+  return Cam.objects.select_for_update() if request.method == 'POST' else Cam.objects.all()
+
+
 def _reconcile_camera_pipeline(request, cam):
   _add_warnings(request, reconcile_camera_pipeline(cam.pk))
 
@@ -824,8 +839,9 @@ def account_locked(request):
   return render(request, 'sscape/account_locked.html')
 
 @superuser_required
+@transaction.atomic
 def cameraCalibrate(request, sensor_id):
-  cam_inst = get_object_or_404(Cam, pk=sensor_id)
+  cam_inst = get_object_or_404(_cameras_for(request), pk=sensor_id)
 
   if request.method == 'POST':
     form = CamCalibrateForm(request.POST, request.FILES, instance=cam_inst)

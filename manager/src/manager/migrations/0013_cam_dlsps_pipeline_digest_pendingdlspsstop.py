@@ -18,8 +18,8 @@ class Migration(migrations.Migration):
     ),
     migrations.AddField(
       model_name='cam',
-      name='dlsps_start_uncertain',
-      field=models.BooleanField(default=False, editable=False),
+      name='dlsps_launch_id',
+      field=models.UUIDField(blank=True, editable=False, null=True),
     ),
     migrations.CreateModel(
       name='PendingDLSPSStop',
@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
         ('id', models.AutoField(auto_created=True, primary_key=True,
                                serialize=False, verbose_name='ID')),
         ('instance_id', models.UUIDField(blank=True, null=True, unique=True)),
-        ('pipeline_digest', models.CharField(blank=True, max_length=64, null=True)),
+        ('launch_id', models.UUIDField(blank=True, null=True, unique=True)),
         ('attempts', models.PositiveIntegerField(default=0)),
         ('last_error', models.TextField(blank=True, default='')),
         ('created_at', models.DateTimeField(auto_now_add=True)),

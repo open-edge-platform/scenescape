@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import hashlib
+import re
+import uuid
 from unittest.mock import patch
 from uuid import UUID
 
@@ -22,6 +24,7 @@ from manager.dlsps import (
   PipelineSummary as DLSPSPipelineSummary,
 )
 from manager.forms import CamCalibrateForm
+from manager.serializers import CamSerializer
 from manager.models import Cam, PendingDLSPSStop, Pipeline, Scene, Sensor
 from manager.pipeline_runtime import (
   MAX_FILTER_TAG_LENGTH,
@@ -31,6 +34,7 @@ from manager.pipeline_runtime import (
   PipelineSyncError,
   TagFilter,
   bind_pipeline_to_camera,
+  launch_marker,
   parse_tag_filter,
   reconcile_camera_pipeline,
   retry_pending_stops,
@@ -56,6 +60,7 @@ def summary(pipeline_id, name, *variants, tags=()):
 RUNNING = PipelineState.RUNNING
 QUEUED = PipelineState.QUEUED
 RUNTIME_SETTINGS = {'ENABLE_MLOPS_FLOW': True, 'DLSPS_STOP_TIMEOUT_S': 0}
+LAUNCH_MARKER_RE = re.compile(r' identity name=sscape-launch-[0-9a-f-]{36}$')
 
 
 def pipeline_status(instance_id, state, message=''):
@@ -84,6 +89,8 @@ class MockedClientsMixin:
     self.instances = {}
     self.launches = {}
     self.state_after_stop = PipelineState.ABORTED
+    # Older DLSPS versions reject a stop of a QUEUED instance; newer ones also stop those.
+    self.stoppable_states = {RUNNING, PipelineState.RESTARTING}
     self.dlsps.create_pipeline.side_effect = self._fake_create
     self.dlsps.delete_pipeline.side_effect = self._fake_delete
     self.dlsps.get_pipeline_status.side_effect = self._fake_status
@@ -93,9 +100,10 @@ class MockedClientsMixin:
     self._patch('manager.models.sendUpdateCommand')
 
   def _fake_create(self, pipeline, **_kwargs):
-    self.instances[NEW_ID] = (RUNNING, '')
-    self.launches[NEW_ID] = pipeline
-    return str(NEW_ID)
+    instance_id = NEW_ID if NEW_ID not in self.instances else uuid.uuid4()
+    self.instances[instance_id] = (RUNNING, '')
+    self.launches[instance_id] = pipeline
+    return str(instance_id)
 
   def _fake_summary(self, instance_id):
     instance_id = UUID(str(instance_id))
@@ -106,7 +114,7 @@ class MockedClientsMixin:
     instance_id = UUID(str(instance_id))
     if instance_id not in self.instances:
       raise DLSPSNotFoundError('gone')
-    if self.instances[instance_id][0] not in (RUNNING, PipelineState.RESTARTING):
+    if self.instances[instance_id][0] not in self.stoppable_states:
       raise DLSPSConflictError('not running')
     self.instances[instance_id] = (self.state_after_stop, '')
     return str(instance_id)
@@ -146,6 +154,25 @@ class MockedClientsMixin:
 
   def instance_id_of(self, camera):
     return Cam.objects.get(pk=camera.pk).dlsps_instance_id
+
+  def started_pipelines(self):
+    """Launch strings sent to DLSPS, each checked for its launch marker, without the marker."""
+    started = []
+    for call in self.dlsps.create_pipeline.call_args_list:
+      self.assertEqual(call.kwargs, {'restart_config': RESTART_CONFIG})
+      launch = call.args[0]
+      self.assertRegex(launch, LAUNCH_MARKER_RE)
+      started.append(LAUNCH_MARKER_RE.sub('', launch))
+    return started
+
+  def run_instance_of_launch(self, camera, instance_id, pipeline='first ! fakesink'):
+    """Make ``instance_id`` a live DLSPS instance of the camera's last launch attempt."""
+    launch_id = Cam.objects.get(pk=camera.pk).dlsps_launch_id
+    self.instances[instance_id] = (RUNNING, '')
+    self.launches[instance_id] = pipeline + launch_marker(launch_id)
+
+  def fail_start_without_creating(self):
+    self.dlsps.create_pipeline.side_effect = DLSPSUnavailableError('connection reset')
 
 
 @override_settings(**RUNTIME_SETTINGS)
@@ -241,7 +268,7 @@ class ViPPETSyncTests(MockedClientsMixin, TestCase):
     result = sync_vippet_pipelines()
     self.assertEqual(result.warnings, [])
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
-    self.dlsps.create_pipeline.assert_called_once_with('new', restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['new'])
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
   def test_rename_only_does_not_restart_camera(self):
@@ -348,19 +375,19 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
             'pipeline': self.first.pk}
     response = self.client.post(reverse('cam_create'), data)
     self.assertEqual(response.status_code, 302)
-    self.dlsps.create_pipeline.assert_called_once_with('first ! fakesink',
-                                                       restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['first ! fakesink'])
     self.assertTrue(RESTART_CONFIG.enabled)
-    self.assertEqual(Cam.objects.get(sensor_id='new-cam').dlsps_instance_id, NEW_ID)
+    camera = Cam.objects.get(sensor_id='new-cam')
+    self.assertEqual(camera.dlsps_instance_id, NEW_ID)
+    self.assertTrue(self.dlsps.create_pipeline.call_args.args[0].endswith(
+      launch_marker(camera.dlsps_launch_id)))
 
   def test_start_binds_publish_element_to_camera(self):
     shared = Pipeline.objects.create(
       name='Shared', pipeline='src ! sscape_post_inference_data_publish name=dp ! fakesink')
     camera = self.make_camera(pipeline=shared, scene=self.scene, sensor_id='qcam1')
     reconcile_camera_pipeline(camera.pk)
-    self.dlsps.create_pipeline.assert_called_once_with(
-      'src ! sscape_post_inference_data_publish name=dp cameraid="qcam1" ! fakesink',
-      restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['src ! sscape_post_inference_data_publish name=dp cameraid="qcam1" ! fakesink'])
 
   def test_create_without_pipeline_does_not_contact_dlsps(self):
     data = {'sensor_id': 'plain-cam', 'name': 'Plain', 'scene': self.scene.pk}
@@ -371,8 +398,7 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID, scene=self.scene)
     self.assertEqual(self.update_camera(camera, self.second), [])
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
-    self.dlsps.create_pipeline.assert_called_once_with('second ! fakesink',
-                                                       restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['second ! fakesink'])
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
   def test_clearing_pipeline_stops_instance(self):
@@ -403,9 +429,7 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     camera.sensor_id = 'new-id'
     self.assertEqual(self.update_camera(camera, publishing), [])
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
-    self.dlsps.create_pipeline.assert_called_once_with(
-      'src ! sscape_post_inference_data_publish cameraid="new-id" ! fakesink',
-      restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['src ! sscape_post_inference_data_publish cameraid="new-id" ! fakesink'])
 
   def test_start_failure_saves_camera_and_warns(self):
     self.dlsps.create_pipeline.side_effect = DLSPSBadRequestError('invalid pipeline')
@@ -436,7 +460,6 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     camera = self.make_camera(pipeline=self.first, scene=self.scene)
     self.assertEqual(len(reconcile_camera_pipeline(camera.pk)), 1)
     self.assertTrue(Cam.objects.get(pk=camera.pk).dlsps_start_uncertain)
-    self.instances[NEW_ID] = (RUNNING, '')
     self.assertEqual(reconcile_camera_pipeline(camera.pk), [])
     self.assertEqual(self.dlsps.create_pipeline.call_count, 2)
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
@@ -479,8 +502,7 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     self.assertEqual(self.instance_id_of(camera), OLD_ID)
     self.state_after_stop = PipelineState.ABORTED
     self.assertEqual(self.update_camera(camera, self.second), [])
-    self.dlsps.create_pipeline.assert_called_once_with('second ! fakesink',
-                                                       restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['second ! fakesink'])
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
   def test_stop_waits_until_instance_ended(self):
@@ -562,6 +584,90 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     self.assertContains(response, '<span id="camera-dlsps-instance-state">UNKNOWN</span>',
                         html=True)
 
+  def test_queued_instance_is_replaced_when_dlsps_can_stop_it(self):
+    self.stoppable_states.add(QUEUED)
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID, scene=self.scene,
+                              state=QUEUED)
+    self.assertEqual(self.update_camera(camera, self.second), [])
+    self.assertEqual(self.instances[OLD_ID][0], PipelineState.ABORTED)
+    self.assertEqual(self.started_pipelines(), ['second ! fakesink'])
+
+  def test_unanswered_start_does_not_adopt_other_cameras_identical_pipeline(self):
+    twin = Pipeline.objects.create(name='Twin', pipeline='first ! fakesink')
+    other = self.make_camera(pipeline=twin, sensor_id='other-cam', name='Other')
+    reconcile_camera_pipeline(other.pk)
+    camera = self.make_camera(pipeline=self.first, scene=self.scene)
+    self.fail_start_without_creating()
+    reconcile_camera_pipeline(camera.pk)
+    self.dlsps.create_pipeline.side_effect = self._fake_create
+    self.assertEqual(reconcile_camera_pipeline(camera.pk), [])
+    self.assertNotIn(self.instance_id_of(camera), (None, NEW_ID))
+    self.assertEqual(self.instance_id_of(other), NEW_ID)
+    self.assertEqual(self.instances[NEW_ID][0], RUNNING)
+
+  def test_unanswered_start_only_adopts_its_own_launch(self):
+    camera = self.make_camera(pipeline=self.first, scene=self.scene)
+    self.fail_start_without_creating()
+    reconcile_camera_pipeline(camera.pk)
+    # Unrecorded instances running the same string: one without and one with another marker.
+    self.instances[OLD_ID] = (RUNNING, '')
+    self.launches[OLD_ID] = 'first ! fakesink'
+    third_id = uuid.uuid4()
+    self.instances[third_id] = (RUNNING, '')
+    self.launches[third_id] = 'first ! fakesink' + launch_marker(uuid.uuid4())
+    self.dlsps.create_pipeline.side_effect = self._fake_create
+    self.assertEqual(reconcile_camera_pipeline(camera.pk), [])
+    self.assertEqual(self.instance_id_of(camera), NEW_ID)
+
+  def test_unanswered_start_does_not_adopt_instance_recorded_by_another_camera(self):
+    camera = self.make_camera(pipeline=self.first, scene=self.scene)
+    self.fail_start_without_creating()
+    reconcile_camera_pipeline(camera.pk)
+    self.run_instance_of_launch(camera, OLD_ID)
+    other = self.make_camera(sensor_id='other-cam', name='Other')
+    Cam.objects.filter(pk=other.pk).update(dlsps_instance_id=OLD_ID)
+    self.dlsps.create_pipeline.side_effect = self._fake_create
+    self.assertEqual(reconcile_camera_pipeline(camera.pk), [])
+    self.assertEqual(self.instance_id_of(camera), NEW_ID)
+    self.assertEqual(self.instance_id_of(other), OLD_ID)
+
+  def test_unanswered_start_is_kept_while_a_live_instance_has_no_launch_command(self):
+    camera = self.make_camera(pipeline=self.first, scene=self.scene)
+    self.fail_start_without_creating()
+    reconcile_camera_pipeline(camera.pk)
+    self.instances[OLD_ID] = (RUNNING, '')
+    warnings = reconcile_camera_pipeline(camera.pk)
+    self.assertIn('could not check whether its last pipeline start reached', warnings[0])
+    self.assertEqual(self.dlsps.create_pipeline.call_count, 1)
+    self.assertTrue(Cam.objects.get(pk=camera.pk).dlsps_start_uncertain)
+
+  def test_camera_id_must_be_one_mqtt_topic_level(self):
+    for sensor_id in ('cam#1', 'a/b', 'a+b'):
+      with self.subTest(sensor_id=sensor_id):
+        data = {'sensor_id': sensor_id, 'name': f'Bad {sensor_id}', 'scene': self.scene.pk,
+                'pipeline': self.first.pk}
+        response = self.client.post(reverse('cam_create'), data)
+        self.assertContains(response, 'MQTT topic segment', status_code=400)
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID, scene=self.scene)
+    data = {'sensor_id': 'bad/id', 'name': camera.name, 'scene': self.scene.pk,
+            'pipeline': self.first.pk}
+    response = self.client.post(reverse('cam_update', args=[camera.pk]), data)
+    self.assertContains(response, 'MQTT topic segment')
+    self.assertEqual(Cam.objects.get(pk=camera.pk).sensor_id, 'runtime-cam')
+    self.dlsps.create_pipeline.assert_not_called()
+    self.dlsps.delete_pipeline.assert_not_called()
+
+  def test_stale_rest_update_keeps_concurrently_selected_pipeline(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID, scene=self.scene)
+    stale = Cam.objects.get(pk=camera.pk)
+    self.update_camera(camera, self.second)
+    serializer = CamSerializer(stale, data={'name': 'Renamed'}, partial=True)
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    serializer.save()
+    camera = Cam.objects.get(pk=camera.pk)
+    self.assertEqual((camera.name, camera.pipeline), ('Renamed', self.second))
+    self.assertEqual(camera.dlsps_instance_id, NEW_ID)
+
   def test_calibrate_page_selects_pipeline(self):
     camera = self.make_camera(scene=self.scene)
     form = CamCalibrateForm(instance=camera)
@@ -570,8 +676,7 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TestCase):
     data['pipeline'] = self.first.pk
     response = self.client.post(reverse('cam_calibrate', args=[camera.pk]), data)
     self.assertEqual(response.status_code, 302)
-    self.dlsps.create_pipeline.assert_called_once_with('first ! fakesink',
-                                                       restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['first ! fakesink'])
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
 
@@ -585,8 +690,7 @@ class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
                                 {'name': 'Edited', 'pipeline': 'new ! fakesink'})
     self.assertRedirects(response, reverse('pipeline_list'))
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
-    self.dlsps.create_pipeline.assert_called_once_with('new ! fakesink',
-                                                       restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['new ! fakesink'])
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
   def test_renaming_assigned_pipeline_does_not_restart(self):
@@ -641,8 +745,7 @@ class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
     self.dlsps.create_pipeline.side_effect = ['not-a-uuid']
     camera = self.make_camera(pipeline=self.first)
     reconcile_camera_pipeline(camera.pk)
-    self.instances[OLD_ID] = (RUNNING, '')
-    self.launches[OLD_ID] = 'first ! fakesink'
+    self.run_instance_of_launch(camera, OLD_ID)
     with self.captureOnCommitCallbacks(execute=True):
       camera.delete()
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
@@ -659,11 +762,12 @@ class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
     camera.refresh_from_db()
     with self.captureOnCommitCallbacks(execute=True):
       camera.delete()
-    self.dlsps.delete_pipeline.assert_not_called()
+    self.assertEqual(self.instances[OLD_ID][0], QUEUED)
     self.assertTrue(PendingDLSPSStop.objects.filter(instance_id=OLD_ID).exists())
     self.instances[OLD_ID] = (RUNNING, '')
     retry_pending_stops()
-    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+    self.dlsps.delete_pipeline.assert_called_with(OLD_ID)
+    self.assertEqual(self.instances[OLD_ID][0], PipelineState.ABORTED)
     self.assertFalse(PendingDLSPSStop.objects.exists())
 
   def test_pending_stop_gives_up_after_max_attempts(self):
@@ -674,6 +778,40 @@ class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
     self.assertEqual(PendingDLSPSStop.objects.get().attempts, MAX_PENDING_STOP_ATTEMPTS - 1)
     retry_pending_stops()
     self.assertFalse(PendingDLSPSStop.objects.exists())
+
+  def test_launch_only_pending_stop_records_resolved_instance(self):
+    PendingDLSPSStop.objects.create(launch_id=NEW_ID)
+    self.instances[OLD_ID] = (RUNNING, '')
+    self.launches[OLD_ID] = 'first ! fakesink' + launch_marker(NEW_ID)
+    self.state_after_stop = RUNNING
+    retry_pending_stops()
+    entry = PendingDLSPSStop.objects.get()
+    self.assertEqual((entry.instance_id, entry.attempts), (OLD_ID, 1))
+    self.dlsps.reset_mock()
+    self.state_after_stop = PipelineState.ABORTED
+    self.instances[OLD_ID] = (RUNNING, '')
+    retry_pending_stops()
+    self.dlsps.list_pipeline_statuses.assert_not_called()
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+    self.assertFalse(PendingDLSPSStop.objects.exists())
+
+  def test_launch_only_pending_stop_merges_into_entry_for_same_instance(self):
+    PendingDLSPSStop.objects.create(instance_id=OLD_ID)
+    PendingDLSPSStop.objects.create(launch_id=NEW_ID)
+    self.instances[OLD_ID] = (RUNNING, '')
+    self.launches[OLD_ID] = 'first ! fakesink' + launch_marker(NEW_ID)
+    self.state_after_stop = RUNNING
+    retry_pending_stops()
+    self.assertEqual(list(PendingDLSPSStop.objects.values_list('instance_id', 'launch_id')),
+                     [(OLD_ID, None)])
+
+  def test_launch_only_pending_stop_is_kept_while_lookup_is_inconclusive(self):
+    PendingDLSPSStop.objects.create(launch_id=NEW_ID)
+    self.instances[OLD_ID] = (RUNNING, '')
+    retry_pending_stops()
+    entry = PendingDLSPSStop.objects.get()
+    self.assertEqual((entry.instance_id, entry.attempts), (None, 1))
+    self.dlsps.delete_pipeline.assert_not_called()
 
   def test_pending_stop_survives_unreachable_or_unconfigured_dlsps(self):
     self.dlsps.delete_pipeline.side_effect = DLSPSUnavailableError('down')
@@ -704,17 +842,14 @@ class PipelineLifecycleTests(CameraFixturesMixin, TestCase):
                           format='json')
     self.assertEqual(response.status_code, 200, response.content)
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
-    self.dlsps.create_pipeline.assert_called_once_with(
-      'src ! sscape_post_inference_data_publish cameraid="new-id" ! fakesink',
-      restart_config=RESTART_CONFIG)
+    self.assertEqual(self.started_pipelines(), ['src ! sscape_post_inference_data_publish cameraid="new-id" ! fakesink'])
     self.assertEqual(self.instance_id_of(camera), NEW_ID)
 
   def test_stop_all_camera_instances_resolves_unanswered_starts(self):
     self.dlsps.create_pipeline.side_effect = ['not-a-uuid']
     camera = self.make_camera(pipeline=self.first)
     reconcile_camera_pipeline(camera.pk)
-    self.instances[OLD_ID] = (RUNNING, '')
-    self.launches[OLD_ID] = 'first ! fakesink'
+    self.run_instance_of_launch(camera, OLD_ID)
     stop_all_camera_instances()
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
     camera = Cam.objects.get(pk=camera.pk)
@@ -731,6 +866,12 @@ class BindPipelineToCameraTests(SimpleTestCase):
         'textoverlay text="unterminated sscape_post_inference_data_publish ! fakesink'):
       with self.subTest(pipeline=pipeline):
         self.assertEqual(bind_pipeline_to_camera(pipeline, 'c1'), pipeline)
+
+  def test_escapes_and_spaced_properties_are_tokenized(self):
+    self.assertEqual(
+      bind_pipeline_to_camera(
+        'a ! sscape_post_inference_data_publish cameraid = "old" label=a\\ b ! fakesink', 'c1'),
+      'a ! sscape_post_inference_data_publish label=a\\ b cameraid="c1" ! fakesink')
 
   def test_quoted_property_values_with_spaces_and_links_are_kept(self):
     self.assertEqual(

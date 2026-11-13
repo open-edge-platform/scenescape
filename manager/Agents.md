@@ -330,26 +330,36 @@ docker compose exec manager python manage.py showmigrations
   recorded `Cam.dlsps_instance_id` and its live DLSPS status: a dead (ERROR/COMPLETED/ABORTED/404)
   instance is forgotten (ERROR is reported), a live one with another digest is stopped, and a
   missing one is started with `restart_config` enabled. Never decide from `form.changed_data`
-- Stops are confirmed: `DELETE` only requests a stop and is rejected (409) for QUEUED instances,
-  so `_stop_and_confirm` polls the status until it is terminal or 404, for up to
+- Stops are confirmed: `DELETE` only requests a stop, and DLSPS 2.0 rc1 rejects it (409) for
+  QUEUED instances (newer DLSPS stops those too), so `_stop_and_confirm` repeats the request until
+  accepted and polls the status until it is terminal or 404, for up to
   `settings.DLSPS_STOP_TIMEOUT_S` (default 10). An unconfirmed stop keeps the recorded instance and
-  starts nothing, so a camera never runs two instances. DLSPS itself reports ABORTED as soon as it
-  accepts the stop and its worker exits about a second later, while a replacement validates for
-  several seconds before processing frames. DLSPS failures never block the save; they are logged
-  and shown as `messages` warnings
-- A start without a usable answer (connection error/timeout, 5xx, invalid body) records
-  `dlsps_start_uncertain` with the attempted digest instead of an instance id. The next reconcile
-  adopts a live instance whose `launch_command` has that digest (`_find_live_instance`) and starts
-  nothing while DLSPS cannot be listed. Only 4xx responses count as confirmed rejections
-- `bind_pipeline_to_camera` tokenizes the launch string with quote awareness and only rewrites
-  `sscape_post_inference_data_publish` element tokens, never text inside quoted values
-- `Cam.RUNTIME_FIELDS` (`dlsps_instance_id`, `dlsps_pipeline_digest`, `dlsps_start_uncertain`) are
-  written only by
-  `pipeline_runtime` (`_set_runtime`, a queryset update). `Cam.save()` without `update_fields`
-  skips them for existing rows, so a stale form or REST save cannot overwrite a newer handle
+  starts nothing, so a camera never runs two instances. DLSPS rc1 reports ABORTED as soon as it
+  accepts the stop (its worker exits about a second later; newer DLSPS reports ABORTED after
+  teardown), while a replacement validates for several seconds before processing frames. DLSPS
+  failures never block the save; they are logged and shown as `messages` warnings
+- Every start appends `launch_marker(launch_id)` (an unlinked `identity name=sscape-launch-<uuid>`)
+  to the launch string and records the attempt in `Cam.dlsps_launch_id`; inline DLSPS starts keep
+  no other caller data. A start without a usable answer (connection error/timeout, 5xx, invalid
+  body) records only the launch id (`Cam.dlsps_start_uncertain` is then True). The next reconcile
+  adopts the live instance whose `launch_command` ends with that marker (`_find_launched_instance`,
+  never one recorded by another camera) and starts nothing while DLSPS cannot be listed or a live
+  instance has no launch command. Only 4xx responses count as confirmed rejections. Content
+  digests are only for "does the recorded instance run the desired string", never for identity
+- `bind_pipeline_to_camera` tokenizes the launch string (quotes, backslash escapes, `key = value`)
+  and only rewrites `sscape_post_inference_data_publish` element tokens, never quoted text
+- Camera IDs are one MQTT topic level: `validators.camera_id_topic_error` is used by both
+  `CamSerializer` and `CameraPipelineForm.clean_sensor_id`
+- `Cam.RUNTIME_FIELDS` (`dlsps_instance_id`, `dlsps_pipeline_digest`, `dlsps_launch_id`) are written
+  only by `pipeline_runtime` (`_set_runtime`, a queryset update). `Cam.save()` without
+  `update_fields` skips them for existing rows, so a stale form or REST save cannot overwrite a
+  newer handle. Camera POSTs (`views._cameras_for`, in a transaction) and REST updates
+  (`CamSerializer.refresh_locked`) also lock and re-read the row before applying changes, so a
+  stale save cannot revert a concurrently selected pipeline
 - A `pre_delete` signal on `Cam` (also fired for queryset and `Sensor` cascade deletes) re-reads
-  the runtime fields under the row lock and writes a `PendingDLSPSStop` (instance id, or digest
-  for an unconfirmed start) in the deletion transaction; the stop is attempted after commit and
+  the runtime fields under the row lock and writes a `PendingDLSPSStop` (instance id, or launch id
+  for an unconfirmed start) in the deletion transaction; a launch-only entry stores the instance
+  id once resolved (merging into an entry that already covers it), so retries check that instance; the stop is attempted after commit and
   retried (bounded, `MAX_PENDING_STOP_ATTEMPTS`) by `retry_pending_stops()` at the start of every
   reconcile and sync. A REST update that changes `sensor_id` reconciles the camera
   (`CamSerializer.rebind_camera_pipeline`; warnings are only logged). Deleting a `Pipeline` does not call DLSPS. Instances are not

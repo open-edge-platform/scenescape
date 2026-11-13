@@ -849,29 +849,29 @@ class Pipeline(models.Model):
 class PendingDLSPSStop(models.Model):
   """DLSPS instance of a deleted camera that could not be confirmed stopped yet."""
 
-  # Null when the camera was deleted while its start was unconfirmed; the instance is then found
-  # by the digest of its launch string.
+  # Null while only the launch attempt is known (the camera was deleted while its start was
+  # unconfirmed); the instance is then found by the launch marker in its launch string.
   instance_id = models.UUIDField(unique=True, null=True, blank=True)
-  pipeline_digest = models.CharField(max_length=64, null=True, blank=True)
+  launch_id = models.UUIDField(unique=True, null=True, blank=True)
   attempts = models.PositiveIntegerField(default=0)
   last_error = models.TextField(blank=True, default="")
   created_at = models.DateTimeField(auto_now_add=True)
 
   def __str__(self):
-    return str(self.instance_id or self.pipeline_digest)
+    return str(self.instance_id or f"launch {self.launch_id}")
 
 
 class Cam(Sensor):
   DEFAULT_INTRINSICS = {"fx":570.0,"fy":570.0,"cx":320.0,"cy":240.0}
   # Written only by manager.pipeline_runtime (under a row lock); ordinary saves leave them alone.
-  RUNTIME_FIELDS = frozenset({'dlsps_instance_id', 'dlsps_pipeline_digest',
-                              'dlsps_start_uncertain'})
+  RUNTIME_FIELDS = frozenset({'dlsps_instance_id', 'dlsps_pipeline_digest', 'dlsps_launch_id'})
 
   dlsps_instance_id = models.UUIDField(null=True, blank=True, editable=False)
   # sha256 of the camera-bound pipeline string the recorded DLSPS instance was started with.
   dlsps_pipeline_digest = models.CharField(max_length=64, null=True, blank=True, editable=False)
-  # The last start request may have reached DLSPS without its response reaching Manager.
-  dlsps_start_uncertain = models.BooleanField(default=False, editable=False)
+  # Unique ID of the last start attempt, embedded in the launch string as a marker element, so an
+  # instance whose start request got no answer can be found again.
+  dlsps_launch_id = models.UUIDField(null=True, blank=True, editable=False)
   pipeline = models.ForeignKey(Pipeline, null=True, blank=True, on_delete=models.SET_NULL,
                                related_name="cameras",
                                help_text="Selecting a pipeline starts it on DL Streamer Pipeline Server for this camera; changing or clearing it stops the running instance.")
@@ -1085,6 +1085,11 @@ class Cam(Sensor):
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
+
+  @property
+  def dlsps_start_uncertain(self):
+    """True when the last start request got no usable answer, so its instance is unknown."""
+    return self.dlsps_instance_id is None and self.dlsps_launch_id is not None
 
   def _fields_without_runtime_state(self):
     """Loaded concrete fields except the DLSPS runtime state.

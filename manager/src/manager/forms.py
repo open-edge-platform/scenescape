@@ -12,7 +12,7 @@ from django.forms import ModelForm, ValidationError
 
 from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene, Pipeline
 from manager.pipeline_runtime import parse_tag_filter
-from manager.validators import validate_zip_file
+from manager.validators import camera_id_topic_error, validate_zip_file
 from manager.ppl_generator import (
   PipelineGenerationValueError,
   PipelineGenerationNotImplementedError,
@@ -94,6 +94,14 @@ class CameraPipelineForm(forms.ModelForm):
       # Disabled fields ignore submitted data, so the stored association is kept as is.
       pipeline_field.disabled = True
       pipeline_field.widget.attrs['title'] = settings.MLOPS_FLOW_DISABLED_HINT
+
+  def clean_sensor_id(self):
+    """Reject IDs that cannot be an MQTT topic level, as the REST API does."""
+    sensor_id = self.cleaned_data.get('sensor_id')
+    error = camera_id_topic_error(sensor_id)
+    if error:
+      raise ValidationError(f"Camera ID {error}")
+    return sensor_id
 
 
 class CamUpdateForm(CameraPipelineForm):

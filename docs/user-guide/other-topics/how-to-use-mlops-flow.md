@@ -107,7 +107,15 @@ Before starting an instance, Manager sets `cameraid` on every
 value in the stored string, so detections are published for the camera the
 pipeline is assigned to. Only element declarations are changed; text inside
 quoted property values is left as it is. Changing the Camera ID, in the UI or
-through the REST API, restarts the pipeline with the new ID.
+through the REST API, restarts the pipeline with the new ID. The Camera ID is
+used as one MQTT topic level, so the camera pages, like the REST API, reject IDs
+containing `/`, `+` or `#`.
+
+Manager also appends an unlinked element, `identity name=sscape-launch-<uuid>`,
+to every string it starts. It receives no data and does not change what the
+pipeline does; its unique name lets Manager find the instance again if the
+answer to the start request is lost, so you see it in the DLSPS
+`launch_command`.
 
 Related events:
 
@@ -115,18 +123,22 @@ Related events:
 - Deleting a camera stops its instance.
 - Deleting a pipeline clears the camera's selection only; the running instance
   is stopped the next time the camera is saved.
+- Concurrent saves of the same camera, from the camera pages or the REST API, are
+  applied one after another, each from the latest saved state.
 
 A camera never runs two instances. Before starting a replacement, Manager waits
 up to 10 seconds (`DLSPS_STOP_TIMEOUT_S` in the `web` environment) for DLSPS to
-report that the old instance has ended. If it has not ended by then, if it is
-still `QUEUED` (DLSPS cannot stop queued instances), or if DLSPS is unreachable,
-the old instance stays recorded, no new one is started, and a warning asks you
-to save the camera again. If DLSPS rejects a start, the camera is still saved
+report that the old instance has ended. If it has not ended by then (DLSPS
+versions that cannot stop a `QUEUED` instance are asked again until it runs), or
+if DLSPS is unreachable, the old instance stays recorded, no new one is started,
+and a warning asks you to save the camera again. If DLSPS rejects a start, the camera is still saved
 with a warning; saving it again retries. If DLSPS does not answer a start
 request (for example, it times out), the camera page shows
-`START UNCONFIRMED`; the next save looks in DLSPS for an instance running the
-camera's exact pipeline string and keeps it instead of starting a second one,
-and starts nothing while DLSPS cannot be checked. Deleting a camera queues the
+`START UNCONFIRMED`; the next save looks in DLSPS for the instance carrying that
+start's `sscape-launch-<uuid>` element and keeps it instead of starting a second
+one. Instances of other starts, including other cameras running an identical
+string, are never taken over, and nothing is started while DLSPS cannot be
+checked. Deleting a camera queues the
 stop of its instance together with the deletion; a stop that cannot be
 confirmed right away is retried on later camera saves and syncs, up to 10
 times.
