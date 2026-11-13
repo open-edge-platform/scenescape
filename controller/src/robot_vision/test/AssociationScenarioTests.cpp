@@ -447,6 +447,7 @@ struct NoiseRun
 {
   int publishedIdentityErrors = 0;
   double positionRms = 0.0; // [m], x/y of object 1's published tracks against the truth after kNoiseWarmUp
+  int positionSamples = 0;  // published track positions in positionRms; 0 makes positionRms 0
 };
 
 // Collects the x/y error of every published track that object 1 last updated; forwards to `recorder`, if any.
@@ -485,6 +486,11 @@ public:
     return mCount > 0 ? std::sqrt(mSquares / mCount) : 0.0;
   }
 
+  int count() const
+  {
+    return mCount;
+  }
+
 private:
   const std::vector<TruthSample> &mTruth;
   TrackerRunObserver *mRecorder;
@@ -517,7 +523,9 @@ NoiseRun runWithCameras(const std::vector<NoiseCamera> &cameras, unsigned seed, 
   PositionErrorObserver errors(truth, recorder ? &*recorder : nullptr);
   TrackerRun run(positionMahalanobisAssociation(), kFps, productionTrackerConfig(), &errors);
   run.play(sampleTimes(truth), observations);
-  return {.publishedIdentityErrors = run.publishedIdentityErrors({1}), .positionRms = errors.rms()};
+  return {.publishedIdentityErrors = run.publishedIdentityErrors({1}),
+          .positionRms = errors.rms(),
+          .positionSamples = errors.count()};
 }
 
 std::vector<NoiseCamera> notReported(std::vector<NoiseCamera> cameras)
@@ -563,6 +571,9 @@ void expectPairedRuns(const std::string &caseName,
                                     << without.positionRms << " m without");
     EXPECT_LE(withR.publishedIdentityErrors, maxPublishedErrors);
     EXPECT_EQ(without.publishedIdentityErrors, 0);
+    // No published output would pass the bounds with RMS 0 and no identity errors.
+    ASSERT_GT(withR.positionSamples, 0);
+    ASSERT_GT(without.positionSamples, 0);
     ASSERT_GT(without.positionRms, 0.0);
     EXPECT_LE(withR.positionRms / without.positionRms, maxRmsRatio);
   }
