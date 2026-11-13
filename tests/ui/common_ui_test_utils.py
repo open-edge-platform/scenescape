@@ -71,6 +71,7 @@ DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
 BROWSER_WAIT = 5
+CALIBRATION_READY_WAIT = 20
 
 def click_when_clickable(browser, locator, timeout_s=10):
   """Click an element after ensuring it is interactable and not obscured."""
@@ -593,12 +594,14 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   """
 
   calibration_state = browser.execute_script(calibration_ready_script)
-  if calibration_state.get("hasCalibration") and not calibration_state.get("ready"):
+  if not calibration_state.get("ready"):
+    # The viewport is created only after page images load; it never appears without WebGL.
     try:
-      wait.until(lambda drv: drv.execute_script(calibration_ready_script)["ready"])
-      calibration_state = browser.execute_script(calibration_ready_script)
+      WebDriverWait(browser, CALIBRATION_READY_WAIT).until(
+        lambda drv: drv.execute_script(calibration_ready_script)["ready"])
     except Exception:
-      calibration_state = browser.execute_script(calibration_ready_script)
+      pass
+    calibration_state = browser.execute_script(calibration_ready_script)
 
   if not calibration_state.get("ready"):
     transforms_value = browser.execute_script(
