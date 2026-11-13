@@ -151,8 +151,9 @@ enable the MLOps Flow. Enable it with one of:
   has no label names, so detections are reported by class number (for example
   `"1"`) and `detection-labels=person` drops them. Use a model from ViPPET's
   catalogue, or add the labels to the uploaded model's `model.xml`, inside the
-  top-level `<rt_info>`, and save the camera again to restart its pipeline. For
-  an SSD model such as `person-detection-retail-0013`:
+  top-level `<rt_info>`. To reload the model, clear the camera's **Pipeline**
+  selection and save, then reselect the pipeline and save again. For an SSD model
+  such as `person-detection-retail-0013`:
 
   ```xml
   <model_info>
