@@ -309,6 +309,10 @@ def _build_tracker_service_config(
   association = tracking_cfg.get("association")
   if association is not None:
     config["tracking"]["association"] = association
+  # Global Kalman filter settings (q, r, P0), so a sweep changes the config file only.
+  filter_config = tracking_cfg.get("filter")
+  if filter_config is not None:
+    config["tracking"]["filter"] = filter_config
   if otlp_endpoint:
     config["infrastructure"]["otlp"] = {
         "endpoint": otlp_endpoint,

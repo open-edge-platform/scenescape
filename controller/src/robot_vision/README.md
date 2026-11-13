@@ -139,7 +139,7 @@ comes from one of:
   ground point, with an angular error of `angularSigma` [rad]. The error grows with range and is longest along the
   ground range; z is exact.
 - `depthCamera(position, angularSigma, depthFraction)`: a camera that also estimates depth, with a sigma of
-  `depthFraction` × range along the viewing ray and `angularSigma` × range across it; z is measured (`zMeasured`).
+  `depthFraction` × range along the viewing ray and `angularSigma` × range across it; z is measured (`z_measured`).
 - `fixedCovariance(covariance)`: the same covariance for every detection.
 
 The reported R has the position covariance multiplied by `reportedScale`, `sizeNoise²` for length, width and height,

@@ -343,7 +343,7 @@ def apply_measurement(rv_object, measurement):
   rv_object.length = mean[3]
   rv_object.width = mean[4]
   rv_object.height = mean[5]
-  rv_object.zMeasured = True
+  rv_object.z_measured = True
   return True
 
 

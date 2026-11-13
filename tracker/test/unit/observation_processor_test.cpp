@@ -107,7 +107,7 @@ TEST(CameraModelProcessorTest, ProcessesEachBatchWithItsCameraCalibration) {
             EXPECT_DOUBLE_EQ(actual.y, expected.objects[j].y);
             EXPECT_DOUBLE_EQ(actual.z, expected.objects[j].z);
             EXPECT_DOUBLE_EQ(actual.height, expected.objects[j].height);
-            EXPECT_EQ(actual.zMeasured, expected.objects[j].zMeasured);
+            EXPECT_EQ(actual.z_measured, expected.objects[j].z_measured);
         }
     }
 }
@@ -162,7 +162,7 @@ TEST(ToTrackerInputsTest, KeepsProcessedGeometry) {
     detection.confidence = 0.9;
     auto geometry = make_geometry(1.5, -2.5);
     geometry.z = 0.85;
-    geometry.zMeasured = true;
+    geometry.z_measured = true;
     geometry.yaw = 0.4;
     rv::tracking::orientation::setHasOrientation(geometry, true);
     geometry.measurementNoiseCov = rv::tracking::TrackedObject::MeasurementMatrix::eye() * 0.3;
@@ -173,7 +173,7 @@ TEST(ToTrackerInputsTest, KeepsProcessedGeometry) {
     EXPECT_DOUBLE_EQ(inputs[0].x, 1.5);
     EXPECT_DOUBLE_EQ(inputs[0].y, -2.5);
     EXPECT_DOUBLE_EQ(inputs[0].z, 0.85);
-    EXPECT_TRUE(inputs[0].zMeasured);
+    EXPECT_TRUE(inputs[0].z_measured);
     EXPECT_DOUBLE_EQ(inputs[0].height, 1.7);
     EXPECT_DOUBLE_EQ(inputs[0].yaw, 0.4);
     EXPECT_TRUE(rv::tracking::orientation::hasOrientation(inputs[0]));

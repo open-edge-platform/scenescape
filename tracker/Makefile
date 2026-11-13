@@ -258,7 +258,7 @@ coverage-html:
 	@lcov --capture --directory build-debug \
 		--output-file build-debug/coverage/coverage.info \
 		--rc branch_coverage=1 \
-		--ignore-errors mismatch,gcov,unused \
+		--ignore-errors mismatch,gcov,unused,inconsistent \
 		--quiet 2>/dev/null
 	@lcov --remove build-debug/coverage/coverage.info \
 		'/usr/*' \
@@ -275,7 +275,7 @@ coverage-html:
 		'*/src/mqtt_client.cpp' \
 		--output-file build-debug/coverage/coverage-filtered.info \
 		--rc branch_coverage=1 \
-		--ignore-errors unused \
+		--ignore-errors unused,inconsistent \
 		--quiet 2>/dev/null
 	@genhtml build-debug/coverage/coverage-filtered.info \
 		--output-directory build-debug/coverage/html \
@@ -283,7 +283,7 @@ coverage-html:
 		--branch-coverage \
 		--function-coverage \
 		--demangle-cpp \
-		--ignore-errors mismatch \
+		--ignore-errors mismatch,inconsistent \
 		--quiet 2>/dev/null
 	@echo "✓ HTML coverage report: build-debug/coverage/html/index.html"
 

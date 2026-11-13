@@ -207,7 +207,7 @@ void expectRemote(const ProcessedObservations& geometry, size_t index, size_t k)
     EXPECT_DOUBLE_EQ(object.length, 0.5);
     EXPECT_DOUBLE_EQ(object.width, 0.6);
     EXPECT_DOUBLE_EQ(object.height, kHeight);
-    EXPECT_TRUE(object.zMeasured);
+    EXPECT_TRUE(object.z_measured);
     ASSERT_TRUE(object.measurementNoiseCov.has_value());
     const auto r = denseR();
     for (size_t i = 0; i < r.size(); ++i) {
@@ -220,7 +220,7 @@ void expectLocal(const ProcessedObservations& geometry, size_t index) {
     ASSERT_TRUE(geometry.has_geometry[index]);
     const auto& object = geometry.objects[index];
     EXPECT_DOUBLE_EQ(object.x, 100.0 + static_cast<double>(index));
-    EXPECT_FALSE(object.zMeasured);
+    EXPECT_FALSE(object.z_measured);
     EXPECT_FALSE(object.measurementNoiseCov.has_value());
 }
 

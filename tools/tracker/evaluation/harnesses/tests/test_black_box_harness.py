@@ -965,7 +965,7 @@ class TestPersistConfig:
 # ---------------------------------------------------------------------------
 
 class TestBuildTrackerServiceConfig:
-  """_build_tracker_service_config must forward the association block."""
+  """_build_tracker_service_config must forward the association and filter blocks."""
 
   EUCLIDEAN = {"method": "euclidean", "max_radius_m": 2.0}
 
@@ -983,6 +983,25 @@ class TestBuildTrackerServiceConfig:
   def test_missing_association_left_to_tracker_defaults(self):
     cfg = self._build({"time_chunking_rate_fps": 10})
     assert "association" not in cfg["tracking"]
+
+  FILTER = {"process_noise": 2e-4, "base_measurement_noise": 0.5, "init_state_covariance": 16.0}
+
+  def test_flat_config_filter_forwarded(self):
+    cfg = self._build({"time_chunking_rate_fps": 10, "filter": self.FILTER})
+    assert cfg["tracking"]["filter"] == self.FILTER
+
+  def test_nested_config_filter_forwarded(self):
+    cfg = self._build({"tracking": {"filter": self.FILTER}})
+    assert cfg["tracking"]["filter"] == self.FILTER
+
+  def test_missing_filter_left_to_tracker_defaults(self):
+    cfg = self._build({"time_chunking_rate_fps": 10})
+    assert "filter" not in cfg["tracking"]
+
+  def test_birth_cluster_radius_forwarded_with_association(self):
+    association = {"method": "euclidean", "birth_cluster_radius_m": 3.5}
+    cfg = self._build({"tracking": {"association": association}})
+    assert cfg["tracking"]["association"] == association
 
 
 # ---------------------------------------------------------------------------

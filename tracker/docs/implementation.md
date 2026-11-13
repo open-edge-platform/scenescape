@@ -26,7 +26,7 @@ Each `TrackingWorker` gets this geometry from an `ObservationProcessor`
 ([`observation_processor.hpp`](../inc/observation_processor.hpp)). The default
 `CameraModelProcessor` processes every camera batch with that camera's
 `CoordinateTransformer` and skips batches from unknown cameras. A processor sets
-geometry only: position, size, `zMeasured`, measurement noise when known, and
+geometry only: position, size, `z_measured`, measurement noise when known, and
 world yaw from a supplied rotation. Its `ProcessedObservations` hold one object per
 detection plus a `has_geometry` flag, which is 0 for a detection without a
 measurement. `toTrackerInputs` then attaches the detection's own data (id,
@@ -51,7 +51,7 @@ run concurrently on a completion queue under one deadline (`timeout_ms`).
 The channel starts connecting at startup, so the first chunk does not spend
 its deadline on name resolution and the handshake.
 Each valid measurement replaces the local position and size, sets
-`zMeasured` and `measurementNoiseCov` (R), and keeps the returned z, the
+`z_measured` and `measurementNoiseCov` (R), and keeps the returned z, the
 object's centre of mass (see
 [z reference in experimental mode](#z-reference-in-experimental-mode)). Yaw
 and `has_orientation` stay as set
@@ -76,7 +76,9 @@ workers that use a `RemoteObservationProcessor` track the centre of mass
 - After processing, every input without measured z (a pixel box that keeps its local
   result) is raised by half its height (`toCentreOfMass`). Remote
   measurements and sensor-frame translations carry measured z and are used
-  unchanged; translations are assumed to be the centre of mass.
+  unchanged; translations are assumed to be the centre of mass. A track that has
+  measured z keeps it: robot_vision omits z from later planar updates, so a raised
+  pixel box that keeps its local result does not move it.
 - Published tracks report the footprint base: `translation[2]` is the track's
   z minus half its height (`footprintBaseZ`). x, y, velocity, size and rotation
   are not converted.
@@ -435,12 +437,15 @@ world orientation is reduced to Z-yaw and marked with `has_orientation`.
 This also applies to bounding-box detections, whose rotation was previously
 ignored by the tracker; supplied orientation can now change their published rotation.
 
-Translation detections keep their measured z and are marked `zMeasured`;
+Translation detections keep their measured z and are marked `z_measured`;
 pixel boxes are projected to z = 0. The filter estimates vertical velocity, so
 tracks publish `translation[2]` and `velocity[2] = vz`. Track-to-detection
-association gates in XYZ (χ² with 3 degrees of freedom for
-`position_mahalanobis`); the published `association_window` ellipse is the XY
-block with 2 degrees of freedom. Birth clustering across cameras uses XY distance
+association gates z only when the detection and the track both have measured z
+(a track keeps `z_measured` once an update measured it): XYZ with χ² of 3 degrees
+of freedom for `position_mahalanobis`, XY with 2 otherwise; `euclidean` uses the
+XY or XYZ distance by the same rule. The published `association_window` ellipse
+is the XY shadow of the track's gate, with 3 degrees of freedom for a track with
+measured z and 2 without. Birth clustering across cameras uses XY distance
 unless both detections have measured z, so stacked 3D detections stay separate
 while a pixel box and a 3D detection of the same object still fuse. Pixel boxes
 report the ground point and 3D detectors usually report the box centre, so a

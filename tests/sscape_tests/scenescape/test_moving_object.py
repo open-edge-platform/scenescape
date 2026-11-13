@@ -399,6 +399,47 @@ class TestMovingObject:
     assert with_translation.has_measured_z
     assert not without_translation.has_measured_z
 
+  def test_has_measured_z_false_for_pixel_bbox_only(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    projected = Rectangle({'x': 1.0, 'y': 2.0, 'width': 0.3, 'height': 0.4})
+    intrinsics = SimpleNamespace(
+      mapPixelToNormalizedImagePlane=Mock(return_value=projected),
+      intrinsics=np.eye(3),
+      distortion=np.zeros(5),
+    )
+    camera = SimpleNamespace(pose=SimpleNamespace(intrinsics=intrinsics))
+    info = _base_info()
+    info.pop('bounding_box')
+    info['bounding_box_px'] = {'x': 10, 'y': 20, 'width': 30, 'height': 40}
+    obj = MovingObject(info, when, camera)
+    assert not obj.has_measured_z
+
+  def test_has_measured_z_false_with_metric_distance_without_translation(self):
+    """Depth expands the box but is not a measured-z translation for association."""
+    when = datetime.datetime.now(datetime.timezone.utc)
+    projected = Rectangle({'x': 1.0, 'y': 2.0, 'width': 0.3, 'height': 0.4})
+    intrinsics = SimpleNamespace(
+      mapPixelToNormalizedImagePlane=Mock(return_value=projected),
+      intrinsics=np.eye(3),
+      distortion=np.zeros(5),
+    )
+    camera = SimpleNamespace(pose=SimpleNamespace(intrinsics=intrinsics))
+    info = _base_info()
+    info.pop('bounding_box')
+    info['bounding_box_px'] = {'x': 10, 'y': 20, 'width': 30, 'height': 40}
+    info['distance'] = 2.5
+
+    obj = MovingObject(info, when, camera)
+
+    assert obj.metric_distance == 2.5
+    assert not obj.has_measured_z
+
+  def test_has_measured_z_true_for_planar_world_translation(self):
+    """Child-scene / external ground points carry translation; key presence marks measured z today."""
+    when = datetime.datetime.now(datetime.timezone.utc)
+    ground = MovingObject(_base_info(translation=[3.0, 4.0, 0.0]), when, _camera())
+    assert ground.has_measured_z
+
   def test_infer_rotation_from_velocity_preserves_detector_rotation(self):
     when = datetime.datetime.now(datetime.timezone.utc)
     detector_rotation = [0.0, 0.0, 0.707, 0.707]

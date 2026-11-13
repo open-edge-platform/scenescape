@@ -303,7 +303,7 @@
             },
             "gate_probability": {
               "type": "number",
-              "description": "Chi-squared gate probability for position_mahalanobis (2 DOF). Ignored for euclidean.",
+              "description": "Chi-squared gate probability for position_mahalanobis: on x, y and z (3 DOF) when the track and the detection both measured z, on x and y (2 DOF) otherwise. Ignored for euclidean.",
               "default": 0.99,
               "exclusiveMinimum": 0,
               "maximum": 1
@@ -312,6 +312,37 @@
               "type": "number",
               "description": "Euclidean distance threshold (m) or hard Mahalanobis ceiling (m). Default: 2 m for euclidean, 10 m for position_mahalanobis.",
               "minimum": 0
+            },
+            "birth_cluster_radius_m": {
+              "type": "number",
+              "description": "Euclidean radius (m) that groups new detections of one object seen by different cameras into one track; independent of method and max_radius_m. Default: 2 m.",
+              "default": 2.0,
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "filter": {
+          "type": "object",
+          "description": "Kalman filter settings, global and read at startup. Defaults are RobotVision's production constants. Every change also moves the association gate.",
+          "properties": {
+            "process_noise": {
+              "type": "number",
+              "description": "Process noise scale q: scales all process noise (velocity, acceleration, vertical velocity, turn rate, yaw); no position or size noise.",
+              "default": 0.0001,
+              "exclusiveMinimum": 0
+            },
+            "base_measurement_noise": {
+              "type": "number",
+              "description": "Measurement noise r: R of every measured component and the initial variance of the measured states; the default R of detections without their own.",
+              "default": 0.2,
+              "exclusiveMinimum": 0
+            },
+            "init_state_covariance": {
+              "type": "number",
+              "description": "Initial velocity variance P0 (m^2/s^2); also caps the initial acceleration (0.1), yaw (0.05) and yaw-rate (0.01) variances.",
+              "default": 1.0,
+              "exclusiveMinimum": 0
             }
           },
           "additionalProperties": false

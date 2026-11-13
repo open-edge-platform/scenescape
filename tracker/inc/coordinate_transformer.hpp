@@ -113,7 +113,7 @@ public:
      * @param detections Span of detections (pixel bbox, or sensor-frame translation and size)
      * @return Geometry with one entry per detection; has_geometry is 0 where the projection
      *         failed. x, y, z, length, width, height are set. Velocity is zero.
-     *         zMeasured is true for translation detections, false for ground-plane projections.
+     *         z_measured is true for translation detections, false for ground-plane projections.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
      *         id stays InvalidObjectId and no other attributes are set.
      */

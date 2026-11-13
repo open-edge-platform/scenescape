@@ -329,7 +329,7 @@ TEST(ScenarioSupportTest, GroundPlaneCameraNoiseFollowsViewingGeometry)
     acrossSquares += across * across;
     alongTimesAcross += along * across;
     EXPECT_DOUBLE_EQ(detection.z, truth[i].z);
-    EXPECT_FALSE(detection.zMeasured);
+    EXPECT_FALSE(detection.z_measured);
   }
   const double n = static_cast<double>(truth.size());
   EXPECT_NEAR(std::sqrt(alongSquares / n), 1.0, 0.1);
@@ -357,7 +357,7 @@ TEST(ScenarioSupportTest, DepthCameraNoiseIsLongAlongTheViewingRay)
     const double along = error.dot(ray) / range;
     alongSquares += std::pow(along / (kDepthFraction * range), 2);
     acrossSquares += (error.dot(error) - along * along) / std::pow(kAngularSigma * range, 2);
-    EXPECT_TRUE(detection.zMeasured);
+    EXPECT_TRUE(detection.z_measured);
   }
   const double n = static_cast<double>(truth.size());
   EXPECT_NEAR(std::sqrt(alongSquares / n), 1.0, 0.1);
@@ -1046,8 +1046,8 @@ TEST(MotionScenarioTest, ZOffsetInvariance)
   {
     SCOPED_TRACE(caseItem.name);
 
-    // Run at z = 0
-    Sensor sensor{.positionNoise = 0.05, .zNoise = 0.0};
+    // Run at z = 0 (exact measured height; zNoise==0 still marks detections z_measured)
+    Sensor sensor{.positionNoise = 0.05, .zNoise = 0.0, .z_measured = true};
     const auto states0 = runVerticalScenario(caseItem.truth2d, sensor);
 
     // Create identical trajectory but starting at z = 10
@@ -1577,8 +1577,8 @@ TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
   const auto trajectory
     = Trajectory({.speed = 2.0, .box = kCar}).straight(5.0).climb(0.3, 2.0).straight(2.0).sample(kFps);
 
-  // Baseline: zNoise = 0
-  Sensor baselineSensor{.positionNoise = 0.05, .zNoise = 0.0};
+  // Baseline: exact measured z (no zNoise); still marks z_measured so climb is observed.
+  Sensor baselineSensor{.positionNoise = 0.05, .zNoise = 0.0, .z_measured = true};
   const auto baselineMetrics = runVerticalScenario(trajectory, baselineSensor, kWarmUp);
 
   // With large zNoise

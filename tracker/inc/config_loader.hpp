@@ -147,6 +147,7 @@ struct TrackingConfig {
         kDefaultNonMeasurementTimeStaticS; ///< Time before static track dropped
 
     AssociationConfig association; ///< Data association method and gating (ADR-0019)
+    FilterConfig filter;           ///< Kalman filter noise settings (q, r, P0)
 
     /// Experimental: process detections with the observation processor service when its endpoint is
     /// configured (infrastructure.observation_processor).
@@ -195,6 +196,11 @@ constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measure
 constexpr char TRACKING_ASSOCIATION_METHOD[] = "/tracking/association/method";
 constexpr char TRACKING_ASSOCIATION_GATE_PROBABILITY[] = "/tracking/association/gate_probability";
 constexpr char TRACKING_ASSOCIATION_MAX_RADIUS_M[] = "/tracking/association/max_radius_m";
+constexpr char TRACKING_ASSOCIATION_BIRTH_CLUSTER_RADIUS_M[] =
+    "/tracking/association/birth_cluster_radius_m";
+constexpr char TRACKING_FILTER_PROCESS_NOISE[] = "/tracking/filter/process_noise";
+constexpr char TRACKING_FILTER_BASE_MEASUREMENT_NOISE[] = "/tracking/filter/base_measurement_noise";
+constexpr char TRACKING_FILTER_INIT_STATE_COVARIANCE[] = "/tracking/filter/init_state_covariance";
 constexpr char TRACKING_EXPERIMENTAL_OBSERVATION_PROCESSOR[] =
     "/tracking/experimental_observation_processor";
 constexpr char TRACKING_OBSERVATION_PROCESSOR_MODE[] = "/tracking/observation_processor_mode";

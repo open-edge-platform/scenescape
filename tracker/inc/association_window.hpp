@@ -10,6 +10,7 @@
 #include <string>
 
 #include <opencv2/core.hpp>
+#include <rv/tracking/PositionGate.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 #include <rv/Utils.hpp>
 
@@ -19,9 +20,10 @@ namespace tracker {
  * @brief Association gate geometry for UI visualization (MQTT association_window).
  *
  * Euclidean → circle of radius max_radius_m.
- * Position Mahalanobis → χ² (df=2) ellipse of the XY block of S_pred, with each semi-axis
- * clipped to max_radius_m so the drawn region stays inside the hard association ceiling.
- * Matching itself gates in 3D (df=3); the published window is the XY projection.
+ * Position Mahalanobis → χ² ellipse of the XY block of S_pred, with each semi-axis clipped to
+ * max_radius_m so the drawn region stays inside the hard association ceiling. The published window
+ * is the XY shadow of the track's gate: df=2 while the track has no measured z (its pairs are gated
+ * on x and y), df=3 once it has (pairs with a measured-z detection gate x, y and z).
  */
 struct AssociationWindow {
     std::string method;
@@ -43,7 +45,8 @@ inline AssociationWindow buildAssociationWindow(const AssociationConfig& config,
         return window;
     }
 
-    const double chi2 = config.chi2ThresholdXy();
+    const double chi2 = rv::tracking::position_gate::positionChi2(
+        config.gate_probability, rv::tracking::position_gate::trackCanGateZ(track));
     const double s00 = track.predictedMeasurementCov(0, 0);
     const double s01 = track.predictedMeasurementCov(0, 1);
     const double s11 = track.predictedMeasurementCov(1, 1);

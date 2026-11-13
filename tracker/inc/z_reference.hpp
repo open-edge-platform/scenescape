@@ -26,7 +26,7 @@ enum class ZReference {
 inline void toCentreOfMass(std::span<std::vector<rv::tracking::TrackedObject>> objects_per_camera) {
     for (auto& objects : objects_per_camera) {
         for (auto& object : objects) {
-            if (!object.zMeasured) {
+            if (!object.z_measured) {
                 object.z += object.height / 2.0;
             }
         }

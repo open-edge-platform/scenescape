@@ -311,7 +311,7 @@ TEST(TransformDetectionsTest, ReturnsOneEntryPerDetectionInInputOrder) {
     ASSERT_TRUE(result.covers(detections.size()));
     EXPECT_EQ(result.has_geometry, std::vector<uint8_t>(detections.size(), 1));
     EXPECT_NEAR(result.objects[0].x, kAtaqQcam1BboxTests[0].world_x, kWorldTolerance);
-    EXPECT_TRUE(result.objects[1].zMeasured);
+    EXPECT_TRUE(result.objects[1].z_measured);
     EXPECT_NEAR(result.objects[2].x, kAtaqQcam1BboxTests[1].world_x, kWorldTolerance);
 }
 
@@ -551,12 +551,12 @@ TEST(TransformDetectionsTest, MixedPixelAndWorldSpaceDetectionsPreserveInputOrde
     ASSERT_EQ(result.size(), 2u);
     EXPECT_NEAR(result[0].x, kAtaqQcam1BboxTests.front().world_x, kWorldTolerance);
     EXPECT_NEAR(result[0].y, kAtaqQcam1BboxTests.front().world_y, kWorldTolerance);
-    EXPECT_FALSE(result[0].zMeasured) << "pixel detections are projected to the ground plane";
+    EXPECT_FALSE(result[0].z_measured) << "pixel detections are projected to the ground plane";
     const cv::Vec4d expected_position = transformer.getPoseMatrix() * cv::Vec4d(1.0, 2.0, 3.0, 1.0);
     EXPECT_NEAR(result[1].x, expected_position[0], kWorldTolerance);
     EXPECT_NEAR(result[1].y, expected_position[1], kWorldTolerance);
     EXPECT_NEAR(result[1].z, expected_position[2], kWorldTolerance);
-    EXPECT_TRUE(result[1].zMeasured) << "sensor-frame translations carry a measured z";
+    EXPECT_TRUE(result[1].z_measured) << "sensor-frame translations carry a measured z";
 }
 
 TEST(TransformDetectionsTest, InterleavedWorldSpaceDetectionsDoNotAffectPixelDetections) {

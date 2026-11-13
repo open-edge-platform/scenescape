@@ -122,6 +122,8 @@ class Tracking(Thread):
           kwargs = {'reid_config_data': self.reid_config_data}
           if hasattr(self, 'association_config'):
             kwargs['association_config'] = self.association_config
+          if hasattr(self, 'filter_config'):
+            kwargs['filter_config'] = self.filter_config
           tracker = self.__class__(
             max_unreliable_time,
             non_measurement_time_dynamic,

@@ -127,13 +127,13 @@ def assert_remote(rv_object, k):
   assert (rv_object.x, rv_object.y) == (10.0 + k, 20.0 + k)
   assert rv_object.z == HEIGHT / 2.0
   assert (rv_object.length, rv_object.width, rv_object.height) == (0.5, 0.6, HEIGHT)
-  assert rv_object.zMeasured is True
+  assert rv_object.z_measured is True
   np.testing.assert_array_equal(np.array(rv_object.measurement_noise_covariance), NOISE)
 
 
 def assert_local(rv_object):
   assert rv_object.x == LOCAL_X
-  assert rv_object.zMeasured is False
+  assert rv_object.z_measured is False
   assert rv_object.measurement_noise_covariance is None
 
 
@@ -372,7 +372,7 @@ class TestApplyMeasurement:
     assert (rv_object.x, rv_object.y) == (1.0, 2.0)
     assert rv_object.z == HEIGHT / 2.0
     assert (rv_object.length, rv_object.width, rv_object.height) == (0.5, 0.6, HEIGHT)
-    assert rv_object.zMeasured is True
+    assert rv_object.z_measured is True
     assert rv_object.yaw == pytest.approx(0.3)
     np.testing.assert_array_equal(np.array(rv_object.measurement_noise_covariance), NOISE)
 
@@ -389,7 +389,7 @@ class TestApplyMeasurement:
     assert not apply_measurement(rv_object, measurement_message(mean, noise))
 
     assert rv_object.x == 7.0
-    assert rv_object.zMeasured is False
+    assert rv_object.z_measured is False
     assert rv_object.measurement_noise_covariance is None
 
 
@@ -658,11 +658,11 @@ class TestTrackerIntegration:
 
     rv_objects = tracker.tracker.track.call_args.args[0]
     assert (rv_objects[0].x, rv_objects[0].y, rv_objects[0].z) == (10.0, 20.0, HEIGHT / 2.0)
-    assert rv_objects[0].zMeasured is True
+    assert rv_objects[0].z_measured is True
     assert rv_objects[0].measurement_noise_covariance is not None
     assert (rv_objects[1].x, rv_objects[1].y) == (4.0, 5.0)
     assert rv_objects[1].z == DETECTED_HEIGHT / 2.0, "local base raised to the centre"
-    assert rv_objects[1].zMeasured is False
+    assert rv_objects[1].z_measured is False
     assert rv_objects[1].measurement_noise_covariance is None
     assert rv_objects[2].z == MEASURED_Z, "measured z is already the centre"
 
@@ -855,6 +855,38 @@ class TestZReferenceWithRobotVision:
 
     assert published[-1], "no reliable tracks"
     np.testing.assert_allclose(published_values(published, 3), expected_z, rtol=0, atol=1e-9)
+
+  def test_planar_fallback_does_not_pull_a_measured_z_track(self):
+    """A track that measured z (centre 0.9) keeps it through pixel boxes whose centre would be 0.6."""
+    pixel_camera = scene_camera([0.0, 0.0, 3.0], [-90.0, 0.0, 0.0])
+    box = {"x": 100.0, "y": 400.0, "width": 55.0, "height": 150.0}
+
+    def pixel_object(when):
+      return MovingObject({"id": 1, "category": "person", "confidence": 0.9,
+                           "bounding_box_px": box, "size": [0.5, 0.5, 1.2]}, when, pixel_camera)
+
+    # Where the box lands (legacy run, first reliable frames), so the 3D detection sits at the same XY.
+    landed = run_tracker(lambda n, when: [pixel_object(when)], experimental=False)[-1][0]
+    measured_camera = scene_camera([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+    tracker = IntelLabsTracking(MAX_UNRELIABLE_TIME, NON_MEASUREMENT_TIME_DYNAMIC,
+                                NON_MEASUREMENT_TIME_STATIC, FPS)
+    tracker.uuid_manager.scene_id = "scene"
+    tracker.observation_processor = SimpleNamespace(process=lambda *args: None)
+    for n in range(FRAMES):
+      when = WHEN + n / FPS
+      if n < FRAMES // 2:
+        obj = MovingObject({"id": 1, "category": "person", "confidence": 0.9,
+                            "translation": [landed[1], landed[2], 0.9], "size": [0.5, 0.5, 1.2]},
+                           when, measured_camera)
+      else:
+        obj = pixel_object(when)
+      tracker.trackCategory([obj], when, [])
+    tracks = tracker.tracker.get_reliable_tracks()
+    tracker.uuid_manager.shutdown()
+
+    assert len(tracks) == 1
+    assert tracks[0].z_measured
+    assert tracks[0].z == pytest.approx(0.9, abs=0.05), "the pixel boxes (centre 0.6) did not pull z"
 
   def test_planar_noisy_height_characterization(self):
     rng = np.random.default_rng(2149)

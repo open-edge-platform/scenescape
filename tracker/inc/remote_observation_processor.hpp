@@ -73,7 +73,7 @@ public:
  * @brief Processes pixel-box detections with the observation processor service, on top of a local
  *        processor.
  *
- * A detection with a valid remote measurement gets its position, size, zMeasured and
+ * A detection with a valid remote measurement gets its position, size, z_measured and
  * measurement noise R. z is the centre of mass, as received; the worker publishes the footprint
  * base (ZReference::CentreOfMass). Yaw and attributes["has_orientation"] stay as set by the
  * local processor.
