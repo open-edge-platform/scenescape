@@ -10,12 +10,18 @@ import numpy as np
 import pytest
 from matplotlib import animation
 from PIL import Image
+import matplotlib.pyplot as plt
 
+from visualization import render_video as render_video_module
+from visualization.scenario_data import load_scenario
 from visualization.render_video import (
   RenderError,
+  Series,
+  ZoomArtist,
   association_gate,
   box_corners,
   confidence_ellipse,
+  detection_gate,
   gate_label,
   main,
   render_video,
@@ -251,3 +257,68 @@ def test_side_views_without_size_or_z(tracker_output, tmp_path):
 
   assert gif_size(written[0]) == (1000, 1000)
   assert gif_frames(written[0]) == 20
+
+
+def test_detection_gate_adds_the_detection_noise_to_hpht():
+  """A detection with its own R is gated on HPHt + R (x, y); a Euclidean circle ignores R."""
+  hpht = np.diag([1.0, 0.5, 0.3, 0.2, 0.2, 0.2, 0.2])
+  noise = np.full((7, 7), 0.01) + np.diag([2.0, 0.1, 0.2, 0.2, 0.2, 0.2, 0.2])
+  mahalanobis = {"method": "position_mahalanobis", "gate_probability": 0.95, "max_radius_m": 10.0}
+
+  assert detection_gate(mahalanobis, hpht, noise) == pytest.approx(
+    association_gate(mahalanobis, hpht[:2, :2] + noise[:2, :2]))
+  assert detection_gate(None, hpht, noise) == pytest.approx(
+    confidence_ellipse(hpht[:2, :2] + noise[:2, :2]))
+  assert detection_gate({"method": "euclidean", "max_radius_m": 2.0}, hpht, noise) is None
+
+
+def test_zoom_artist_draws_the_gate_of_each_detection_with_r(noisy_recording):
+  """At a step with HPHt, each detection with R of the followed object gets its gate."""
+  scenario = load_scenario(noisy_recording)
+  trace = scenario.estimator["1"]
+  detections = scenario.detections[scenario.detections["object_id"] == "1"]
+  track = Series.from_table(scenario.tracks[scenario.tracks["track_id"] == "1"])
+  fig, ax = plt.subplots()
+  artist = ZoomArtist(ax, "C0", trace, detections)
+
+  artist.update(track, trace.t[5], 0.05)
+
+  ellipse = artist.detection_ellipses["camera"]
+  assert ellipse.get_visible()
+  np.testing.assert_allclose(ellipse.get_center(), trace.predicted_measurement[5, :2])
+  noise = detections.iloc[5]["measurement_noise_cov"]
+  width, height, angle = detection_gate(None, trace.predicted_state_measurement_cov[5], noise)
+  assert (ellipse.get_width(), ellipse.get_height(), ellipse.get_angle()) == pytest.approx(
+    (width, height, angle))
+  assert ellipse.get_label() == "detection gate (HPHt + R)"
+
+  # The init step has no prediction and no HPHt.
+  artist.update(track, trace.t[0], 0.05)
+  assert not ellipse.get_visible()
+  plt.close(fig)
+
+
+def test_zoom_artist_without_detections_draws_no_detection_gate(recording):
+  scenario = load_scenario(recording)
+  fig, ax = plt.subplots()
+  artist = ZoomArtist(ax, "C0", scenario.estimator["1"])
+  assert not artist.detection_ellipses
+  plt.close(fig)
+
+
+@pytest.mark.parametrize("flag, expect_detections", [(False, False), (True, True)])
+def test_detection_gates_are_off_by_default(noisy_recording, monkeypatch, flag, expect_detections):
+  """Only --detection-gates hands the zoomed object's detections to the zoom view."""
+  received = []
+  real = render_video_module.ZoomArtist
+
+  def spy(ax, color, trace, detections=None):
+    received.append(detections)
+    return real(ax, color, trace, detections)
+
+  monkeypatch.setattr(render_video_module, "ZoomArtist", spy)
+  args = [str(noisy_recording), "--gif", "--zoom", "1"] + (["--detection-gates"] if flag else [])
+  assert main(args) == 0
+
+  assert len(received) == 1
+  assert (received[0] is not None and len(received[0]) == 11) == expect_detections

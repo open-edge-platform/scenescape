@@ -6,7 +6,8 @@
 Usage (from tools/tracker/evaluation):
   python visualization/render_video.py <scenario dir> [--zoom ID] [--speed F] [--trail S]
                                        [--zoom-size M] [--side-views MODE] [--zoom-side] [--gif]
-                                       [--output DIR] [--fps FPS] [--xy-only | --z-only]
+                                       [--detection-gates] [--output DIR] [--fps FPS]
+                                       [--xy-only | --z-only]
 
 Writes <scenario dir>/videos/overview.mp4: all ground-truth objects (black, dashed)
 and tracks (one colour each) as boxes with position, size and heading, and their
@@ -22,6 +23,9 @@ the association gate from the track's estimator config: the χ² ellipse of the 
 of the predicted measurement covariance S (most probable model) for
 position_mahalanobis, without the max_radius_m ceiling, or a circle of max_radius_m for
 euclidean. Without an association config it is the 99% confidence ellipse of S.
+With --detection-gates the zoom videos also draw, for each detection of the followed
+object that carries its own R, that detection's gate: the same ellipse of HPHt + R
+(dashed, one per sensor), which is what the tracker gates it on instead of S.
 Objects without a size are drawn as points. With --zoom-side each --zoom ID also adds
 zoom_<ID>_xz.mp4 and zoom_<ID>_yz.mp4: the x-z and y-z side views, true to scale, following
 the object. Tracks are paired with ground-truth objects by x, y and z distance (--xy-only: the
@@ -68,6 +72,7 @@ SIDE_VIEW_MODES = ("auto", "always", "never")
 Z_MARGIN = 0.5  # [m] around the z range of the side views, besides half the largest height
 DPI = 100
 TRUTH_COLOR = "black"
+DETECTION_GATE_LABEL = "detection gate (HPHt + R)"
 
 
 class RenderError(ValueError):
@@ -152,6 +157,18 @@ def association_gate(association: Optional[Dict[str, Any]],
   if association and "gate_probability" in association:
     probability = float(association["gate_probability"])
   return confidence_ellipse(covariance, probability)
+
+
+def detection_gate(association: Optional[Dict[str, Any]], hpht: np.ndarray,
+                   noise: np.ndarray) -> Optional[Tuple[float, float, float]]:
+  """Width, height and angle [deg] of the gate of a detection that carries its own R.
+
+  The tracker gates such a detection on HPHt + R instead of S, so this is association_gate() of the
+  x/y block of HPHt + R. None for euclidean, whose circle does not depend on R.
+  """
+  if association and association.get("method") == "euclidean":
+    return None
+  return association_gate(association, np.asarray(hpht)[:2, :2] + np.asarray(noise)[:2, :2])
 
 
 def gate_label(association: Optional[Dict[str, Any]]) -> str:
@@ -253,12 +270,26 @@ class SideBoxArtist:  # pylint: disable=too-few-public-methods
     self.point.set_visible(not has_box)
 
 
-class ZoomArtist:  # pylint: disable=too-few-public-methods
-  """Velocity arrow of a track, plus its predicted position and gate ellipse (estimator)."""
+class ZoomArtist:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
+  """Velocity arrow of a track, plus its predicted position and gate ellipse (estimator).
 
-  def __init__(self, ax, color: str, trace: Optional[EstimatorTrace]):
+  With `detections` (the followed object's detections), each one that carries its own R also
+  gets its gate, HPHt + R, one ellipse per sensor.
+  """
+
+  def __init__(self, ax, color: str, trace: Optional[EstimatorTrace],
+               detections: Optional[pd.DataFrame] = None):
     self.trace = trace
     self.association = trace.config.get("association") if trace is not None else None
+    self.detections = (detections[detections["measurement_noise_cov"].notna()]
+                       if trace is not None and detections is not None else None)
+    self.detection_ellipses: Dict[str, Ellipse] = {}
+    sensors = sorted(self.detections["sensor_id"].unique()) if self.detections is not None else []
+    for sensor in sensors:
+      self.detection_ellipses[sensor] = Ellipse(
+        (0, 0), 0, 0, fill=False, edgecolor=color, linestyle="--", linewidth=1.0, alpha=0.7,
+        label=DETECTION_GATE_LABEL if sensor == sensors[0] else "_nolegend_")
+      ax.add_patch(self.detection_ellipses[sensor])
     if trace is not None:
       (self.prediction,) = ax.plot([], [], "+", color=color, markersize=12, markeredgewidth=2,
                                    label="predicted position")
@@ -291,13 +322,37 @@ class ZoomArtist:  # pylint: disable=too-few-public-methods
       self.ellipse.set_width(width)
       self.ellipse.set_height(height)
       self.ellipse.set_angle(angle)
+    self._update_detection_gates(step, prediction if visible else None)
+
+  def _update_detection_gates(self, step: Optional[int], prediction: Optional[np.ndarray]) -> None:
+    """Show the gate of each detection with R at the step's time, around the predicted position."""
+    for ellipse in self.detection_ellipses.values():
+      ellipse.set_visible(False)
+    hpht_trace = self.trace.predicted_state_measurement_cov
+    if prediction is None or not self.detection_ellipses or hpht_trace is None:
+      return
+    hpht = hpht_trace[step]
+    if not np.all(np.isfinite(hpht[:2, :2])):
+      return
+    at_step = self.detections[np.isclose(self.detections["t"], self.trace.t[step], atol=1e-6)]
+    for sensor, noise in zip(at_step["sensor_id"], at_step["measurement_noise_cov"]):
+      gate = detection_gate(self.association, hpht, noise)
+      if gate is None:
+        continue
+      ellipse = self.detection_ellipses[sensor]
+      ellipse.set_center(prediction)
+      ellipse.set_width(gate[0])
+      ellipse.set_height(gate[1])
+      ellipse.set_angle(gate[2])
+      ellipse.set_visible(True)
 
 
 def render_video(directory, *, output=None,  # pylint: disable=too-many-arguments,too-many-locals
                  zoom: Optional[Sequence[str]] = None, speed: float = 1.0, trail: float = 2.0,
                  zoom_size: Optional[float] = None, gif: bool = False,
                  fps: Optional[float] = None, side_views: str = "auto",
-                 zoom_side: bool = False, space: str = "xyz") -> List[Path]:
+                 zoom_side: bool = False, space: str = "xyz",
+                 detection_gates: bool = False) -> List[Path]:
   """Render the overview video and one zoom video per id in `zoom`.
 
   Args:
@@ -314,6 +369,8 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
     zoom_side: Also write zoom_<ID>_xz and zoom_<ID>_yz, the x-z and y-z side views following
       each zoom target.
     space: Axes of the pairing of tracks with ground truth: "xyz" (default), "xy" or "z".
+    detection_gates: In the zoom videos, also draw the gate HPHt + R of each detection of the
+      followed object that carries its own R.
 
   Returns:
     Written files.
@@ -340,7 +397,8 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
   suffix = ".gif" if gif else ".mp4"
   show_side_views = side_views == "always" or (side_views == "auto"
                                                and scenario.has_vertical_motion)
-  renderer = _Renderer(scenario, pairs, speed, trail, show_side_views)
+  renderer = _Renderer(scenario, pairs, speed, trail, side_views=show_side_views,
+                       detection_gates=detection_gates)
   written = [renderer.render(output / f"overview{suffix}", gif)]
   for item_id, object_id, track_id in targets:
     name = re.sub(r"[^A-Za-z0-9_-]", "_", item_id)
@@ -355,12 +413,14 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
 class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-methods
   """Draws the scene for every video frame."""
 
-  def __init__(self, scenario: Scenario, pairs: Pairs, speed: float, trail: float,
-               side_views: bool = False):
+  # pylint: disable-next=too-many-arguments
+  def __init__(self, scenario: Scenario, pairs: Pairs, speed: float, trail: float, *,
+               side_views: bool = False, detection_gates: bool = False):
     self.scenario = scenario
     self.pairs = pairs
     self.trail = trail
     self.side_views = side_views
+    self.detection_gates = detection_gates
     self.truth = {object_id: Series.from_table(table)
                   for object_id, table in scenario.ground_truth.groupby("object_id")}
     self.tracks = {track_id: Series.from_table(table)
@@ -389,7 +449,8 @@ class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-
       track_artists = {key: BoxArtist(ax, track_color(self.pairs, key), "-", f"track {label(key)}")
                        for key in self.tracks}
       zoom_artist = (ZoomArtist(ax, track_color(self.pairs, track_id),
-                                self.scenario.estimator.get(track_id)) if track_id else None)
+                                self.scenario.estimator.get(track_id),
+                                self._zoom_detections(object_id)) if track_id else None)
       handles, _ = ax.get_legend_handles_labels()
       if len(handles) <= 12:
         ax.legend(loc="upper right", fontsize="small")
@@ -417,6 +478,15 @@ class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-
         writer.grab_frame()
     plt.close(fig)
     return path
+
+  def _zoom_detections(self, object_id: Optional[str]) -> Optional[pd.DataFrame]:
+    """Detections of the followed object for its detection gates; None unless they are drawn.
+
+    Only recordings have detections in the scene, with ground-truth ids.
+    """
+    if not self.detection_gates or object_id is None or not self.scenario.detections_in_scene:
+      return None
+    return self.scenario.detections[self.scenario.detections["object_id"] == object_id]
 
   def _figure(self, zoom_label: Optional[str], side_views: bool = False):
     """Figure, top-down axes and the side-view axes by horizontal axis name ("x", "y").
@@ -560,6 +630,9 @@ def main(argv: Optional[List[str]] = None) -> int:
   parser.add_argument("--zoom-side", action="store_true",
                       help="with --zoom, also write zoom_<ID>_xz and zoom_<ID>_yz: the x-z and "
                       "y-z side views following the object")
+  parser.add_argument("--detection-gates", action="store_true",
+                      help="with --zoom, also draw the gate HPHt + R of each detection of the "
+                      "followed object that carries its own R (dashed, one per sensor)")
   parser.add_argument("--output", type=Path, help="output directory (default: <directory>/videos)")
   add_space_arguments(parser)
   parser.add_argument("--fps", type=float,
@@ -570,7 +643,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     written = render_video(args.directory, output=args.output, zoom=args.zoom, speed=args.speed,
                            trail=args.trail, zoom_size=args.zoom_size, gif=args.gif,
                            fps=args.fps, side_views=args.side_views, zoom_side=args.zoom_side,
-                           space=args.space)
+                           space=args.space, detection_gates=args.detection_gates)
   except (FileNotFoundError, RenderError) as error:
     parser.error(str(error))
   for path in written:

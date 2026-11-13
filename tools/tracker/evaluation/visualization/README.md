@@ -84,7 +84,10 @@ only skips the TrackEval plots, with a warning.
   (1 s of motion). For tracker-level recordings (`AssociationScenarioTest`) the ellipse is the track's association
   gate: the χ² ellipse of the XY block of the predicted measurement covariance S (most probable model) for
   `position_mahalanobis`, without the `max_radius_m` ceiling, or a circle of `max_radius_m` for `euclidean`. Otherwise
-  it is the 99% confidence ellipse of S.
+  it is the 99% confidence ellipse of S. With `--detection-gates` it also draws, dashed and one per sensor, the gate of
+  each detection of the object that carries its own R: the same ellipse of `HPHt + R`, on which the tracker gates that
+  detection instead of S (not for `euclidean`, whose circle does not depend on R). Like the track's ellipse it uses
+  χ²(p, 2), although the tracker gates a pair where both sides measured z at χ²(p, 3).
 - `zoom_<ID>_xz`, `zoom_<ID>_yz` (with `--zoom-side`): the x–z and y–z side views following the same object, one
   video per axis. Same box-by-height drawing as the overview side views, but true to scale (equal axes, window as in
   `--zoom-size`), centred on the object's (x or y, z), with all bodies' z trails and a line at z = 0. No gate ellipse
@@ -92,20 +95,21 @@ only skips the TrackEval plots, with a warning.
 
 ### Options
 
-| Option           | Tool  | Description                                                                                          |
-| ---------------- | ----- | ---------------------------------------------------------------------------------------------------- |
-| `--output DIR`   | both  | Output directory, default `$S/plots` or `$S/videos`; one directory only                              |
-| `--fps N`        | both  | Frame rate for pairing tracks with ground truth and for TrackEval, default the ground-truth rate     |
-| `--xy-only`      | both  | Pair, measure and score over the ground plane (x, y) only; default x, y and z                        |
-| `--z-only`       | both  | Pair, measure and score over the height (z) only; default x, y and z                                 |
-| `--plots A,B`    | plot  | Subset of the plots                                                                                  |
-| `--zoom ID`      | video | Ground-truth object id or track id to follow; repeatable                                             |
-| `--speed F`      | video | Playback speed, default 1 (real time); at most 30 video frames per second                            |
-| `--trail S`      | video | Trail length in seconds, default 2                                                                   |
-| `--zoom-size M`  | video | Zoom window width in metres, default 4× the object's largest dimension, at least 4                   |
-| `--side-views M` | video | x–z and y–z views under the overview: `auto` (default, only with vertical motion), `always`, `never` |
-| `--zoom-side`    | video | With `--zoom`, also write `zoom_<ID>_xz` and `zoom_<ID>_yz`, the side views following the object     |
-| `--gif`          | video | GIF instead of MP4                                                                                   |
+| Option              | Tool  | Description                                                                                          |
+| ------------------- | ----- | ---------------------------------------------------------------------------------------------------- |
+| `--output DIR`      | both  | Output directory, default `$S/plots` or `$S/videos`; one directory only                              |
+| `--fps N`           | both  | Frame rate for pairing tracks with ground truth and for TrackEval, default the ground-truth rate     |
+| `--xy-only`         | both  | Pair, measure and score over the ground plane (x, y) only; default x, y and z                        |
+| `--z-only`          | both  | Pair, measure and score over the height (z) only; default x, y and z                                 |
+| `--plots A,B`       | plot  | Subset of the plots                                                                                  |
+| `--zoom ID`         | video | Ground-truth object id or track id to follow; repeatable                                             |
+| `--speed F`         | video | Playback speed, default 1 (real time); at most 30 video frames per second                            |
+| `--trail S`         | video | Trail length in seconds, default 2                                                                   |
+| `--zoom-size M`     | video | Zoom window width in metres, default 4× the object's largest dimension, at least 4                   |
+| `--side-views M`    | video | x–z and y–z views under the overview: `auto` (default, only with vertical motion), `always`, `never` |
+| `--zoom-side`       | video | With `--zoom`, also write `zoom_<ID>_xz` and `zoom_<ID>_yz`, the side views following the object     |
+| `--detection-gates` | video | With `--zoom`, also draw the gate `HPHt + R` of each detection that carries its own R; default off   |
+| `--gif`             | video | GIF instead of MP4                                                                                   |
 
 ### Input files
 
@@ -118,7 +122,7 @@ only skips the TrackEval plots, with a warning.
 
 Recorded detections with a per-detection R (`Sensor::positionCovariance`) add it as `measurement_noise_covariance`
 (7×7), and the steps of their tracks add `HPHt`, S without R: the association gate of such a detection is
-`HPHt + R`, not S. The tools do not draw it yet.
+`HPHt + R`, not S; `render_video.py --detection-gates` draws it.
 
 Any file may be missing. Tracks are paired with ground-truth objects by position (x, y and z) with `match_tracks()` from
 [utils/tracks.py](../utils/tracks.py), so their ids may differ; frames count from the first track or ground-truth
