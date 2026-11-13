@@ -621,6 +621,73 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithoutMeasurementNoiseLeavesRU
   EXPECT_NEAR(fused.x, 1.1, 1e-12);
 }
 
+// The fused R after two frames of an orienting detection (x variance 1, yaw variance 1, Cov(x, yaw) 0.8,
+// Cov(z, yaw) 0.3) and a non-orienting one (x variance 1), both 2 m apart in y.
+TrackedObject::MeasurementMatrix fusedNoiseWithCorrelatedYaw(bool orientingMeasuredZ, bool otherMeasuredZ)
+{
+  auto tracker = makeFusionTracker();
+  auto orienting = makeDetection(1.0, 0.0, 0.9, 0.5, 0.5, 1.8);
+  orienting.z_measured = orientingMeasuredZ;
+  orienting.measurementNoiseCov = diagonalMeasurementNoise(1.0, 0.2, 0.2);
+  auto &orientingNoise = *orienting.measurementNoiseCov;
+  orientingNoise(MeasurementIndex::YAW, MeasurementIndex::YAW) = 1.0;
+  orientingNoise(MeasurementIndex::X, MeasurementIndex::YAW)
+    = orientingNoise(MeasurementIndex::YAW, MeasurementIndex::X) = 0.8;
+  orientingNoise(MeasurementIndex::Z, MeasurementIndex::YAW)
+    = orientingNoise(MeasurementIndex::YAW, MeasurementIndex::Z) = 0.3;
+  rv::tracking::orientation::setHasOrientation(orienting, true);
+  auto other = makeDetection(1.2, 0.0, 0.9, 0.5, 0.5, 1.8);
+  other.z_measured = otherMeasuredZ;
+  other.measurementNoiseCov = diagonalMeasurementNoise(1.0, 0.2, 0.2);
+  rv::tracking::orientation::setHasOrientation(other, false);
+
+  for (int frame = 0; frame < 2; ++frame)
+  {
+    tracker.track(DetectionsPerCamera{{orienting}, {other}}, atMs(10 + 100 * frame));
+  }
+  const auto &measurements = tracker.mTrackManager.mMeasurementMap;
+  EXPECT_EQ(measurements.size(), 1U);
+  const auto &fused = measurements.begin()->second;
+  EXPECT_TRUE(fused.measurementNoiseCov);
+  return fused.measurementNoiseCov.value_or(TrackedObject::MeasurementMatrix::zeros());
+}
+
+void expectPositiveDefinite(const TrackedObject::MeasurementMatrix &noise)
+{
+  cv::Mat eigenvalues;
+  cv::eigen(cv::Mat(noise), eigenvalues);
+  double smallest = 0.0;
+  cv::minMaxLoc(eigenvalues, &smallest);
+  EXPECT_GT(smallest, 0.0);
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraFusedRKeepsGeometryYawCorrelationOfSelectedDetection)
+{
+  // x_f = (x_o + x_c) / 2, so Cov(x_f, yaw_o) = 0.8 / 2 (Copilot review of #2129); z is fused from both as well,
+  // so Cov(z_f, yaw_o) = 0.3 / 2. The 7x7 stays a valid covariance.
+  const auto noise = fusedNoiseWithCorrelatedYaw(true, true);
+  EXPECT_NEAR(noise(MeasurementIndex::X, MeasurementIndex::X), 0.5, 1e-12);
+  EXPECT_NEAR(noise(MeasurementIndex::X, MeasurementIndex::YAW), 0.4, 1e-12);
+  EXPECT_NEAR(noise(MeasurementIndex::Z, MeasurementIndex::YAW), 0.15, 1e-12);
+  EXPECT_DOUBLE_EQ(noise(MeasurementIndex::YAW, MeasurementIndex::X),
+                   noise(MeasurementIndex::X, MeasurementIndex::YAW));
+  EXPECT_DOUBLE_EQ(noise(MeasurementIndex::YAW, MeasurementIndex::Z),
+                   noise(MeasurementIndex::Z, MeasurementIndex::YAW));
+  EXPECT_NEAR(noise(MeasurementIndex::Y, MeasurementIndex::YAW), 0.0, 1e-12);
+  EXPECT_DOUBLE_EQ(noise(MeasurementIndex::YAW, MeasurementIndex::YAW), 1.0);
+  expectPositiveDefinite(noise);
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraFusedRDropsYawCorrelationOfAPlanarZThatWasNotFused)
+{
+  // The orienting detection is planar and the other measured z, so the fusion takes no z from the orienting one:
+  // z_f does not depend on it, Cov(z_f, yaw) = 0; x still fuses from both.
+  const auto noise = fusedNoiseWithCorrelatedYaw(false, true);
+  EXPECT_NEAR(noise(MeasurementIndex::X, MeasurementIndex::YAW), 0.4, 1e-12);
+  EXPECT_NEAR(noise(MeasurementIndex::Z, MeasurementIndex::YAW), 0.0, 1e-12);
+  expectPositiveDefinite(noise);
+}
+
 TEST(MultipleObjectTrackerTest, MultiCameraFusedYawVarianceFollowsSelectedOrientingDetection)
 {
   auto tracker = makeFusionTracker();
