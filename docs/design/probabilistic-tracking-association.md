@@ -24,6 +24,7 @@ This document specifies how [ADR-0019](../adr/0019-probabilistic-tracking-associ
 - Scale gates with object motion / coast (Phase 1) and with viewpoint / range measurement uncertainty (Phase 2).
 - Align UKF correct with association noise (Phase 3).
 - Keep controller and tracker service behaviorally aligned via shared `robot_vision` and shared association config.
+- Publish each track's location uncertainty in both services (§5.7).
 - Ship each phase behind a config flag, validated with the evaluation pipeline before the next phase.
 
 ## 3. Non-Goals
@@ -195,6 +196,16 @@ Phase 1 default without an `association` block: `method: position_mahalanobis`, 
 
 Default recommendation: **0.99**.
 
+### 5.7 Track location uncertainty in the output
+
+Both services publish the track's position uncertainty for external consumers; `association_window` (§5.2) stays the UI's gate.
+
+| Element   | Design choice                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| Quantity  | Position block of the posterior covariance P after the update (IMM-combined), world axes, m²   |
+| Dimension | x, y; z only for tracks with measured z (`z_measured`)                                         |
+| Producers | Tracker Service and Scene Controller, same field in the data formats and the scene-data schema |
+
 ## 6. Alternatives Considered
 
 See [ADR-0019 §Alternatives](../adr/0019-probabilistic-tracking-association.md#alternatives-considered). Design-level notes:
@@ -243,6 +254,7 @@ Phase-specific unit tests and sign-off notes are tracked in the [implementation 
 - Whether incidence-angle scaling is required on gated datasets or optional.
 - Scope of multi-cam class/confidence fusion vs pure R threading in Phase 3.
 - Residual Phase 1 acceptances (Controller-TC jerk budget, Wildtrack IDSW) to revisit with Phase 2 R.
+- Track location uncertainty (§5.7): field name and shape, and whether it is always published.
 
 ## 11. References
 

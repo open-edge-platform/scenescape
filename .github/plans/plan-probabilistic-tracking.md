@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
 - **Date**: 2026-11-11
-- **Status**: Phase 1 implemented, opt-in (shipped configs use `euclidean`); default flip pending the Wildtrack regression; Phases 2–3 open; non-planar Z/`vz` + sticky `z_measured` on `feature/prob-tracking-extracted-3d`
+- **Status**: Phase 1 implemented, opt-in (shipped configs use `euclidean`); default flip pending the Wildtrack regression; Phases 2–3: R consumed in `robot_vision` (#2129), producer #2149 (experimental), evaluation open; non-planar Z/`vz` on `release-2026.3.0` (#2109)
 - **ADR**: [ADR-0019](../../docs/adr/0019-probabilistic-tracking-association.md)
 - **Design**: [Probabilistic Tracking Association](../../docs/design/probabilistic-tracking-association.md)
 - **Evaluation**: [ADR-0009](../../docs/adr/0009-tracking-evaluation.md), [Tracker Evaluation Pipeline](../../docs/design/tracker-evaluation-pipeline.md)
@@ -106,12 +106,11 @@ Supersedes the earlier sign-off notes, whose artefacts (`/tmp/phase1-*`) are gon
 
 | Task | Location |
 |------|----------|
-| Pixel→world Σ_xy in `CoordinateTransformer` | `tracker/src/coordinate_transformer.cpp` |
-| `position_covariance_xy` on `Detection` | `tracker/inc/tracking_types.hpp` |
+| R producer — **replaced** by the observation processor client (#2149), not `CoordinateTransformer` | Tracker Service, Controller |
 | Optional `measurementCovariance` on `TrackedObject` — **done** as 7×7 `measurementNoiseCov` (Python `measurement_noise_covariance`) | `robot_vision` |
 | Per-pair `S_pred + R` in `PositionMahalanobis` — **done**, no separate method; R present or not is the switch | `ObjectMatching.cpp` |
-| `measurement_uncertainty.*` config | schema, loader, controller |
-| Calibrate α offline; record default | eval harness + design/plan appendix |
+| `measurement_uncertainty.*` config — **not planned** with #2149 as the producer | schema, loader, controller |
+| Calibrate R and the gate probability on evaluation data | eval harness |
 
 ### Phase 2 validation
 
@@ -119,13 +118,13 @@ Supersedes the earlier sign-off notes, whose artefacts (`/tmp/phase1-*`) are gon
 cd tracker && make test-unit-coverage
 ```
 
-- Transformer tests: Σ grows with bbox height, range, lower confidence; Jacobian FD vs analytic
-- Matching: gate with R wider at long range
+- Matching: gate with R wider at long range — **done**
+- Scenario: paired runs with and without R (`MeasurementNoiseScenarioTest`) — **done**
 - Eval: metric test + Wildtrack; AssA up, ID switches down, LocA hold/improve
 
 ### Phase 2 exit criteria
 
-- [ ] α calibrated and documented
+- [ ] R and the gate probability calibrated on the producer's data
 - [ ] `position_mahalanobis` with R from the producer passes evaluation thresholds
 - [ ] Per-object `tracking_radius` unused in association paths
 - [ ] Optional debug emit of Σ_xy for sampled detections
@@ -141,12 +140,12 @@ cd tracker && make test-unit-coverage
 | Task | Location |
 |------|----------|
 | `correct(measurement, R_optional)` — **done**: R is read from the measurement's `measurementNoiseCov` | `MultiModelKalmanEstimator.*`, `UnscentedKalmanFilter.*` |
-| Thread R onto `TrackedObject` before correct | `tracking_worker.cpp`, `ilabs_tracking.py` |
-| Global filter noise knobs in config | schema, loader |
+| Thread R onto `TrackedObject` before correct — in #2149 | Tracker Service, `ilabs_tracking.py` |
+| Global filter noise knobs in config — **done** (both services) | schema, loader, `ilabs_tracking.py` |
 | Deprecate `tracking_radius` in manager + user guide | `manager/`, `docs/user-guide/` |
 | (Later) multi-cam class/confidence fusion | `fuseMetadata` |
 
-**Status (robot_vision, `feature/prob-tracking-extracted-3d-R`):** a detection that carries R gets information-weighted multi-camera fusion (`fuseGeometry`), association with S = H P Hᵀ + R in `PositionMahalanobis` (z gated per pair by `position_gate`, as without R) and `Mahalanobis`, the UKF / IMM update (gain and model likelihood) with its R on the same observed rows (z left out for a planar detection on a track with `z_measured`), and a birth P seeded from it. Without R every path is unchanged. Nothing sets R yet (Controller, Tracker Service), so production behaviour is unchanged. The gate becomes R-aware whenever R is present, not through a separate `position_mahalanobis_combined` method (decided): whether the producer sets R is the switch.
+**Status (robot_vision, `feature/prob-tracking-extracted-3d-R`):** a detection that carries R gets information-weighted multi-camera fusion (`fuseGeometry`; z from measured detections only), association with S = H P Hᵀ + R in `PositionMahalanobis` (z gated per pair by `position_gate`, as without R) and `Mahalanobis`, the UKF / IMM update (gain and model likelihood) with its R on the same observed rows (z left out for a planar detection on a track with `z_measured`), and a birth P seeded from it. Without R every path is unchanged. R comes from #2149 (experimental); without it production behaviour is unchanged. The gate becomes R-aware whenever R is present, not through a separate `position_mahalanobis_combined` method (decided): whether the producer sets R is the switch. Open: evaluation with R.
 
 ### Phase 3 validation
 
@@ -163,9 +162,25 @@ cd tracker && make test-unit-coverage
 
 ---
 
+## Track location uncertainty in the output (controller + tracker)
+
+**Goal:** See [design §5.7](../../docs/design/probabilistic-tracking-association.md#57-track-location-uncertainty-in-the-output). **Status:** not started; both services publish only `association_window`.
+
+| Task | Location |
+|------|----------|
+| Field definition | `data_formats.md`, `tracker/schema/scene-data.schema.json` |
+| Tracker Service output | `tracking_types.hpp`, `track_publisher.cpp` |
+| Controller output | `ilabs_tracking.py`, `scene_common` |
+
+### Exit criteria
+
+- [ ] Both services publish the field; unit tests check it against the filter's P
+
+---
+
 ## Non-planar Z / `vz` tracking (controller + tracker)
 
-**Status:** Controller + tracker Z/`vz` tracking on `feature/prob-tracking-extracted-3d`. Tracker 3D detection input (`translation` / `size` / `rotation`) came through main (#2050) and is merged.  
+**Status:** Controller + tracker Z/`vz` tracking merged to `release-2026.3.0` (#2109). Tracker 3D detection input (`translation` / `size` / `rotation`) came through main (#2050) and is merged.  
 **Out of scope here:** mesh/DEM foot-ray for plain 2D cameras (separate PR). Issue 1 from the `vz` review (ground-plane pixel path) stays deferred.
 
 ### Shared (`robot_vision`) — done with controller
@@ -248,8 +263,8 @@ cd tracker && make test-unit test-robot-vision
 ## Rollout checklist
 
 1. [ ] Phase 1 default flip (`position_mahalanobis`): shipped configs stay `euclidean`, with Mahalanobis alternative configs, until the Wildtrack regression is resolved
-2. [ ] Phase 2 opt-in combined; default stays Phase 1 until sign-off
-3. [ ] Phase 3 default flip to combined
+2. [ ] Phase 2 opt-in: R from #2149; detections without R stay Phase 1
+3. [ ] Phase 3: R producer enabled by default after evaluation
 4. [x] Controller non-planar Z/`vz` + 3D association
 5. [x] Tracker χ² df=3 parity + `vz` publish tests
 6. [ ] F2: Wildtrack eval post–χ² df=3; mitigate from results
@@ -258,6 +273,7 @@ cd tracker && make test-unit test-robot-vision
 9. [ ] F8: One z reference for pixel and 3D detections (mitigated: gated association + planar UKF omits z)
 10. [x] Planar UKF updates omit z only when the track already has sticky measured height and the detection does not
 11. [x] `position_gate` helpers centralize XY vs XYZ (association, UKF rows, UI); deferred alternatives listed above
+12. [ ] Track location uncertainty in the output
 
 ```mermaid
 gantt
@@ -286,7 +302,7 @@ gantt
 | `robot_vision/ObjectMatching.*` | ✓ | ✓ | |
 | `robot_vision/TrackedObject.*` | | ✓ | ✓ |
 | `robot_vision/MultiModelKalmanEstimator.*` | ✓ | | ✓ |
-| `tracker/coordinate_transformer.*` | | ✓ | |
+| Tracker / Controller observation processor client (#2149) | | ✓ | ✓ |
 | `tracker/config_loader.*`, schema | ✓ | ✓ | ✓ |
 | `tracker/tracking_worker.cpp` | ✓ | ✓ | ✓ |
 | `controller/ilabs_tracking.py` | ✓ | ✓ | ✓ |
