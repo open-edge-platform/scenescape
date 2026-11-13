@@ -13,15 +13,19 @@ default: deploy-certificates
 #.PHONY targets won't be skipped if files with these names happen to exist
 .PHONY: default ca deploy-certificates deploy-csr
 .PHONY: broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
+.PHONY: observation-processor-cert
 .PHONY: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
+.PHONY: observation-processor-csr
 
 #.SECONDARY prevents make from deleting files created by intermediate targets
 .SECONDARY:
 
-deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
+deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert \
+	observation-processor-cert
 	@chmod 0600 $(CASECRETSDIR)/ca/scenescape-ca.key
 
-deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
+deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr \
+	observation-processor-csr
 
 # EXTRA_HOSTS: optional additional DNS SANs (space-separated host labels, no
 # domain). Empty by default. Hierarchy tests pass values via the root
@@ -70,6 +74,12 @@ mapping-cert: \
 	$(SECRETSDIR)/certs/scenescape-mapping.key \
 	$(SECRETSDIR)/certs/scenescape-mapping.crt \
 
+observation-processor-cert: HOST=observation-processor
+observation-processor-cert: KEY_USAGE=serverAuth
+observation-processor-cert: \
+	$(SECRETSDIR)/certs/scenescape-observation-processor.key \
+	$(SECRETSDIR)/certs/scenescape-observation-processor.crt \
+
 broker-csr: HOST=broker
 broker-csr: KEY_USAGE=serverAuth
 broker-csr: \
@@ -105,6 +115,12 @@ mapping-csr: KEY_USAGE=serverAuth
 mapping-csr: \
 	$(SECRETSDIR)/certs/scenescape-mapping.key \
 	$(SECRETSDIR)/certs/scenescape-mapping.csr \
+
+observation-processor-csr: HOST=observation-processor
+observation-processor-csr: KEY_USAGE=serverAuth
+observation-processor-csr: \
+	$(SECRETSDIR)/certs/scenescape-observation-processor.key \
+	$(SECRETSDIR)/certs/scenescape-observation-processor.csr \
 
 ca: $(CASECRETSDIR)/certs/scenescape-ca.pem
 

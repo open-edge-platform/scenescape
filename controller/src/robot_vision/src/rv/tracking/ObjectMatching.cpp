@@ -271,12 +271,30 @@ double positionMahalanobisCostFromCache(const TrackedObject &measurement, const 
 }
 
 /// Cost of one pair from its own S: with R on the detection S = H P H^T + R is per pair, so the track's cached inverses
-/// do not apply; the per-pair z gate does.
+/// do not apply; the per-pair z gate does. The radius ceiling is checked first, so a rejected pair inverts nothing.
 double positionMahalanobisPairCost(const TrackedObject &measurement,
                                    const TrackedObject &track,
                                    double max_radius_m,
                                    double xy_scale)
 {
+  const double dx = measurement.x - track.predictedMeasurementMean(MeasurementIndex::X);
+  const double dy = measurement.y - track.predictedMeasurementMean(MeasurementIndex::Y);
+  // The same distances as positionMahalanobisCostFromCache, so the ceiling rejects exactly the same pairs.
+  if (!position_gate::gatesZ(track.z_measured, measurement.z_measured))
+  {
+    if (std::hypot(dx, dy) > max_radius_m)
+    {
+      return kDefaultClassBoundValue;
+    }
+  }
+  else
+  {
+    const double dz = measurement.z - track.predictedMeasurementMean(MeasurementIndex::Z);
+    if (std::sqrt(dx * dx + dy * dy + dz * dz) > max_radius_m)
+    {
+      return kDefaultClassBoundValue;
+    }
+  }
   const auto pairCache = buildPositionMahalanobisCache(track, positionCovariance(measurement, track));
   return positionMahalanobisCostFromCache(measurement, pairCache, max_radius_m, xy_scale);
 }
