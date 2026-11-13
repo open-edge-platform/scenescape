@@ -334,7 +334,7 @@ class ZoomArtist:  # pylint: disable=too-few-public-methods,too-many-instance-at
     hpht = hpht_trace[step]
     if not np.all(np.isfinite(hpht[:2, :2])):
       return
-    at_step = self.detections[np.isclose(self.detections["t"], self.trace.t[step], atol=1e-6)]
+    at_step = self.detections[np.isclose(self.detections["t"], self.trace.t[step], rtol=0, atol=1e-6)]
     for sensor, noise in zip(at_step["sensor_id"], at_step["measurement_noise_cov"]):
       gate = detection_gate(self.association, hpht, noise)
       if gate is None:
