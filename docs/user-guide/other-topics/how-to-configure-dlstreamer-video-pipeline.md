@@ -55,7 +55,8 @@ Use the following short names to refer to each model in the chain:
 
 | Category             | Full Model Name                              | Short Name | Description                               |
 | -------------------- | -------------------------------------------- | ---------- | ----------------------------------------- |
-| **Person Detection** | person-detection-retail-0013                 | retail     | General person detection                  |
+| **Person Detection** | yolox-s                                      | yolox_s    | General person detection                  |
+|                      | person-detection-retail-0013                 | retail     | Legacy general person detection           |
 |                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16 | Crossroad multi-class detection           |
 | **Person Analysis**  | person-reidentification-retail-0277          | reid       | Person re-identification                  |
 |                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
@@ -260,7 +261,7 @@ Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice.
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 This example is taken from the bundled Queuing demo scene: its `mediaserver` service republishes the sample video files over RTSP (see [compose.queuing-video.yml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yml)), and the pipeline above consumes that RTSP stream. `multifilesrc` (reading a video file directly, see [Adding custom video files](#adding-custom-video-files) below) is also supported for a fully custom pipeline.

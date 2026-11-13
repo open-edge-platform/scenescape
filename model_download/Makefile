@@ -29,7 +29,7 @@ MODEL_DOWNLOADER_GID ?= 1000
 
 # if models should be taken from other sources - add those sources here, e.g. --plugins omz,huggingface
 # bear in mind that some sources may require additional configuration - check the model_downloader documentation for details
-MODEL_DOWNLOADER_CMD ?= --plugins omz
+MODEL_DOWNLOADER_CMD ?= --plugins omz,huggingface
 MODEL_DOWNLOADER_RUN_ARGS ?=
 
 .PHONY: install-models
