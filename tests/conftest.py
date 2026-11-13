@@ -849,15 +849,12 @@ def _compose_manager(repo_root, secrets_dir, supass, tmp_path_factory, request):
 
 
 @pytest.fixture(scope="session")
-def _k8s_manager(repo_root, supass, tmp_path_factory, request, loopback_hosts):
-  """Session-scoped KinD cluster + Helm deployment manager."""
-  backend = request.config.getoption("--backend")
-  if backend not in ("kubernetes", "all"):
-    yield None
-    return
+def _k8s_manager(repo_root, supass, tmp_path_factory, loopback_hosts, _compose_manager):
+  """Session-scoped KinD cluster + Helm deployment manager, created on first use."""
   if not _K8S_AVAILABLE:
-    yield None
-    return
+    pytest.skip("pytest-kubernetes not installed; install with: pip install pytest-kubernetes")
+  if _compose_manager is not None:
+    _compose_manager.teardown()
   manager = K8sManager(repo_root, supass, tmp_path_factory)
   manager.setup()
   yield manager
@@ -1018,6 +1015,8 @@ def pytest_generate_tests(metafunc):
     return
 
   backend = metafunc.config.getoption("--backend")
+  if metafunc.definition.get_closest_marker("kubernetes_only"):
+    backend = "kubernetes"
   if backend == "all":
     if "_backend_type" not in metafunc.fixturenames:
       metafunc.fixturenames.append("_backend_type")
@@ -1048,14 +1047,6 @@ def pytest_collection_modifyitems(config, items):
       config.addinivalue_line("markers", f"{marker_name}: FuncTestSpec marker")
       item.add_marker(getattr(pytest.mark, marker_name))
 
-  # Skip kubernetes_only tests when backend is docker-only.
-  backend = config.getoption("--backend")
-  if backend == "docker":
-    skip_k8s = pytest.mark.skip(reason="kubernetes-only test (--backend=docker)")
-    for item in items:
-      if item.get_closest_marker("kubernetes_only"):
-        item.add_marker(skip_k8s)
-
   # Always sort by profile so _ComposeManager only restarts the stack on profile
   # transitions.  Use PROFILE_REGISTRY order when available so --env-profiles
   # matrix parametrisation runs in a predictable sequence.
@@ -1065,11 +1056,17 @@ def pytest_collection_modifyitems(config, items):
   except ImportError:
     profile_order = {}
 
+  def _on_k8s(item):
+    callspec = getattr(item, "callspec", None)
+    return ("_k8s_manager" in item.fixturenames
+            or (callspec is not None and callspec.params.get("_backend_type") == "kubernetes"))
+
+  # Kubernetes tests go last.
   def _sort_key(item):
     spec = _get_item_spec(item)
     if spec is None:
-      return (999, "")
-    return (profile_order.get(spec.profile.name, 998), spec.profile.name)
+      return (_on_k8s(item), 999, "")
+    return (_on_k8s(item), profile_order.get(spec.profile.name, 998), spec.profile.name)
 
   items[:] = sorted(items, key=_sort_key)
 

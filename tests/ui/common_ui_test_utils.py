@@ -1974,13 +1974,6 @@ class InteractWithPage(ABC):
     """
     raise NotImplementedError("Method not implemented.")
 
-  @abstractmethod
-  def check_successful_interaction(self, params: InteractionParams, checks: CheckInteraction) -> bool:
-    """! Checks that an interaction with a page is successful.
-    @return   bool                     Boolean representing success.
-    """
-    raise NotImplementedError("Method not implemented.")
-
   def upload_file(self) -> bool:
     """! Uploads file based on the classes upload_params.
     @return   correct_address          Address of the upload page.
@@ -2063,7 +2056,9 @@ class InteractWithPage(ABC):
     # For 3D scene checks, compare the rendered canvas directly instead of the
     # full page so static UI chrome does not dominate SSIM.
     if self.interaction_params.page_path.startswith("/scene/detail/"):
-      wait_for_3d_scene_rendered(self.browser)
+      if not wait_for_3d_scene_rendered(self.browser):
+        print("SSIM difference check: 3D canvas did not render => False")
+        return False
       screenshot = capture_3d_canvas(self.browser)
     else:
       screenshot = self.get_page_screenshot()
@@ -2147,20 +2142,14 @@ class InteractWith3DScene(InteractWithPage):
     return False
 
   def get_3D_scene_screenshot(self) -> np.ndarray:
-    """! Take screenshot of current 3D scene.
-    @return   screenshot               Numpy array representing a screenshot.
+    """! Capture the rendered 3D canvas of the current scene.
+    @return   screenshot               Numpy array of the canvas pixels.
     """
     navigate_directly_to_page(self.browser, f"/scene/detail/{TEST_SCENE_ID}/")
-    time.sleep(1)
-    return self.get_page_screenshot()
-
-  def check_3D_asset_visible(self) -> bool:
-    """! Checks 3d asset visibility by checking that the expected filename is in the page source
-    and that the current screenshot differs from the baseline screenshot.
-    @return   object_visible_success   Boolean which is true if both checks pass.
-    """
-    object_visible_checks = CheckInteraction(file_name_in_page=True, screenshots_differ=True)
-    return self.check_successful_interaction(object_visible_checks)
+    # Same settle/render/capture sequence as check_screenshots_differ() so SSIM compares like with like.
+    time.sleep(5)
+    assert wait_for_3d_scene_rendered(self.browser), "3D canvas did not render for the baseline"
+    return capture_3d_canvas(self.browser)
 
   def hide_stats(self) -> bool:
     """! Hides the stats graph so that the graph doesn't affect the MSE during screenshot tests.
