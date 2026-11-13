@@ -196,6 +196,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - Copies the source tracker configuration file into a `config/` subfolder of the output folder (for both container types), preserving the original filename, so each run records the config it was given. For the Tracker Service container the effective `config.json` is derived from this file by the harness (injecting MQTT/Manager endpoints, `max_lag_s=1e15`, and optional OTLP/metrics settings), so the copy captures the source configuration rather than the fully-resolved runtime config.
 - Supports both **Controller** (`intel/scenescape-controller`) and **Tracker Service** (`intel/scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
 - Runs a **Mock Manager REST API** (`mock_manager.py`) on the Docker host so both container types can load scene configuration without a real Manager deployment.
+- Optionally (experimental, `observation_processor.enabled`, **off by default**) starts the **observation processor service** on the same network. The harness waits until its readiness service reports SERVING (probe run with `docker exec`), then starts the tracker/controller with the experimental flag, host, port, plaintext channel, mode and timeout set through `CONTROLLER_*` / `TRACKER_*` `OBSERVATION_PROCESSOR` env vars. The service reads scenes, cameras and assets from the mock Manager (`/api/v1/cameras?scene=<uid>` serves flat `translation`/`rotation`/`scale`) and uses the same anonymous broker. Its logs go to `observation_processor_logs.txt` and the settings are copied to `config/observation_processor.json`. Block keys: `enabled`, `image` (required when enabled), `mode` (`auto`|`full`|`frustum_only`, default `auto`; the datasets have no mesh, so `full` fails), `timeout_ms` (1–100, default 50), `ready_timeout_s` (default 60).
 
 **Prerequisites**:
 
@@ -320,7 +321,7 @@ in its config). The file must contain `"user"` and `"password"` fields
 
 **Tests**:
 
-- [tests/test_black_box_harness.py](tests/test_black_box_harness.py) — 56 test cases covering initialisation, config validation, timestamp pacing, wall-clock frame pacing (time-chunk scheduler correctness), full orchestration flow (Docker and paho fully mocked), `outputs.json` persistence to new nested directories, and Tracker Service auth file `user`/`password` fields.
+- [tests/test_black_box_harness.py](tests/test_black_box_harness.py) — 85 test cases covering initialisation, config validation, timestamp pacing, wall-clock frame pacing (time-chunk scheduler correctness), full orchestration flow (Docker and paho fully mocked), `outputs.json` persistence to new nested directories, Tracker Service auth file `user`/`password` fields, and the optional observation processor (config validation, container order and env, readiness timeout, cleanup).
 - [tests/test_mock_manager.py](tests/test_mock_manager.py) — 42 test cases covering `_distortion_to_array()` (None/list/dict inputs, 14-key mapping), coplanarity helpers, `_pose_mat_to_extrinsics()` (identity, translation, scale, JSON serialization), `_compute_extrinsics()` (happy path, insufficient points, 2-D map points, distortion dict), `_build_rest_scene()` structure and JSON serializability, and all HTTP endpoints via a real ephemeral HTTPServer.
 
 ## Adding New Harnesses

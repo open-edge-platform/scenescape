@@ -172,6 +172,7 @@ docker compose exec scene bash
 - `TRACKER_CONFIG`: Path to tracker configuration JSON
 - `CONTROLLER_ENABLE_METRICS`: Enable OpenTelemetry metrics (true/false)
 - `CONTROLLER_ENABLE_TRACING`: Enable OpenTelemetry tracing (true/false)
+- `CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR` (or `--experimental-observation-processor`) with `CONTROLLER_OBSERVATION_PROCESSOR_HOST` / `_PORT`: experimental observation processor (`controller.observation_processor`); optional `_MODE` (`auto`), `_TIMEOUT_MS` (`50`), `_INSECURE` (`false`), `_CA_CERT`. gRPC stubs (`scenescape_api`) are generated at image build time and in `tests/sscape_tests/observation_processor/conftest.py`
 - `CONTROLLER_PTZ_ENABLED` / `CONTROLLER_PTZ_SHADOW_MODE`: PTZ pose consumption, both off by default and mutually exclusive. Settings and bounds live in `ptz-consumer-config.json` and `positioning-assignments.json` (`--ptz_config_file`, `--positioning_assignments_file`), read only when a mode is on. Startup fails on an invalid combination, including with `--rewriteAllTime` / `--rewriteBadTime`. Code is in `controller/ptz/`; see `docs/user-guide/microservices/controller/ptz-pose-consumption.md`.
 - `REID_DATABASE`: ReID vector backend (`VDMS` default, or `QDRANT`) — the only backend selector
 - Shared connection/tuning (same for every backend): `REID_HOSTNAME` (`reid.scenescape.intel.com`), `REID_PORT` (`55555`), `REID_USE_TLS` (`true`), `REID_API_KEY`, `REID_CONFIDENCE_THRESHOLD`, `REID_CA_CERT`, `REID_CLIENT_CERT`, `REID_CLIENT_KEY`, `REID_DESCRIPTOR_TTL_SECS` (`86400`), `REID_PURGE_INTERVAL_SECS` (`300`) (see `controller.reid_env`)
@@ -599,6 +600,10 @@ Enable with: `CONTROLLER_ENABLE_METRICS=true`
 - `scenescape_controller_time_chunking_unique_cameras`: distinct cameras dispatched per non-empty chunk
 - `scenescape_controller_time_chunking_non_empty_chunks`: dispatch intervals that had buffered data
 - `scenescape_controller_time_chunking_empty_chunks`: dispatch intervals with no buffered data
+
+**Observation processor counter** (experimental observation processor only):
+
+- `scenescape_controller_observation_processor_failed_calls`: camera frames whose observation processor call failed or returned an invalid response (`scene`, `category`, `camera`, `reason`)
 
 ### Tracing (OpenTelemetry)
 

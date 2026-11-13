@@ -1951,5 +1951,179 @@ TEST(ConfigLoaderTest, NtpSyncIntervalS_EnvVarOnly_WithoutServer_NtpIsAbsent) {
     EXPECT_FALSE(config.infrastructure.ntp.has_value());
 }
 
+// Observation processor (experimental)
+
+std::string remote_observation_processor_config(const std::string& tracking,
+                                                const std::string& endpoint) {
+    return R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true})" +
+           (endpoint.empty() ? "" : R"(, "observation_processor": )" + endpoint) + R"(
+      },
+      "tracking": )" +
+           tracking + R"(,
+      "scenes": {
+        "source": "file",
+        "file_path": ")" +
+           empty_scenes_path() + R"("
+      }
+    })";
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_DisabledByDefault) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_FALSE(config.tracking.experimental_observation_processor);
+    EXPECT_EQ(config.tracking.observation_processor_mode, ConditioningMode::Auto);
+    EXPECT_FALSE(config.infrastructure.observation_processor.has_value());
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_DefaultConfigFileIsDisabled) {
+    auto config =
+        load_config(std::filesystem::path(TRACKER_CONFIG_DIR) / "tracker.json", get_schema_path());
+
+    EXPECT_FALSE(config.tracking.experimental_observation_processor);
+    EXPECT_EQ(config.tracking.observation_processor_mode, ConditioningMode::Auto);
+    EXPECT_FALSE(config.infrastructure.observation_processor.has_value());
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_FromJson) {
+    TempFile config_file(remote_observation_processor_config(
+        R"({"experimental_observation_processor": true, "observation_processor_mode": "frustum_only"})",
+        R"({"host": "observation-processor", "port": 50051, "insecure": true,
+            "ca_cert_path": "/certs/ca.pem", "timeout_ms": 80})"));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_TRUE(config.tracking.experimental_observation_processor);
+    EXPECT_EQ(config.tracking.observation_processor_mode, ConditioningMode::FrustumOnly);
+    ASSERT_TRUE(config.infrastructure.observation_processor.has_value());
+    const auto& remote = *config.infrastructure.observation_processor;
+    EXPECT_EQ(remote.host, "observation-processor");
+    EXPECT_EQ(remote.port, 50051);
+    EXPECT_TRUE(remote.insecure);
+    EXPECT_EQ(remote.ca_cert_path, "/certs/ca.pem");
+    EXPECT_EQ(remote.timeout_ms, 80);
+    EXPECT_TRUE(remote.hasEndpoint());
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_JsonDefaults) {
+    TempFile config_file(
+        remote_observation_processor_config(R"({"observation_processor_mode": "full"})",
+                                            R"({"host": "observation-processor", "port": 50051})"));
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_FALSE(config.tracking.experimental_observation_processor);
+    EXPECT_EQ(config.tracking.observation_processor_mode, ConditioningMode::Full);
+    ASSERT_TRUE(config.infrastructure.observation_processor.has_value());
+    EXPECT_FALSE(config.infrastructure.observation_processor->insecure) << "TLS by default";
+    EXPECT_TRUE(config.infrastructure.observation_processor->ca_cert_path.empty());
+    EXPECT_EQ(config.infrastructure.observation_processor->timeout_ms,
+              kDefaultObservationProcessorTimeoutMs);
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_SchemaRejectsInvalidValues) {
+    const std::vector<std::pair<std::string, std::string>> invalid = {
+        {R"({"observation_processor_mode": "amodal"})", ""},
+        {R"({"experimental_observation_processor": "yes"})", ""},
+        {"{}", R"({"port": 50051})"},
+        {"{}", R"({"host": "observation-processor"})"},
+        {"{}", R"({"host": "", "port": 50051})"},
+        {"{}", R"({"host": "observation-processor", "port": 70000})"},
+        {"{}", R"({"host": "observation-processor", "port": 50051, "timeout_ms": 0})"},
+        {"{}", R"({"host": "observation-processor", "port": 50051, "timeout_ms": 101})"},
+        {"{}", R"({"host": "observation-processor", "port": 50051, "timeout_ms": 2147483648})"},
+        {"{}", R"({"host": "observation-processor", "port": 50051, "shape_prior": true})"},
+    };
+    for (const auto& [tracking, endpoint] : invalid) {
+        SCOPED_TRACE(tracking + " " + endpoint);
+        TempFile config_file(remote_observation_processor_config(tracking, endpoint));
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_EnvVarsOverrideAndCreateEndpoint) {
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv flag(tracker::env::EXPERIMENTAL_OBSERVATION_PROCESSOR, "true");
+    ScopedEnv mode(tracker::env::OBSERVATION_PROCESSOR_MODE, "full");
+    ScopedEnv host(tracker::env::OBSERVATION_PROCESSOR_HOST, "observation-processor.local");
+    ScopedEnv port(tracker::env::OBSERVATION_PROCESSOR_PORT, "6000");
+    ScopedEnv insecure(tracker::env::OBSERVATION_PROCESSOR_INSECURE, "true");
+    ScopedEnv ca(tracker::env::OBSERVATION_PROCESSOR_CA_CERT, "/run/secrets/ca.pem");
+    ScopedEnv timeout(tracker::env::OBSERVATION_PROCESSOR_TIMEOUT_MS, "90");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_TRUE(config.tracking.experimental_observation_processor);
+    EXPECT_EQ(config.tracking.observation_processor_mode, ConditioningMode::Full);
+    ASSERT_TRUE(config.infrastructure.observation_processor.has_value());
+    const auto& remote = *config.infrastructure.observation_processor;
+    EXPECT_EQ(remote.host, "observation-processor.local");
+    EXPECT_EQ(remote.port, 6000);
+    EXPECT_TRUE(remote.insecure);
+    EXPECT_EQ(remote.ca_cert_path, "/run/secrets/ca.pem");
+    EXPECT_EQ(remote.timeout_ms, 90);
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_EnvVarOverridesJsonEndpointField) {
+    TempFile config_file(remote_observation_processor_config(
+        R"({"experimental_observation_processor": true})",
+        R"({"host": "observation-processor", "port": 50051, "timeout_ms": 80})"));
+    ScopedEnv flag(tracker::env::EXPERIMENTAL_OBSERVATION_PROCESSOR, "false");
+    ScopedEnv port(tracker::env::OBSERVATION_PROCESSOR_PORT, "6000");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    EXPECT_FALSE(config.tracking.experimental_observation_processor);
+    ASSERT_TRUE(config.infrastructure.observation_processor.has_value());
+    EXPECT_EQ(config.infrastructure.observation_processor->host, "observation-processor");
+    EXPECT_EQ(config.infrastructure.observation_processor->port, 6000);
+    EXPECT_EQ(config.infrastructure.observation_processor->timeout_ms, 80);
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_HostEnvWithoutPortHasNoEndpoint) {
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv host(tracker::env::OBSERVATION_PROCESSOR_HOST, "observation-processor");
+
+    auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_TRUE(config.infrastructure.observation_processor.has_value());
+    EXPECT_FALSE(config.infrastructure.observation_processor->hasEndpoint());
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_InvalidEnvVarsThrow) {
+    TempFile config_file(MINIMAL_CONFIG());
+    const std::vector<std::pair<const char*, const char*>> invalid = {
+        {tracker::env::EXPERIMENTAL_OBSERVATION_PROCESSOR, "maybe"},
+        {tracker::env::OBSERVATION_PROCESSOR_MODE, "amodal"},
+        {tracker::env::OBSERVATION_PROCESSOR_PORT, "0"},
+        {tracker::env::OBSERVATION_PROCESSOR_PORT, "port"},
+        {tracker::env::OBSERVATION_PROCESSOR_INSECURE, "sometimes"},
+        {tracker::env::OBSERVATION_PROCESSOR_TIMEOUT_MS, "0"},
+        {tracker::env::OBSERVATION_PROCESSOR_TIMEOUT_MS, "101"},
+        {tracker::env::OBSERVATION_PROCESSOR_TIMEOUT_MS, "soon"},
+        {tracker::env::OBSERVATION_PROCESSOR_TIMEOUT_MS, "99999999999999999999"},
+    };
+    for (const auto& [name, value] : invalid) {
+        SCOPED_TRACE(std::string(name) + "=" + value);
+        ScopedEnv env(name, value);
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, ObservationProcessor_ModeNames) {
+    EXPECT_EQ(parseConditioningMode("auto"), ConditioningMode::Auto);
+    EXPECT_EQ(parseConditioningMode("full"), ConditioningMode::Full);
+    EXPECT_EQ(parseConditioningMode("frustum_only"), ConditioningMode::FrustumOnly);
+    EXPECT_THROW(parseConditioningMode("FULL"), std::runtime_error);
+    for (auto mode :
+         {ConditioningMode::Auto, ConditioningMode::Full, ConditioningMode::FrustumOnly}) {
+        EXPECT_EQ(parseConditioningMode(toString(mode)), mode);
+    }
+}
+
 } // namespace
 } // namespace tracker

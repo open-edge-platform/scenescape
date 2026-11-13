@@ -11,12 +11,14 @@
 
 #include "cli.hpp"
 #include "config_loader.hpp"
+#include "grpc_observation_processor_client.hpp"
 #include "healthcheck_command.hpp"
 #include "healthcheck_server.hpp"
 #include "logger.hpp"
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
 #include "object_class.hpp"
+#include "remote_observation_processor.hpp"
 #include "scene_loader.hpp"
 #include "scene_registry.hpp"
 #include "telemetry.hpp"
@@ -151,10 +153,14 @@ int main(int argc, char* argv[]) {
             track_publisher->publish(scene_id, scene_name, category, timestamp, tracks);
         };
 
+    // Experimental observation processor replaces local processing only when enabled and configured
+    auto processor_factory = tracker::makeObservationProcessorFactory(
+        config, tracker::connectObservationProcessorService);
+
     // Initialize time chunk scheduler with workers
     auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
         chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn,
-        std::move(object_classes));
+        std::move(object_classes), std::move(processor_factory));
 
     // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(

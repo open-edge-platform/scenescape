@@ -67,8 +67,10 @@ guidance, rejection reasons, and full JSON examples are defined only in
    mounted-camera pixel detections, use `track=true` or omit `track` (pixels
    with `track=false` are discarded).
 3. Map native observations into source-local `translation` (metres) relative to
-   the source origin described by `pose`, or into per-camera `bounding_box_px`
-   under a complete `cameras[]` array when publishing mounted-cam detections.
+   the source origin described by `pose`, at the object's centre of mass (see
+   `translation` in External Detection Object Fields, `data_formats.md`), or into
+   per-camera `bounding_box_px` under a complete `cameras[]` array when
+   publishing mounted-cam detections.
 4. Choose `reference_frame` (`wgs84` vs `scene`) correctly; honor
    `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for `scene` poses.
 5. Convert the source's native orientation (euler, DCM, etc.) into the

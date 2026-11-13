@@ -4,6 +4,7 @@
 #pragma once
 
 #include "association_config.hpp"
+#include "remote_observation_processor_config.hpp"
 #include "scenes_config.hpp"
 
 #include <filesystem>
@@ -84,6 +85,8 @@ struct InfrastructureConfig {
     std::optional<NtpConfig> ntp;         ///< Optional NTP clock synchronisation
     std::optional<ManagerConfig> manager; ///< Required when scenes.source='api'
     std::optional<OtlpConfig> otlp;       ///< Required when metrics or tracing enabled
+    std::optional<RemoteObservationProcessorConfig>
+        observation_processor; ///< Experimental observation processor
 };
 
 /**
@@ -145,6 +148,11 @@ struct TrackingConfig {
 
     AssociationConfig association; ///< Data association method and gating (ADR-0019)
     FilterConfig filter;           ///< Kalman filter noise settings (q, r, P0)
+
+    /// Experimental: process detections with the observation processor service when its endpoint is
+    /// configured (infrastructure.observation_processor).
+    bool experimental_observation_processor = false;
+    ConditioningMode observation_processor_mode = ConditioningMode::Auto;
 };
 
 /**
@@ -193,6 +201,22 @@ constexpr char TRACKING_ASSOCIATION_BIRTH_CLUSTER_RADIUS_M[] =
 constexpr char TRACKING_FILTER_PROCESS_NOISE[] = "/tracking/filter/process_noise";
 constexpr char TRACKING_FILTER_BASE_MEASUREMENT_NOISE[] = "/tracking/filter/base_measurement_noise";
 constexpr char TRACKING_FILTER_INIT_STATE_COVARIANCE[] = "/tracking/filter/init_state_covariance";
+constexpr char TRACKING_EXPERIMENTAL_OBSERVATION_PROCESSOR[] =
+    "/tracking/experimental_observation_processor";
+constexpr char TRACKING_OBSERVATION_PROCESSOR_MODE[] = "/tracking/observation_processor_mode";
+
+// Observation processor
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR[] = "/infrastructure/observation_processor";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_HOST[] =
+    "/infrastructure/observation_processor/host";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_PORT[] =
+    "/infrastructure/observation_processor/port";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_INSECURE[] =
+    "/infrastructure/observation_processor/insecure";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_CA_CERT_PATH[] =
+    "/infrastructure/observation_processor/ca_cert_path";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_TIMEOUT_MS[] =
+    "/infrastructure/observation_processor/timeout_ms";
 
 // NTP
 constexpr char INFRASTRUCTURE_NTP[] = "/infrastructure/ntp";

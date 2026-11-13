@@ -231,6 +231,7 @@ class TimeChunkedIntelLabsTracking(IntelLabsTracking):
             filter_config=self.filter_config,
           )
           tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
+          tracker.observation_processor = getattr(self, 'observation_processor', None)
           self.trackers[category] = tracker
           tracker.start()
           log.info(f"Started IntelLabs tracker {tracker.__str__()} thread for category {category}")

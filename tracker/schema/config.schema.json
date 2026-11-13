@@ -137,6 +137,41 @@
           },
           "required": ["endpoint"]
         },
+        "observation_processor": {
+          "type": "object",
+          "description": "Experimental observation processor service (gRPC, observation_processor/proto/observation_processor.proto). Used only when tracking.experimental_observation_processor is true.",
+          "properties": {
+            "host": {
+              "type": "string",
+              "description": "Service hostname or IP address",
+              "minLength": 1
+            },
+            "port": {
+              "type": "integer",
+              "description": "Service gRPC port",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "insecure": {
+              "type": "boolean",
+              "description": "Use a plaintext channel instead of TLS (development only)",
+              "default": false
+            },
+            "ca_cert_path": {
+              "type": "string",
+              "description": "Path to PEM CA certificates that verify the service. When unset, the system roots are used."
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "description": "Deadline in milliseconds for the calls of one chunk; keep it below the chunk interval (1000 / tracking.time_chunking_rate_fps). Frames without a response in time keep the local processing.",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": ["host", "port"],
+          "additionalProperties": false
+        },
         "tracker": {
           "type": "object",
           "description": "Tracker service internal settings",
@@ -311,6 +346,17 @@
             }
           },
           "additionalProperties": false
+        },
+        "experimental_observation_processor": {
+          "type": "boolean",
+          "description": "Experimental: process camera detections with the observation processor service (infrastructure.observation_processor) and feed its measurement and noise covariance to the tracker. Detections without a valid remote measurement keep the local processing.",
+          "default": false
+        },
+        "observation_processor_mode": {
+          "type": "string",
+          "description": "Conditioning requested from the observation processor service: auto (full when the scene has a mesh, frustum only otherwise), full or frustum_only.",
+          "enum": ["auto", "full", "frustum_only"],
+          "default": "auto"
         }
       }
     },

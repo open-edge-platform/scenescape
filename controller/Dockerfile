@@ -39,6 +39,17 @@ RUN pip3 install --no-cache-dir build \
     && cd \
     && rm -rf /tmp/controller
 
+# Generate the observation processor gRPC stubs (package scenescape_api). This grpcio-tools emits
+# protobuf 5.29 gencode, which the pinned runtime (grpcio and protobuf below) accepts.
+COPY ./observation_processor/proto /tmp/observation_processor/proto
+RUN pip3 install --no-cache-dir grpcio-tools==1.71.2 \
+    && python3 -m grpc_tools.protoc \
+        -Iscenescape_api/observation_processor/v1=/tmp/observation_processor/proto \
+        --python_out=/usr/local/lib/python3.11/site-packages \
+        --grpc_python_out=/usr/local/lib/python3.11/site-packages \
+        scenescape_api/observation_processor/v1/observation_processor.proto \
+    && rm -rf /tmp/observation_processor
+
 # -------------- Controller Runtime Stage --------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
 
@@ -97,14 +108,16 @@ RUN : \
 
 # WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
 # This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
-# Remove this when vdms supports a secure protobuf version.
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.25.8'
+# Remove this when vdms supports a secure protobuf version. Pinned: the observation processor stubs
+# are verified against this runtime.
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf==7.36.2'
 
 # copy installed scenescape packages from the previous stages
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/controller /usr/local/lib/${PY_LIB_DIR}/site-packages/controller
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/reid /usr/local/lib/${PY_LIB_DIR}/site-packages/reid
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scenescape_api /usr/local/lib/${PY_LIB_DIR}/site-packages/scenescape_api
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json

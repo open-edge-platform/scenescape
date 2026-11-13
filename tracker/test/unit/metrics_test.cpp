@@ -9,6 +9,8 @@
 #include "logger.hpp"
 #include "utils/in_memory_metrics.hpp"
 
+#include <map>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -93,6 +95,7 @@ TEST_F(MetricsNoInitTest, NoOpBeforeTelemetryInit) {
     EXPECT_NO_THROW(Metrics::inc_time_chunking_unique_cameras_n(3));
     EXPECT_NO_THROW(Metrics::inc_time_chunking_non_empty_chunks());
     EXPECT_NO_THROW(Metrics::inc_time_chunking_empty_chunks());
+    EXPECT_NO_THROW(Metrics::inc_observation_processor_failed_calls());
     EXPECT_NO_THROW(Metrics::set_active_tracks("scene1", "person", 5));
 }
 
@@ -196,6 +199,28 @@ TEST_F(MetricsTest, TimeChunkingUniqueCamerasZeroIsNoOp) {
     Telemetry::shutdown();
 
     EXPECT_TRUE(metric_data_->Get(kMeterName, kMetricTimeChunkingUniqueCameras).empty());
+}
+
+TEST_F(MetricsTest, ObservationProcessorFailedCallsRecorded) {
+    Metrics::inc_observation_processor_failed_calls(
+        {{kAttrScene, "scene1"}, {kAttrCategory, "person"}, {kAttrReason, "UNAVAILABLE"}});
+    Metrics::inc_observation_processor_failed_calls(
+        {{kAttrScene, "scene1"}, {kAttrCategory, "person"}, {kAttrReason, "UNAVAILABLE"}});
+    Metrics::inc_observation_processor_failed_calls(
+        {{kAttrScene, "scene1"}, {kAttrCategory, "person"}, {kAttrReason, "DEADLINE_EXCEEDED"}});
+
+    Telemetry::shutdown();
+
+    std::map<std::string, int64_t> by_reason;
+    for (const auto& [attrs, point] :
+         metric_data_->Get(kMeterName, kMetricObservationProcessorFailedCalls)) {
+        auto* sum_data = std::get_if<metrics_sdk::SumPointData>(&point);
+        ASSERT_NE(sum_data, nullptr);
+        by_reason[std::get<std::string>(attrs.at(kAttrReason))] +=
+            std::get<int64_t>(sum_data->value_);
+    }
+    EXPECT_EQ(by_reason["UNAVAILABLE"], 2);
+    EXPECT_EQ(by_reason["DEADLINE_EXCEEDED"], 1);
 }
 
 TEST_F(MetricsTest, RecordLatency) {

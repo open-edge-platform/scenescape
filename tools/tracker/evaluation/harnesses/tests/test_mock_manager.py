@@ -28,6 +28,7 @@ from harnesses.black_box_harness.mock_manager import (
     _build_rest_scene,
     _compute_extrinsics,
     _distortion_to_array,
+    _with_flat_pose,
     _pose_mat_to_extrinsics,
     MockManagerHandler,
     run as mock_manager_run,
@@ -403,6 +404,33 @@ class TestMockManagerHTTP:
     assert body["uid"] == "Cam_x1_0"
     assert "extrinsics" in body
     assert "camera points" in body
+
+  def test_get_cameras_returns_flat_pose_for_scene(self, rest_server):
+    """Observation processor reads flat translation/rotation/scale."""
+    status, body = self._get(rest_server(), "/api/v1/cameras?scene=test-scene-uid")
+    assert status == 200
+    assert [c["uid"] for c in body["results"]] == ["Cam_x1_0", "Cam_x2_0"]
+    for cam in body["results"]:
+      assert cam["translation"] == cam["extrinsics"]["translation"]
+      assert cam["rotation"] == cam["extrinsics"]["rotation"]
+      assert cam["scale"] == cam["extrinsics"]["scale"]
+
+  def test_get_cameras_unknown_scene_is_empty(self, rest_server):
+    status, body = self._get(rest_server(), "/api/v1/cameras?scene=other")
+    assert status == 200
+    assert body["results"] == []
+
+  def test_scenes_payload_keeps_nested_pose_only(self, rest_server):
+    """Legacy clients read /scenes; it must not gain flat pose keys."""
+    _, body = self._get(rest_server(), "/api/v1/scenes")
+    for cam in body["results"][0]["cameras"]:
+      assert "translation" not in cam
+
+  def test_with_flat_pose_keeps_existing_flat_keys(self):
+    cam = {"translation": [1, 2, 3], "extrinsics": {"translation": [9, 9, 9], "rotation": [0, 0, 0]}}
+    out = _with_flat_pose(cam)
+    assert out["translation"] == [1, 2, 3]
+    assert out["rotation"] == [0, 0, 0]
 
   def test_get_camera_not_found_returns_404(self, rest_server):
     status, body = self._get(rest_server(), "/api/v1/camera/no-such-cam")

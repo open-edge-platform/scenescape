@@ -277,12 +277,12 @@ To use Mahalanobis gating in a deployment, point the Scene Controller's `tracker
 `TRACKER_ASSOCIATION_METHOD=position_mahalanobis` for the Tracker service, which then uses the
 same values as its `tracker-mahalanobis.json`.
 
-| Field              | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                        | Default                                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `method`           | `position_mahalanobis` (UKF predicted covariance + χ² gate) or `euclidean` (meter gate; the shipped configs)                                                                                                                                                                                                                                                                                                                   | `position_mahalanobis`                                                                                                          |
-| `gate_probability` | χ² gate probability for Mahalanobis: on x, y and z (3 DOF) when the track and the detection both have measured z, on x and y (2 DOF) otherwise. Ignored for Euclidean.                                                                                                                                                                                                                                                         | `0.99`                                                                                                                          |
-| `max_radius_m`     | Euclidean: track↔detection association distance (m); without it, see Euclidean below. Mahalanobis: hard Euclidean **safety ceiling** (m) so a bad track covariance cannot associate arbitrarily far (also keeps the χ² gate from being clipped under long coast). Does **not** set cross-camera birth clustering radius (2 m). Does **not** model multi-camera pose disagreement—that is Phase 2 measurement R (see ADR-0019). | `10.0` for `position_mahalanobis`; for `euclidean` the objects' `tracking_radius` (Scene Controller) or `2.0` (Tracker service) |
-| `birth_cluster_radius_m`| Euclidean radius (m) that groups new detections of one object seen by different cameras into one track; optional, see below. Independent of `method` and `max_radius_m`.                                                                                                                                                                                                                                                       |
+| Field                    | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                        | Default                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `method`                 | `position_mahalanobis` (UKF predicted covariance + χ² gate) or `euclidean` (meter gate; the shipped configs)                                                                                                                                                                                                                                                                                                                   | `position_mahalanobis`                                                                                                          |
+| `gate_probability`       | χ² gate probability for Mahalanobis: on x, y and z (3 DOF) when the track and the detection both have measured z, on x and y (2 DOF) otherwise. Ignored for Euclidean.                                                                                                                                                                                                                                                         | `0.99`                                                                                                                          |
+| `max_radius_m`           | Euclidean: track↔detection association distance (m); without it, see Euclidean below. Mahalanobis: hard Euclidean **safety ceiling** (m) so a bad track covariance cannot associate arbitrarily far (also keeps the χ² gate from being clipped under long coast). Does **not** set cross-camera birth clustering radius (2 m). Does **not** model multi-camera pose disagreement—that is Phase 2 measurement R (see ADR-0019). | `10.0` for `position_mahalanobis`; for `euclidean` the objects' `tracking_radius` (Scene Controller) or `2.0` (Tracker service) |
+| `birth_cluster_radius_m` | Euclidean radius (m) that groups new detections of one object seen by different cameras into one track; optional, see below. Independent of `method` and `max_radius_m`.                                                                                                                                                                                                                                                       |
 
 **Euclidean:** with `"method": "euclidean"` and no `max_radius_m`, as in the shipped configs,
 association works as before the `association` block: the
@@ -330,11 +330,11 @@ or under `tracking.filter` in the Tracker service `tracker.json`:
 }
 ```
 
-| Field                    | Default  | Meaning                                                                                                                                                                                                                                                                                                                             |
-| ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Field                    | Default  | Meaning                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `process_noise`          | `0.0001` | Process noise scale _q_: how much the object's motion may deviate from the model per second. It scales all process noise: velocity (more along the direction of motion, growing with speed), acceleration, vertical velocity, turn rate and yaw. There is no direct position or size noise. Larger values follow manoeuvres faster and smooth less. |
-| `base_measurement_noise` | `0.2`    | Measurement noise _r_: the variance assumed for every detection component (position, size, yaw), and the initial variance of the measured states. Larger values trust detections less and smooth more.                                                                                                                              |
-| `init_state_covariance`  | `1.0`    | Initial velocity variance _P0_ (m²/s²) of a new track. It sets how fast a track picks up an object that enters already moving, and caps the initial acceleration (0.1), yaw (0.05) and yaw-rate (0.01) variances, so values below 0.1 lower them.                                                                                    |
+| `base_measurement_noise` | `0.2`    | Measurement noise _r_: the variance assumed for every detection component (position, size, yaw), and the initial variance of the measured states. Larger values trust detections less and smooth more.                                                                                                                                              |
+| `init_state_covariance`  | `1.0`    | Initial velocity variance _P0_ (m²/s²) of a new track. It sets how fast a track picks up an object that enters already moving, and caps the initial acceleration (0.1), yaw (0.05) and yaw-rate (0.01) variances, so values below 0.1 lower them.                                                                                                   |
 
 Every value must be a finite number greater than 0. The Tracker service takes the same values from
 `TRACKER_FILTER_PROCESS_NOISE`, `TRACKER_FILTER_BASE_MEASUREMENT_NOISE` and
@@ -350,6 +350,81 @@ The shipped configs have no `filter` block. Treat any change as a tuning step:
 - Change one value at a time and check identity switches and track fragmentation on your own data.
 - The motion models, the shape of the process noise and the filter's internal constants are not
   configurable.
+
+## Experimental Observation Processor
+
+> **⚠️ Experimental.** Settings, behavior and metric names may change between releases.
+
+By default, the Scene Controller and the Tracker service project each pixel bounding box onto the
+ground plane with the camera calibration. With an observation processor, they instead send the pixel boxes
+of each camera frame to an external observation processor service
+([`observation_processor.proto`](https://github.com/open-edge-platform/scenescape/blob/main/observation_processor/proto/observation_processor.proto)).
+For each box, the service returns a world position, a size and a measurement noise covariance (R)
+that describes the uncertainty of that position, for example a long uncertainty along the camera's
+viewing ray. The tracker uses R for multi-camera fusion, association gating and the Kalman update.
+
+The observation processor is used only when the experimental flag is set **and** the service host and port
+are configured:
+
+| Setting            | Scene Controller (environment)                                                            | Tracker service (`tracker.json` / environment)                                                 | Default      |
+| ------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------ |
+| Experimental flag  | `CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR` or `--experimental-observation-processor` | `tracking.experimental_observation_processor` / `TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR`   | `false`      |
+| Host               | `CONTROLLER_OBSERVATION_PROCESSOR_HOST`                                                   | `infrastructure.observation_processor.host` / `TRACKER_OBSERVATION_PROCESSOR_HOST`             | —            |
+| Port               | `CONTROLLER_OBSERVATION_PROCESSOR_PORT`                                                   | `infrastructure.observation_processor.port` / `TRACKER_OBSERVATION_PROCESSOR_PORT`             | —            |
+| Conditioning mode  | `CONTROLLER_OBSERVATION_PROCESSOR_MODE`                                                   | `tracking.observation_processor_mode` / `TRACKER_OBSERVATION_PROCESSOR_MODE`                   | `auto`       |
+| Call deadline (ms) | `CONTROLLER_OBSERVATION_PROCESSOR_TIMEOUT_MS`                                             | `infrastructure.observation_processor.timeout_ms` / `TRACKER_OBSERVATION_PROCESSOR_TIMEOUT_MS` | `50` (1–100) |
+| Plaintext channel  | `CONTROLLER_OBSERVATION_PROCESSOR_INSECURE`                                               | `infrastructure.observation_processor.insecure` / `TRACKER_OBSERVATION_PROCESSOR_INSECURE`     | `false`      |
+| CA certificates    | `CONTROLLER_OBSERVATION_PROCESSOR_CA_CERT`                                                | `infrastructure.observation_processor.ca_cert_path` / `TRACKER_OBSERVATION_PROCESSOR_CA_CERT`  | system roots |
+
+Conditioning modes: `auto` uses full conditioning (frustum Gaussian and amodal reasoning against the
+scene mesh) when the scene has a mesh and frustum-only conditioning otherwise; `full` and
+`frustum_only` force one of them. The channel uses TLS unless the plaintext option is set; use
+plaintext only for development.
+
+The call deadline blocks the tracking step, so keep it below the time-chunking interval
+(1000 / `time_chunking_rate_fps` ms); a warning is logged when it is longer (by the Scene Controller
+for scenes with time chunking).
+There is no extra retry backoff: an unreachable service fails fast while gRPC backs off its
+reconnection attempts, and a service that does not answer costs at most the deadline per step.
+
+Each camera frame is one call, and the calls for one tracking step run concurrently under the
+deadline. A detection keeps the local processing when:
+
+- it is not a pixel box from a calibrated scene camera (for example a 3D detection with
+  `translation`, or an external source);
+- the call fails (service unavailable, deadline exceeded, error status) or the reply is invalid;
+- its depth is unobservable or its measurement is invalid (an `OK` status without a measurement,
+  or an unspecified or unknown status, is invalid).
+
+Failed calls and invalid replies do not stop the service. They are counted in
+`scenescape_controller_observation_processor_failed_calls` (Scene Controller) or
+`tracker.observation_processor.failed_calls` (Tracker service), with the gRPC status name or the
+validation failure in the `reason` attribute, and logged as a warning at most every 10 seconds per
+scene and category. An unobservable depth is not counted. See [How to Enable Observability](../../other-topics/how-to-enable-observability.md).
+
+A remote measurement replaces the position and size of its detection; detector yaw is kept.
+
+### Height Reference of Tracked Objects
+
+The returned position and its R describe the object's centre of mass, so with an observation processor
+both trackers track the centre of mass:
+
+- Remote measurements are used as returned.
+- Pixel boxes that keep the local processing are raised by half their height. Once a track has
+  measured z (a remote measurement or a 3D detection), later pixel boxes no longer update its z.
+- 3D detections (`translation` from cameras or external sources) are assumed to be the object's
+  centre of mass and are used unchanged. A source that reports the footprint base is published
+  half its height too low.
+- Published tracks report the footprint base: `translation[2]` is the tracked z minus half the
+  tracked height. x, y, velocity, size and rotation are not converted.
+
+Without an observation processor nothing is converted. The mode is fixed at startup, so tracks never mix
+references.
+
+With an observation processor, pixel-box tracks publish a z that follows the per-frame box height instead
+of 0. In a simulation with production tracker settings at 15 fps, the published z varied by
+5.1 cm RMS (at most 11 cm) for a box-height noise of 8 cm and 6.3 cm RMS (at most 21 cm) for
+25 cm; `velocity[2]` varied by 3.5 and 5.2 cm/s RMS. x and y are unchanged.
 
 ## Persisting Object Attributes Across Detection Gaps
 

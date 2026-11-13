@@ -80,7 +80,9 @@ fields and examples; do not invent alternate shapes.
    with `category` and exactly one location form:
    - **Cartesian**: `translation` in the **source's local frame** (metres
      relative to the source origin described by `pose` for top-level objects;
-     camera-local metres for observations nested under a camera).
+     camera-local metres for observations nested under a camera), at the object's
+     centre of mass (see `translation` in
+     [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects)).
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
      `translation`. For camera observations, use that camera entry's own
      calibration and resolution. Do not put both `translation` and

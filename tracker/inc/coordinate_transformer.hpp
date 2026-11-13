@@ -30,7 +30,7 @@ namespace tracker {
  * detection has no measurement and is not tracked. Objects are stored in place, without
  * std::optional, so that compacting them into tracker inputs moves nothing in the common case.
  */
-struct ProjectedDetections {
+struct ProcessedObservations {
     std::vector<rv::tracking::TrackedObject> objects;
     std::vector<uint8_t> has_geometry; ///< uint8_t, not bool: written from parallel loops
 
@@ -48,7 +48,7 @@ struct ProjectedDetections {
  * define a normalized rectangle. Its bottom-center determines world position;
  * the bottom-left, bottom-right, and top-left determine world-space dimensions.
  * The detection's own data (id, metadata, confidence, ReID) is not set here; see
- * toTrackerInputs() in detection_projector.hpp.
+ * toTrackerInputs() in observation_processor.hpp.
  *
  * Designed for high-throughput (1000+ detections per batch):
  * - Single cv::undistortPoints call for all pixels in the batch
@@ -117,7 +117,7 @@ public:
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
      *         id stays InvalidObjectId and no other attributes are set.
      */
-    ProjectedDetections transformDetections(std::span<const Detection> detections) const;
+    ProcessedObservations transformDetections(std::span<const Detection> detections) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].

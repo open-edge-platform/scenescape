@@ -33,7 +33,7 @@ __all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_m
            'record_reid_rolling_min_match_latency', 'record_reid_rolling_max_match_latency',
            'record_reid_match_latency',
            'record_reid_current_camera_count', 'record_reid_tracked_object_count',
-           'record_reid_total_tracked_object_count']
+           'record_reid_total_tracked_object_count', 'inc_observation_processor_failed_calls']
 
 # OpenTelemetry metric name constants
 METRIC_MQTT_MESSAGES_COUNT = "scenescape_controller_mqtt_messages"
@@ -55,6 +55,7 @@ METRIC_REID_MATCH_LATENCY = "scenescape_controller_reid_match_latency"
 METRIC_REID_CURRENT_CAMERA_COUNT = "scenescape_controller_reid_current_camera_count"
 METRIC_REID_TRACKED_OBJECT_COUNT = "scenescape_controller_reid_tracked_object_count"
 METRIC_REID_TOTAL_TRACKED_OBJECT_COUNT = "scenescape_controller_reid_total_tracked_object_count"
+METRIC_OBSERVATION_PROCESSOR_FAILED_CALLS = "scenescape_controller_observation_processor_failed_calls"
 
 METRIC_INSTRUMENTS = [
     {
@@ -171,6 +172,12 @@ METRIC_INSTRUMENTS = [
         "description": "Total currently active tracked objects/persons summed across every ReID-capable category (e.g. person + car combined), via TrackedObjectRegistry",
         "unit": "1",
         "kind": "gauge"
+    },
+    {
+        "name": METRIC_OBSERVATION_PROCESSOR_FAILED_CALLS,
+        "description": "Observation processor calls that failed or returned an invalid response",
+        "unit": "1",
+        "kind": "counter"
     }
 ]
 
@@ -247,6 +254,12 @@ def inc_time_chunking_empty_chunks(attributes=None):
   instance = _metrics_instance
   if instance:
     instance.counter_add(METRIC_TIME_CHUNKING_EMPTY_CHUNKS, 1, attributes)
+
+def inc_observation_processor_failed_calls(attributes=None):
+  """Increment count of observation processor calls that failed or returned an invalid response."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_OBSERVATION_PROCESSOR_FAILED_CALLS, 1, attributes)
 
 def inc_ptz_admitted(attributes=None):
   """Increment PTZ camera messages admitted by the dwell contract."""

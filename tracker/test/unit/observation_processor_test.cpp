@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * @file detection_projector_test.cpp
- * @brief Unit tests for CameraModelProjector and toTrackerInputs().
+ * @file observation_processor_test.cpp
+ * @brief Unit tests for CameraModelProcessor and toTrackerInputs().
  */
 
-#include "detection_projector.hpp"
+#include "observation_processor.hpp"
 #include "reid_sighting.hpp"
 #include "tracking_types.hpp"
 
@@ -47,22 +47,22 @@ Detection make_detection(float x, float y, float w, float h, int32_t id = 1) {
     return Detection{.id = id, .bounding_box_px = cv::Rect2f(x, y, w, h)};
 }
 
-// Camera-model projection followed by the detection data, as in TrackingWorker.
+// Camera-model processing followed by the detection data, as in TrackingWorker.
 std::vector<rv::tracking::TrackedObject>
-project(const CoordinateTransformer& transformer, std::span<const Detection> detections,
+process(const CoordinateTransformer& transformer, std::span<const Detection> detections,
         const std::optional<ReidSightingContext>& sightings = std::nullopt) {
     return toTrackerInputs(detections, transformer.transformDetections(detections), sightings);
 }
 
 // Geometry per detection; std::nullopt for a detection without a measurement.
-ProjectedDetections
-make_projected(const std::vector<std::optional<rv::tracking::TrackedObject>>& objects) {
-    ProjectedDetections projected;
+ProcessedObservations
+make_processed(const std::vector<std::optional<rv::tracking::TrackedObject>>& objects) {
+    ProcessedObservations processed;
     for (const auto& object : objects) {
-        projected.objects.push_back(object.value_or(rv::tracking::TrackedObject{}));
-        projected.has_geometry.push_back(object.has_value() ? 1 : 0);
+        processed.objects.push_back(object.value_or(rv::tracking::TrackedObject{}));
+        processed.has_geometry.push_back(object.has_value() ? 1 : 0);
     }
-    return projected;
+    return processed;
 }
 
 rv::tracking::TrackedObject make_geometry(double x, double y) {
@@ -75,14 +75,14 @@ rv::tracking::TrackedObject make_geometry(double x, double y) {
 }
 
 //
-// CameraModelProjector
+// CameraModelProcessor
 //
 
-TEST(CameraModelProjectorTest, ProjectsEachBatchWithItsCameraCalibration) {
+TEST(CameraModelProcessorTest, ProcessesEachBatchWithItsCameraCalibration) {
     auto other_camera = make_camera("cam-2");
     other_camera.extrinsics.translation = {-1.0, 4.0, 3.5};
     other_camera.extrinsics.rotation = {-150.6, 42.35, 52.3};
-    CameraModelProjector projector({{"atag-qcam1", make_camera()}, {"cam-2", other_camera}}, {});
+    CameraModelProcessor processor({{"atag-qcam1", make_camera()}, {"cam-2", other_camera}}, {});
     Detection world_detection;
     world_detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
     world_detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
@@ -92,17 +92,17 @@ TEST(CameraModelProjectorTest, ProjectsEachBatchWithItsCameraCalibration) {
     batches[1].camera_id = "atag-qcam1";
     batches[1].detections = {make_detection(10.0f, 10.0f, 80.0f, 160.0f)};
 
-    const auto projected = projector.project(batches);
+    const auto processed = processor.process(batches);
 
-    ASSERT_EQ(projected.size(), 2u);
+    ASSERT_EQ(processed.size(), 2u);
     for (size_t i = 0; i < batches.size(); ++i) {
         const auto camera = batches[i].camera_id == "cam-2" ? other_camera : make_camera();
         const auto expected = make_transformer(camera).transformDetections(batches[i].detections);
-        ASSERT_TRUE(projected[i]) << "batch " << i;
-        ASSERT_TRUE(projected[i]->covers(batches[i].detections.size())) << "batch " << i;
-        EXPECT_EQ(projected[i]->has_geometry, expected.has_geometry) << "batch " << i;
+        ASSERT_TRUE(processed[i]) << "batch " << i;
+        ASSERT_TRUE(processed[i]->covers(batches[i].detections.size())) << "batch " << i;
+        EXPECT_EQ(processed[i]->has_geometry, expected.has_geometry) << "batch " << i;
         for (size_t j = 0; j < expected.objects.size(); ++j) {
-            const auto& actual = projected[i]->objects[j];
+            const auto& actual = processed[i]->objects[j];
             EXPECT_DOUBLE_EQ(actual.x, expected.objects[j].x);
             EXPECT_DOUBLE_EQ(actual.y, expected.objects[j].y);
             EXPECT_DOUBLE_EQ(actual.z, expected.objects[j].z);
@@ -112,8 +112,8 @@ TEST(CameraModelProjectorTest, ProjectsEachBatchWithItsCameraCalibration) {
     }
 }
 
-TEST(CameraModelProjectorTest, UnknownCameraHasNoResult) {
-    CameraModelProjector projector({{"atag-qcam1", make_camera()}}, {});
+TEST(CameraModelProcessorTest, UnknownCameraHasNoResult) {
+    CameraModelProcessor processor({{"atag-qcam1", make_camera()}}, {});
     std::vector<DetectionBatch> batches(3);
     batches[0].camera_id = "unknown";
     batches[0].detections = {make_detection(590.0f, 260.0f, 100.0f, 200.0f)};
@@ -121,32 +121,32 @@ TEST(CameraModelProjectorTest, UnknownCameraHasNoResult) {
     batches[1].detections = {make_detection(590.0f, 260.0f, 100.0f, 200.0f)};
     batches[2].camera_id = "atag-qcam1"; // empty frame
 
-    const auto projected = projector.project(batches);
+    const auto processed = processor.process(batches);
 
-    ASSERT_EQ(projected.size(), 3u);
-    EXPECT_FALSE(projected[0]);
-    ASSERT_TRUE(projected[1]);
-    EXPECT_TRUE(projected[1]->covers(1));
-    ASSERT_TRUE(projected[2]);
-    EXPECT_TRUE(projected[2]->covers(0));
-    EXPECT_TRUE(projector.project({}).empty());
+    ASSERT_EQ(processed.size(), 3u);
+    EXPECT_FALSE(processed[0]);
+    ASSERT_TRUE(processed[1]);
+    EXPECT_TRUE(processed[1]->covers(1));
+    ASSERT_TRUE(processed[2]);
+    EXPECT_TRUE(processed[2]->covers(0));
+    EXPECT_TRUE(processor.process({}).empty());
 }
 
-TEST(CameraModelProjectorTest, AppliesObjectClassProjectionSettings) {
+TEST(CameraModelProcessorTest, AppliesObjectClassProjectionSettings) {
     const ObjectClassConfig object_class{.shift_type = ObjectClassConfig::kShiftType2,
                                          .footprint_half = 0.25};
-    CameraModelProjector projector({{"atag-qcam1", make_camera()}}, object_class);
+    CameraModelProcessor processor({{"atag-qcam1", make_camera()}}, object_class);
     std::vector<DetectionBatch> batches(1);
     batches[0].camera_id = "atag-qcam1";
     batches[0].detections = {make_detection(900.0f, 350.0f, 300.0f, 300.0f)};
 
-    const auto projected = projector.project(batches);
+    const auto processed = processor.process(batches);
     const auto expected =
         make_transformer(make_camera(), object_class).transformDetections(batches[0].detections);
     const auto type1 = make_transformer().transformDetections(batches[0].detections);
 
-    ASSERT_TRUE(projected.at(0) && projected[0]->covers(1));
-    const auto& actual = projected[0]->objects[0];
+    ASSERT_TRUE(processed.at(0) && processed[0]->covers(1));
+    const auto& actual = processed[0]->objects[0];
     EXPECT_DOUBLE_EQ(actual.x, expected.objects.at(0).x);
     EXPECT_DOUBLE_EQ(actual.y, expected.objects.at(0).y);
     EXPECT_GT(std::hypot(actual.x - type1.objects.at(0).x, actual.y - type1.objects.at(0).y), 0.01);
@@ -156,7 +156,7 @@ TEST(CameraModelProjectorTest, AppliesObjectClassProjectionSettings) {
 // toTrackerInputs
 //
 
-TEST(ToTrackerInputsTest, KeepsProjectedGeometry) {
+TEST(ToTrackerInputsTest, KeepsProcessedGeometry) {
     Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 5);
     detection.metadata_json = R"({"age":{"label":"adult"}})";
     detection.confidence = 0.9;
@@ -166,7 +166,7 @@ TEST(ToTrackerInputsTest, KeepsProjectedGeometry) {
     geometry.yaw = 0.4;
     rv::tracking::orientation::setHasOrientation(geometry, true);
     geometry.measurementNoiseCov = rv::tracking::TrackedObject::MeasurementMatrix::eye() * 0.3;
-    const auto inputs = toTrackerInputs(std::array{detection}, make_projected({geometry}));
+    const auto inputs = toTrackerInputs(std::array{detection}, make_processed({geometry}));
 
     ASSERT_EQ(inputs.size(), 1u);
     EXPECT_EQ(inputs[0].id, 5);
@@ -193,13 +193,13 @@ TEST(ToTrackerInputsTest, DropsDetectionsWithoutGeometryAndKeepsTheirOrder) {
         detection.reid_json = R"({"embedding_vector":[[1,2]]})";
         batch.detections.push_back(detection);
     }
-    const auto projected = make_projected(
+    const auto processed = make_processed(
         {std::nullopt, make_geometry(1.0, 0.0), std::nullopt, make_geometry(3.0, 0.0)});
     ReidSightingIndex sightings;
     sightings.reset("chunk-1");
     const auto context = sightings.add_batch(batch);
 
-    const auto inputs = toTrackerInputs(batch.detections, projected, context);
+    const auto inputs = toTrackerInputs(batch.detections, processed, context);
 
     ASSERT_EQ(inputs.size(), 2u);
     EXPECT_EQ(inputs[0].id, 1);
@@ -228,7 +228,7 @@ TEST(ToTrackerInputsTest, LargeBatchKeepsDetectionDataInOrder) {
                                : std::optional(make_geometry(static_cast<double>(id), 0.0)));
     }
 
-    const auto inputs = toTrackerInputs(detections, make_projected(geometry));
+    const auto inputs = toTrackerInputs(detections, make_processed(geometry));
 
     ASSERT_EQ(inputs.size(), 66u);
     size_t next = 0;
@@ -247,14 +247,14 @@ TEST(ToTrackerInputsTest, LargeBatchKeepsDetectionDataInOrder) {
 TEST(ToTrackerInputsTest, RejectsGeometryCountMismatch) {
     const std::vector<Detection> detections = {make_detection(0.0f, 0.0f, 10.0f, 20.0f)};
 
-    auto without_mask = make_projected({make_geometry(0.0, 0.0)});
+    auto without_mask = make_processed({make_geometry(0.0, 0.0)});
     without_mask.has_geometry.clear();
 
-    EXPECT_THROW(toTrackerInputs(detections, ProjectedDetections{}), std::invalid_argument);
-    EXPECT_THROW(toTrackerInputs(detections, make_projected({std::nullopt, std::nullopt})),
+    EXPECT_THROW(toTrackerInputs(detections, ProcessedObservations{}), std::invalid_argument);
+    EXPECT_THROW(toTrackerInputs(detections, make_processed({std::nullopt, std::nullopt})),
                  std::invalid_argument);
     EXPECT_THROW(toTrackerInputs(detections, without_mask), std::invalid_argument);
-    EXPECT_TRUE(toTrackerInputs({}, ProjectedDetections{}).empty());
+    EXPECT_TRUE(toTrackerInputs({}, ProcessedObservations{}).empty());
 }
 
 TEST(ToTrackerInputsTest, PreservesDetectionId) {
@@ -265,7 +265,7 @@ TEST(ToTrackerInputsTest, PreservesDetectionId) {
         make_detection(10.0f, 10.0f, 80.0f, 160.0f, 7),
     };
 
-    auto result = project(transformer, detections);
+    auto result = process(transformer, detections);
     ASSERT_EQ(result.size(), 2u);
     EXPECT_EQ(result[0].id, 42);
     EXPECT_EQ(result[1].id, 7);
@@ -279,7 +279,7 @@ TEST(ToTrackerInputsTest, MissingIdUsesInvalidObjectId) {
     det.bounding_box_px = cv::Rect2f(590.0f, 260.0f, 100.0f, 200.0f);
 
     std::vector<Detection> detections = {det};
-    auto result = project(transformer, detections);
+    auto result = process(transformer, detections);
     ASSERT_EQ(result.size(), 1u);
     EXPECT_EQ(result[0].id, rv::tracking::InvalidObjectId);
 }
@@ -291,7 +291,7 @@ TEST(ToTrackerInputsTest, MissingSightingContextPreservesOnlyNonReidFields) {
     det.metadata_json = R"({"age":{"label":"adult"}})";
     det.reid_json = R"({"model_name":"test"})";
 
-    auto result = project(transformer, std::vector<Detection>{det});
+    auto result = process(transformer, std::vector<Detection>{det});
 
     ASSERT_EQ(result.size(), 1u);
     EXPECT_EQ(result[0].attributes.count("metadata_json"), 0u);
@@ -314,7 +314,7 @@ TEST(ToTrackerInputsTest, MetadataAndSightingShareDetectionPayload) {
     reid_sightings.reset("chunk-1");
     const auto context = reid_sightings.add_batch(batch);
 
-    auto result = project(transformer, batch.detections, context);
+    auto result = process(transformer, batch.detections, context);
 
     ASSERT_EQ(result.size(), 1u);
     const auto& attributes = result[0].attributes;
@@ -347,7 +347,7 @@ TEST(ToTrackerInputsTest, SensorFrameReidWithoutPixelBoxDoesNotCreateSighting) {
     reid_sightings.reset("chunk-1");
     const auto context = reid_sightings.add_batch(batch);
 
-    const auto result = project(transformer, batch.detections, context);
+    const auto result = process(transformer, batch.detections, context);
 
     ASSERT_EQ(result.size(), 1u);
     EXPECT_TRUE(reid_sightings.take(result[0].attributes).empty());
@@ -365,9 +365,9 @@ TEST(ToTrackerInputsTest, MismatchedSightingSpanIsRejectedBeforeParallelWork) {
     const auto detections = std::span<const Detection>(batch.detections);
     const auto other_detections = batch.detections;
 
-    EXPECT_THROW(project(transformer, detections.first(32), context), std::invalid_argument);
-    EXPECT_THROW(project(transformer, other_detections, context), std::invalid_argument);
-    EXPECT_THROW(project(transformer, detections.subspan(1), context), std::invalid_argument);
+    EXPECT_THROW(process(transformer, detections.first(32), context), std::invalid_argument);
+    EXPECT_THROW(process(transformer, other_detections, context), std::invalid_argument);
+    EXPECT_THROW(process(transformer, detections.subspan(1), context), std::invalid_argument);
 }
 
 TEST(ToTrackerInputsTest, LegacyReidEncodingsAreWrappedWithoutDroppingTheVector) {
@@ -384,7 +384,7 @@ TEST(ToTrackerInputsTest, LegacyReidEncodingsAreWrappedWithoutDroppingTheVector)
         ReidSightingIndex reid_sightings;
         reid_sightings.reset("chunk-1");
         const auto context = reid_sightings.add_batch(batch);
-        auto result = project(transformer, batch.detections, context);
+        auto result = process(transformer, batch.detections, context);
         ASSERT_EQ(result.size(), 1u);
         rapidjson::Document sighting;
         ASSERT_FALSE(
@@ -400,7 +400,7 @@ TEST(ToTrackerInputsTest, EmbeddedNullSuffixIsRejectedAsInvalidJson) {
     Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
     detection.metadata_json = R"({"age":{"label":"adult"}})" + std::string("\0junk", 5);
 
-    const auto result = project(transformer, std::vector<Detection>{detection});
+    const auto result = process(transformer, std::vector<Detection>{detection});
 
     ASSERT_EQ(result.size(), 1u);
     EXPECT_EQ(result[0].attributes.count("metadata.age"), 0u);
@@ -422,20 +422,20 @@ TEST(ToTrackerInputsTest, IncompleteSightingContextDoesNotProduceInvalidSighting
         ReidSightingIndex index;
         index.reset(context[2]);
         const auto sightings = index.add_batch(batch);
-        auto result = project(transformer, batch.detections, sightings);
+        auto result = process(transformer, batch.detections, sightings);
         ASSERT_EQ(result.size(), 1u);
         EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
         EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
     }
 }
 
-TEST(ToTrackerInputsTest, Confidence_PreservedThroughProjection) {
+TEST(ToTrackerInputsTest, Confidence_PreservedThroughProcessing) {
     const auto transformer = make_transformer();
 
     Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
     det.confidence = 0.95;
 
-    auto result = project(transformer, std::vector<Detection>{det});
+    auto result = process(transformer, std::vector<Detection>{det});
 
     ASSERT_EQ(result.size(), 1u);
     ASSERT_TRUE(result[0].attributes.count("confidence"));
@@ -445,7 +445,7 @@ TEST(ToTrackerInputsTest, Confidence_PreservedThroughProjection) {
 TEST(ToTrackerInputsTest, Confidence_AbsentWhenNotProvided) {
     const auto transformer = make_transformer();
 
-    auto result = project(transformer,
+    auto result = process(transformer,
                           std::vector<Detection>{make_detection(590.0f, 260.0f, 100.0f, 200.0f)});
 
     ASSERT_EQ(result.size(), 1u);
@@ -464,7 +464,7 @@ TEST(ToTrackerInputsTest, Confidence_MultipleDetectionsPreservedInOrder) {
     Detection det2 = make_detection(1190.0f, 550.0f, 80.0f, 160.0f, 2);
     det2.confidence = 0.6;
 
-    auto result = project(transformer, std::vector<Detection>{det0, det1, det2});
+    auto result = process(transformer, std::vector<Detection>{det0, det1, det2});
 
     ASSERT_EQ(result.size(), 3u);
     EXPECT_NEAR(std::stod(result[0].attributes.at("confidence")), 0.8, 1e-9);

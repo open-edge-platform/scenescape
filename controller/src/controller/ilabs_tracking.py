@@ -450,6 +450,30 @@ class IntelLabsTracking(Tracking):
     rv_object.attributes = attributes
     return rv_object
 
+  def _toTrackerReference(self, objects_per_camera, rv_objects_per_camera):
+    """Experimental observation processor: apply valid measurements (position, size, z_measured
+    and noise covariance; yaw stays as detected), then raise every input without measured z from
+    its footprint base to its centre of mass. Without an observation processor the inputs are
+    unchanged.
+    """
+    processor = getattr(self, 'observation_processor', None)
+    if processor is None:
+      return
+    processor.process(objects_per_camera, rv_objects_per_camera)
+    for rv_objects in rv_objects_per_camera:
+      for rv_object in rv_objects:
+        if not rv_object.z_measured:
+          rv_object.z += rv_object.height / 2.0
+
+  def _publishedPoint(self, tracked_object):
+    """Track location to publish: the footprint base of the centre-of-mass track with an
+    observation processor, the tracked point otherwise.
+    """
+    z = tracked_object.z
+    if getattr(self, 'observation_processor', None) is not None:
+      z -= tracked_object.height / 2.0
+    return Point(tracked_object.x, tracked_object.y, z)
+
   def _warn_ignored_tracking_radius(self, objects):
     if self._ignored_tracking_radius_warned:
       return
@@ -488,6 +512,7 @@ class IntelLabsTracking(Tracking):
 
   def update_tracks(self, objects, timestamp):
     rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
+    self._toTrackerReference([objects], [rv_objects])
     self.tracker.track(rv_objects, timestamp, **self._association_kwargs(objects))
     return
 
@@ -512,8 +537,7 @@ class IntelLabsTracking(Tracking):
 
     sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
 
-    sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
-                                            tracked_object.z)
+    sscape_object.location[0].point = self._publishedPoint(tracked_object)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
@@ -640,6 +664,7 @@ class IntelLabsTracking(Tracking):
       rv_objects_per_camera.append(rv_camera_objects)
       flat_objects.extend(camera_objects)
 
+    self._toTrackerReference(objects_per_camera, rv_objects_per_camera)
     self.tracker.track(
       rv_objects_per_camera,
       timestamp,
