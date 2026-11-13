@@ -142,6 +142,11 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
+- `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`).
+  The `manager.vippet` library reads it when explicitly instantiated; there is no default, and
+  construction raises `ValueError` if neither this variable nor `base_url` is provided.
+  Library-only for now: it is not passed through Docker Compose or Helm and has no Manager
+  caller yet. Add deployment wiring and a user-guide entry with the first caller.
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
@@ -280,6 +285,34 @@ docker compose exec manager python manage.py showmigrations
 - Manager UI triggers calibration requests through the web-proxied Auto Calibration service
 - Autocalibration endpoints live under `/api/v1/autocalibration/` when accessed through the web container
 - Stores completed calibration parameters in database
+
+### ViPPET (Visual Pipeline and Platform Evaluation Tool)
+
+- `manager.vippet.ViPPETClient` (`src/manager/vippet/`) pulls pipeline definitions authored in ViPPET:
+  - `get_pipelines()` returns `PipelineSummary` objects (id, name, description, tags, variants with
+    id and name) from `GET /pipelines`, without graphs or GStreamer strings
+  - `get_pipeline_string(pipeline_id, variant_id)` returns the variant's GStreamer launch string
+    (`GET /pipelines/{id}` + `POST /convert/to-description` with the variant's advanced graph)
+- Only `vision` pipelines are exposed; `time_series` pipelines are hidden and reported as not found
+- HTTP failures raise `ViPPETError` subclasses (`ViPPETUnavailableError` also covers ViPPET's 503
+  while it initializes); invalid arguments or base URL raise `ValueError` before any request
+- The returned string is meant to be persisted by value and later submitted to DLSPS 2.0
+  `POST /pipelines`; it still references ViPPET-side model/video paths
+- Library only; Manager views and UI do not call ViPPET yet
+
+### DL Streamer Pipeline Server 2.0
+
+- `manager.dlsps.DLSPSClient` (`src/manager/dlsps/`) wraps the DLSPS 2.0 REST API: `create_pipeline`
+  (`POST /pipelines` with a raw gst-launch string), `get_pipeline`, `get_pipeline_status`,
+  `list_pipeline_statuses`, and `delete_pipeline`
+- Responses are typed dataclasses (`PipelineStatus`, `PipelineSummary`); HTTP failures raise
+  `DLSPSError` subclasses and invalid arguments raise `ValueError` before any request is sent
+- Starting a pipeline is asynchronous: poll `get_pipeline_status` to detect `ERROR` after start
+- Pipeline strings are executed as-is; use trusted server-side templates only because elements can
+  access files and networks inside the DLSPS container, and restrict exposing APIs to administrators
+- `DLSPS_URL` is supported by the client when explicitly set, but is not currently wired through
+  Manager's Compose or Helm deployment configuration
+- Library only; Manager does not yet create DLSPS pipelines automatically
 
 ### PostgreSQL
 

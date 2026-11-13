@@ -1,5 +1,26 @@
 # How to Configure Deep Learning Streamer Video Pipeline
 
+## Stored Pipeline Identifiers
+
+Stored definitions also have an optional internal `vippet_pipeline_id` string
+field for the VIPPET pipelines API's `id` (for example, `pipeline-a3f5d9e1`).
+It is displayed read-only in the Pipelines table,
+excluded from user forms, and populated programmatically. Storing either
+identifier does not change video processing.
+
+Each camera has an optional internal
+`dlsps_instance_id` UUID field for the `instance_id` returned by DLSPS2.
+This UUID is displayed read-only beneath the **Pipeline** selector on camera
+create, management, and calibration forms. It is not editable and remains unset until
+populated programmatically; storing it does not start a pipeline or change video
+processing.
+
+Each stored definition can be assigned to at most one camera. Camera forms offer
+only unassigned definitions, plus the current camera's selected definition when
+editing. Clearing the selection or deleting the camera makes its definition
+available again. Deleting a definition clears its camera association without
+deleting the camera.
+
 ## Video Pipeline Configuration in UI Camera Calibration Page (in Kubernetes Deployment)
 
 When Scenescape is deployed in a Kubernetes environment, you can configure Deep Learning Streamer (DL Streamer) video pipelines directly through the camera calibration web interface. This provides a user-friendly way to generate and customize GStreamer pipelines for your cameras without manually editing configuration files.
