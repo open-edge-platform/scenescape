@@ -97,8 +97,10 @@ function clearRegistrationRetry(btn) {
 }
 
 function isPermanentRegistrationFailure(message) {
-  // Insufficient tags (and similar) cannot be fixed by re-POSTing registration.
-  return /cannot auto calibrate/i.test(message || "");
+  // Missing maps and insufficient tags cannot be fixed by re-POSTing registration.
+  return /cannot auto calibrate|no map available for scene/i.test(
+    message || "",
+  );
 }
 
 async function requestSceneRegistration(scene_id) {
