@@ -1,6 +1,6 @@
 ---
 name: test-verification-gate
-description: Runtime test verification gate for Scenescape — image freshness checks, rebuild-before-test requirements, and retry policy.
+description: Runtime test verification gate for Scenescape — use when running tests, diagnosing a failing test or test-job CI failure, or after adding/modifying tests. Covers image freshness checks, rebuild-before-test requirements, and retry policy. Not for lint/format/license-only failures.
 ---
 
 <!--
@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # AI Agent Skill: Test Verification Gate
 
-Use this skill whenever a task adds or modifies tests.
+Use this skill when a task adds or modifies tests, runs tests, or diagnoses a failing test.
 
 ## Goal
 

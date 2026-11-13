@@ -42,7 +42,8 @@ Skills are loaded on-demand based on task context to optimize token usage:
 
 **Loaded Automatically on Demand**:
 
-- `.github/skills/testing/SKILL.md` (and any `references/*.md` it points to) - Loaded when task involves tests or `test` keyword detected
+- `.github/skills/testing/SKILL.md` - Loaded when creating or modifying tests
+- `.github/skills/test-verification-gate/SKILL.md` - Loaded when running tests or diagnosing a failing test
 - `.github/skills/javascript/SKILL.md` - Loaded when `.js` files are being edited
 - `.github/skills/shell/SKILL.md` - Loaded when `.sh` files are being edited
 - `.github/skills/makefile/SKILL.md` - Load for Makefile or build system changes, and when implementing or reviewing a new service or container image (including GitHub PR reviews), even if no Makefile or workflow is changed. Apply its "New Service Build And Publish Gate".
