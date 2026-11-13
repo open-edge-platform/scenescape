@@ -109,7 +109,7 @@ Supersedes the earlier sign-off notes, whose artefacts (`/tmp/phase1-*`) are gon
 | Pixel→world Σ_xy in `CoordinateTransformer` | `tracker/src/coordinate_transformer.cpp` |
 | `position_covariance_xy` on `Detection` | `tracker/inc/tracking_types.hpp` |
 | Optional `measurementCovariance` on `TrackedObject` — **done** as 7×7 `measurementNoiseCov` (Python `measurement_noise_covariance`) | `robot_vision` |
-| `DistanceType::PositionMahalanobisCombined` | `ObjectMatching.cpp` |
+| Per-pair `S_pred + R` in `PositionMahalanobis` — **done**, no separate method; R present or not is the switch | `ObjectMatching.cpp` |
 | `measurement_uncertainty.*` config | schema, loader, controller |
 | Calibrate α offline; record default | eval harness + design/plan appendix |
 
@@ -120,13 +120,13 @@ cd tracker && make test-unit-coverage
 ```
 
 - Transformer tests: Σ grows with bbox height, range, lower confidence; Jacobian FD vs analytic
-- Matching: combined gate wider at long range
+- Matching: gate with R wider at long range
 - Eval: metric test + Wildtrack; AssA up, ID switches down, LocA hold/improve
 
 ### Phase 2 exit criteria
 
 - [ ] α calibrated and documented
-- [ ] `position_mahalanobis_combined` passes evaluation thresholds
+- [ ] `position_mahalanobis` with R from the producer passes evaluation thresholds
 - [ ] Per-object `tracking_radius` unused in association paths
 - [ ] Optional debug emit of Σ_xy for sampled detections
 
@@ -146,7 +146,7 @@ cd tracker && make test-unit-coverage
 | Deprecate `tracking_radius` in manager + user guide | `manager/`, `docs/user-guide/` |
 | (Later) multi-cam class/confidence fusion | `fuseMetadata` |
 
-**Status (robot_vision, `feature/prob-tracking-extracted-3d-R`):** a detection that carries R gets information-weighted multi-camera fusion (`fuseGeometry`), association with S = H P Hᵀ + R in `PositionMahalanobis` (z gated per pair by `position_gate`, as without R) and `Mahalanobis`, the UKF / IMM update (gain and model likelihood) with its R on the same observed rows (z left out for a planar detection on a track with `z_measured`), and a birth P seeded from it. Without R every path is unchanged. Nothing sets R yet (Controller, Tracker Service), so production behaviour is unchanged. The gate becomes R-aware whenever R is present, not through a separate `position_mahalanobis_combined` method.
+**Status (robot_vision, `feature/prob-tracking-extracted-3d-R`):** a detection that carries R gets information-weighted multi-camera fusion (`fuseGeometry`), association with S = H P Hᵀ + R in `PositionMahalanobis` (z gated per pair by `position_gate`, as without R) and `Mahalanobis`, the UKF / IMM update (gain and model likelihood) with its R on the same observed rows (z left out for a planar detection on a track with `z_measured`), and a birth P seeded from it. Without R every path is unchanged. Nothing sets R yet (Controller, Tracker Service), so production behaviour is unchanged. The gate becomes R-aware whenever R is present, not through a separate `position_mahalanobis_combined` method (decided): whether the producer sets R is the switch.
 
 ### Phase 3 validation
 
@@ -158,7 +158,7 @@ cd tracker && make test-unit-coverage
 
 - [ ] End-to-end: predict → associate(S_pred + R) → correct(R)
 - [ ] `tracking_radius` deprecated in object-library docs
-- [ ] Default method → `position_mahalanobis_combined`
+- [ ] R producer enabled by default
 - [ ] Metrics meet or exceed Phase 2 on gated datasets
 
 ---
