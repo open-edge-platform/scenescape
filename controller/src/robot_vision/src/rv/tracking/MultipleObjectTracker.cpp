@@ -3,6 +3,7 @@
 
 #include "rv/tracking/MultipleObjectTracker.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <unordered_map>
 #include "rv/Utils.hpp"
@@ -14,6 +15,38 @@ namespace rv {
 namespace tracking {
 
 namespace {
+
+/**
+ * Information matrix of a geometry R without its z row and column: the inverse of the remaining
+ * 5x5 covariance, embedded with zeros for z.
+ */
+cv::Matx<double, 6, 6> informationWithoutZ(const cv::Matx<double, 6, 6> &noise)
+{
+  constexpr int kReduced = 5;
+  constexpr std::array<int, kReduced> kKept = {MeasurementIndex::X,
+                                               MeasurementIndex::Y,
+                                               MeasurementIndex::LENGTH,
+                                               MeasurementIndex::WIDTH,
+                                               MeasurementIndex::HEIGHT};
+  cv::Matx<double, kReduced, kReduced> reduced;
+  for (int row = 0; row < kReduced; ++row)
+  {
+    for (int col = 0; col < kReduced; ++col)
+    {
+      reduced(row, col) = noise(kKept[row], kKept[col]);
+    }
+  }
+  const cv::Matx<double, kReduced, kReduced> reducedInv = reduced.inv(cv::DECOMP_SVD);
+  cv::Matx<double, 6, 6> information;
+  for (int row = 0; row < kReduced; ++row)
+  {
+    for (int col = 0; col < kReduced; ++col)
+    {
+      information(kKept[row], kKept[col]) = reducedInv(row, col);
+    }
+  }
+  return information;
+}
 
 /**
  * @brief Fuse world position and size across multi-camera matches into measurement.
@@ -50,13 +83,20 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
     const TrackedObject::MeasurementMatrix defaultNoise
       = TrackedObject::MeasurementMatrix::eye() * defaultMeasurementNoise;
 
+    // z comes from the measured detections only: a detection without measured z carries the ground point,
+    // so it gives no z information (its R without z is inverted). Without any measured z, all members count.
+    const bool anyZMeasured = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
+      return objectsPerCamera[match.first][match.second].z_measured;
+    });
+
     FusedMatrix information;
     FusedVector informationVector;
     for (const auto &[cameraIndex, objectIndex] : matches)
     {
       const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+      const auto noise = object.measurementNoiseCov.value_or(defaultNoise).get_minor<kFusedSize, kFusedSize>(0, 0);
       const FusedMatrix noiseInv
-        = object.measurementNoiseCov.value_or(defaultNoise).get_minor<kFusedSize, kFusedSize>(0, 0).inv(cv::DECOMP_SVD);
+        = anyZMeasured && !object.z_measured ? informationWithoutZ(noise) : noise.inv(cv::DECOMP_SVD);
       information += noiseInv;
       informationVector += noiseInv * object.measurementVector().get_minor<kFusedSize, 1>(0, 0);
     }
