@@ -550,6 +550,40 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRTakesZFromMeasuredDetectio
   }
 }
 
+TEST(MultipleObjectTrackerTest, MultiCameraFusionWithCorrelatedRIgnoresPlanarZAtBirthAndUpdate)
+{
+  // Both cameras see x = 0. The measured detection correlates x and z (Cov 0.8); a planar z of 0 fused as if
+  // measured gives x = -0.3 and z = 0.45 (Copilot review of #2129). Its x/z information then pulls neither.
+  auto planar = makeDetection(0.0, 0.0, 0.0, 0.5, 0.5, 1.8);
+  planar.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+  auto measured = makeDetection(0.0, 0.0, 1.5, 0.5, 0.5, 1.8);
+  measured.z_measured = true;
+  measured.measurementNoiseCov = diagonalMeasurementNoise(1.0, 0.2, 1.0);
+  (*measured.measurementNoiseCov)(MeasurementIndex::X, MeasurementIndex::Z) = 0.8;
+  (*measured.measurementNoiseCov)(MeasurementIndex::Z, MeasurementIndex::X) = 0.8;
+
+  for (const auto &cameras : {DetectionsPerCamera{{planar}, {measured}}, DetectionsPerCamera{{measured}, {planar}}})
+  {
+    auto tracker = makeFusionTracker();
+    tracker.track(cameras, atMs(10));
+    const auto born = tracker.getTracks();
+    ASSERT_EQ(born.size(), 1U);
+    EXPECT_NEAR(born[0].x, 0.0, 1e-9) << "birth";
+    EXPECT_NEAR(born[0].z, 1.5, 1e-9) << "birth";
+
+    tracker.track(cameras, atMs(110));
+    const auto &measurements = tracker.mTrackManager.mMeasurementMap;
+    ASSERT_EQ(measurements.size(), 1U);
+    const auto &fused = measurements.begin()->second;
+    EXPECT_NEAR(fused.x, 0.0, 1e-9) << "update";
+    EXPECT_NEAR(fused.z, 1.5, 1e-9) << "update";
+    ASSERT_TRUE(fused.measurementNoiseCov);
+    // z information comes from the measured detection only, so the fused z variance cannot drop below
+    // its conditional variance given x: 1 - 0.8^2 / 1 = 0.36.
+    EXPECT_GE((*fused.measurementNoiseCov)(MeasurementIndex::Z, MeasurementIndex::Z), 0.36 - 1e-9) << "update";
+  }
+}
+
 TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRKeepsPlanarZWhenNoDetectionMeasuredIt)
 {
   // Planar-only tracks keep the floor lock: z is fused over all members as before.
