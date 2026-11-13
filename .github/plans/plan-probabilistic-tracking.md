@@ -108,7 +108,7 @@ Supersedes the earlier sign-off notes, whose artefacts (`/tmp/phase1-*`) are gon
 |------|----------|
 | R producer — **replaced** by the observation processor client (#2149), not `CoordinateTransformer` | Tracker Service, Controller |
 | Optional `measurementCovariance` on `TrackedObject` — **done** as 7×7 `measurementNoiseCov` (Python `measurement_noise_covariance`) | `robot_vision` |
-| Per-pair `S_pred + R` in `PositionMahalanobis` — **done**, no separate method; R present or not is the switch | `ObjectMatching.cpp` |
+| Per-pair `H P Hᵀ + R` in `PositionMahalanobis` — **done**, no separate method; R present or not is the switch | `ObjectMatching.cpp` |
 | `measurement_uncertainty.*` config — **not planned** with #2149 as the producer | schema, loader, controller |
 | Calibrate R and the gate probability on evaluation data | eval harness |
 

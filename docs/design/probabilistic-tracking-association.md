@@ -44,7 +44,7 @@ This document specifies how [ADR-0019](../adr/0019-probabilistic-tracking-associ
 | Problem                                                                        | Phase           | Notes                                                                         |
 | ------------------------------------------------------------------------------ | --------------- | ----------------------------------------------------------------------------- |
 | Association should adapt to **object motion / coast** (not a fixed meter disk) | **1**           | `position_mahalanobis` on `S_pred` + χ²; `max_radius_m` = safety ceiling only |
-| **Cameras disagree** on world pose; LocA under multi-view projection bias      | **2**           | Geometry-derived **R_meas**; `S_pred + R`; not Phase 1 gating                 |
+| **Cameras disagree** on world pose; LocA under multi-view projection bias      | **2**           | Geometry-derived **R_meas**; `H P Hᵀ + R`; not Phase 1 gating                 |
 | UKF **correct** still uses fixed R while association is probabilistic          | **3**           | Per-measurement R in the filter update                                        |
 | Detector confidence / multi-cam class fusion in probabilistic pipeline         | **3–4** (later) | Fold into R / metadata fusion                                                 |
 
@@ -92,7 +92,7 @@ flowchart LR
     XFORM --> CORR
 ```
 
-Phase 1 omits `R_meas` (association uses `S_pred` only; correct still uses fixed R). Phase 2 adds `R_meas` to association. Phase 3 threads `R_meas` into correct. There is no separate association method for `R_meas`: a detection that carries R is gated on `S_pred + R_meas` and updates the filter with R, and whether the producer sets R is the switch (§5.3).
+Phase 1 omits `R_meas` (association uses `S_pred` only; correct still uses fixed R). Phase 2 adds `R_meas` to association. Phase 3 threads `R_meas` into correct. There is no separate association method for `R_meas`: a detection that carries R is gated on `H P Hᵀ + R_meas`, `S_pred` with the detection's R in place of the default R, and updates the filter with R, and whether the producer sets R is the switch (§5.3).
 
 ### 5.2 Phase 1 — Track-side position Mahalanobis
 
@@ -124,7 +124,7 @@ otherwise:
 | Method                 | Meaning                                                                                                                         |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `euclidean`            | Legacy meter gate (rollback)                                                                                                    |
-| `position_mahalanobis` | Phase 1 — track-side `S_pred`; per pair `S_pred + R_meas` when the detection carries R (default without an `association` block) |
+| `position_mahalanobis` | Phase 1 — track-side `S_pred`; per pair `H P Hᵀ + R_meas` when the detection carries R (default without an `association` block) |
 
 ### 5.3 Phase 2 — Geometry-derived measurement covariance
 
@@ -142,12 +142,12 @@ Optional: Σ_xy *= (1 / cos(θ))²   # θ = ray vs ground normal
 
 Calibrate **α** offline from evaluation datasets (grid search maximizing AssA subject to LocA ≥ baseline).
 
-| Element     | Design choice                                                                                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owner       | `CoordinateTransformer` populates `position_covariance_xy` on `Detection`                                                                                           |
-| Association | `DistanceType::PositionMahalanobis` with a per-pair `S_assoc = S_pred[xy] + R_meas[xy]` whenever the detection carries R; no separate method; `euclidean` ignores R |
-| Fallback    | Missing `R_meas` → Phase 1 behavior (bit-identical)                                                                                                                 |
-| Config      | `measurement_uncertainty.*` (pixel fraction, confidence scaling, min sigma, incidence scaling)                                                                      |
+| Element     | Design choice                                                                                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner       | `CoordinateTransformer` populates `position_covariance_xy` on `Detection`                                                                                                  |
+| Association | `DistanceType::PositionMahalanobis` with a per-pair `S_assoc = H P Hᵀ + R_meas` (no default R) whenever the detection carries R; no separate method; `euclidean` ignores R |
+| Fallback    | Missing `R_meas` → Phase 1 behavior (bit-identical)                                                                                                                        |
+| Config      | `measurement_uncertainty.*` (pixel fraction, confidence scaling, min sigma, incidence scaling)                                                                             |
 
 ### 5.4 Phase 3 — Per-measurement UKF update
 
