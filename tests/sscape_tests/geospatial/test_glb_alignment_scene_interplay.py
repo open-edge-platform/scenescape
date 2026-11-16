@@ -6,7 +6,7 @@
 Coverage:
   C1: Saving new non-GLB map while use_glb_map=True sets use_glb_map=False
   C2: Saving new snapshot while not applied refreshes base_map_corners_lla
-  C4: frame_corners_lla() fallbacks for legacy scenes
+  C4: frameCornersLLA() fallbacks for legacy scenes
   C5: Unapplying GLB with an unchanged map name syncs base_map_corners_lla
   C6: Corner edit without GLB applied leaves base_map_corners_lla unchanged
 """
@@ -197,10 +197,10 @@ class TestSceneSaveGlbInterplay(TransactionTestCase):
 
 
 class TestFrameCornersLlaFallback(TestCase):
-  """Tests Scene.frame_corners_lla() fallback logic."""
+  """Tests Scene.frameCornersLLA() fallback logic."""
 
   def test_frame_corners_lla_returns_base_map_corners_when_set(self):
-    """Test: frame_corners_lla() returns base_map_corners_lla if set (geospatial + base_map)."""
+    """Test: frameCornersLLA() returns base_map_corners_lla if set (geospatial + base_map)."""
     base_corners = localFootprintCornersLLA(
       center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
       width_m=100.0, height_m=100.0
@@ -217,11 +217,11 @@ class TestFrameCornersLlaFallback(TestCase):
       map_corners_lla=map_corners
     )
 
-    result = scene.frame_corners_lla()
-    assert result == base_corners, "frame_corners_lla() should return base_map_corners_lla"
+    result = scene.frameCornersLLA()
+    assert result == base_corners, "frameCornersLLA() should return base_map_corners_lla"
 
   def test_frame_corners_lla_returns_map_corners_when_no_base(self):
-    """Test: frame_corners_lla() returns map_corners_lla when base_map_corners_lla is None."""
+    """Test: frameCornersLLA() returns map_corners_lla when base_map_corners_lla is None."""
     map_corners = localFootprintCornersLLA(
       center_lat=37.39, center_lng=-121.97, heading_deg=0.0,
       width_m=50.0, height_m=50.0
@@ -234,11 +234,11 @@ class TestFrameCornersLlaFallback(TestCase):
       map_corners_lla=map_corners
     )
 
-    result = scene.frame_corners_lla()
-    assert result == map_corners, "frame_corners_lla() should return map_corners_lla"
+    result = scene.frameCornersLLA()
+    assert result == map_corners, "frameCornersLLA() should return map_corners_lla"
 
   def test_frame_corners_lla_returns_map_corners_for_non_geospatial(self):
-    """Test: frame_corners_lla() returns map_corners_lla for non-geospatial scenes."""
+    """Test: frameCornersLLA() returns map_corners_lla for non-geospatial scenes."""
     map_corners = localFootprintCornersLLA(
       center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
       width_m=100.0, height_m=100.0
@@ -249,5 +249,5 @@ class TestFrameCornersLlaFallback(TestCase):
       map_corners_lla=map_corners
     )
 
-    result = scene.frame_corners_lla()
-    assert result == map_corners, "frame_corners_lla() should return map_corners_lla for non-geospatial scenes"
+    result = scene.frameCornersLLA()
+    assert result == map_corners, "frameCornersLLA() should return map_corners_lla for non-geospatial scenes"

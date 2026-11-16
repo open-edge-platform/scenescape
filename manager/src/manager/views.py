@@ -38,7 +38,7 @@ from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 
 from manager.api import IsAdminOrReadOnly
-from manager import osm_query, osm_roi, glb_alignment
+from manager import osm_query, osm_roi, glb_alignment, glb_staging
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -478,6 +478,7 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     context = super().get_context_data(**kwargs)
     context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
     context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    context['glb_max_upload_bytes'] = glb_staging.MAX_GLB_BYTES
     if self.request.method == 'GET':
       # A saved GLB without a cached preview (stored before previews were cached) is repaired here
       glb_alignment.ensure_glb_preview(self.object)
@@ -1082,7 +1083,7 @@ def _bearing_pivot(scene):
   if scene.map_center_lat is not None and scene.map_center_lng is not None:
     center_lat, center_lng = scene.map_center_lat, scene.map_center_lng
   else:
-    frame_corners = scene.frame_corners_lla()
+    frame_corners = scene.frameCornersLLA()
     south, west, north, east = osm_roi.bbox_from_map_corners(frame_corners)
     center_lat, center_lng = (south + north) / 2.0, (west + east) / 2.0
   return osm_roi.lla_to_local_xy(scene.trs_matrix, center_lat, center_lng)
@@ -1119,7 +1120,7 @@ class OsmRoiPreviews(APIView):
       except (Scene.DoesNotExist, ValueError):
         return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
 
-      frame_corners = scene.frame_corners_lla()
+      frame_corners = scene.frameCornersLLA()
       if not frame_corners:
         return JsonResponse({
           'error': 'Scene map corners not set. '
@@ -1317,7 +1318,10 @@ class GeospatialGlb(APIView):
   def get(self, request, scene_uid):
     try:
       scene = glb_alignment.get_geospatial_scene(scene_uid)
-      return JsonResponse(glb_alignment.saved_alignment(scene))
+      alignment = glb_alignment.saved_alignment(scene)
+      if alignment['exists']:
+        alignment['existing_content'] = glb_alignment.existing_content(scene)
+      return JsonResponse(alignment)
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:

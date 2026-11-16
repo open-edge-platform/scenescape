@@ -118,7 +118,7 @@ class TestMatrix:
 class TestAbstract:
   """Test MapInterface abstract methods throw."""
 
-  @pytest.mark.parametrize("method", ["setOverlay", "updateOverlay", "setOverlayOpacity", "removeOverlay", "pointToLatLng"])
+  @pytest.mark.parametrize("method", ["setOverlay", "updateOverlay", "setOverlayOpacity", "setOverlayFrameColor", "removeOverlay", "pointToLatLng"])
   def test_throws(self, method):
     """Unimplemented abstract method throws."""
     res = run_js("abstract", method)

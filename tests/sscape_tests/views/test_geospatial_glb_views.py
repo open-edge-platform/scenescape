@@ -20,7 +20,7 @@ from django.contrib.auth.models import User
 
 import numpy as np
 
-from manager import glb_alignment
+from manager import glb_alignment, glb_staging, glb_state
 from manager.forms import SceneUpdateForm
 from manager.models import Scene, Region, RegionPoint, SingletonSensor
 from scene_common.earth_lla import localFootprintCornersLLA
@@ -50,7 +50,7 @@ class TestGeospatialGlbPreview(TestCase):
     self.addCleanup(override.disable)
     self.addCleanup(self.temp_dir.cleanup)
     render_patch = patch.object(
-      glb_alignment, "generateOrthoView",
+      glb_staging, "generateOrthoView",
       return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0)
     )
     self.render_mock = render_patch.start()
@@ -179,9 +179,24 @@ class TestGeospatialGlbPreview(TestCase):
   def test_oversized_file_returns_413(self):
     """GLB exceeding MAX_GLB_BYTES returns 413 Payload Too Large."""
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
-    with patch.object(glb_alignment, "MAX_GLB_BYTES", 10):
+    with patch.object(glb_staging, "MAX_GLB_BYTES", 10):
       response = self._upload_glb(self.scene.id)
     self.assertEqual(response.status_code, 413)
+
+  def test_oversized_file_message_shows_configured_limit(self):
+    """The 413 message names the configured limit, not a hardcoded one."""
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
+    with patch.object(glb_staging, "MAX_GLB_BYTES", 3 * 1024 * 1024 // 2):
+      response = self._upload_glb(self.scene.id, file_data=b"x" * (2 * 1024 * 1024))
+    self.assertEqual(response.status_code, 413)
+    self.assertIn("1.5 MB", json.loads(response.content)["error"])
+
+  def test_update_page_passes_configured_limit_to_template(self):
+    """The scene update page carries the same limit the server enforces."""
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
+    with patch.object(glb_staging, "MAX_GLB_BYTES", 5 * 1024 * 1024):
+      response = self.client.get(reverse("scene_update", kwargs={"pk": self.scene.id}))
+    self.assertContains(response, 'data-max-upload-bytes="5242880"')
 
   def test_stale_files_are_purged_before_new_upload(self):
     """Stale files (>24h old) are removed; fresh files kept."""
@@ -235,7 +250,7 @@ class TestStageGlbWriteFailure(TestCase):
       raise OSError("disk full")
 
     upload.chunks.side_effect = failing_chunks
-    with patch.object(glb_alignment, "validate_glb"):
+    with patch.object(glb_staging, "validate_glb"):
       with self.assertRaises(OSError):
         glb_alignment.stage_glb(upload)
     self.assertEqual(os.listdir(glb_alignment.staging_dir()), [])
@@ -419,6 +434,18 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     )
     self.assertEqual(resp.status_code, 200)
     self.assertFalse(json.loads(resp.content)['exists'])
+    self.assertNotIn('existing_content', json.loads(resp.content))
+
+  def test_get_with_saved_glb_reports_existing_content(self):
+    """GET of a stored GLB lists the scene content that keeps its local positions on apply."""
+    SingletonSensor.objects.create(scene=self.scene, name='s1', sensor_id='s1')
+    token = self._stage_glb()
+    with self.captureOnCommitCallbacks(execute=True):
+      resp = self._post_commit(token=token, anchor={'lat': 37.39, 'lng': -121.97, 'heading_deg': 0})
+    self.assertEqual(resp.status_code, 200)
+    resp = self.client.get(reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}))
+    self.assertEqual(
+      json.loads(resp.content)['existing_content'], {'cameras': 0, 'regions': 0, 'sensors': 1})
 
   def test_commit_with_sensor_and_region_stores_without_map_change(self):
     """POST succeeds with existing sensors/regions and does not change the applied map."""
@@ -528,7 +555,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
 
     with patch.object(
-      glb_alignment, '_get_mesh_footprint_corners_from_glb',
+      glb_state, '_get_aligned_footprint_size_m',
       side_effect=RuntimeError('Alignment failed')
     ):
       resp = self.client.post(
@@ -556,7 +583,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
 
     with patch.object(
-      glb_alignment, '_get_mesh_footprint_corners_from_glb',
+      glb_state, '_get_aligned_footprint_size_m',
       side_effect=RuntimeError('Alignment failed')
     ):
       resp = self.client.post(
@@ -771,7 +798,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     preview = glb_alignment.glb_preview_path(self.scene.glb_map.path)
     if os.path.exists(preview):
       os.remove(preview)
-    with patch.object(glb_alignment, 'generateOrthoView',
+    with patch.object(glb_staging, 'generateOrthoView',
                       return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0)):
       resp = self.client.get(reverse('scene_update', args=[self.scene.id]))
 

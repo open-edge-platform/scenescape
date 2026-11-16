@@ -428,7 +428,7 @@ def _cache_is_current(scene: Scene, current_bbox: List[float]) -> bool:
 
 def _get_or_fetch_ways(scene: Scene) -> List[Dict[str, Any]]:
   """Return OSM ways for the scene, using the cache when it's still valid for the current bbox."""
-  frame_corners = scene.frame_corners_lla()
+  frame_corners = scene.frameCornersLLA()
   if not frame_corners:
     raise OsmRoiError(
       "Scene map corners (map_corners_lla) not set; cannot derive OSM query bounding box"

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-/* global module */
+/* global module, requestJson */
 
 "use strict";
 
@@ -18,6 +18,7 @@ const PREVIEW_MISSING_HINT =
 // Keep equal to MAX_ANCHOR_DISTANCE_KM in manager/glb_alignment.py, which enforces it on save.
 const FAR_ANCHOR_KM = 50;
 const FAR_ANCHOR_HINT = `The 3D model must stay within ${FAR_ANCHOR_KM} km of the map center.`;
+const BYTES_PER_MB = 1024 * 1024;
 
 function pointInPolygon(pt, corners) {
   const x = pt.lng;
@@ -72,6 +73,24 @@ function distanceKm(a, b) {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+function formatMegabytes(bytes) {
+  return `${Number((bytes / BYTES_PER_MB).toFixed(1))} MB`;
+}
+
+// Describes the scene content that keeps its local positions when a GLB map is applied.
+function describeExistingContent(content) {
+  const parts = [];
+  for (const [key, singular] of [
+    ["cameras", "camera"],
+    ["regions", "region"],
+    ["sensors", "sensor"],
+  ]) {
+    const n = Number(content?.[key]) || 0;
+    if (n > 0) parts.push(`${n} ${singular}${n === 1 ? "" : "s"}`);
+  }
+  return parts.join(", ");
+}
+
 const byId = (id) => document.getElementById(id);
 const on = (el, type, fn, cap) => el.addEventListener(type, fn, cap === true);
 
@@ -81,6 +100,8 @@ class GlbAlignment {
     if (!row) return;
 
     this.sceneId = row.dataset.sceneId;
+    this.maxUploadBytes = Number(row.dataset.maxUploadBytes) || 0;
+    this.existingContent = {};
     this.staged = null;
     this.saved = null;
     this.anchor = null;
@@ -118,7 +139,14 @@ class GlbAlignment {
       useCheckbox: byId("glbUse"),
       savePosBtn: byId("glbSavePosition"),
       savePosWrap: byId("glbSavePositionWrap"),
+      legendApplied: byId("glbLegendApplied"),
+      legendUnapplied: byId("glbLegendUnapplied"),
     };
+
+    if (this.ui.legendApplied)
+      this.ui.legendApplied.style.borderColor = FRAME_APPLIED;
+    if (this.ui.legendUnapplied)
+      this.ui.legendUnapplied.style.borderColor = FRAME_UNAPPLIED;
 
     window.addEventListener("geomap-ready", () => {
       this.mapReady = true;
@@ -226,18 +254,31 @@ class GlbAlignment {
 
   async _loadSavedAlignment() {
     try {
-      const data = await this._request(
+      const data = await requestJson(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         { method: "GET" },
       );
       if (data.exists) {
         this.saved = data;
+        this.existingContent = data.existing_content || {};
         this.anchor = { ...data.anchor };
         this._renderSavedBlock();
         this._drawSavedOverlay();
         this._updateFarAnchorHint();
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Failed to load the saved 3D model:", e);
+      this._showError(`Could not load the saved 3D model: ${e.message}`);
+    }
+  }
+
+  // Applying replaces the scene map; existing cameras, regions and sensors keep their local positions.
+  _confirmApplyOverwrite(content) {
+    const summary = describeExistingContent(content);
+    if (!summary) return true;
+    return window.confirm(
+      `Applying the 3D model replaces the scene map. The scene's ${summary} keep their local positions and may no longer match the new map. Continue?`,
+    );
   }
 
   _isFarFromCenter(anchor) {
@@ -332,7 +373,7 @@ class GlbAlignment {
 
       const form = new FormData();
       form.append("file", file);
-      const data = await this._request(
+      const data = await requestJson(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb-preview`,
         { method: "POST", body: form },
       );
@@ -343,6 +384,7 @@ class GlbAlignment {
         imageUrl: data.preview_url,
         footprint: data.footprint_m,
         anchor: { ...startAnchor },
+        existingContent: data.existing_content || {},
       };
 
       this.anchor = { ...startAnchor };
@@ -358,11 +400,18 @@ class GlbAlignment {
       this._strategy().setOverlay(this.staged.imageUrl, corners, this.opacity);
       e.target.value = "";
     } catch (error) {
-      this._showError(error.message);
+      this._showError(this._uploadErrorMessage(error));
     } finally {
       this.uploading = false;
       this._updateLocks();
     }
+  }
+
+  // A proxy 413 has no JSON body, so the limit comes from the template, which reads it from the server.
+  _uploadErrorMessage(error) {
+    if (error.status !== 413 || !(this.maxUploadBytes > 0))
+      return error.message;
+    return `The 3D model is too large. The upload limit is ${formatMegabytes(this.maxUploadBytes)}.`;
   }
 
   _updateInputs() {
@@ -448,13 +497,18 @@ class GlbAlignment {
 
   async _accept() {
     if (!this.staged || !this.anchor) return;
+    if (
+      this.saved?.use_glb_map &&
+      !this._confirmApplyOverwrite(this.staged.existingContent)
+    )
+      return;
 
     this.ui.status.textContent = "";
     this.saving = true;
     this._updateLocks();
 
     try {
-      await this._request(
+      await requestJson(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         {
           method: "POST",
@@ -545,7 +599,7 @@ class GlbAlignment {
 
     try {
       const sent = { ...this.anchor };
-      const response = await this._request(
+      const response = await requestJson(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         {
           method: "PUT",
@@ -600,6 +654,14 @@ class GlbAlignment {
         "Wait for the 3D model change to finish, then save.";
       return;
     }
+    if (
+      this.staged &&
+      this.saved?.use_glb_map &&
+      !this._confirmApplyOverwrite(this.staged.existingContent)
+    ) {
+      event.preventDefault();
+      return;
+    }
     form.querySelector('input[name="glb_token"]')?.remove();
     form.querySelector('input[name="glb_anchor"]')?.remove();
     if (!this.anchor || this.ui.mapType.value !== "geospatial_map") return;
@@ -625,13 +687,20 @@ class GlbAlignment {
 
   async _toggleUse() {
     if (!this.saved || !this.ui.useCheckbox) return;
+    if (
+      this.ui.useCheckbox.checked &&
+      !this._confirmApplyOverwrite(this.existingContent)
+    ) {
+      this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
+      return;
+    }
 
     this.ui.status.textContent = "";
     this.saving = true;
     this._updateLocks();
 
     try {
-      const response = await this._request(
+      const response = await requestJson(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         {
           method: "PUT",
@@ -667,7 +736,7 @@ class GlbAlignment {
     this._updateLocks();
 
     try {
-      const response = await this._request(
+      const response = await requestJson(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         { method: "DELETE" },
       );
@@ -687,23 +756,6 @@ class GlbAlignment {
       this.saving = false;
       this._updateLocks();
     }
-  }
-
-  async _request(url, { method = "GET", body } = {}) {
-    const headers = {};
-    const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
-    if (csrfToken) headers["X-CSRFToken"] = csrfToken.value;
-    if (body && !(body instanceof FormData)) {
-      headers["Content-Type"] = "application/json";
-      body = JSON.stringify(body);
-    }
-    const response = await fetch(url, { method, headers, body });
-    if (response.status === 204) return {};
-    // Proxy errors (e.g. 413 from a front-end limit) are not JSON.
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok)
-      throw new Error(data.error || `Request failed (${response.status})`);
-    return data;
   }
 }
 

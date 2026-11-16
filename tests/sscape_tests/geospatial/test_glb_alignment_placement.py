@@ -22,7 +22,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from manager import glb_alignment
+from manager import glb_alignment, glb_staging, glb_state
 from scene_common.earth_lla import (
   localFootprintCornersLLA, convertLLAToECEF, convertECEFToLLA,
   calculateTRSLocal2LLAFromSurfacePoints, footprintAnchorFromCornersLLA
@@ -207,7 +207,7 @@ def test_glb_pose_coordinate_system_invariance(mesh_type, align_rotation_x,
   anchor_lat, anchor_lng = anchor_lla[0], anchor_lla[1]
 
   # Monkeypatch ALIGN_ROTATION_X for this test
-  with patch.object(glb_alignment, 'ALIGN_ROTATION_X', align_rotation_x):
+  with patch.object(glb_staging, 'ALIGN_ROTATION_X', align_rotation_x):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
       frame_corners_lla, anchor_lat, anchor_lng, anchor_heading, glb_path=glb_path
     )
@@ -273,7 +273,7 @@ def test_glb_overlay_equality(frame_heading, anchor_heading, temp_glb_dir):
   # Anchor at frame centre
   frame_lat, frame_lng, _, _, _ = footprintAnchorFromCornersLLA(frame_corners_lla)
 
-  with patch.object(glb_alignment, 'ALIGN_ROTATION_X', 90.0):
+  with patch.object(glb_staging, 'ALIGN_ROTATION_X', 90.0):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
       frame_corners_lla, frame_lat, frame_lng, anchor_heading, glb_path=glb_path
     )
@@ -327,7 +327,7 @@ def test_glb_pose_anchor_at_centre_and_z_min_zero(temp_glb_dir):
   anchor_ecef = frame_trs[:3, :3] @ anchor_local_frame + frame_trs[:3, 3]
   anchor_lla = convertECEFToLLA(anchor_ecef)
 
-  with patch.object(glb_alignment, 'ALIGN_ROTATION_X', 90.0):
+  with patch.object(glb_staging, 'ALIGN_ROTATION_X', 90.0):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
       frame_corners_lla, anchor_lla[0], anchor_lla[1], 0.0, glb_path=glb_path
     )
@@ -365,7 +365,7 @@ def test_non_rectangular_mesh_uses_real_vertices(rotation_angle, temp_glb_dir):
   )
   frame_lat, frame_lng, _, _, _ = footprintAnchorFromCornersLLA(frame_corners_lla)
 
-  with patch.object(glb_alignment, 'ALIGN_ROTATION_X', 0.0):
+  with patch.object(glb_staging, 'ALIGN_ROTATION_X', 0.0):
     rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
       frame_corners_lla, frame_lat, frame_lng, rotation_angle, glb_path=glb_path
     )
@@ -387,6 +387,29 @@ def test_non_rectangular_mesh_uses_real_vertices(rotation_angle, temp_glb_dir):
      np.min(mesh_footprint[:, 1]), np.max(mesh_footprint[:, 1])],
     atol=0.05
   )
+
+
+@pytest.mark.parametrize("align_rotation_x", [0.0, 90.0])
+@pytest.mark.parametrize("mesh_type", ['box', 'box_rotated', 'l_shaped'])
+def test_aligned_footprint_size_matches_rotated_vertex_extent(mesh_type, align_rotation_x, temp_glb_dir):
+  """The footprint size is the XY extent of the raw vertices after Rx(ALIGN_ROTATION_X)."""
+  path = os.path.join(temp_glb_dir, f'{mesh_type}.glb')
+  if mesh_type == 'box':
+    _create_box_glb(30.0, 20.0, 3.0, path=path)
+  elif mesh_type == 'box_rotated':
+    _create_box_glb(30.0, 20.0, 3.0, rotation_euler=[10.0, 20.0, 30.0], path=path)
+  else:
+    _create_l_shaped_prism_glb(path=path)
+
+  mesh, _ = extractMeshFromGLB(path, rotation=None)
+  rotated = (Rotation.from_euler('x', [align_rotation_x], degrees=True).as_matrix()
+             @ mesh.vertex.positions.numpy().T).T
+  expected = rotated[:, :2].max(axis=0) - rotated[:, :2].min(axis=0)
+
+  with patch.object(glb_staging, 'ALIGN_ROTATION_X', align_rotation_x):
+    width, height = glb_state._get_aligned_footprint_size_m(path)
+
+  assert np.allclose([width, height], expected, atol=1e-6)
 
 
 def test_missing_glb_path_raises_error():

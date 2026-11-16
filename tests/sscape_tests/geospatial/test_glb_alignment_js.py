@@ -17,7 +17,8 @@ _SCENE_UPDATE_TEMPLATE = (
 )
 FRAME_APPLIED = "#2e7d32"
 FRAME_UNAPPLIED = "#c62828"
-_NO_SAVED = {"status": 404, "body": {}}
+_NO_SAVED = {"status": 200, "body": {"exists": False}}
+_CONTENT = {"cameras": 2, "regions": 1, "sensors": 0}
 
 SCENE_FIELDS_APPLIED = {
   "scale": 2.5,
@@ -160,6 +161,100 @@ class TestGlbAlignment:
     """A non-JSON error body (e.g. a proxy 413 page) still shows a readable message."""
     res = _align([_NO_SAVED, {"status": 413, "nonJson": True}], [["upload"]])
     assert res["statusList"]["items"] == ["Request failed (413)"]
+
+  @pytest.mark.parametrize("limit_bytes, shown", [(132 * 1024 * 1024, "132 MB"), (1536 * 1024, "1.5 MB")])
+  def test_upload_413_shows_configured_size_limit(self, limit_bytes, shown):
+    """A 413 without a JSON body names the limit the template passed from the server setting."""
+    res = _align([_NO_SAVED, {"status": 413, "nonJson": True}], [["upload"]], maxUploadBytes=limit_bytes)
+    (message,) = res["statusList"]["items"]
+    assert shown in message
+
+  def test_upload_413_without_configured_limit_keeps_generic_message(self):
+    """Without the limit attribute the error falls back to the request status."""
+    res = _align([_NO_SAVED, {"status": 413, "nonJson": True}], [["upload"]])
+    assert res["statusList"]["items"] == ["Request failed (413)"]
+
+  def test_load_saved_alignment_failure_is_shown(self):
+    """A failed load of the saved model shows an error instead of silently leaving the form empty."""
+    res = _align([{"status": 500, "body": {"error": "boom"}}], [])
+    assert res["statusList"] == {
+      "tagName": "UL",
+      "className": "errorlist",
+      "items": ["Could not load the saved 3D model: boom"],
+    }
+    assert res["savedBlockDisplay"] != ""
+
+  def test_load_saved_alignment_success_shows_no_error(self):
+    """Loading a saved model, or none, leaves the status empty."""
+    for response in (_saved_model_get(), _NO_SAVED):
+      assert _align([response], [])["statusList"] is None
+
+  def test_toggle_apply_confirms_existing_content_and_proceeds(self):
+    """Applying over cameras and regions lists them in a confirm; accepting sends the apply."""
+    responses = [
+      _saved_model_get(existing_content=_CONTENT),
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png"}},
+    ]
+    res = _align(responses, [["toggleUse", True]])
+    (msg,) = res["confirms"]
+    assert "2 cameras" in msg and "1 region" in msg and "sensor" not in msg
+    assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
+
+  def test_toggle_apply_declined_sends_nothing_and_reverts_checkbox(self):
+    """Declining the apply confirm sends no request and unticks the checkbox."""
+    res = _align([_saved_model_get(existing_content=_CONTENT)], [["toggleUse", True]], confirm=False)
+    assert len(res["confirms"]) == 1
+    assert [f["method"] for f in res["fetches"]] == ["GET"]
+    assert res["useChecked"] is False
+
+  @pytest.mark.parametrize("content", [{}, {"cameras": 0, "regions": 0, "sensors": 0}])
+  def test_toggle_apply_without_existing_content_skips_confirm(self, content):
+    """There is nothing to warn about when the scene has no cameras, regions or sensors."""
+    responses = [
+      _saved_model_get(existing_content=content),
+      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png"}},
+    ]
+    res = _align(responses, [["toggleUse", True]], confirm=False)
+    assert res["confirms"] == []
+    assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
+
+  def test_toggle_unapply_does_not_confirm(self):
+    """Unapplying is not an overwrite, so it never asks."""
+    responses = [
+      _saved_model_get(use_glb_map=True, existing_content=_CONTENT),
+      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png"}},
+    ]
+    res = _align(responses, [["toggleUse", False]], confirm=False)
+    assert res["confirms"] == []
+    assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
+
+  @pytest.mark.parametrize("answer, methods", [(True, ["GET", "POST", "POST"]), (False, ["GET", "POST"])])
+  def test_accept_over_applied_model_confirms_existing_content(self, answer, methods):
+    """Accepting a replacement re-applies it when the saved model is applied, so it asks first."""
+    responses = [_saved_model_get(use_glb_map=True), _preview_resp("tok1", _CONTENT), _accept_resp()]
+    res = _align(responses, [["upload"], ["accept"]], confirm=answer)
+    assert len(res["confirms"]) == 1 and "2 cameras" in res["confirms"][0]
+    assert [f["method"] for f in res["fetches"]] == methods
+
+  def test_accept_over_unapplied_model_does_not_confirm(self):
+    """A replacement over a saved model that is not applied is only stored, so it does not ask."""
+    responses = [_saved_model_get(), _preview_resp("tok1", _CONTENT), _accept_resp()]
+    res = _align(responses, [["upload"], ["accept"]], confirm=False)
+    assert res["confirms"] == []
+    assert len(res["fetches"]) == 3
+
+  def test_save_scene_over_applied_model_declined_is_prevented(self):
+    """Save Scene Updates with a staged replacement of an applied model is blocked when declined."""
+    responses = [_saved_model_get(use_glb_map=True), _preview_resp("tok1", _CONTENT)]
+    res = _align(responses, [["upload"], ["submit"]], confirm=False)
+    (submit,) = res["submits"]
+    assert submit["prevented"] is True
+    assert res["formInputs"] == []
+
+  def test_legend_swatches_use_overlay_frame_colors(self):
+    """The legend swatches take their colors from the frame colors drawn on the map."""
+    res = _align([_NO_SAVED], [])
+    assert res["legendColors"] == [FRAME_APPLIED, FRAME_UNAPPLIED]
 
   def test_upload_without_map_location_is_refused(self):
     """Upload is rejected without a map location and the control stays disabled and unlabelled."""
@@ -609,3 +704,20 @@ def test_proposed_and_saved_panels_share_styling():
   panel = {"p-3", "border", "rounded", "bg-light"}
   assert panel <= _element_classes(html, "glbSavedBlock")
   assert panel <= _element_classes(html, "glbAlignControls")
+
+
+def test_template_explains_frame_colors_and_heading():
+  """The form names both frame colors in text and gives the heading control a tooltip."""
+  html = _SCENE_UPDATE_TEMPLATE.read_text()
+  legend = re.search(r'id="glbFrameLegend".*?</small>', html, re.S).group(0)
+  assert "green" in legend and "red" in legend
+  assert 'id="glbLegendApplied"' in legend and 'id="glbLegendUnapplied"' in legend
+  label = re.search(r'<label\s[^>]*for="glbHeadingNumber"[^>]*>', html).group(0)
+  assert 'title="' in label
+
+
+def test_template_passes_upload_limit_to_row():
+  """The GLB row carries the server upload limit for the client-side error message."""
+  html = _SCENE_UPDATE_TEMPLATE.read_text()
+  row = re.search(r'<div\s[^>]*id="glbAlignRow"[^>]*>', html).group(0)
+  assert "data-max-upload-bytes=" in row

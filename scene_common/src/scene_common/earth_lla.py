@@ -132,6 +132,14 @@ def _signedArea(xs, ys):
   """
   return 0.5 * np.sum(xs * np.roll(ys, -1) - np.roll(xs, -1) * ys)
 
+def _geographicSignedArea(lla_pts):
+  """! Signed area of the corner polygon in (longitude offset from the first corner, latitude).
+  Longitude differences are wrapped to [-180, 180) so a polygon crossing the antimeridian keeps its winding.
+  @returns    float    Positive when the corners run counterclockwise, negative when clockwise
+  """
+  lon_diff = _wrapDegrees180(lla_pts[:, 1] - lla_pts[0, 1])
+  return _signedArea(lon_diff, lla_pts[:, 0])
+
 def alignCornerWinding(map_xyz_pts, lla_pts):
   """! Orders four geographic map corners so they run in the same rotational direction as the
   local map corners they are paired with.
@@ -152,9 +160,7 @@ def alignCornerWinding(map_xyz_pts, lla_pts):
   if map_xyz_pts.shape[0] != 4 or lla_pts.shape[0] != 4:
     return lla_pts
   local_area = _signedArea(map_xyz_pts[:, 0], map_xyz_pts[:, 1])
-  # Wrap longitude differences to [-180, 180) so a map crossing the antimeridian keeps its winding
-  lon_diff = (lla_pts[:, 1] - lla_pts[0, 1] + 180.0) % 360.0 - 180.0
-  geo_area = _signedArea(lon_diff, lla_pts[:, 0])
+  geo_area = _geographicSignedArea(lla_pts)
   if np.sign(local_area) * np.sign(geo_area) < 0:
     return lla_pts[[0, 3, 2, 1]]
   return lla_pts
@@ -290,9 +296,7 @@ def _orderCornersSWSENENW(corners_lla):
   @param      corners_lla     Corners as (4,N) array with lat, lng in the first two columns
   @returns    ndarray         Corners in SW, SE, NE, NW order
   """
-  lat = corners_lla[:, 0]
-  lon_diff = _wrapDegrees180(corners_lla[:, 1] - corners_lla[0, 1])
-  if _signedArea(lon_diff, lat) < 0:
+  if _geographicSignedArea(corners_lla) < 0:
     return corners_lla[[0, 3, 2, 1]]
   return corners_lla
 

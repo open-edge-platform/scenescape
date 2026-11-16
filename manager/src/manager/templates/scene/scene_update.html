@@ -212,6 +212,7 @@ SPDX-License-Identifier: Apache-2.0
           id="glbAlignRow"
           style="display:none;"
           data-scene-id="{{ scene.id }}"
+          data-max-upload-bytes="{{ glb_max_upload_bytes|stringformat:'d' }}"
         >
           <label class="col-sm-2 col-form-label" for="glbFileInput"
             >3D model (GLB)</label
@@ -273,6 +274,21 @@ SPDX-License-Identifier: Apache-2.0
                   >Apply saved 3D model to scene map</label
                 >
               </div>
+              <small id="glbFrameLegend" class="form-text text-muted mt-2">
+                Map overlay frame:
+                <span
+                  id="glbLegendApplied"
+                  class="d-inline-block border mx-1"
+                  style="width:1em;height:1em;border-width:3px !important;vertical-align:middle;"
+                ></span
+                >green = applied to the scene map,
+                <span
+                  id="glbLegendUnapplied"
+                  class="d-inline-block border mx-1"
+                  style="width:1em;height:1em;border-width:3px !important;vertical-align:middle;"
+                ></span
+                >red = saved but not applied (overlay only).
+              </small>
             </div>
             <div
               id="glbAlignControls"
@@ -292,10 +308,15 @@ SPDX-License-Identifier: Apache-2.0
                 />
               </div>
               <div class="form-group">
-                <label for="glbHeadingNumber"
+                <label
+                  for="glbHeadingNumber"
+                  title="Rotates the 3D model on the map, in degrees clockwise from north (0 to 359.9). Type a value or use the slider."
                   >Heading (degrees clockwise from north)</label
                 >
-                <div class="d-flex align-items-center">
+                <div
+                  class="d-flex align-items-center"
+                  title="Rotates the 3D model on the map, in degrees clockwise from north (0 to 359.9). Type a value or use the slider."
+                >
                   <input
                     type="number"
                     class="form-control mr-3"

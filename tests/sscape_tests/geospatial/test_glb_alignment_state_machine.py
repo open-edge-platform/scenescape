@@ -20,7 +20,7 @@ import pytest
 from django.test import TransactionTestCase, override_settings
 from PIL import Image
 
-from manager import glb_alignment
+from manager import glb_alignment, glb_staging, glb_state
 from manager.models import Scene, SceneSourceMap
 from scene_common.earth_lla import localFootprintCornersLLA
 
@@ -64,7 +64,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     stubs = (
       patch.object(Scene, 'saveThumbnail'),
       patch('manager.models.sendUpdateCommand'),
-      patch.object(glb_alignment, 'generateOrthoView',
+      patch.object(glb_staging, 'generateOrthoView',
                    return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 10.0)),
     )
     for stub in stubs:
@@ -117,7 +117,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
       f.write(b'png')
 
   def _commit(self, scene, token):
-    with patch.object(glb_alignment, '_get_mesh_footprint_corners_from_glb', return_value=(10.0, 10.0)):
+    with patch.object(glb_state, '_get_aligned_footprint_size_m', return_value=(10.0, 10.0)):
       return glb_alignment.commit_glb(scene, token, ANCHOR)
 
   def test_apply_then_unapply_restores_state_and_leaves_only_expected_files(self):
@@ -254,7 +254,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     self._stage_preview(token)
     before = self._stored_files()
 
-    with patch.object(glb_alignment, '_get_mesh_footprint_corners_from_glb',
+    with patch.object(glb_state, '_get_aligned_footprint_size_m',
                       side_effect=RuntimeError('measure failed')):
       with self.assertRaises(RuntimeError):
         glb_alignment.commit_glb(scene, token, ANCHOR)
@@ -290,7 +290,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     for error, status in cases:
       with self.subTest(error=type(error).__name__):
         scene = Scene.objects.get(pk=scene.pk)
-        with patch.object(glb_alignment, 'compute_glb_pose_and_corners', side_effect=error):
+        with patch.object(glb_state, 'compute_glb_pose_and_corners', side_effect=error):
           with self.assertRaises(glb_alignment.GlbAlignmentError) as ctx:
             glb_alignment.apply_glb_map(scene)
         self.assertEqual(ctx.exception.status, status)

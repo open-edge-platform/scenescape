@@ -364,7 +364,7 @@ class Scene(models.Model):
     self.translation_z = 0.0
     return
 
-  def frame_corners_lla(self):
+  def frameCornersLLA(self):
     """Return the invariant (non-GLB) map frame corners.
 
     For geospatial scenes, returns base_map_corners_lla if set
@@ -424,7 +424,7 @@ class Scene(models.Model):
       self.resetRotation()
       self.resetTranslation()
 
-  def _sync_glb_snapshot_on_map_change(self):
+  def _syncGlbSnapshotOnMapChange(self):
     """Keep GLB snapshot state consistent when a geospatial scene's map changes."""
     if self.map_type != 'geospatial_map':
       return
@@ -496,7 +496,7 @@ class Scene(models.Model):
         glb_from_zip = self.polycam_data
 
       self._invalidateMapState(glb_from_zip)
-      self._sync_glb_snapshot_on_map_change()
+      self._syncGlbSnapshotOnMapChange()
       super().save(*args, **kwargs)
       glb_from_zip = self._storeMapArchiveReference(glb_from_zip, map_zip_upload)
 

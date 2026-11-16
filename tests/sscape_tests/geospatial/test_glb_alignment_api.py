@@ -33,7 +33,7 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_
 from django.urls import reverse
 from PIL import Image
 
-from manager import glb_alignment
+from manager import glb_alignment, glb_staging
 from manager.models import Scene
 from scene_common.earth_lla import localFootprintCornersLLA
 
@@ -285,7 +285,7 @@ class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
 
   def test_get_does_not_render_or_write_preview(self):
     """GET renders nothing, writes no file and returns preview_url null when no preview is cached."""
-    with patch.object(glb_alignment, 'generateOrthoView') as render:
+    with patch.object(glb_staging, 'generateOrthoView') as render:
       response = self._get()
 
     self.assertEqual(response.status_code, 200)
@@ -296,7 +296,7 @@ class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
   def test_unapply_renders_preview_on_write_path(self):
     """Unapplying renders the unapplied preview once with alignment rotation and returns its URL."""
     self._set_snapshot_map()
-    with patch.object(glb_alignment, 'generateOrthoView', return_value=self.RENDER) as render:
+    with patch.object(glb_staging, 'generateOrthoView', return_value=self.RENDER) as render:
       self.assertEqual(self._put({'use_glb_map': True}).status_code, 200)
       response = self._put({'use_glb_map': False})
 
@@ -322,7 +322,7 @@ class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
 
   def test_failed_render_is_retried_on_next_write_not_on_get(self):
     """A failed preview render is logged and returns null; GET does not retry it, the next write does."""
-    with patch.object(glb_alignment, 'generateOrthoView', side_effect=RuntimeError('boom')) as render:
+    with patch.object(glb_staging, 'generateOrthoView', side_effect=RuntimeError('boom')) as render:
       first = self._put({'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0.0}})
       self.assertEqual(first.status_code, 200)
       self.assertIsNone(first.json()['preview_url'])

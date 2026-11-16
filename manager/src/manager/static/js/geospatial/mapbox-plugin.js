@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+/* global getCsrfToken, requestJson */
+
 "use strict";
 
 // Mapbox Plugin Implementation
@@ -393,7 +395,7 @@ class MapboxPlugin extends MapInterface {
       console.log("Saving snapshot to server...");
 
       // Get CSRF token
-      const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
+      const csrfToken = getCsrfToken();
 
       if (!csrfToken) {
         console.error("CSRF token not found");
@@ -405,77 +407,59 @@ class MapboxPlugin extends MapInterface {
 
       const formData = new FormData();
       formData.append("image_data", imageData);
-      formData.append("csrfmiddlewaretoken", csrfToken.value);
+      formData.append("csrfmiddlewaretoken", csrfToken);
 
-      const response = await fetch("/api/v1/save-geospatial-snapshot/", {
+      const result = await requestJson("/api/v1/save-geospatial-snapshot/", {
         method: "POST",
-        headers: {
-          "X-CSRFToken": csrfToken.value,
-        },
         body: formData,
+        csrfToken,
       });
+      console.log("Server response:", result);
 
-      console.log("Response status:", response.status);
+      if (result.success) {
+        // Update the map field with the generated filename
+        const mapField = document.getElementById("id_map");
+        if (mapField) {
+          // Hide the file input and show the generated filename instead
+          mapField.style.display = "none";
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Server response:", result);
+          // Create a display element to show the generated file
+          let fileDisplay = document.getElementById("generated-map-display");
+          if (!fileDisplay) {
+            fileDisplay = document.createElement("div");
+            fileDisplay.id = "generated-map-display";
+            fileDisplay.className = "alert alert-success";
+            mapField.parentNode.appendChild(fileDisplay);
+          }
+          fileDisplay.innerHTML = `Generated map: ${result.filename}`;
+          fileDisplay.style.display = "block";
 
-        if (result.success) {
-          // Update the map field with the generated filename
-          const mapField = document.getElementById("id_map");
-          if (mapField) {
-            // Hide the file input and show the generated filename instead
-            mapField.style.display = "none";
+          // Add a hidden input with the filename for form submission
+          let hiddenInput = document.getElementById("generated-map-filename");
+          if (!hiddenInput) {
+            hiddenInput = document.createElement("input");
+            hiddenInput.type = "hidden";
+            hiddenInput.id = "generated-map-filename";
+            hiddenInput.name = "generated_map_filename";
+            mapField.parentNode.appendChild(hiddenInput);
+          }
+          hiddenInput.value = result.filename;
 
-            // Create a display element to show the generated file
-            let fileDisplay = document.getElementById("generated-map-display");
-            if (!fileDisplay) {
-              fileDisplay = document.createElement("div");
-              fileDisplay.id = "generated-map-display";
-              fileDisplay.className = "alert alert-success";
-              mapField.parentNode.appendChild(fileDisplay);
-            }
-            fileDisplay.innerHTML = `Generated map: ${result.filename}`;
-            fileDisplay.style.display = "block";
-
-            // Add a hidden input with the filename for form submission
-            let hiddenInput = document.getElementById("generated-map-filename");
-            if (!hiddenInput) {
-              hiddenInput = document.createElement("input");
-              hiddenInput.type = "hidden";
-              hiddenInput.id = "generated-map-filename";
-              hiddenInput.name = "generated_map_filename";
-              mapField.parentNode.appendChild(hiddenInput);
-            }
-            hiddenInput.value = result.filename;
-
-            // Set map_type to geospatial_map when generating a geospatial map
-            const mapTypeField = document.getElementById("id_map_type");
-            if (mapTypeField) {
-              mapTypeField.value = "geospatial_map";
-            }
-
-            // Save current map settings to form fields
-            if (window.saveCurrentMapSettings) {
-              window.saveCurrentMapSettings();
-            }
+          // Set map_type to geospatial_map when generating a geospatial map
+          const mapTypeField = document.getElementById("id_map_type");
+          if (mapTypeField) {
+            mapTypeField.value = "geospatial_map";
           }
 
-          console.log(
-            "Geospatial snapshot saved successfully:",
-            result.filename,
-          );
-        } else {
-          console.error("Failed to save snapshot:", result.error);
+          // Save current map settings to form fields
+          if (window.saveCurrentMapSettings) {
+            window.saveCurrentMapSettings();
+          }
         }
+
+        console.log("Geospatial snapshot saved successfully:", result.filename);
       } else {
-        const errorText = await response.text();
-        console.error(
-          "Server error saving snapshot:",
-          response.status,
-          errorText,
-        );
+        console.error("Failed to save snapshot:", result.error);
       }
     } catch (error) {
       console.error("Error saving snapshot to server:", error);

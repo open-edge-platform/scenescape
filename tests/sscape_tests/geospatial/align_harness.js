@@ -105,6 +105,8 @@ function load(args) {
       fakeEls[id] = new FakeEl();
       if (id === "glbAlignRow") {
         fakeEls[id].dataset.sceneId = "scene-1";
+        if (args.maxUploadBytes)
+          fakeEls[id].dataset.maxUploadBytes = String(args.maxUploadBytes);
         fakeEls[id].closest = () => fakeForm;
       }
       if (id === "glbSavePosition") fakeEls[id].style.display = "none";
@@ -241,7 +243,8 @@ function load(args) {
 
   ctx.globalThis = ctx;
 
-  let src =
+  let src = fs.readFileSync(path.join(jsDir, "../request.js"), "utf8") + "\n";
+  src +=
     fs.readFileSync(path.join(jsDir, "geo-overlay-math.js"), "utf8") + "\n";
   src += fs.readFileSync(path.join(jsDir, "glb-alignment.js"), "utf8") + "\n";
   src +=
@@ -413,6 +416,11 @@ const scenarios = {
       submits,
       mapFrame: frameState(),
       savedBlockDisplay: fakeEls["glbSavedBlock"]?.style?.display ?? null,
+      useChecked: fakeEls["glbUse"]?.checked ?? null,
+      legendColors: [
+        fakeEls["glbLegendApplied"]?.style?.borderColor ?? null,
+        fakeEls["glbLegendUnapplied"]?.style?.borderColor ?? null,
+      ],
       savedAnchor: a.saved?.anchor ?? null,
       status: fakeEls["glbAlignStatus"]?.textContent || "",
       statusList: statusListOf(fakeEls["glbAlignStatus"]),
