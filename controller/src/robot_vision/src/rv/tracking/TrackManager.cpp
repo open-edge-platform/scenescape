@@ -330,11 +330,11 @@ bool TrackManager::isSuspended(const Id &id)
   return mSuspendedKalmanEstimators.count(id) > 0;
 }
 
-void TrackManager::updateTrackerConfig(int camera_frame_rate)
+void TrackManager::updateTrackerConfig(int frame_rate)
 {
-  mConfig.mMaxNumberOfUnreliableFrames = std::ceil(camera_frame_rate*mConfig.mMaxUnreliableTime);
-  mConfig.mNonMeasurementFramesDynamic = std::ceil(camera_frame_rate*mConfig.mNonMeasurementTimeDynamic);
-  mConfig.mNonMeasurementFramesStatic = std::ceil(camera_frame_rate*mConfig.mNonMeasurementTimeStatic);
+  mConfig.mMaxNumberOfUnreliableFrames = std::ceil(frame_rate * mConfig.mMaxUnreliableTime);
+  mConfig.mNonMeasurementFramesDynamic = std::ceil(frame_rate * mConfig.mNonMeasurementTimeDynamic);
+  mConfig.mNonMeasurementFramesStatic = std::ceil(frame_rate * mConfig.mNonMeasurementTimeStatic);
 }
 
 } // namespace tracking

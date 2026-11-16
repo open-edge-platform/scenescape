@@ -118,9 +118,9 @@ public:
    * @brief Updates the frame-based params in mTrackManager
    *
    */
-  inline void updateTrackerParams(int camera_frame_rate)
+  inline void updateTrackerParams(int frame_rate)
   {
-    mTrackManager.updateTrackerConfig(camera_frame_rate);
+    mTrackManager.updateTrackerConfig(frame_rate);
   }
 
   /**

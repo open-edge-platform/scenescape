@@ -330,8 +330,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          py::arg("id"))
      .def("update_tracker_config",
          &rv::tracking::TrackManager::updateTrackerConfig,
-         "Compute frame-based parameters using camera frame rate.",
-         py::arg("camera_frame_rate"))
+         "Compute frame-based parameters from the detection / chunk update rate (Hz).",
+         py::arg("frame_rate"))
      .def_property_readonly("config", &rv::tracking::TrackManager::getConfig, "Current track manager configuration");
 
   py::class_<rv::tracking::MultipleObjectTracker>(tracking, "MultipleObjectTracker",
@@ -405,7 +405,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          "Returns a list of all active reliable tracks.")
     .def("update_tracker_params",
          &rv::tracking::MultipleObjectTracker::updateTrackerParams,
-         "Updates tracker frame based parameters.");
+         "Updates tracker frame-based parameters from the detection / chunk update rate (Hz).",
+         py::arg("frame_rate"));
 
   py::class_<rv::tracking::TrackTracker>(tracking,
   "TrackTracker", "Multiple Object Tracking algorithm using the TrackManager in the background. This tracker does not perform any association step, instead it relies on the object's id for association.")
