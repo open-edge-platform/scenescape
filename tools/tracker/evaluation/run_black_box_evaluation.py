@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run all three BlackBox evaluation configs in a single timestamped session.
+"""Run BlackBox evaluation configs in a single timestamped session.
 
 All results land under a shared session directory:
 
@@ -10,10 +10,16 @@ All results land under a shared session directory:
     Controller-Time-Chunking/
     Tracker-Service/
 
+With ``--association mahalanobis`` the session instead runs the three
+mahalanobis jobs (HPHt + filter base R). ``--association both`` runs
+euclidean then mahalanobis.
+
 Usage:
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
   python run_black_box_evaluation.py --dataset wildtrack
+  python run_black_box_evaluation.py --association mahalanobis
+  python run_black_box_evaluation.py --association both
 
 Programmatic use:
 
@@ -47,25 +53,58 @@ _CONFIG_DIRS = {
   "wildtrack": "black_box_wildtrack",
 }
 DEFAULT_DATASET = "unity"
+DEFAULT_ASSOCIATION = "euclidean"
 
-_CONFIG_FILES = [
-  "black_box_controller_immediate.yaml",
-  "black_box_controller_tc.yaml",
-  "black_box_tracker_service.yaml",
+# Euclidean baseline (legacy meter gate) and mahalanobis (HPHt + R) companion jobs.
+_ASSOCIATION_SUFFIX = {
+  "euclidean": "",
+  "mahalanobis": "_mahalanobis",
+}
+_BASE_CONFIG_STEMS = [
+  "black_box_controller_immediate",
+  "black_box_controller_tc",
+  "black_box_tracker_service",
 ]
 
 
-def configs_for(dataset: str = DEFAULT_DATASET) -> list[Path]:
-  """Return the ordered list of config paths for *dataset*."""
+def _config_file_names(association: str = DEFAULT_ASSOCIATION) -> list[str]:
+  """Return YAML filenames for one association method."""
+  try:
+    suffix = _ASSOCIATION_SUFFIX[association]
+  except KeyError:
+    raise ValueError(
+      f"Unknown association {association!r}; choose from {sorted(_ASSOCIATION_SUFFIX)}"
+    ) from None
+  return [f"{stem}{suffix}.yaml" for stem in _BASE_CONFIG_STEMS]
+
+
+# Backward-compatible alias used by unit tests.
+_CONFIG_FILES = _config_file_names(DEFAULT_ASSOCIATION)
+
+
+def configs_for(
+  dataset: str = DEFAULT_DATASET,
+  association: str = DEFAULT_ASSOCIATION,
+) -> list[Path]:
+  """Return the ordered list of config paths for *dataset* and *association*.
+
+  ``association="both"`` returns euclidean configs then mahalanobis configs.
+  """
   try:
     config_dir = _CONFIG_DIRS[dataset]
   except KeyError:
     raise ValueError(
       f"Unknown dataset {dataset!r}; choose from {sorted(_CONFIG_DIRS)}"
     ) from None
+
+  if association == "both":
+    names = _config_file_names("euclidean") + _config_file_names("mahalanobis")
+  else:
+    names = _config_file_names(association)
+
   return [
     _SCRIPT_DIR / "pipeline_configs" / config_dir / name
-    for name in _CONFIG_FILES
+    for name in names
   ]
 
 DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
@@ -162,8 +201,9 @@ def run_all(
   image_tag: str | None = None,
   output_dir: Path | None = None,
   dataset: str = DEFAULT_DATASET,
+  association: str = DEFAULT_ASSOCIATION,
 ) -> list[tuple[str, dict | Exception]]:
-  """Run all black-box evaluation configs and return results.
+  """Run black-box evaluation configs and return results.
 
   Args:
     image_tag:  Override the container image tag in every harness config.
@@ -172,6 +212,9 @@ def run_all(
     output_dir: Base directory for session output.  Defaults to
                 ``DEFAULT_OUTPUT_BASE``.
     dataset:    Config set to run (``"unity"`` by default, or ``"wildtrack"``).
+    association:
+      ``"euclidean"`` (default baseline), ``"mahalanobis"`` (HPHt + R gate),
+      or ``"both"``.
 
   Returns:
     List of ``(run_name, metrics_dict)`` pairs.  On failure for a run the
@@ -183,7 +226,7 @@ def run_all(
   print(f"Session output: {session_output}")
 
   results: list[tuple[str, dict | Exception]] = []
-  for config_path in configs_for(dataset):
+  for config_path in configs_for(dataset, association=association):
     run_name = config_path.stem
     print(f"\n{'─' * 60}")
     print(f"  Running: {config_path.name}")
@@ -213,9 +256,19 @@ def main() -> int:
       "--dataset", choices=sorted(_CONFIG_DIRS), default=DEFAULT_DATASET,
       help=f"Config set / dataset to run (default: {DEFAULT_DATASET})",
   )
+  parser.add_argument(
+      "--association",
+      choices=["euclidean", "mahalanobis", "both"],
+      default=DEFAULT_ASSOCIATION,
+      help=(
+        "Association configs to run: euclidean baseline (default), "
+        "mahalanobis (HPHt + R), or both"
+      ),
+  )
   args = parser.parse_args()
 
-  results = run_all(output_dir=args.output, dataset=args.dataset)
+  results = run_all(
+    output_dir=args.output, dataset=args.dataset, association=args.association)
   failed = sum(1 for _, r in results if isinstance(r, Exception))
   return failed
 

@@ -225,6 +225,57 @@ TEST_F(ScenarioRecorderTest, RecordsTrackerRun)
   EXPECT_EQ(countContaining(estimator, R"("z_pred":[)"), 2 * tracks.size());
 }
 
+TEST_F(ScenarioRecorderTest, RecordsMeasurementNoise)
+{
+  // A detection with R records it, and every step of its track records HPHt, so the gate HPHt + R can be rebuilt.
+  constexpr double kFps = 10.0;
+  const auto truth = Trajectory({.speed = 1.0, .box = kPerson}).straight(1.5).sample(kFps);
+  for (const bool reported : {true, false})
+  {
+    SCOPED_TRACE(reported ? "reported" : "unreported");
+    auto model = groundPlaneCamera({0.0, -10.0, 4.0}, 0.01);
+    model.reported = reported;
+    Sensor camera{.id = "cam0", .positionCovariance = model};
+    Sensor otherCamera{.id = "cam1", .positionCovariance = model};
+    const std::string filterCase = reported ? "filter_reported" : "filter_unreported";
+    const std::string trackerCase = reported ? "tracker_reported" : "tracker_unreported";
+    {
+      ScenarioRecorder recorder(filterCase, mRoot);
+      recorder.truth(truth);
+      FilterRun run(productionConfig(), &recorder);
+      run.feed(observe(truth, camera));
+    }
+    {
+      ScenarioRecorder recorder(trackerCase, mRoot);
+      recorder.truth(truth);
+      auto observations = observe(truth, camera);
+      const auto otherObservations = observe(truth, otherCamera);
+      observations.insert(observations.end(), otherObservations.begin(), otherObservations.end());
+      TrackerRun run(positionMahalanobisAssociation(), kFps, productionTrackerConfig(), &recorder);
+      run.play(sampleTimes(truth), observations);
+    }
+
+    const auto directory = mRoot / "ScenarioRecorderTest.RecordsMeasurementNoise";
+    const auto filterDetections = readLines(directory / filterCase / "detections.jsonl");
+    const auto filterEstimator = readLines(directory / filterCase / "estimator.jsonl");
+    ASSERT_EQ(filterDetections.size(), truth.size());
+    ASSERT_EQ(filterEstimator.size(), 1 + truth.size());
+    EXPECT_EQ(countContaining(filterDetections, R"("measurement_noise_covariance":[[)"), reported ? truth.size() : 0U);
+    // Every step but the init step, which has no prediction.
+    EXPECT_EQ(countContaining(filterEstimator, R"("HPHt":[[)"), reported ? truth.size() - 1 : 0U);
+
+    // Two sensors per frame; the steps of published tracks.
+    const auto trackerDetections = readLines(directory / trackerCase / "detections.jsonl");
+    const auto trackerEstimator = readLines(directory / trackerCase / "estimator.jsonl");
+    ASSERT_EQ(trackerDetections.size(), 2 * truth.size());
+    EXPECT_EQ(countContaining(trackerDetections, R"("measurement_noise_covariance":[[)"),
+              reported ? 2 * truth.size() : 0U);
+    const size_t steps = countContaining(trackerEstimator, R"("type":"step")");
+    EXPECT_GT(steps, 0U);
+    EXPECT_EQ(countContaining(trackerEstimator, R"("HPHt":[[)"), reported ? steps : 0U);
+  }
+}
+
 TEST_F(ScenarioRecorderTest, WithoutDirectoryRecordsNothing)
 {
   const auto truth = Trajectory({.speed = 1.0, .box = kPerson}).straight(0.5).sample(10.0);
