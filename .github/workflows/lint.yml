@@ -21,13 +21,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: "Setup environment"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e # 0.1.40
+      # Avoid orch-ci bootstrap here: its "base" apt set currently fails on
+      # ubuntu-latest (Unable to locate package libtpm2-pkcs11-1-dev), which
+      # skips actionlint install while later steps still run via if: always().
+      - name: "Setup Node.js"
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          bootstrap_tools: "base"
+          node-version: "22"
+          package-manager-cache: false
       - name: "Install GHA linter"
         run: |
-          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          test -x ./actionlint
       - name: "Run prettier check"
         if: always()
         run: |
@@ -48,21 +53,32 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: "Setup environment"
-        uses: open-edge-platform/orch-ci/.github/actions/bootstrap@14aa8ce3d0a5455574fc7fce7d90b2d18636c68e # 0.1.40
+      - name: "Setup Python"
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          bootstrap_tools: "base,python,shellcheck,hadolint,"
+          python-version: "3.12"
+      - name: "Setup Node.js"
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: "Install system linters"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          curl -fsSL -o /tmp/hadolint \
+            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+          sudo install -m 0755 /tmp/hadolint /usr/local/bin/hadolint
       - name: "Install python linters"
         run: |
+          python -m pip install --upgrade pip
           pip install -r .github/resources/requirements.txt
+          pip install cpplint
       - name: "Install npm dependencies for Javascript linter and prettier tool"
         run: |
           cp .github/resources/package.json package.json
           npm install
           rm package.json
-      - name: "Install cpp linter"
-        run: |
-          pipx install cpplint
       - name: "Run Python linter - pylint"
         if: always()
         continue-on-error: true
