@@ -34,8 +34,8 @@ namespace {
 constexpr double kScoreThreshold = 0.7;
 constexpr double kFrameTimeS = 0.033;
 constexpr int kFramesPerTrackerReset = 100;
-// Per-camera ground-plane projection disagreement in the overlap layout.
-constexpr double kCameraNoiseStdM = 0.1;
+// Per-source position disagreement in the overlap layout.
+constexpr double kOverlapNoiseStdM = 0.1;
 
 // Filter and track lifecycle settings of the Scene Controller and Tracker Service default configs.
 TrackManagerConfig productionTrackerConfig()
@@ -70,7 +70,7 @@ struct AssociationParams
 struct WorkloadConfig
 {
   std::vector<int> people_counts{50};
-  std::vector<int> camera_counts{1, 2};
+  std::vector<int> source_counts{1, 2};
   std::vector<int> overlap_modes{0, 1};
   // Set by parseWorkloadArgs: --association-config, or position_mahalanobis (the services' default without a config).
   std::optional<AssociationParams> association;
@@ -174,7 +174,7 @@ public:
     , pos_dist(-25.0, 25.0)
     , walking_speed_dist(0.5, 2.0)
     , heading_noise(0.0, 0.1)
-    , camera_noise(0.0, kCameraNoiseStdM)
+    , source_noise(0.0, kOverlapNoiseStdM)
   {
     baseTimestamp = std::chrono::system_clock::now();
   }
@@ -233,34 +233,34 @@ public:
     }
   }
 
-  // split: each person seen by one camera (round-robin); overlap: every camera sees every person.
-  std::vector<std::vector<TrackedObject>> cameraViews(int numCameras, bool overlap)
+  // split: each person seen by one source (round-robin); overlap: every source sees every person.
+  std::vector<std::vector<TrackedObject>> sourceViews(int numSources, bool overlap)
   {
-    const size_t cameras = static_cast<size_t>(std::max(1, numCameras));
-    while (cameraIds.size() < cameras)
+    const size_t sources = static_cast<size_t>(std::max(1, numSources));
+    while (sourceIds.size() < sources)
     {
-      cameraIds.push_back("camera_" + std::to_string(cameraIds.size()));
+      sourceIds.push_back("source_" + std::to_string(sourceIds.size()));
     }
-    std::vector<std::vector<TrackedObject>> perCamera(cameras);
+    std::vector<std::vector<TrackedObject>> perSource(sources);
     for (size_t i = 0; i < people.size(); ++i)
     {
-      for (size_t camera = 0; camera < cameras; ++camera)
+      for (size_t source = 0; source < sources; ++source)
       {
-        if (!overlap && i % cameras != camera)
+        if (!overlap && i % sources != source)
         {
           continue;
         }
         auto detection = people[i];
-        detection.attributes["camera_id"] = cameraIds[camera];
-        if (overlap && cameras > 1)
+        detection.attributes["source_id"] = sourceIds[source];
+        if (overlap && sources > 1)
         {
-          detection.x += camera_noise(gen);
-          detection.y += camera_noise(gen);
+          detection.x += source_noise(gen);
+          detection.y += source_noise(gen);
         }
-        perCamera[camera].push_back(std::move(detection));
+        perSource[source].push_back(std::move(detection));
       }
     }
-    return perCamera;
+    return perSource;
   }
 
   std::chrono::system_clock::time_point getTimestamp(int frameNumber = 0)
@@ -273,13 +273,13 @@ private:
   std::uniform_real_distribution<double> pos_dist;
   std::uniform_real_distribution<double> walking_speed_dist;
   std::normal_distribution<double> heading_noise;
-  std::normal_distribution<double> camera_noise;
+  std::normal_distribution<double> source_noise;
   std::chrono::system_clock::time_point baseTimestamp;
   std::vector<TrackedObject> people;
-  std::vector<std::string> cameraIds;
+  std::vector<std::string> sourceIds;
 };
 
-// Objects is either one camera's detections or the per-camera batch; both overloads share this signature.
+// Objects is either one source's detections or the per-source batch; both overloads share this signature.
 template <typename Objects>
 void callTrack(MultipleObjectTracker &tracker,
                Objects objects,
@@ -291,11 +291,11 @@ void callTrack(MultipleObjectTracker &tracker,
 }
 
 // immediate=false: one batched track() per frame (time-chunking, Tracker Service).
-// immediate=true: one track() per camera message (Scene Controller Immediate mode).
+// immediate=true: one track() per source message (Scene Controller Immediate mode).
 void runTrack(::benchmark::State &state, bool immediate)
 {
   const int numPeople = static_cast<int>(state.range(0));
-  const int numCameras = static_cast<int>(state.range(1));
+  const int numSources = static_cast<int>(state.range(1));
   const bool overlap = state.range(2) != 0;
   PeopleTrackingBenchmarkFixture fixture;
   fixture.resetPeople(static_cast<size_t>(numPeople));
@@ -305,27 +305,27 @@ void runTrack(::benchmark::State &state, bool immediate)
 
   for (auto _ : state)
   {
-    auto perCamera = fixture.cameraViews(numCameras, overlap);
+    auto perSource = fixture.sourceViews(numSources, overlap);
     const auto timestamp = fixture.getTimestamp(frameCount);
-    for (const auto &cameraObjects : perCamera)
+    for (const auto &sourceObjects : perSource)
     {
-      detections += static_cast<int64_t>(cameraObjects.size());
+      detections += static_cast<int64_t>(sourceObjects.size());
     }
 
     if (immediate)
     {
-      const int cameras = static_cast<int>(perCamera.size());
-      for (int camera = 0; camera < cameras; ++camera)
+      const int sources = static_cast<int>(perSource.size());
+      for (int source = 0; source < sources; ++source)
       {
-        // Cameras publish staggered within the frame period.
-        const auto offset = std::chrono::milliseconds(33 * camera / cameras);
-        callTrack(*tracker, std::move(perCamera[static_cast<size_t>(camera)]), timestamp + offset,
+        // Sources publish staggered within the frame period.
+        const auto offset = std::chrono::milliseconds(33 * source / sources);
+        callTrack(*tracker, std::move(perSource[static_cast<size_t>(source)]), timestamp + offset,
                   *g_workload.association);
       }
     }
     else
     {
-      callTrack(*tracker, std::move(perCamera), timestamp, *g_workload.association);
+      callTrack(*tracker, std::move(perSource), timestamp, *g_workload.association);
     }
 
     fixture.advancePeople(kFrameTimeS);
@@ -337,7 +337,7 @@ void runTrack(::benchmark::State &state, bool immediate)
     }
   }
 
-  // iterations / total_seconds => scene frames (all cameras) per second => peak FPS.
+  // iterations / total_seconds => scene frames (all sources) per second => peak FPS.
   state.counters["peak_fps"] =
     ::benchmark::Counter(static_cast<double>(state.iterations()), ::benchmark::Counter::kIsRate);
   state.SetItemsProcessed(detections);
@@ -350,18 +350,18 @@ void registerBenchmarks()
   {
     for (int people : g_workload.people_counts)
     {
-      for (int cameras : g_workload.camera_counts)
+      for (int sources : g_workload.source_counts)
       {
         for (int overlap : g_workload.overlap_modes)
         {
-          if (cameras <= 1 && overlap != 0)
+          if (sources <= 1 && overlap != 0)
           {
             continue;
           }
           ::benchmark::RegisterBenchmark(immediate ? "BM_Immediate" : "BM_TimeChunking",
                                          [immediate](::benchmark::State &state) { runTrack(state, immediate); })
-            ->Args({people, cameras, overlap})
-            ->ArgNames({"people", "cameras", "overlap"})
+            ->Args({people, sources, overlap})
+            ->ArgNames({"people", "sources", "overlap"})
             ->Unit(::benchmark::kMillisecond)
             ->UseRealTime();
         }
@@ -374,10 +374,10 @@ void printUsage(const char *argv0)
 {
   std::cerr
     << "Usage: " << argv0
-    << " [--people N[,N...]] [--cameras N[,N...]] [--overlap 0|1[,...]] [--association-config path.json] "
+    << " [--people N[,N...]] [--sources N[,N...]] [--overlap 0|1[,...]] [--association-config path.json] "
        "[google-benchmark flags...]\n"
-    << "  BM_TimeChunking: one batched track() per frame; BM_Immediate: one track() per camera.\n"
-    << "  peak_fps counter = scene frames (all cameras) per second (real time).\n";
+    << "  BM_TimeChunking: one batched track() per frame; BM_Immediate: one track() per source.\n"
+    << "  peak_fps counter = scene frames (all sources) per second (real time).\n";
 }
 
 std::vector<int> parseIntList(const std::string &value)
@@ -422,9 +422,9 @@ bool parseWorkloadArgs(int &argc, char **argv)
     {
       g_workload.people_counts = parseIntList(requireValue("--people"));
     }
-    else if (arg == "--cameras")
+    else if (arg == "--sources")
     {
-      g_workload.camera_counts = parseIntList(requireValue("--cameras"));
+      g_workload.source_counts = parseIntList(requireValue("--sources"));
     }
     else if (arg == "--overlap")
     {

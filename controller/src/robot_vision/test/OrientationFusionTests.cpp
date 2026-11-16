@@ -56,7 +56,7 @@ rv::tracking::MultipleObjectTracker makeTracker()
 
 } // namespace
 
-TEST(OrientationFusionTest, CameraUpdateDoesNotPullYawToZero)
+TEST(OrientationFusionTest, NonOrientingUpdateDoesNotPullYawToZero)
 {
   auto tracker = makeTracker();
   const double lidarYaw = 1.2;
@@ -67,7 +67,7 @@ TEST(OrientationFusionTest, CameraUpdateDoesNotPullYawToZero)
   EXPECT_NEAR(tracks[0].yaw, lidarYaw, 0.15);
   EXPECT_TRUE(rv::tracking::orientation::orientationObserved(tracks[0]));
 
-  // Camera-only update at nearly the same place with identity yaw.
+  // Non-orienting update at nearly the same place with identity yaw.
   tracker.track({makeDetection(0.05, 0.0, 0.0, false)}, atMs(110));
   tracks = tracker.getReliableTracks();
   ASSERT_EQ(tracks.size(), 1u);
@@ -76,7 +76,7 @@ TEST(OrientationFusionTest, CameraUpdateDoesNotPullYawToZero)
   EXPECT_FALSE(rv::tracking::orientation::hasOrientation(tracks[0]));
 }
 
-TEST(OrientationFusionTest, BatchedFusePrefersOrientingYawOverLastCamera)
+TEST(OrientationFusionTest, BatchedFusePrefersOrientingYawOverLastNonOrienting)
 {
   auto tracker = makeTracker();
   const double initialYaw = 0.8;
@@ -85,7 +85,7 @@ TEST(OrientationFusionTest, BatchedFusePrefersOrientingYawOverLastCamera)
   tracker.track({makeDetection(0.0, 0.0, initialYaw, true)}, atMs(10));
   ASSERT_EQ(tracker.getReliableTracks().size(), 1u);
 
-  // Camera listed last so last-match geometry would otherwise win with yaw=0.
+  // Non-orienting source listed last so last-match geometry would otherwise win with yaw=0.
   std::vector<std::vector<rv::tracking::TrackedObject>> batch = {
     {makeDetection(0.02, 0.0, lidarYaw, true, 0.95)},
     {makeDetection(0.02, 0.0, 0.0, false, 0.99)},
@@ -100,7 +100,7 @@ TEST(OrientationFusionTest, BatchedFusePrefersOrientingYawOverLastCamera)
 
 TEST(OrientationFusionTest, BirthClusteringPicksGlobalOrientingYawWinner)
 {
-  // The most confident orienting detection across all cameras sets the birth yaw,
+  // The most confident orienting detection across all sources sets the birth yaw,
   // even when a less confident one joins the cluster after it.
   auto tracker = makeTracker();
   const double winnerYaw = 1.2;

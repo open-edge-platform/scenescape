@@ -355,17 +355,17 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesYawOnlyWhenBothSidesHaveOrientat
     bool trackObservedOrientation;
     bool expectYaw;
   } cases[] = {
-    {.name = "camera detection, camera track",
+    {.name = "planar detection, planar track",
      .measurementOriented = false,
      .trackHasOrientation = false,
      .trackObservedOrientation = false,
      .expectYaw = false},
-    {.name = "orienting detection, camera track",
+    {.name = "orienting detection, planar track",
      .measurementOriented = true,
      .trackHasOrientation = false,
      .trackObservedOrientation = false,
      .expectYaw = false},
-    {.name = "camera detection, orienting track",
+    {.name = "planar detection, orienting track",
      .measurementOriented = false,
      .trackHasOrientation = true,
      .trackObservedOrientation = true,

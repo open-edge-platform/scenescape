@@ -187,9 +187,9 @@ public:
   bool isSuspended(const Id &id);
 
   /**
-   * @brief Update frame_based_parameters based on the input frame_rate
+   * @brief Update frame-based parameters from the detection / chunk update rate (Hz)
    */
-  void updateTrackerConfig(int camera_frame_rate);
+  void updateTrackerConfig(int frame_rate);
 
   inline TrackManagerConfig getConfig()
   {

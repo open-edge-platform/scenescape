@@ -8,17 +8,17 @@ People walk persistently across a 50 m x 50 m area (0.5-2.0 m/s, random heading 
 
 | Benchmark         | `track()` calls per frame | Matches                                   |
 | ----------------- | ------------------------- | ----------------------------------------- |
-| `BM_TimeChunking` | 1 (all cameras batched)   | Tracker Service, Controller time-chunking |
-| `BM_Immediate`    | 1 per camera (staggered)  | Controller Immediate mode                 |
+| `BM_TimeChunking` | 1 (all sources batched)   | Tracker Service, Controller time-chunking |
+| `BM_Immediate`    | 1 per source (staggered)  | Controller Immediate mode                 |
 
-Camera layout (`overlap` argument):
+Source layout (`overlap` argument):
 
-- `overlap:0` — each person is seen by exactly one camera (round-robin split).
-- `overlap:1` — every camera sees every person with 0.1 m per-camera position noise (multi-camera fusion path). Only registered for 2+ cameras.
+- `overlap:0` — each person is seen by exactly one source (round-robin split).
+- `overlap:1` — every source sees every person with 0.1 m per-source position noise (multi-source fusion path). Only registered for 2+ sources.
 
 ## Peak FPS
 
-`peak_fps = 1 / mean_seconds_per_frame` (real time, one category worker), where a frame is one `track()` call in `BM_TimeChunking` and one `track()` call per camera in `BM_Immediate`. Time-chunking at rate `R` stays backlog-free only if mean latency < `1/R`.
+`peak_fps = 1 / mean_seconds_per_frame` (real time, one category worker), where a frame is one `track()` call in `BM_TimeChunking` and one `track()` call per source in `BM_Immediate`. Time-chunking at rate `R` stays backlog-free only if mean latency < `1/R`.
 
 ## Quick start
 
@@ -39,8 +39,8 @@ Harness flags (parsed before Google Benchmark flags):
 | Flag                             | Default | Meaning                                                                                                                                                                                                                                                                                                     |
 | -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--people N[,N...]`              | `50`    | Object counts to sweep                                                                                                                                                                                                                                                                                      |
-| `--cameras N[,N...]`             | `1,2`   | Camera counts to sweep                                                                                                                                                                                                                                                                                      |
-| `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                                                                                                                                         |
+| `--sources N[,N...]`             | `1,2`   | Source counts to sweep                                                                                                                                                                                                                                                                                      |
+| `--overlap 0\|1[,...]`           | `0,1`   | Source layouts to sweep (see above)                                                                                                                                                                                                                                                                         |
 | `--association-config path.json` | unset   | JSON object with top-level `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`); malformed JSON or a wrong type fails. Unset: `position_mahalanobis` (same as `configs/association_mahalanobis.json`) |
 
 Presets: `configs/association_mahalanobis.json` (`position_mahalanobis`, the default without an `association` block) and `configs/association_euclidean.json` (2 m gate, as the shipped Tracker service config).

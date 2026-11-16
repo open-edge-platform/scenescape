@@ -8,6 +8,9 @@
 
 namespace rv {
 
+/// Camera-modality helper: pixel boxes + intrinsics/distortion → undistorted plane.
+/// Not part of the modality-agnostic MOT / UKF core; see Agents.md.
+
 /// Camera calibration parameters
 struct CameraParams {
     const cv::Mat& intrinsics;

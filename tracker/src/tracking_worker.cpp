@@ -277,11 +277,11 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
     reid_sightings_.reset(std::to_string(++chunk_sequence_));
-    auto objects_per_camera = transform_detections(chunk);
+    auto objects_per_source = transform_detections(chunk);
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
-    auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
+    auto tracks = match_and_convert(std::move(objects_per_source), chunk, track_timestamp);
     reid_sightings_.clear();
     chunk.obs_ctx.captureTrackTime();
 
@@ -302,8 +302,8 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 
 std::vector<std::vector<rv::tracking::TrackedObject>>
 TrackingWorker::transform_detections(const Chunk& chunk) {
-    std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera;
-    objects_per_camera.reserve(chunk.camera_batches.size());
+    std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_source;
+    objects_per_source.reserve(chunk.camera_batches.size());
 
     for (const auto& batch : chunk.camera_batches) {
         auto transformer_it = transformers_.find(batch.camera_id);
@@ -312,11 +312,11 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             continue;
         }
         const auto sightings = reid_sightings_.add_batch(batch);
-        objects_per_camera.push_back(
+        objects_per_source.push_back(
             transformer_it->second.transformDetections(batch.detections, sightings));
     }
 
-    return objects_per_camera;
+    return objects_per_source;
 }
 
 std::vector<Track>
@@ -381,11 +381,11 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 }
 
 std::vector<Track> TrackingWorker::match_and_convert(
-    std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera, const Chunk& chunk,
+    std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_source, const Chunk& chunk,
     std::chrono::system_clock::time_point timestamp) {
     const auto transformed_detections = std::accumulate(
-        objects_per_camera.begin(), objects_per_camera.end(), size_t{0},
-        [](size_t sum, const auto& camera_objects) { return sum + camera_objects.size(); });
+        objects_per_source.begin(), objects_per_source.end(), size_t{0},
+        [](size_t sum, const auto& source_objects) { return sum + source_objects.size(); });
     // Feed all cameras as a batch — MOT performs Hungarian matching across cameras,
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
     // When no detections are present, track() still advances the Kalman filter and
@@ -396,7 +396,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
                                       ? 1
                                       : omp_get_max_threads();
         ScopedOpenMpThreadLimit openmp_thread_limit(thread_limit);
-        tracker_.track(std::move(objects_per_camera), timestamp, association_config_.distanceType(),
+        tracker_.track(std::move(objects_per_source), timestamp, association_config_.distanceType(),
                        association_config_.costThreshold(), 0.5, association_config_.max_radius_m,
                        association_config_.birth_cluster_radius_m);
 

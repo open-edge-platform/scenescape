@@ -12,7 +12,7 @@ set(TEST_SOURCES
   AssociationScenarioTests.cpp
   MetadataFusionTests.cpp
   MotionScenarioTests.cpp
-  MultiCameraFusionTests.cpp
+  MultiSourceFusionTests.cpp
   MultiModelKalmanEstimatorTests.cpp
   MultipleObjectTrackerTests.cpp
   ObjectMatchingTests.cpp

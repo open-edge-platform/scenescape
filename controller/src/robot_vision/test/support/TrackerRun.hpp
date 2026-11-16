@@ -141,12 +141,12 @@ public:
       detection.attributes[kObjectIdAttribute] = std::to_string(observation.objectId);
       perSensor[observation.sensorId].push_back(std::move(detection));
     }
-    std::vector<std::vector<TrackedObject>> objectsPerCamera;
+    std::vector<std::vector<TrackedObject>> objectsPerSource;
     for (auto &[sensorId, detections] : perSensor)
     {
-      objectsPerCamera.push_back(std::move(detections));
+      objectsPerSource.push_back(std::move(detections));
     }
-    mTracker.track(std::move(objectsPerCamera),
+    mTracker.track(std::move(objectsPerSource),
                    atSeconds(t),
                    mAssociation.distanceType,
                    mAssociation.threshold,

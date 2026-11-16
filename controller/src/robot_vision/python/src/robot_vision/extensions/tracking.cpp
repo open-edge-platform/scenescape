@@ -14,7 +14,7 @@
 #include <rv/tracking/Classification.hpp>
 #include <rv/tracking/PositionGate.hpp>
 #include <rv/Utils.hpp>
-#include <rv/tracking/CameraUtils.hpp>
+#include <rv/CameraUtils.hpp>
 #include <chrono>
 #include <limits>
 #include <vector>
@@ -138,7 +138,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           = rv::tracking::validatedMeasurementNoiseCov(rv::tracking::TrackedObject::MeasurementMatrix(array.data()));
       },
       "Per-detection measurement noise R (7x7, [x, y, z, length, width, height, yaw]); None uses the "
-      "tracker default R. Drives multi-camera fusion weights, the association gate (S = H P H^T + R) "
+      "tracker default R. Drives multi-source fusion weights, the association gate (S = H P H^T + R) "
       "and the Kalman update.")
     .def("__repr__", &rv::tracking::TrackedObject::toString, "String representation.");
 
@@ -330,8 +330,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          py::arg("id"))
      .def("update_tracker_config",
          &rv::tracking::TrackManager::updateTrackerConfig,
-         "Compute frame-based parameters using camera frame rate.",
-         py::arg("camera_frame_rate"))
+         "Compute frame-based parameters from the detection / chunk update rate (Hz).",
+         py::arg("frame_rate"))
      .def_property_readonly("config", &rv::tracking::TrackManager::getConfig, "Current track manager configuration");
 
   py::class_<rv::tracking::MultipleObjectTracker>(tracking, "MultipleObjectTracker",
@@ -373,25 +373,25 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp with objects per camera. Use the constructor's distance type, threshold and max_radius_m.",
-         py::arg("objects_per_camera"),
+         "Trigger the track step for the next timestamp with objects per source. Use the constructor's distance type, threshold and max_radius_m.",
+         py::arg("objects_per_source"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
     .def("track",
          [](rv::tracking::MultipleObjectTracker &self,
-            std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera,
+            std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_source,
             const std::chrono::system_clock::time_point &timestamp,
             const rv::tracking::DistanceType &distance_type,
             double distance_threshold,
             double probability_threshold,
             double max_radius_m,
             double birth_cluster_radius_m) {
-           self.track(std::move(objects_per_camera), timestamp, distance_type, distance_threshold,
+           self.track(std::move(objects_per_source), timestamp, distance_type, distance_threshold,
                       probability_threshold, max_radius_m, birth_cluster_radius_m);
          },
-         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold; "
-         "unmatched detections of different cameras within birth_cluster_radius_m (Euclidean, m) start one track.",
-         py::arg("objects_per_camera"),
+         "Trigger the track step for the next timestamp with objects per source. Run match() with the given distance type and threshold; "
+         "unmatched detections of different sources within birth_cluster_radius_m (Euclidean, m) start one track.",
+         py::arg("objects_per_source"),
          py::arg("timestamp"),
          py::arg("distance_type"),
          py::arg("distance_threshold"),
@@ -405,7 +405,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          "Returns a list of all active reliable tracks.")
     .def("update_tracker_params",
          &rv::tracking::MultipleObjectTracker::updateTrackerParams,
-         "Updates tracker frame based parameters.");
+         "Updates tracker frame-based parameters from the detection / chunk update rate (Hz).",
+         py::arg("frame_rate"));
 
   py::class_<rv::tracking::TrackTracker>(tracking,
   "TrackTracker", "Multiple Object Tracking algorithm using the TrackManager in the background. This tracker does not perform any association step, instead it relies on the object's id for association.")

@@ -96,9 +96,9 @@ void clearMetadataAttributes(TrackedObject &object)
 
 bool shouldReplace(bool winnerExists,
                    const std::optional<double> &candidateConfidence,
-                   size_t candidateCameraIndex,
+                   size_t candidateSourceIndex,
                    const std::optional<double> &winnerConfidence,
-                   size_t winnerCameraIndex)
+                   size_t winnerSourceIndex)
 {
   if (!winnerExists)
   {
@@ -115,26 +115,26 @@ bool shouldReplace(bool winnerExists,
   if (candidateConfidence && winnerConfidence)
   {
     return *candidateConfidence > *winnerConfidence
-      || (*candidateConfidence == *winnerConfidence && candidateCameraIndex > winnerCameraIndex);
+      || (*candidateConfidence == *winnerConfidence && candidateSourceIndex > winnerSourceIndex);
   }
-  return candidateCameraIndex > winnerCameraIndex;
+  return candidateSourceIndex > winnerSourceIndex;
 }
 
 void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
-                  const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
+                  const std::vector<std::vector<TrackedObject>> &objectsPerSource,
                   TrackedObject &measurement)
 {
   struct Winner
   {
     std::optional<double> confidence;
-    size_t cameraIndex;
+    size_t sourceIndex;
   };
   std::unordered_map<std::string, Winner> winners;
   clearMetadataAttributes(measurement);
   bool destinationHasCompanions = false;
-  for (const auto &[cameraIndex, objectIndex] : matches)
+  for (const auto &[sourceIndex, objectIndex] : matches)
   {
-    const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+    const auto &object = objectsPerSource[sourceIndex][objectIndex];
     const bool sourceHasCompanions = hasCompanions(object);
     for (const auto &[key, value] : object.attributes)
     {
@@ -147,8 +147,8 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
       const auto winner = winners.find(field);
       const bool winnerExists = winner != winners.end();
       const std::optional<double> winnerConfidence = winnerExists ? winner->second.confidence : std::optional<double>{};
-      const size_t winnerCameraIndex = winnerExists ? winner->second.cameraIndex : 0;
-      if (!shouldReplace(winnerExists, confidence, cameraIndex, winnerConfidence, winnerCameraIndex))
+      const size_t winnerSourceIndex = winnerExists ? winner->second.sourceIndex : 0;
+      if (!shouldReplace(winnerExists, confidence, sourceIndex, winnerConfidence, winnerSourceIndex))
       {
         continue;
       }
@@ -163,7 +163,7 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
       {
         measurement.attributes.erase(confidenceKey);
       }
-      winners[field] = Winner{confidence, cameraIndex};
+      winners[field] = Winner{confidence, sourceIndex};
     }
     destinationHasCompanions = destinationHasCompanions || sourceHasCompanions;
   }
