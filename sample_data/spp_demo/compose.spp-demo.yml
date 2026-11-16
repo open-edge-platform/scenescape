@@ -4,7 +4,9 @@
 # SPP demo overlay on docker-compose.yml (used by `make demo-spp` with the
 # "tracker" and "observation-processor" profiles): the Tracker service sends
 # each camera frame to the observation processor service and tracks its
-# mesh-conditioned measurements and their noise covariance.
+# mesh-conditioned measurements and their noise covariance. The Tracker
+# service runs with position_mahalanobis association
+# (tracker/config/tracker-mahalanobis.json).
 
 services:
   tracker:
@@ -14,6 +16,14 @@ services:
       - TRACKER_OBSERVATION_PROCESSOR_PORT=50052
       # The observation processor serves TLS; verify it with the SceneScape CA.
       - TRACKER_OBSERVATION_PROCESSOR_CA_CERT=/run/secrets/certs/scenescape-ca.pem
+    configs:
+      - source: tracker-service-config
+        target: /scenescape/config/tracker.json
     depends_on:
       observation-processor:
         condition: service_healthy
+
+configs:
+  # "tracker-config" is already used by the Controller in docker-compose.yml.
+  tracker-service-config:
+    file: ./tracker/config/tracker-mahalanobis.json
