@@ -36,3 +36,14 @@ exclude = [
   "site-packages/**",
   "**/site-packages/**",
 ]
+
+# Mirrors the sys.path setup in tests/conftest.py so Pylance resolves service imports.
+[tool.pyright]
+extraPaths = [
+  "controller/src",
+  "reid/src",
+  "positioning/src",
+  "scene_common/src",
+  "analytics/src",
+  "autocalibration/src",
+]
