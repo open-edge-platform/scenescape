@@ -36,21 +36,30 @@ bool isValidMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise)
 
 } // namespace
 
-TEST(TrackedObjectTest, IsDynamicIncludesVerticalVelocity)
+TEST(TrackedObjectTest, IsDynamicIncludesVerticalVelocityOnlyWhenZMeasured)
 {
   rv::tracking::TrackedObject obj;
   obj.vx = 0.0;
   obj.vy = 0.0;
   obj.vz = 0.0;
+  obj.z_measured = false;
   EXPECT_FALSE(obj.isDynamic());
 
-  obj.vz = 1.1; // vz^2 > 1 alone
-  EXPECT_TRUE(obj.isDynamic());
+  obj.vz = 1.1; // filter vz alone must not age planar tracks on the dynamic coast
+  EXPECT_FALSE(obj.isDynamic());
+
+  obj.z_measured = true;
+  EXPECT_TRUE(obj.isDynamic()) << "measured-z tracks count vz toward the dynamic threshold";
 
   obj.vx = 0.5;
   obj.vy = 0.0;
   obj.vz = 0.5; // 0.25 + 0.25 = 0.5
   EXPECT_FALSE(obj.isDynamic());
+
+  obj.z_measured = false;
+  obj.vx = 1.1;
+  obj.vz = 0.0;
+  EXPECT_TRUE(obj.isDynamic()) << "horizontal speed still marks planar tracks dynamic";
 }
 
 TEST(TrackedObjectTest, ValidatedMeasurementNoiseAcceptsSymmetricPositiveDefinite)

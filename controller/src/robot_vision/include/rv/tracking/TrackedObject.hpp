@@ -115,7 +115,8 @@ public:
 
   std::unordered_map<std::string, std::string> attributes;
 
-  /// True when 3D speed squared exceeds 1 m²/s² (includes vertical motion).
+  /// True when speed squared exceeds 1 m²/s². Horizontal always counts; vz counts only when
+  /// z_measured (sticky), so planar tracks are not aged on the short dynamic coast from filter vz.
   /// Affects track deletion / suspend aging (dynamic vs static coast timeouts).
   bool isDynamic() const;
 
