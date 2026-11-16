@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid observation_processor
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -84,8 +84,10 @@ DEPLOYMENT_TEST ?= 0
 # First-party application trees; this list is the complexity scope of record.
 COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
 	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
-	manager/src/manager mapping/src reid/src/reid scene_common/src/scene_common \
-	model_download/src
+	manager/src/manager mapping/src observation_processor/src/observation_processor  reid/src/reid \
+	scene_common/src/scene_common model_download/src \
+	spatial_performance_primitives/frustum_gaussian/python/frustum_gaussian \
+	spatial_performance_primitives/observation_conditioning
 COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
 COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
 COMPLEXITY_TOP ?= 20
@@ -184,6 +186,10 @@ help:
 	@echo ""
 	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
 	@echo ""
+	@echo "  check-manager-contract          Check manager behavior vs. its committed OpenAPI spec"
+	@echo "  check-autocalibration-contract  Check autocalibration behavior vs. its committed OpenAPI spec"
+	@echo "  check-mapping-contract          Check mapping behavior vs. its committed OpenAPI spec"
+	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
 	@echo "  lint-python-pylint          Lint python files using pylint"
@@ -238,7 +244,8 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid positioning: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid positioning \
+	observation_processor: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -412,8 +419,14 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 UNIT_COV_CONFIG := $(TESTS_DIR)/config.coveragerc
 UNIT_COV_FAIL_UNDER ?= 70
+SPATIAL_PERFORMANCE_UNIT_TESTS := \
+	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/tests \
+	$(CURDIR)/spatial_performance_primitives/observation_conditioning/tests
+SPATIAL_PERFORMANCE_PYTHONPATH := \
+	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/python:$(CURDIR)/spatial_performance_primitives
 UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
 	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
+UNIT_TEST_EXTRA_ARGS ?=
 RV_DIR := $(CURDIR)/controller/src/robot_vision
 RV_BUILD_STAMP := $(CURDIR)/tests/.venv/.robot_vision.built
 RV_BUILD_INPUTS := $(RV_DIR)/include $(RV_DIR)/src $(RV_DIR)/python $(RV_DIR)/cmake \
@@ -490,6 +503,25 @@ ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_z
 check-zephyr-ids:
 	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
 
+# ============================== OpenAPI schema drift checks ==============================
+# Contract checks fail on drift, the Manager PR review reminder is advisory.
+# None of these targets rewrites a spec file.
+
+.PHONY: check-manager-contract
+check-manager-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/manager_api/ $(PYTEST_FLAGS) || \
+		(echo "Manager OpenAPI contract check failed" && exit 1)
+		
+.PHONY: check-autocalibration-contract
+check-autocalibration-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/autocalibration_api/ $(PYTEST_FLAGS) || \
+		(echo "Autocalibration OpenAPI contract check failed" && exit 1)
+
+.PHONY: check-mapping-contract
+check-mapping-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/mapping_api/ $(PYTEST_FLAGS) || \
+		(echo "Mapping OpenAPI contract check failed" && exit 1)
+
 .PHONY: run_tests
 run_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
@@ -535,18 +567,24 @@ run_ui_tests: setup-tests
 run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
-	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
+	$(MAKE) run_sscape_unit_suite
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_unit_tests_coverage
 run_unit_tests_coverage: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests with coverage..."
-	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) \
-		--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report= \
-		|| (echo "Unit tests failed" && exit 1)
+	$(MAKE) run_sscape_unit_suite UNIT_TEST_EXTRA_ARGS="--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report="
 	$(MAKE) check-unit-coverage
 	@echo "DONE ==> Running unit tests with coverage"
+
+.PHONY: run_sscape_unit_suite
+run_sscape_unit_suite:
+	PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONPATH="$(SPATIAL_PERFORMANCE_PYTHONPATH)$${PYTHONPATH:+:$${PYTHONPATH}}" \
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(SPATIAL_PERFORMANCE_UNIT_TESTS) \
+	$(PYTEST_FLAGS) $(UNIT_TEST_EXTRA_ARGS) \
+		|| { echo "Unit tests failed"; exit 1; }
 
 .PHONY: check-unit-coverage
 check-unit-coverage:

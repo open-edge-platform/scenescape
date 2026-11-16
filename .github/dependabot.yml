@@ -65,6 +65,7 @@ updates:
       - "/tools/v2x"
       - "/tracker"
       - "/tracker/test/load"
+      - "/observation_processor"
     schedule:
       interval: "monthly"
       time: "04:00"
@@ -156,6 +157,8 @@ updates:
       - "/tools/v2x"
       - "/tracker/test/load"
       - "/tracker/test/service"
+      - "/observation_processor"
+      - "/spatial_performance_primitives/frustum_gaussian"
     schedule:
       interval: "monthly"
       time: "04:00"

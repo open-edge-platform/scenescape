@@ -192,6 +192,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - Starts an `eclipse-mosquitto` broker container and the tracker container on an isolated Docker network (`black_box_harness_{run_id}`); both containers and the network are removed after the run.
 - Publishes each input frame to `scenescape/data/camera/{camera_id}` and collects tracker outputs from `scenescape/data/scene/{scene_id}/+`.
 - Publishes input frames paced by wall-clock delays derived from the data timestamps, reproducing the original capture cadence. `maxlag`/`max_lag_s=1e15` only suppresses lag-rejection in the tracker — it does **not** replace pacing, which is required for the time-chunk scheduler to fire at the correct rate.
+- Frames of different cameras that share a timestamp have no delay between them, so they are published as a burst. `same_timestamp_stagger_ms` spreads them instead: the k-th frame of a group is published no earlier than k × stagger after the first. This matters for the Controller without time chunking, which keeps one pending frame per category (plus the one being tracked) and drops the rest of a burst (`tracker_busy`); the Controller-Immediate pipeline configs set `30`. Choose a value above the per-frame tracking time and keep (cameras − 1) × stagger below the frame interval, otherwise publishing falls behind the capture cadence.
 - Persists `inputs.json` and `outputs.json` to the output folder when `set_output_folder()` is called, creating the directory automatically if it does not exist.
 - Copies the source tracker configuration file into a `config/` subfolder of the output folder (for both container types), preserving the original filename, so each run records the config it was given. For the Tracker Service container the effective `config.json` is derived from this file by the harness (injecting MQTT/Manager endpoints, `max_lag_s=1e15`, and optional OTLP/metrics settings), so the copy captures the source configuration rather than the fully-resolved runtime config.
 - Supports both **Controller** (`intel/scenescape-controller`) and **Tracker Service** (`intel/scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
@@ -241,6 +242,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
 | `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
 | `startup_wait_s` | No | `2.0` | Seconds to wait after container starts before publishing frames |
+| `same_timestamp_stagger_ms` | No | `0` | Spread the frames of one timestamp: the k-th frame of the group is published no earlier than k × stagger after the first. `0` publishes them back-to-back |
 | `enable_metrics` | No | `false` | Run an OTEL Collector sidecar to capture tracker/controller OTLP metrics |
 | `metrics_collector_image` | When `enable_metrics` | — | OTEL Collector image (e.g. `"otel/opentelemetry-collector-contrib:0.155.0"`) |
 | `metrics_export_interval_s` | No | `2` | Metrics export interval in seconds |
@@ -261,14 +263,22 @@ folder with, per metric:
 
 After writing the summary, the harness verifies how many messages were dropped (summing the
 `scenescape_controller_mqtt_messages_dropped` and `tracker.mqtt.dropped` counters), prints the
-count and ratio, and emits a `WARNING` when the dropped-to-received-message ratio exceeds 1%.
-The denominator is the total of the `scenescape_controller_mqtt_messages` and
-`tracker.mqtt.messages` counters, plus the messages the Tracker rejected before accepting them
-(`tracker.mqtt.dropped` with a `rejected_*` reason), which `tracker.mqtt.messages` does not count.
-A run that dropped messages but received none is reported as 100%. Dropped messages are counted
-per camera, so the ratio does not depend on the number of cameras in the dataset. Drops after the
-split by category (busy tracker, full queue) count once per category, so with several categories
-the ratio errs high and can exceed 100%.
+count and the loss per category, and emits a `WARNING` when the loss of any category exceeds 1%.
+Each category has its own work queue and drops independently (`tracker_busy`, `dropped_queue_full`,
+`dropped_max_workers`), so the loss is judged per category: the category's own drops plus the drops
+of whole messages (`rejected_*`, `fell_behind`, `ptz_dwell`), over the messages that category
+received. The counters of whole-message drops carry no category, so they are counted against every
+category: with categories unevenly spread over the messages (for example a rare category) this
+over-reports the loss of the other categories, an upper bound that cannot hide a failure; these
+drops are 0 in the Unity and Wildtrack runs. A category receives messages from its first appearance on: the Controller then dispatches
+only the messages that carry it (and the empty ones), the Tracker Service every message. The warning uses the worst
+category, so one failing category is not hidden by the others. Counters without a per-category
+breakdown fall back to all drops over the received messages: the total of the
+`scenescape_controller_mqtt_messages` and `tracker.mqtt.messages` counters, plus the messages the
+Tracker rejected before accepting them (`tracker.mqtt.dropped` with a `rejected_*` reason), which
+`tracker.mqtt.messages` does not count. A run that dropped messages but received none is reported
+as 100%. Dropped messages are counted per camera, so the ratio does not depend on the number of
+cameras in the dataset.
 The aggregated values are also available programmatically via
 `metrics_recorder.collect_metric_values()` and `metrics_recorder.check_dropped_frames()`.
 
