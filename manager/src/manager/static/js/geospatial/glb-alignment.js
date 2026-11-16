@@ -15,10 +15,9 @@ const MAP_EMPTY_HINT =
   "Set the map location and save the scene before aligning a 3D model.";
 const PREVIEW_MISSING_HINT =
   "The preview of the saved 3D model could not be generated.";
+// Keep equal to MAX_ANCHOR_DISTANCE_KM in manager/glb_alignment.py, which enforces it on save.
 const FAR_ANCHOR_KM = 50;
-const FAR_ANCHOR_HINT =
-  `The 3D model is more than ${FAR_ANCHOR_KM} km from the map center; ` +
-  "check its position.";
+const FAR_ANCHOR_HINT = `The 3D model must stay within ${FAR_ANCHOR_KM} km of the map center.`;
 
 function pointInPolygon(pt, corners) {
   const x = pt.lng;
@@ -241,16 +240,17 @@ class GlbAlignment {
     } catch (e) {}
   }
 
-  // Soft warning only: the anchor is still saved when it is far from the map center.
-  _updateFarAnchorHint() {
+  _isFarFromCenter(anchor) {
+    if (this._mapEmpty()) return false;
     const center = {
       lat: parseFloat(this.ui.mapCenterLat.value),
       lng: parseFloat(this.ui.mapCenterLng.value),
     };
-    const far =
-      !!this.anchor &&
-      !this._mapEmpty() &&
-      distanceKm(this.anchor, center) > FAR_ANCHOR_KM;
+    return distanceKm(anchor, center) > FAR_ANCHOR_KM;
+  }
+
+  _updateFarAnchorHint() {
+    const far = !!this.anchor && this._isFarFromCenter(this.anchor);
     if (far) this.ui.hint.textContent = FAR_ANCHOR_HINT;
     else if (this.ui.hint.textContent === FAR_ANCHOR_HINT)
       this.ui.hint.textContent = this._mapEmpty() ? MAP_EMPTY_HINT : "";
@@ -416,7 +416,12 @@ class GlbAlignment {
 
     const anchor0 = { ...this.anchor };
     const move = (ev) => {
-      this.anchor = dragAnchor(anchor0, grab, this._pointerLatLng(ev));
+      const next = dragAnchor(anchor0, grab, this._pointerLatLng(ev));
+      if (this._isFarFromCenter(next)) {
+        this.ui.hint.textContent = FAR_ANCHOR_HINT;
+        return;
+      }
+      this.anchor = next;
       this.dirty = true;
       this._render();
     };

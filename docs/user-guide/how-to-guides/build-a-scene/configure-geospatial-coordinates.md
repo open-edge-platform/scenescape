@@ -89,6 +89,30 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 For scenes that use a 3D model (GLB file) as the map:
 
+### Prerequisites
+
+- The scene's **Map Type** is **Geospatial Map**. The 3D model section and the REST endpoints reject other map types.
+- The scene has a saved map centre (latitude and longitude). Until the scene is saved with a map centre, the file picker is disabled and the preview request returns `400`. Select a location on the map as described in [Steps to Leverage Built-In Geospatial Map Creation](#steps-to-leverage-built-in-geospatial-map-creation) and click **Save Scene**.
+- The `.glb` file is no larger than the upload limit. The limit is 132 MB by default and is set by the `GLB_UPLOAD_MAX_SIZE_MB` environment variable of the Manager service (value in MB). A larger file is rejected with `413`. The stock `docker-compose.yml` does not forward this variable, so add it to the Manager service's `environment` to change it.
+- Saving, applying, moving, or removing a model requires a superuser account.
+
+### Anchor and Heading
+
+The position of the model on the map is stored as an anchor:
+
+- **Anchor** (`lat`, `lng`): the latitude and longitude of the centre of the model's footprint (its bounding rectangle on the ground plane). A new model starts at the scene's saved map centre. The anchor must be within 50 km of the map centre; the UI warns about a farther position and the API rejects it with `400`.
+- **Heading** (`heading_deg`): the clockwise rotation of the model's +Y axis from true north, in degrees. `0` points north and `90` points east. The UI limits the slider to 0-359.9; the API normalises any value to the range 0 to below 360.
+
+The saved anchor is also reported by `GET /api/v1/scene/<scene_uid>/geospatial-glb`.
+
+### Axis Convention
+
+Scenescape expects an uploaded `.glb` to be Y-up, the glTF standard, and rotates it by `90.0` degrees about X (the scene's **X Rotation**) to bring it into the Z-up scene frame. This is the same convention as for every other uploaded `.glb` map, and a map downloaded from a scene can be uploaded to another scene as is. In the scene frame the X and Y axes span the ground plane and +Z points up. The footprint is the bounding rectangle of the rotated model in the XY plane, and the model is placed so that its lowest point sits at ground level (`z = 0`). The heading is measured from the +Y axis of the model in that Z-up frame (see [Anchor and Heading](#anchor-and-heading)).
+
+Export the model as Y-up. A model that is already Z-up would be rotated onto its side.
+
+### Staging and Saving a Model
+
 1. Click the **Edit** button on the scene.
 1. Scroll to the **3D model (GLB)** section.
 1. Click **Browse** and select a `.glb` file to upload. If a model is already staged or saved, you are first asked to confirm replacing it; declining keeps the current model, and a saved model stays in place until you accept the new one.
@@ -130,6 +154,10 @@ To replace a saved 3D model:
 1. Click **Accept** to replace the saved model. If the saved model was applied, the new model is applied immediately at the new position. If it was not applied, the scene map is unchanged and you can apply the new model with the checkbox. If the save fails, the saved model is kept unchanged.
 1. Click **Cancel** to discard the staged file and return to the saved model.
 
+### Effect on Running Services
+
+Every save that changes the scene, including applying, unapplying, moving, replacing, or removing a 3D model, makes the Manager publish a database update notice over MQTT when the change is committed. The Scene Controller and Analytics services react to it by reloading the scenes from the Manager, so no restart is needed. When the scene data changed, the Scene Controller builds a new scene with a new tracker, so tracking in that scene starts over and object IDs can change.
+
 ## REST API Reference
 
 Geospatial output can also be configured without the UI by creating the scene first (see
@@ -155,5 +183,5 @@ curl -sk -X PUT https://<manager-host>/api/v1/scene/<scene_uid> \
 - `map_corners_lla` is required whenever `output_lla` is `true` — the request is rejected
   otherwise.
 - The four corners follow the same counterclockwise-from-lower-left convention described in
-  [Conventions](#conventions) above.
+  [Conventions](#conventions) above (clockwise from the lower left is accepted as well).
 - Full field reference: [API Reference](../../api-reference.md) (`Scene` schema).

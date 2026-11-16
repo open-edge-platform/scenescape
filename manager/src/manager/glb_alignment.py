@@ -44,8 +44,11 @@ SCENE_FORM_GLB_FIELDS = (
 GLB_STORED_FILES = ('map', 'base_map', 'glb_map', 'thumbnail')
 # State a GLB write changes; the scene-edit form carries its token to detect an out-of-date page.
 STATE_TOKEN_FIELDS = SCENE_FORM_GLB_FIELDS + ('use_glb_map', 'glb_anchor')
-# Staged GLBs are z-up (generated meshes and most exports), so no X rotation is applied
-ALIGN_ROTATION_X = 0.0
+# Uploaded GLBs are Y-up (glTF); the same X rotation as every other GLB map brings them into the Z-up scene frame
+ALIGN_ROTATION_X = Scene.DEFAULT_MESH_ROTATION
+# Keep equal to FAR_ANCHOR_KM in static/js/geospatial/glb-alignment.js.
+MAX_ANCHOR_DISTANCE_KM = 50.0
+EARTH_RADIUS_KM = 6371.0
 
 
 def staging_dir():
@@ -126,7 +129,7 @@ def build_preview(token):
 
 
 def existing_content(scene):
-  """Counts of content whose local frame a new GLB map would change."""
+  """Counts of cameras, regions and sensors that keep their local positions when a GLB map is applied."""
   return {
     'cameras': Cam.objects.filter(scene=scene).count(),
     'regions': scene.regions.count(),
@@ -190,6 +193,22 @@ def parse_anchor(anchor):
   if not numeric or abs(lat) > 90.0 or abs(lng) > 180.0:
     raise GlbAlignmentError(400, 'Invalid anchor')
   return lat, lng, heading % 360.0
+
+
+def _distance_km(lat1, lng1, lat2, lng2):
+  """Great-circle distance in km between two lat/lng points in degrees."""
+  phi1, phi2 = math.radians(lat1), math.radians(lat2)
+  a = (math.sin((phi2 - phi1) / 2) ** 2 +
+       math.cos(phi1) * math.cos(phi2) * math.sin(math.radians(lng2 - lng1) / 2) ** 2)
+  return 2 * EARTH_RADIUS_KM * math.asin(min(1.0, math.sqrt(a)))
+
+
+def check_anchor_near_map_center(scene, lat, lng):
+  """Raise 400 when the anchor is more than MAX_ANCHOR_DISTANCE_KM from the scene map center."""
+  if scene.map_center_lat is None or scene.map_center_lng is None:
+    return
+  if _distance_km(lat, lng, scene.map_center_lat, scene.map_center_lng) > MAX_ANCHOR_DISTANCE_KM:
+    raise GlbAlignmentError(400, f'Anchor must be within {MAX_ANCHOR_DISTANCE_KM:g} km of the map center')
 
 
 def _get_mesh_footprint_corners_from_glb(glb_path):
@@ -266,8 +285,6 @@ def compute_glb_pose_and_corners(frame_corners_lla, anchor_lat, anchor_lng, anch
   mesh, _ = extractMeshFromGLB(glb_path, rotation=None)
   vertices_raw = mesh.vertex.positions.numpy()  # (N, 3)
 
-  # Known bug: a legacy 90 deg X rotation is not preserved through move or reapply;
-  # ALIGN_ROTATION_X is always used. Supposed to be resolved by ITEP-97904 PR.
   # Apply axis conversion: A = Rx(ALIGN_ROTATION_X)
   R_x = Rotation.from_euler('x', [ALIGN_ROTATION_X], degrees=True)
   vertices_aligned = (R_x.as_matrix() @ vertices_raw.T).T
@@ -531,6 +548,7 @@ def move_glb_anchor(scene, new_anchor, save=True):
   save=False leaves the row unsaved for the caller to save in the same transaction.
   """
   lat, lng, heading = parse_anchor(new_anchor)
+  check_anchor_near_map_center(scene, lat, lng)
 
   try:
     with locked_scene_write(scene):
@@ -641,6 +659,7 @@ def commit_glb(scene, token, anchor, save=True):
   path = staged_glb_path(token)
   token = str(uuid.UUID(token))
   lat, lng, heading = parse_anchor(anchor)
+  check_anchor_near_map_center(scene, lat, lng)
 
   old_glb = scene.glb_map.name if scene.glb_map else ''
   with locked_scene_write(scene):

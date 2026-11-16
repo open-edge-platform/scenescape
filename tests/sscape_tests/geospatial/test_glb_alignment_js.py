@@ -182,6 +182,20 @@ class TestGlbAlignment:
     res = _align([_NO_SAVED, _preview_resp("tok1")], steps)
     assert res["events"][0]["prevented"] is False
 
+  def test_drag_beyond_50_km_of_map_centre_is_ignored(self):
+    """Boundary: a drag that would put the anchor over 50 km from the map centre leaves it in place."""
+    steps = [["upload"], ["drag", [0, 0], [100000, 0]]]  # about 89 km east
+    res = _align([_NO_SAVED, _preview_resp("tok1")], steps)
+    assert res["anchor"]["lng"] == -122
+    assert res["dirty"] is False
+
+  def test_drag_within_50_km_of_map_centre_is_applied(self):
+    """Boundary: a drag that keeps the anchor under 50 km from the map centre moves it."""
+    steps = [["upload"], ["drag", [0, 0], [40000, 0]]]  # about 36 km east
+    res = _align([_NO_SAVED, _preview_resp("tok1")], steps)
+    assert res["anchor"]["lng"] == pytest.approx(-121.6)
+    assert res["dirty"] is True
+
   @pytest.mark.parametrize("typed, expected", [("90", 90.0), ("360", 359.9), ("-5", 0)])
   def test_heading_update_is_clamped_not_wrapped(self, typed, expected):
     """Typing a heading updates the anchor; out-of-range values clamp instead of wrapping."""

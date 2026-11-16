@@ -172,7 +172,8 @@ class Scene(models.Model):
                                       help_text=(
                                         "Provide the array of four map corners geospatial coordinates (lat, long, alt).\n"
                                         "Required only if 'Output geospatial coordinates' is set to `Yes`.\n"
-                                        "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
+                                        "Expected order: starting from the bottom-left corner, either counterclockwise "
+                                        "or clockwise.\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
   # Geospatial map settings
   geospatial_provider = models.CharField("Geospatial Map Provider", max_length=20,

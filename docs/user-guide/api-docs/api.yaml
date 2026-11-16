@@ -1486,6 +1486,8 @@ paths:
         stored GLB and its preview are deleted after a successful commit. Cameras, regions, and
         sensors keep their local positions and trs_matrix is unchanged. If the GLB is applied, the
         map pose and map_corners_lla are recomputed, so the lat/lng reported for objects can change.
+        The anchor must be within 50 km of the scene's map center (map_center_lat, map_center_lng);
+        a farther anchor returns 400.
       parameters:
         - in: path
           name: uid
@@ -1588,6 +1590,8 @@ paths:
         not applied only the stored anchor changes. Cameras, regions, and sensors keep their local
         positions and trs_matrix is unchanged, but the lat/lng reported for objects can change.
         An empty anchor object (`anchor: {}`) returns 400; omit anchor or set it to null to leave it unchanged.
+        The anchor must be within 50 km of the scene's map center (map_center_lat, map_center_lng);
+        a farther anchor returns 400.
       parameters:
         - in: path
           name: uid
@@ -1654,7 +1658,8 @@ paths:
                     type: object
                     description: >-
                       Scene pose, scale, and map_corners_lla values after the change, for a client that
-                      mirrors them into a scene form
+                      mirrors them into a scene form. Keys: scale, rotation_x, rotation_y, rotation_z,
+                      translation_x, translation_y, translation_z, map_corners_lla.
                   state_token:
                     type: string
                     description: Digest of the scene map, pose, corners, and GLB state after the change
@@ -1676,7 +1681,7 @@ paths:
       description: >-
         Remove the saved GLB file, its preview, and its alignment from a geospatial scene. If the
         GLB is applied, the scene's original map is restored from the snapshot taken when it was
-        applied first.
+        applied first. The request has no body; the response body carries the scene values to mirror.
       parameters:
         - in: path
           name: uid
@@ -1689,9 +1694,22 @@ paths:
         - cookieAuth: []
       responses:
         "200":
-          description: >-
-            GLB deleted successfully; body is {"success": true, "scene_fields": {...},
-            "state_token": "..."}
+          description: GLB deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  scene_fields:
+                    type: object
+                    description: >-
+                      Scene pose, scale, and map_corners_lla values after the delete, for a client that
+                      mirrors them into a scene form. Same keys as in the PUT response.
+                  state_token:
+                    type: string
+                    description: Digest of the scene map, pose, corners, and GLB state after the delete
         "400":
           description: Scene is not a geospatial_map
         "401":

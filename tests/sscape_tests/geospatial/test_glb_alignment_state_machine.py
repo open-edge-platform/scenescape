@@ -135,7 +135,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     self.assertTrue(scene.map.name.endswith('.glb'))
     self.assertTrue(scene.base_map)
     self.assertNotEqual(scene.rotation_z, 0.0)
-    self.assertEqual(scene.rotation_x, 0.0)
+    self.assertEqual(scene.rotation_x, glb_alignment.ALIGN_ROTATION_X)
     self.assertEqual(scene.trs_matrix, trs)
 
     scene = Scene.objects.get(pk=scene.pk)
