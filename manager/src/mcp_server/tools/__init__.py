@@ -3,7 +3,7 @@
 
 """Register tools explicitly, in stable discovery order."""
 
-from mcp_server.tools import scenes, cameras, regions
+from mcp_server.tools import scenes
 from mcp_server.tools_registry import tool_registry
 
-__all__ = ['scenes', 'cameras', 'regions', 'tool_registry']
+__all__ = ['scenes', 'tool_registry']

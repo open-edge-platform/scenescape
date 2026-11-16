@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="440" viewBox="0 0 1100 440" role="img" aria-labelledby="title desc">
+  <title id="title">SceneScape MCP architecture</title>
+  <desc id="desc">AI agents in the client lane connect over HTTPS at /mcp to SceneScape's Manager Django app. Its new mcp_server module uses thin-mcp and exposes list_scenes and get_scene. The existing ORM reads PostgreSQL configuration. Blue marks added components and gray marks existing components.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#526780"/></marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; fill: #19334d; }
+      .label { font-size: 20px; font-weight: 700; }
+      .body { font-size: 16px; }
+      .muted { fill: #526780; }
+      .flow { fill: none; stroke: #526780; stroke-width: 2; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1100" height="440" fill="white"/>
+  <text x="32" y="46" font-size="28" font-weight="700">SceneScape · MCP architecture</text>
+
+  <path d="M 32 112 H 1068 M 310 76 V 364" fill="none" stroke="#dce3ea" stroke-width="1.5"/>
+  <text x="32" y="98" class="label">AI agents</text>
+  <text x="354" y="98" class="label">SceneScape</text>
+
+  <rect x="48" y="200" width="170" height="84" rx="12" fill="#f3f5f7" stroke="#a6b4c2"/>
+  <text x="133" y="249" text-anchor="middle" class="label">MCP client</text>
+
+  <rect x="420" y="146" width="382" height="198" rx="14" fill="#f8fafc" stroke="#a6b4c2" stroke-width="1.5"/>
+  <text x="442" y="180" class="label">Manager · Django app</text>
+  <rect x="440" y="200" width="342" height="124" rx="10" fill="#edf6ff" stroke="#0071c5" stroke-width="2"/>
+  <text x="462" y="234" class="label">mcp_server + thin-mcp</text>
+  <text x="462" y="269" class="body">list_scenes · get_scene</text>
+  <text x="462" y="297" class="body muted">Read-only tools</text>
+
+  <path d="M 218 242 H 438" class="flow"/>
+  <text x="319" y="224" text-anchor="middle" class="body">HTTPS /mcp</text>
+  <text x="319" y="270" text-anchor="middle" class="body muted">API token</text>
+
+  <rect x="900" y="200" width="168" height="84" rx="12" fill="#f3f5f7" stroke="#a6b4c2"/>
+  <text x="984" y="234" text-anchor="middle" class="label">PostgreSQL</text>
+  <text x="984" y="260" text-anchor="middle" class="body muted">Configuration</text>
+  <path d="M 782 242 H 898" class="flow"/>
+  <text x="850" y="224" text-anchor="middle" class="body">ORM</text>
+
+  <circle cx="438" cy="404" r="7" fill="#0071c5"/>
+  <text x="454" y="410" class="body">Added</text>
+  <circle cx="566" cy="404" r="7" fill="#a6b4c2"/>
+  <text x="582" y="410" class="body">Existing</text>
+</svg>

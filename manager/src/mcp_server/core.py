@@ -3,10 +3,15 @@
 
 """Delegate MCP protocol behavior to thin-mcp."""
 
+import logging
+
 from django.contrib.auth.base_user import AbstractBaseUser
-from thin_mcp import McpHttpResult, McpRequest, McpRequestHeaders, McpServer
+from pydantic import ValidationError
+from thin_mcp import JsonRpcErrorCode, McpHttpResult, McpRequest, McpRequestHeaders, McpServer
 
 from mcp_server.tools import tool_registry
+
+logger = logging.getLogger(__name__)
 
 MCP_SERVER = McpServer(
   name='scenescape', version='0.1.0',
@@ -15,10 +20,21 @@ MCP_SERVER = McpServer(
 )
 
 
-def process_request(user: AbstractBaseUser, payload: McpRequest,
+def process_request(user: AbstractBaseUser, body: bytes,
                     headers: McpRequestHeaders) -> McpHttpResult:
-  """Validate protocol headers before executing an authenticated request."""
-  result = MCP_SERVER.validate_http_request(payload, headers)
-  if result is not None:
-    return result
-  return MCP_SERVER.dispatch_request(user, payload)
+  """Validate JSON and the MCP envelope once, then delegate protocol dispatch."""
+  try:
+    payload = McpRequest.model_validate_json(body)
+  except ValidationError as exc:
+    if any(error['type'] == 'json_invalid' for error in exc.errors()):
+      return McpHttpResult.error(None, JsonRpcErrorCode.PARSE_ERROR, 'Invalid JSON.', status=400)
+    return McpHttpResult.error(None, JsonRpcErrorCode.INVALID_REQUEST, 'Invalid MCP request.', status=400)
+
+  try:
+    result = MCP_SERVER.validate_http_request(payload, headers)
+    return result if result is not None else MCP_SERVER.dispatch_request(user, payload)
+  except Exception:
+    logger.exception('Unexpected MCP request failure.')
+    return McpHttpResult.error(
+      payload.id, JsonRpcErrorCode.INTERNAL_ERROR, 'Internal server error.', status=500,
+    )

@@ -13,19 +13,19 @@ from thin_mcp import ToolExecutionError
 
 from mcp_server import queries
 from mcp_server.schemas import (
-  CameraSummary, ListArguments, SceneArguments, SceneListArguments, SceneSummary,
+  ListArguments, SceneArguments, SceneSummary,
 )
 
 
 def test_pagination_selects_only_contract_fields():
   queryset = MagicMock()
-  rows = [{'sensor_id': str(i), 'name': f'Camera {i}', 'scene_id': None, 'pose_locked': False}
+  rows = [{'id': uuid4(), 'name': f'Scene {i}', 'map_type': None, 'scale': None, 'use_tracker': True}
           for i in range(3)]
   queryset.values.return_value.__getitem__.return_value = rows
-  result = queries.inventory_page(queryset, ListArguments(limit=2, offset=10), CameraSummary)
+  result = queries.inventory_page(queryset, ListArguments(limit=2, offset=10), SceneSummary)
   assert len(result.items) == 2
   assert result.next_offset == 12
-  queryset.values.assert_called_once_with('sensor_id', 'name', 'scene_id', 'pose_locked')
+  queryset.values.assert_called_once_with('id', 'name', 'map_type', 'scale', 'use_tracker')
   queryset.values.return_value.__getitem__.assert_called_once_with(slice(10, 13))
 
 
@@ -37,18 +37,34 @@ def test_empty_page_has_no_next_offset():
   assert result.next_offset is None
 
 
-@pytest.mark.parametrize('function,model_name,order', [
-  (queries.list_cameras, 'Cam', 'sensor_id'), (queries.list_regions, 'Region', 'uuid'),
+@pytest.mark.parametrize('offset,limit,row_count,expected', [
+  (99975, 25, 26, 100000),
+  (99975, 25, 25, None),
+  (99976, 25, 26, None),
+  (100000, 25, 26, None),
+  (99999, 1, 2, 100000),
+  (100000, 1, 2, None),
 ])
-def test_scene_filter_and_stable_order(monkeypatch, function, model_name, order):
-  model = MagicMock()
-  queryset = model.objects.order_by.return_value.filter.return_value
-  queryset.values.return_value.__getitem__.return_value = []
-  monkeypatch.setitem(sys.modules, 'manager.models', SimpleNamespace(**{model_name: model}))
-  scene_id = uuid4()
-  assert function(SceneListArguments(scene_id=scene_id)).items == []
-  model.objects.order_by.assert_called_once_with(order)
-  model.objects.order_by.return_value.filter.assert_called_once_with(scene_id=scene_id)
+def test_pagination_continuation_respects_offset_limit(offset, limit, row_count, expected):
+  """Continue at the boundary only when the next request can accept the offset."""
+  queryset = MagicMock()
+  rows = [{'id': uuid4(), 'name': f'Scene {i}', 'map_type': None, 'scale': None, 'use_tracker': True}
+          for i in range(row_count)]
+  queryset.values.return_value.__getitem__.return_value = rows
+  result = queries.inventory_page(queryset, ListArguments(limit=limit, offset=offset), SceneSummary)
+  assert len(result.items) == min(limit, row_count)
+  assert result.next_offset == expected
+  if result.next_offset is not None:
+    assert ListArguments(limit=limit, offset=result.next_offset).offset == expected
+
+
+def test_list_scenes_uses_stable_order(monkeypatch):
+  """Order scene pages by their stable unique identifier."""
+  scene = MagicMock()
+  scene.objects.order_by.return_value.values.return_value.__getitem__.return_value = []
+  monkeypatch.setitem(sys.modules, 'manager.models', SimpleNamespace(Scene=scene))
+  assert queries.list_scenes(ListArguments()).items == []
+  scene.objects.order_by.assert_called_once_with('id')
 
 
 def test_missing_scene(monkeypatch):

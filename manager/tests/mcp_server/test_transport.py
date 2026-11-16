@@ -7,7 +7,9 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from django.conf import settings
 from django.test import override_settings
+from django.http import HttpRequest
 from rest_framework.authtoken.models import Token
 from thin_mcp import ToolExecutionError
 
@@ -29,12 +31,12 @@ def test_discovery_authentication_and_read_only_contract(client, scheme):
   assert response.status_code == 200
   tools = response.json()['result']['tools']
   assert [tool['name'] for tool in tools] == [
-    'list_scenes', 'get_scene', 'list_cameras', 'list_regions',
+    'list_scenes', 'get_scene',
   ]
   assert all(tool['annotations']['readOnlyHint'] for tool in tools)
   assert all(not tool['annotations']['destructiveHint'] for tool in tools)
-  camera_fields = tools[2]['outputSchema']['$defs']['CameraSummary']['properties']
-  assert set(camera_fields) == {'sensor_id', 'name', 'scene_id', 'pose_locked'}
+  scene_fields = tools[0]['outputSchema']['$defs']['SceneSummary']['properties']
+  assert set(scene_fields) == {'id', 'name', 'map_type', 'scale', 'use_tracker'}
   assert response['Cache-Control'] == 'no-store'
 
 
@@ -42,7 +44,8 @@ def test_missing_token_rejected(client):
   response = client.post('/', {'jsonrpc': '2.0', 'id': 1, 'method': 'ping'}, format='json')
   assert response.status_code == 401
   assert response['WWW-Authenticate'] == 'Bearer'
-  assert 'error' in response.json()
+  assert 'detail' in response.json()
+  assert response['Cache-Control'] == 'no-store'
 
 
 def test_invalid_token_rejected(client):
@@ -78,7 +81,7 @@ def test_valid_tool_call(client, monkeypatch):
 
 
 @pytest.mark.parametrize('arguments', [{'limit': 26}, {'limit': 0}, {'offset': -1},
-                                      {'offset': 100001}, {'unknown': 'value'}])
+                                       {'offset': 100001}, {'unknown': 'value'}])
 def test_invalid_tool_arguments_never_query(client, monkeypatch, arguments):
   def unexpected_query(arguments):
     raise AssertionError('Invalid arguments reached the query layer.')
@@ -108,7 +111,11 @@ def test_unexpected_errors_do_not_leak(client, monkeypatch):
   assert response.json()['error']['code'] == -32603
 
 
-@pytest.mark.parametrize('body,code', [('not-json', -32700), ('[]', -32600), ('{}', -32600)])
+@pytest.mark.parametrize('body,code', [
+  ('not-json', -32700), ('', -32700), (b'\xff', -32700),
+  ('[]', -32600), ('{}', -32600),
+  ('{"jsonrpc":"1.0","id":1,"method":"ping"}', -32600),
+])
 def test_malformed_requests(client, body, code):
   response = client.post('/', body, content_type='application/json',
                          HTTP_AUTHORIZATION='Bearer ephemeral-test-token')
@@ -122,6 +129,62 @@ def test_transport_limits(client):
   assert client.post('/', 'x' * 65537, content_type='application/json',
                      HTTP_AUTHORIZATION='Bearer ephemeral-test-token').status_code == 413
   assert client.get('/', HTTP_AUTHORIZATION='Bearer ephemeral-test-token').status_code == 405
+
+
+def test_json_media_type_with_charset(client):
+  """Let DRF negotiate the JSON parser, including media-type parameters."""
+  response = client.post('/', '{"jsonrpc":"2.0","id":1,"method":"ping"}',
+                         content_type='application/json; charset=utf-8',
+                         HTTP_AUTHORIZATION='Bearer ephemeral-test-token')
+  assert response.status_code == 200
+  assert 'result' in response.json()
+
+
+@pytest.mark.parametrize('extra_bytes,status', [(0, 200), (1, 413)])
+def test_request_size_boundary(client, extra_bytes, status):
+  """Accept a valid request at the limit and reject one byte over it."""
+  body = '{"jsonrpc":"2.0","id":1,"method":"ping"}'.ljust(settings.MCP_MAX_REQUEST_SIZE + extra_bytes)
+  response = client.post('/', body, content_type='application/json',
+                         HTTP_AUTHORIZATION='Bearer ephemeral-test-token')
+  assert response.status_code == status
+  assert response['Cache-Control'] == 'no-store'
+
+
+def test_oversized_body_read_is_bounded(client):
+  """The adapter reads only enough bytes to detect an oversized payload."""
+  reads = []
+  original_read = HttpRequest.read
+
+  def bounded_read(request, size=-1):
+    reads.append(size)
+    return original_read(request, size)
+
+  with patch.object(HttpRequest, 'read', bounded_read):
+    response = client.post('/', 'x' * (settings.MCP_MAX_REQUEST_SIZE * 2), content_type='application/json',
+                           HTTP_AUTHORIZATION='Bearer ephemeral-test-token')
+  assert response.status_code == 413
+  assert reads == [settings.MCP_MAX_REQUEST_SIZE + 1]
+  assert response.json() == {'detail': 'Request too large.'}
+
+
+@override_settings(MCP_MAX_REQUEST_SIZE=128)
+@pytest.mark.parametrize('extra_bytes,status', [(0, 200), (1, 413)])
+def test_configured_request_size_boundary(client, extra_bytes, status):
+  """Apply the Django setting to both accepted and oversized requests."""
+  body = '{"jsonrpc":"2.0","id":1,"method":"ping"}'.ljust(128 + extra_bytes)
+  response = client.post('/', body, content_type='application/json',
+                         HTTP_AUTHORIZATION='Bearer ephemeral-test-token')
+  assert response.status_code == status
+
+
+@pytest.mark.parametrize('method,status', [('get', 405), ('delete', 405)])
+def test_http_errors_use_drf_responses(client, method, status):
+  """DRF retains its error shape and method headers without custom conversion."""
+  response = getattr(client, method)('/', HTTP_AUTHORIZATION='Bearer ephemeral-test-token')
+  assert response.status_code == status
+  assert 'detail' in response.json()
+  assert 'POST' in response['Allow']
+  assert response['Cache-Control'] == 'no-store'
 
 
 def test_origin_validation(client):
@@ -150,3 +213,5 @@ def test_throttle(client):
     response = rpc(client)
   assert response.status_code == 429
   assert 'Retry-After' in response
+  assert 'detail' in response.json()
+  assert response['Cache-Control'] == 'no-store'

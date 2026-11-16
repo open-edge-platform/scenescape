@@ -51,6 +51,14 @@ permissions:
   contents: read
 
 jobs:
+  mcp:
+    name: "MCP Tests"
+    uses: ./.github/workflows/tests-mcp.yml
+    with:
+      ref: ${{ inputs.ref }}
+    permissions:
+      contents: read
+
   run_functional_tests:
     runs-on: [all]
     name: "Functional Tests"

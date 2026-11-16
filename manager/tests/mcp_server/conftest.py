@@ -21,6 +21,7 @@ if not settings.configured:
     DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
     ALLOWED_HOSTS=['testserver'], ROOT_URLCONF='mcp_server.urls',
     REST_FRAMEWORK={'UNAUTHENTICATED_USER': None},
+    MCP_MAX_REQUEST_SIZE=64 * 1024,
     USE_TZ=True,
   )
 django.setup()

@@ -186,6 +186,9 @@ DOCS_URL = '/docs/'
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE_MB', '132')) * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('FILE_UPLOAD_MAX_MEMORY_SIZE_MB', '132')) * 1024 * 1024
 
+# Maximum MCP request body size in bytes, separate from file-upload limits.
+MCP_MAX_REQUEST_SIZE = 64 * 1024
+
 # Geospatial API Keys
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
 MAPBOX_API_KEY = os.getenv('MAPBOX_API_KEY', '')

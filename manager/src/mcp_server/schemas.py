@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+MAX_OFFSET = 100000
+
 
 class Arguments(BaseModel):
   model_config = ConfigDict(extra='forbid')
@@ -15,15 +17,11 @@ class Arguments(BaseModel):
 
 class ListArguments(Arguments):
   limit: int = Field(default=25, ge=1, le=25)
-  offset: int = Field(default=0, ge=0, le=100000)
+  offset: int = Field(default=0, ge=0, le=MAX_OFFSET)
 
 
 class SceneArguments(Arguments):
   scene_id: UUID
-
-
-class SceneListArguments(ListArguments):
-  scene_id: UUID | None = None
 
 
 class SceneSummary(BaseModel):
@@ -32,22 +30,6 @@ class SceneSummary(BaseModel):
   map_type: str | None
   scale: float | None
   use_tracker: bool
-
-
-class CameraSummary(BaseModel):
-  sensor_id: str
-  name: str
-  scene_id: UUID | None
-  pose_locked: bool
-
-
-class RegionSummary(BaseModel):
-  uuid: UUID
-  name: str
-  scene_id: UUID
-  height: float
-  volumetric: bool | None
-  roi_type: str
 
 
 ItemT = TypeVar('ItemT', bound=BaseModel)
