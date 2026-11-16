@@ -13,105 +13,116 @@ the module; no database migrations or additional service is required.
 
 ## Architecture
 
-![MCP architecture: AI agents reach the new mcp_server module inside Manager, which uses thin-mcp and reads existing configuration models.](_assets/mcp-architecture.svg)
+![REST clients call known endpoints; AI agents discover and call MCP tools through the new mcp_server module inside Manager.](_assets/mcp-architecture.svg)
 
 The blue components are added by this integration. Manager's existing HTTPS
 endpoint, API-token authentication, ORM models, and PostgreSQL database are reused.
 The tools read configuration directly through the ORM; they do not call the REST
 API or access live tracking state.
 
+## Why MCP for agents?
+
+MCP lets agents discover tool descriptions and schemas through `tools/list`,
+select a tool for the task, and invoke it through `tools/call`. New tools can
+become available without a dedicated client integration for each operation,
+which can shorten delivery cycles. See the
+[MCP tool model](https://modelcontextprotocol.io/specification/2025-11-25/server/tools).
+
+Clients must refresh discovery and may require tool approval; this server does
+not push tool-list changes. Discovery reduces client coupling, but existing tool
+contracts still need compatibility care for cached schemas and saved workflows.
+
 ## Authentication and connection
 
-Configure an MCP client with your deployment's HTTPS `/mcp` URL and an
-`Authorization: Bearer <token>` header. The credential is an existing Manager
-API token obtained through `/api/v1/auth`. The existing `Authorization: Token
-<token>` scheme is also accepted. Session cookies are not accepted for MCP.
+Configure your MCP client with:
 
-All active authenticated users have the same configuration read access as the
-Manager REST API. This endpoint exposes only read operations; the API token
-retains its existing permissions on other Manager endpoints. This initial
-integration does not implement OAuth discovery or browser authorization, so
-clients must support explicitly configured token headers.
-
-For example, with `SCENESCAPE_API_TOKEN` set in your shell:
-
-```bash
-curl --fail-with-body https://web.scenescape.intel.com/mcp \
-  --header "Authorization: Bearer ${SCENESCAPE_API_TOKEN}" \
-  --header 'Content-Type: application/json' \
-  --header 'Accept: application/json, text/event-stream' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"inventory-client","version":"1"}}}'
-
-curl --fail-with-body https://web.scenescape.intel.com/mcp \
-  --header "Authorization: Bearer ${SCENESCAPE_API_TOKEN}" \
-  --header 'Content-Type: application/json' \
-  --header 'Accept: application/json, text/event-stream' \
-  --header 'MCP-Protocol-Version: 2025-11-25' \
-  --data '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+```text
+URL: https://<your-manager-host>/mcp
+Transport: Streamable HTTP
+Authorization: Bearer <Manager API token>
 ```
 
-Use a CA trusted by your client (or configure your deployment's CA explicitly).
-The endpoint supports MCP revisions `2025-03-26`, `2025-06-18`, `2025-11-25`, and
-`2026-07-28`, with header validation delegated to thin-mcp. It returns JSON
-responses and HTTP 202 for notifications; it does not maintain sessions or offer
-an SSE stream. GET and DELETE return HTTP 405.
+Use a token from `/api/v1/auth` and trust your deployment's TLS certificate.
+`Authorization: Token <token>` is also accepted. The client must support explicit
+headers; session cookies and OAuth/browser sign-in are not supported.
+
+Active authenticated users can use the exposed MCP tools.
 
 ## Tools
 
-| Tool          | Arguments                | Result                                                 |
-| ------------- | ------------------------ | ------------------------------------------------------ |
-| `list_scenes` | `limit`, `offset`        | Scene ID, name, map type, scale, tracker configuration |
-| `get_scene`   | Required `scene_id` UUID | One scene with the same summary fields                 |
+This initial PR provides just two read-only tools to get started with persisted
+scene configuration:
 
-Lists default to 25 items, with a hard maximum of 25. Results contain `items`
-and `next_offset`; pass a non-null `next_offset` as the next request's `offset`.
-Offsets must be between 0 and 100000. Pagination stops with `next_offset: null`
-when the next page would exceed that offset limit, even if more records exist.
-This bounds inventory traversal; it is not a complete export of larger datasets.
-Pages have a stable identifier order;
-configuration changes between requests may shift offset pagination. Unknown
-arguments are rejected. A missing scene returns a tool execution error.
+| Tool          | Arguments                  | Result                            |
+| ------------- | -------------------------- | --------------------------------- |
+| `list_scenes` | Optional `limit`, `offset` | Scene summaries and `next_offset` |
+| `get_scene`   | Required `scene_id` UUID   | One scene summary                 |
 
-For example, call `list_scenes` with
-`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_scenes","arguments":{"limit":10,"offset":0}}}`.
+Example: list up to 10 scenes.
 
-These tools return persisted configuration. They do not report live occupancy,
-tracking state, video, or camera health. Stream URLs, credentials, files, raw
-configuration blobs, and user records are excluded from results.
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "list_scenes",
+    "arguments": { "limit": 10 }
+  }
+}
+```
 
-## Transport controls
+Pages default to 25 scenes (maximum 25). Pass `next_offset` to continue; `null`
+means the end of results or the offset limit of 500. These tools do not expose
+live tracking or video.
 
-Requests must contain one JSON-RPC object with `Content-Type: application/json`.
-The Django setting `MCP_MAX_REQUEST_SIZE` sets the maximum body size in bytes
-(default: `64 * 1024`, or 64 KiB). Batches are unsupported. Responses use
-`Cache-Control: no-store`; unexpected failures return a generic error.
-The adapter reads at most the configured limit plus one byte to detect oversized payloads.
-HTTP failures (authentication, permissions, throttling, content type, request size,
-and unsupported methods) use DRF-style `{"detail": "..."}` responses.
-JSON parsing, MCP validation, and dispatch errors retain JSON-RPC error envelopes.
+## Endpoint controls
 
-Requests without an Origin header are accepted. Browser origins must match the
-request origin or an exact string in the Django setting `MCP_ALLOWED_ORIGINS`
-(default: empty list). Configure additional origins only when required.
-Django's existing `ALLOWED_HOSTS` validation also applies.
+The `MCP_*` Django settings below apply specifically to `/mcp`; they do not
+change Manager's REST API or file-upload limits. The endpoint reuses Manager's
+API tokens, Django cache, and existing host validation.
 
-The Django setting `MCP_THROTTLE_RATE` defaults to `120/min` per user. Throttling
-uses the configured Django cache and returns HTTP 429 with `Retry-After`. With
-the default local-memory cache this limit applies separately to each worker;
-use a shared cache for a shared limit.
+### Request size limiting
+
+`MCP_MAX_REQUEST_SIZE` defaults to **64 KiB** (`64 * 1024` bytes), independently
+of Django's global upload limit. The parser reads at most the limit plus one byte
+and rejects oversized bodies with **HTTP 413**.
+
+### Throttling rate
+
+`MCP_THROTTLE_RATE` defaults to **`120/min` per authenticated user**. Exceeding it
+returns **HTTP 429** with `Retry-After`. It uses Django's configured cache;
+with the default local-memory cache, the limit applies separately to each worker.
+Use a shared cache for a shared limit.
+
+### Allowed hosts and origins
+
+- **Hosts:** Manager's existing `ALLOWED_HOSTS` setting validates the destination
+  host. There is no separate MCP host allowlist.
+- **Origins:** `/mcp` explicitly checks the caller's `Origin` because token-based
+  DRF authentication does not apply Django's CSRF origin checks. Requests without
+  `Origin` are accepted. Otherwise it must match the request's scheme and host,
+  or an exact entry in `MCP_ALLOWED_ORIGINS` (default: empty list).
+
+These are Django settings, not automatically read environment variables.
+
+### Request and response format
+
+Supported MCP revisions: `2025-03-26`, `2025-06-18`, `2025-11-25`, and `2026-07-28`.
+The endpoint returns JSON responses and HTTP 202 for notifications, with no
+sessions or SSE stream. GET and DELETE return HTTP 405.
+
+Send one JSON-RPC object with `Content-Type: application/json`; batches are
+unsupported. Responses use `Cache-Control: no-store`. HTTP failures use DRF-style
+`{"detail": "..."}` responses; MCP parsing and protocol errors use JSON-RPC
+error envelopes. Unexpected failures return a generic error.
 
 ## Development and verification
 
-The endpoint in `api.py` uses DRF authentication, permission, throttle, and parser
-hooks from `transport.py`. DRF selects the content type; the parser reads bounded
-bytes, and `core.py` validates JSON and the MCP envelope in one Pydantic call
-before thin-mcp dispatch. Bounded ORM projections live in `queries.py`, and typed adapters in
-`tools/`. `tools_registry.py` owns the registry. Domain imports in
-`tools/__init__.py` determine discovery order. Tools check active authentication
-before executing queries and declare read-only annotations.
-
-See the [module extension guide](../../manager/src/mcp_server/AGENTS.md) for how
-to add a tool, its typed contract, permission checks, tests, and documentation.
+See the [module extension guide](../../manager/src/mcp_server/AGENTS.md) for the
+code structure and steps to add a tool. The
+[test guide](../../manager/tests/mcp_server/README.md) describes the isolated
+Python 3.11 suite run by pre-merge CI and All Tests.
 
 Run the isolated tests without native geometry, a database, or Docker:
 
@@ -121,10 +132,6 @@ uv run --no-project --python 3.11 \
   python -m pytest manager/tests/mcp_server -q
 ```
 
-The tests use real Django/DRF HTTP handling and thin-mcp dispatch, with token
-lookups and domain queries mocked. Import-path setup lives in the local
-`conftest.py`. Pre-merge CI and All Tests run the isolated Python 3.11 suite via
-`tests-mcp.yml`; see the [test guide](../../manager/tests/mcp_server/README.md).
-To verify the deployed stack after rebuilding Manager, run the
-authenticated initialization, discovery, and tool-call examples above against
-your deployment.
+The suite mocks token lookups and ORM queries. For deployment verification,
+rebuild Manager and exercise initialization, discovery, and tool calls through
+your deployment's HTTPS endpoint.

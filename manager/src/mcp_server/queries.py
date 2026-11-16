@@ -6,6 +6,7 @@
 from django.db.models import QuerySet
 from thin_mcp import ToolExecutionError
 
+from manager.models import Scene
 from mcp_server.schemas import (
   MAX_OFFSET, ItemT, ListArguments, Page, SceneArguments, SceneSummary,
 )
@@ -27,15 +28,11 @@ def inventory_page(queryset: QuerySet, arguments: ListArguments,
 
 def list_scenes(arguments: ListArguments) -> Page[SceneSummary]:
   """Return persisted scene metadata, without nested cameras or map files."""
-  from manager.models import Scene
-
   return inventory_page(Scene.objects.order_by('id'), arguments, SceneSummary)
 
 
 def get_scene(arguments: SceneArguments) -> SceneSummary:
   """Resolve one scene; missing scenes are expected tool errors."""
-  from manager.models import Scene
-
   row = Scene.objects.filter(pk=arguments.scene_id).values(*SceneSummary.model_fields).first()
   if row is None:
     raise ToolExecutionError('Scene not found.')

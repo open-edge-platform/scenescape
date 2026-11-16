@@ -3,8 +3,6 @@
 
 """Inventory query policy without native geometry or database dependencies."""
 
-import sys
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -38,12 +36,12 @@ def test_empty_page_has_no_next_offset():
 
 
 @pytest.mark.parametrize('offset,limit,row_count,expected', [
-  (99975, 25, 26, 100000),
-  (99975, 25, 25, None),
-  (99976, 25, 26, None),
-  (100000, 25, 26, None),
-  (99999, 1, 2, 100000),
-  (100000, 1, 2, None),
+  (475, 25, 26, 500),
+  (475, 25, 25, None),
+  (476, 25, 26, None),
+  (500, 25, 26, None),
+  (499, 1, 2, 500),
+  (500, 1, 2, None),
 ])
 def test_pagination_continuation_respects_offset_limit(offset, limit, row_count, expected):
   """Continue at the boundary only when the next request can accept the offset."""
@@ -62,7 +60,7 @@ def test_list_scenes_uses_stable_order(monkeypatch):
   """Order scene pages by their stable unique identifier."""
   scene = MagicMock()
   scene.objects.order_by.return_value.values.return_value.__getitem__.return_value = []
-  monkeypatch.setitem(sys.modules, 'manager.models', SimpleNamespace(Scene=scene))
+  monkeypatch.setattr(queries, 'Scene', scene)
   assert queries.list_scenes(ListArguments()).items == []
   scene.objects.order_by.assert_called_once_with('id')
 
@@ -70,7 +68,7 @@ def test_list_scenes_uses_stable_order(monkeypatch):
 def test_missing_scene(monkeypatch):
   scene = MagicMock()
   scene.objects.filter.return_value.values.return_value.first.return_value = None
-  monkeypatch.setitem(sys.modules, 'manager.models', SimpleNamespace(Scene=scene))
+  monkeypatch.setattr(queries, 'Scene', scene)
   scene_id = uuid4()
   with pytest.raises(ToolExecutionError, match='Scene not found'):
     queries.get_scene(SceneArguments(scene_id=scene_id))

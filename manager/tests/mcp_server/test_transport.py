@@ -3,8 +3,8 @@
 
 """Exercise actual HTTP, authentication, and thin-mcp dispatch boundaries."""
 
-from unittest.mock import patch
-from uuid import uuid4
+from unittest.mock import MagicMock, patch
+from uuid import UUID, uuid4
 
 import pytest
 from django.conf import settings
@@ -80,8 +80,41 @@ def test_valid_tool_call(client, monkeypatch):
   assert result['structuredContent']['next_offset'] is None
 
 
+def test_pagination_follows_continuations_up_to_offset_500(client, monkeypatch):
+  """Follow real tool calls to the last allowed page, then reject offset 501."""
+  rows = [{'id': UUID(int=i + 1), 'name': f'Scene {i}', 'map_type': None,
+           'scale': None, 'use_tracker': True} for i in range(526)]
+  scene = MagicMock()
+  # Use actual list slicing behind the ORM mock; keep validation and queries real.
+  scene.objects.order_by.return_value.values.return_value = rows
+  monkeypatch.setattr(queries, 'Scene', scene)
+  offset = 0
+  seen = []
+
+  for expected_offset in range(0, 501, 25):
+    assert offset == expected_offset
+    response = rpc(client, 'tools/call', {
+      'name': 'list_scenes', 'arguments': {'limit': 25, 'offset': offset},
+    })
+    assert response.status_code == 200
+    page = response.json()['result']['structuredContent']
+    assert [item['id'] for item in page['items']] == [
+      str(row['id']) for row in rows[expected_offset:expected_offset + 25]]
+    seen.extend(item['id'] for item in page['items'])
+    offset = page['next_offset']
+
+  assert offset is None  # Row 526 exists, but the next page would start above 500.
+  assert len(seen) == len(set(seen)) == 525
+  scene.objects.order_by.reset_mock()
+  response = rpc(client, 'tools/call', {
+    'name': 'list_scenes', 'arguments': {'offset': 501},
+  })
+  assert response.json()['result']['isError'] is True
+  scene.objects.order_by.assert_not_called()
+
+
 @pytest.mark.parametrize('arguments', [{'limit': 26}, {'limit': 0}, {'offset': -1},
-                                       {'offset': 100001}, {'unknown': 'value'}])
+                                       {'offset': 501}, {'unknown': 'value'}])
 def test_invalid_tool_arguments_never_query(client, monkeypatch, arguments):
   def unexpected_query(arguments):
     raise AssertionError('Invalid arguments reached the query layer.')

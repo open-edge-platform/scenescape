@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-MAX_OFFSET = 100000
+MAX_OFFSET = 500
 
 
 class Arguments(BaseModel):

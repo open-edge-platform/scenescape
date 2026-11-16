@@ -4,6 +4,7 @@
 """Standalone transport tests; no native geometry, database, or stack required."""
 
 import sys
+from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -29,6 +30,12 @@ django.setup()
 from django.core.cache import cache
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
+
+# Bootstrap only the query module with a model placeholder. Tests patch
+# queries.Scene directly; the real Manager models require native dependencies.
+with pytest.MonkeyPatch.context() as bootstrap:
+  bootstrap.setitem(sys.modules, 'manager.models', SimpleNamespace(Scene=None))
+  import_module('mcp_server.queries')
 
 
 @pytest.fixture
