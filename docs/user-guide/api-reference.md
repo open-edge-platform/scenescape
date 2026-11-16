@@ -66,6 +66,8 @@ return a generic message without internal implementation details.
 
 ## API Specification Viewing Instructions
 
+`docs/user-guide/api-docs/api.yaml` covers the token-authenticated REST API under `/api/v1`. It does not cover browser-session endpoints used by the Manager UI.
+
 Follow the steps below, or see the [Swagger UI Installation Guide](https://github.com/swagger-api/swagger-ui/blob/main/docs/usage/installation.md) for full instructions.
 
 ### 1. Pull Swagger UI image
