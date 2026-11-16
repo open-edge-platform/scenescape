@@ -16,6 +16,23 @@ Each tracker evaluator implements the `TrackerEvaluator` abstract base class (se
 
 Evaluators handle metric-library-specific details (TrackEval, py-motmetrics, etc.) while providing a unified interface to the evaluation pipeline.
 
+## Axes of the position measures
+
+`TrackEvalEvaluator`, `DiagnosticEvaluator` and `JitterEvaluator` measure positions over x, y and z by default. A
+`space` restricts the axes:
+
+| `space`         | Axes             | Command line | Pipeline config |
+| --------------- | ---------------- | ------------ | --------------- |
+| `xyz` (default) | x, y and z       | –            | –               |
+| `xy`            | the ground plane | `--xy-only`  | `space: xy`     |
+| `z`             | the height       | `--z-only`   | `space: z`      |
+
+It applies to the distance behind TrackEval's similarity (and so HOTA, MOTA, IDF1 and the others), to the track matching
+and `DIST_T` of the diagnostic evaluator, and to the jitter derivatives. In Python call `evaluator.set_space('xy')`;
+`reset()` restores `xyz`. Positions without a z, e.g. from a 2D source, are measured in the plane, except for `z`, which
+needs a z. `CameraAccuracyEvaluator` always measures the ground plane. The visualization tools take the same flags, see
+[visualization/README.md](../visualization/README.md#options).
+
 ## Available Evaluators
 
 ### TrackEvalEvaluator
@@ -70,6 +87,8 @@ the canonical formats, as robot-vision test recordings have. From `tools/tracker
 | `--metrics A,B` | Comma-separated metrics, default `HOTA,MOTA,IDF1`                                                                         |
 | `--output DIR`  | Output directory, default `<input>/metrics`                                                                               |
 | `--fps N`       | Frame rate for matching timestamps, default the median ground-truth rate; set it to the dataset's `camera_fps` when known |
+| `--xy-only`     | Measure the ground plane only, default x, y and z, see [Axes](#axes-of-the-position-measures)                             |
+| `--z-only`      | Measure the height only, default x, y and z                                                                               |
 
 **Implementation**: [trackeval_evaluator.py](trackeval_evaluator.py)
 
@@ -85,17 +104,18 @@ the canonical formats, as robot-vision test recordings have. From `tools/tracker
 
 - **LOC_T_X**: Per-frame X position of each matched (output, GT) track pair
 - **LOC_T_Y**: Per-frame Y position of each matched (output, GT) track pair
-- **DIST_T**: Per-frame Euclidean distance error between each matched pair
+- **LOC_T_Z**: Per-frame Z position of each matched (output, GT) track pair
+- **DIST_T**: Per-frame Euclidean distance error between each matched pair (x, y and z by default, see [Axes](#axes-of-the-position-measures))
 
 **Key Features**:
 
-- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`). Implemented by `match_tracks()` in [`utils/tracks.py`](../utils/tracks.py).
+- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance (x, y and z by default) over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`). Implemented by `match_tracks()` in [`utils/tracks.py`](../utils/tracks.py).
 - **Missing Frame Handling**: Frames where only one side (output or GT) has data produce `NaN` in CSV output, preserving full temporal context.
 - **CSV Output**: Per-metric CSV files with headers:
-  - LOC_T_X / LOC_T_Y: `[frame_id, track_id, gt_id, value_track, value_gt]`
+  - LOC_T_X / LOC_T_Y / LOC_T_Z: `[frame_id, track_id, gt_id, value_track, value_gt]`
   - DIST_T: `[frame_id, track_id, gt_id, distance]`
 - **Plot Output**: One matplotlib figure per metric with all matched pairs overlaid.
-- **Summary Scalars**: `evaluate_metrics()` returns `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, and `num_matches`.
+- **Summary Scalars**: `evaluate_metrics()` returns `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `LOC_T_Z_mae` (each for the configured metrics), and `num_matches`. `LOC_T_Z_mae` is NaN when no matched pair has a z (planar data).
 
 **Usage Example**:
 
@@ -105,19 +125,19 @@ from pathlib import Path
 
 evaluator = DiagnosticEvaluator()
 metrics = (evaluator
-           .configure_metrics(['LOC_T_X', 'LOC_T_Y', 'DIST_T'])
+           .configure_metrics(['LOC_T_X', 'LOC_T_Y', 'LOC_T_Z', 'DIST_T'])
            .set_output_folder(Path('/path/to/results'))
            .process_tracker_outputs(tracker_outputs, gt_file_path)
            .evaluate_metrics())
 print(f"Mean distance: {metrics['DIST_T_mean']:.3f}")
 print(f"X MAE: {metrics['LOC_T_X_mae']:.3f}")
 print(f"Y MAE: {metrics['LOC_T_Y_mae']:.3f}")
+print(f"Z MAE: {metrics['LOC_T_Z_mae']:.3f}")
 print(f"Matched pairs: {int(metrics['num_matches'])}")
 ```
 
 **Current Limitations**:
 
-- Uses only X and Y coordinates (Z ignored)
 - Single-sequence evaluation only
 - No configurable overlap threshold (fixed at 10 frames)
 

@@ -66,8 +66,7 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
 
   # Semantic metadata (age, gender, clothing, etc.) — exclude reid key
   if ao.metadata:
-    if 'metadata' not in obj_dict:
-      obj_dict['metadata'] = {}
+    obj_dict.setdefault('metadata', {})
     for key, value in ao.metadata.items():
       if key != 'reid':
         obj_dict['metadata'][key] = value
@@ -78,8 +77,7 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
   if reid and 'embedding_vector' in reid:
     reid_embedding = reid['embedding_vector']
     if reid_embedding is not None:
-      if 'metadata' not in obj_dict:
-        obj_dict['metadata'] = {}
+      obj_dict.setdefault('metadata', {})
       reid_vec = np.asarray(reid_embedding, dtype=np.float32)
       obj_dict['metadata']['reid'] = {
         'embedding_vector': reid_vec.tolist(),

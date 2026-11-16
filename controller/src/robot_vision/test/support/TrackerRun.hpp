@@ -39,11 +39,13 @@ inline Association euclideanAssociation(double radiusM = 2.0)
 }
 
 // Production default: association.method position_mahalanobis, gate_probability 0.99, max_radius_m 10.
+// chi2(p, 3) on the 3x3 position gate, as association_match_params (Controller) and
+// AssociationConfig::chi2Threshold (Tracker Service) compute it.
 inline Association positionMahalanobisAssociation(double gateProbability = 0.99, double maxRadiusM = 10.0)
 {
   return {.method = "position_mahalanobis",
           .distanceType = DistanceType::PositionMahalanobis,
-          .threshold = rv::chi2Threshold(gateProbability),
+          .threshold = rv::chi2Threshold(gateProbability, 3),
           .maxRadiusM = maxRadiusM,
           .gateProbability = gateProbability};
 }
