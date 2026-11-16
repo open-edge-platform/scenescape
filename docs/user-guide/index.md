@@ -62,6 +62,11 @@ Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python
 
 Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](./microservices/auto-calibration/auto-calibration.md).
 
+### **Observation Processor**
+
+Converts camera detections into mesh-aware world-space measurements through a gRPC service.
+For more information, refer to [Observation Processor Service](./microservices/observation-processor/observation-processor.md).
+
 ### **Positioning**
 
 Provides the deployment boundary for future live-pose resolution for sources such as ONVIF PTZ cameras. The current service shell publishes MQTT liveness only; pose resolution is not yet implemented. For more information, refer to [Positioning Service](./microservices/positioning/positioning.md).
@@ -135,6 +140,7 @@ Analytics <./microservices/analytics/analytics.md>
 Auto Camera Calibration <./microservices/auto-calibration/auto-calibration.md>
 Cluster Analytics <./microservices/cluster-analytics/cluster-analytics.md>
 Mapping Service <./microservices/mapping-service/mapping-service.md>
+Observation Processor <./microservices/observation-processor/observation-processor.md>
 Positioning Service <./microservices/positioning/positioning.md>
 Positioning Operations <./microservices/positioning/operations.md>
 Re-ID Service <./microservices/reid-service/reid-service.md>
