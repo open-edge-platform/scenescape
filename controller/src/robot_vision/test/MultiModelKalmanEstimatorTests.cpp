@@ -689,6 +689,31 @@ TEST(MultiModelKalmanEstimatorTest, PredictPublishesMeasurementCovarianceWithout
   }
 }
 
+TEST(MultiModelKalmanEstimatorTest, PredictKeepsMeasurementCovarianceWithoutNoiseUnderLargeDefaultNoise)
+{
+  // Born from a detection with R 0.2, so H P H^T(x, x) is about 0.21 after a step, under a default r of 1e16: S - r I
+  // rounds it to 0 and the gate of a detection with R would ignore the track's uncertainty (Copilot review of #2129).
+  for (const auto &models : kSingleAndProductionModels)
+  {
+    SCOPED_TRACE(models.size() == 1 ? "single model" : "production IMM");
+    rv::tracking::TrackedObject object;
+    object.length = object.width = object.height = 1.0;
+    object.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+
+    MultiModelKalmanEstimator estimator;
+    estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 1e16, 1.0, models);
+    estimator.predict(0.1);
+    const auto state = estimator.currentState();
+
+    cv::Point bestModel;
+    cv::minMaxLoc(estimator.getModelProbability(), nullptr, nullptr, nullptr, &bestModel);
+    const cv::Mat expected = estimator.mKalmanFilters[bestModel.y]->getPredictedMeasurementCovWithoutNoise();
+    EXPECT_LT(cv::norm(cv::Mat(state.predictedStateMeasurementCov), expected, cv::NORM_INF), 1e-12);
+    EXPECT_GT(state.predictedStateMeasurementCov(rv::tracking::MeasurementIndex::X, rv::tracking::MeasurementIndex::X),
+              0.2);
+  }
+}
+
 TEST(MultiModelKalmanEstimatorTest, InitializeSeedsErrorCovarianceFromMeasurementNoise)
 {
   using rv::tracking::MeasurementIndex;

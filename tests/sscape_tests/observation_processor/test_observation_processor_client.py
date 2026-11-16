@@ -1,7 +1,16 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for experimental observation processor in the scene controller."""
+"""Unit tests for the Scene Controller's experimental observation processor client.
+
+Scope: Controller only (controller/src/controller/observation_processor.py and its use in
+IntelLabsTracking and Scene). The service itself is tested in the other modules of this folder,
+and the Tracker service client in tracker/test/unit and tracker/test/service.
+
+Covers request building and local-processing fallback, measurement application, environment
+settings, the gRPC client against a fake in-process service, tracker/scene wiring, and the
+centre-of-mass z reference with the real robot_vision. No real service is started.
+"""
 
 import math
 import threading

@@ -21,6 +21,10 @@ harness:
     container_image: intel/scenescape-controller:latest
     tracker_config_path: pipeline_configs/black_box_wildtrack/config/controller_immediate.json
     # startup_wait_s: 2.0
+    # The Controller without time chunking keeps one pending frame per category,
+    # so frames of different cameras that share a timestamp must not arrive as a
+    # burst. (cameras - 1) * stagger must stay below the frame interval.
+    same_timestamp_stagger_ms: 30
     # drain_timeout: 5.0
     # Optional observability: capture OTLP metrics via an OTEL Collector sidecar
     enable_metrics: true

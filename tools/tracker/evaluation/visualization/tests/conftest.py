@@ -22,6 +22,44 @@ def fixture_recording(tmp_path):
   return directory
 
 
+# Per-detection R of the noisy_recording fixture: x/y correlated, z and size at the tracker default.
+DETECTION_NOISE = [[0.05 if i == j == 0 else 0.02 if i == j == 1 else 0.01 if {i, j} == {0, 1} else
+                    0.2 if i == j else 0.0 for j in range(7)] for i in range(7)]
+
+
+@pytest.fixture(name="detection_noise")
+def fixture_detection_noise():
+  """The per-detection R that noisy_recording puts on every detection."""
+  return [row[:] for row in DETECTION_NOISE]
+
+
+@pytest.fixture(name="noisy_recording")
+def fixture_noisy_recording(recording):
+  """The recording with a per-detection R on every detection and HPHt on every step.
+
+  HPHt is S without the default R (0.2).
+  """
+  for name, edit in (("detections.jsonl", _add_detection_noise), ("estimator.jsonl", _add_hpht)):
+    path = recording / name
+    records = [edit(json.loads(line)) for line in path.read_text(encoding="utf-8").splitlines()]
+    path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+  return recording
+
+
+def _add_detection_noise(frame):
+  for objects in frame["objects"].values():
+    for obj in objects:
+      obj["measurement_noise_covariance"] = DETECTION_NOISE
+  return frame
+
+
+def _add_hpht(record):
+  if record["type"] == "step" and record["S"] is not None:
+    record["HPHt"] = [[value - (0.2 if i == j else 0.0) for j, value in enumerate(row)]
+                      for i, row in enumerate(record["S"])]
+  return record
+
+
 @pytest.fixture(name="tracker_output")
 def fixture_tracker_output(tmp_path):
   """Real tracker output: translation-only ground truth, UUID track ids, no estimator."""

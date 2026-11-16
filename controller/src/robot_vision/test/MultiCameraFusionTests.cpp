@@ -621,14 +621,14 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithoutMeasurementNoiseLeavesRU
   EXPECT_NEAR(fused.x, 1.1, 1e-12);
 }
 
-// The fused R after two frames of an orienting detection (x variance 1, yaw variance 1, Cov(x, yaw) 0.8,
-// Cov(z, yaw) 0.3) and a non-orienting one (x variance 1), both 2 m apart in y.
+// The fused R after two frames of an orienting detection (x variance 1, z variance 0.3, yaw variance 1,
+// Cov(x, yaw) 0.8, Cov(z, yaw) 0.3; positive definite) and a non-orienting one (x variance 1, z variance 0.3).
 TrackedObject::MeasurementMatrix fusedNoiseWithCorrelatedYaw(bool orientingMeasuredZ, bool otherMeasuredZ)
 {
   auto tracker = makeFusionTracker();
   auto orienting = makeDetection(1.0, 0.0, 0.9, 0.5, 0.5, 1.8);
   orienting.z_measured = orientingMeasuredZ;
-  orienting.measurementNoiseCov = diagonalMeasurementNoise(1.0, 0.2, 0.2);
+  orienting.measurementNoiseCov = diagonalMeasurementNoise(1.0, 0.2, 0.3);
   auto &orientingNoise = *orienting.measurementNoiseCov;
   orientingNoise(MeasurementIndex::YAW, MeasurementIndex::YAW) = 1.0;
   orientingNoise(MeasurementIndex::X, MeasurementIndex::YAW)
@@ -638,7 +638,7 @@ TrackedObject::MeasurementMatrix fusedNoiseWithCorrelatedYaw(bool orientingMeasu
   rv::tracking::orientation::setHasOrientation(orienting, true);
   auto other = makeDetection(1.2, 0.0, 0.9, 0.5, 0.5, 1.8);
   other.z_measured = otherMeasuredZ;
-  other.measurementNoiseCov = diagonalMeasurementNoise(1.0, 0.2, 0.2);
+  other.measurementNoiseCov = diagonalMeasurementNoise(1.0, 0.2, 0.3);
   rv::tracking::orientation::setHasOrientation(other, false);
 
   for (int frame = 0; frame < 2; ++frame)

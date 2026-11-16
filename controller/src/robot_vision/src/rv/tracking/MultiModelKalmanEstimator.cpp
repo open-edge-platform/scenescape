@@ -32,10 +32,13 @@ cv::Mat measurementNoise(const TrackedObject &measurement)
   return measurement.measurementNoiseCov ? cv::Mat(*measurement.measurementNoiseCov) : cv::Mat();
 }
 
-/// H P H^T recovered from S = H P H^T + r I, so predict needs no second sigma-point product.
-TrackedObject::MeasurementMatrix withoutDefaultNoise(const TrackedObject::MeasurementMatrix &S, double r)
+/// H P H^T of the filter's last predict, from its sigma points as the update with a detection's R uses it. Not S - r I:
+/// with a default r much larger than H P H^T the subtraction rounds H P H^T away, and the gate would disagree with the
+/// update.
+TrackedObject::MeasurementMatrix
+predictedMeasurementCovWithoutNoise(const cv::detail::tracking::UnscentedKalmanFilterMod &filter)
 {
-  return S - TrackedObject::MeasurementMatrix::eye() * r;
+  return filter.getPredictedMeasurementCovWithoutNoise();
 }
 
 // Measurement components a prepared detection observes. Include z when the detection measured it, or
@@ -77,7 +80,6 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
 {
   mLastTimestamp = timestamp;
   mProcessNoise = processNoise;
-  mMeasurementNoise = measurementNoise;
 
   mSystemModels.clear();
   mModelTypes.clear();
@@ -271,8 +273,7 @@ void MultiModelKalmanEstimator::singleModelPredict(double deltaT)
     mCurrentState.predictedMeasurementCov = mKalmanFilters[0]->getMeasurementCov();
   }
 
-  mCurrentState.predictedStateMeasurementCov
-    = withoutDefaultNoise(mCurrentState.predictedMeasurementCov, mMeasurementNoise);
+  mCurrentState.predictedStateMeasurementCov = predictedMeasurementCovWithoutNoise(*mKalmanFilters[0]);
 
   if (deltaT >= 1e-3)
   {
@@ -396,8 +397,7 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
   }
   mCurrentState.predictedMeasurementMean = combinedMeasurement;
   mCurrentState.predictedMeasurementCov = measurementCovariances[bestModel];
-  mCurrentState.predictedStateMeasurementCov
-    = withoutDefaultNoise(mCurrentState.predictedMeasurementCov, mMeasurementNoise);
+  mCurrentState.predictedStateMeasurementCov = predictedMeasurementCovWithoutNoise(*mKalmanFilters[bestModel]);
 
   if (deltaT >= 1e-3)
   {

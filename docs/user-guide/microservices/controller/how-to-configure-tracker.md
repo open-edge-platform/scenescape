@@ -377,9 +377,11 @@ are configured:
 | CA certificates    | `CONTROLLER_OBSERVATION_PROCESSOR_CA_CERT`                                                | `infrastructure.observation_processor.ca_cert_path` / `TRACKER_OBSERVATION_PROCESSOR_CA_CERT`  | system roots |
 
 Conditioning modes: `auto` uses full conditioning (frustum Gaussian and amodal reasoning against the
-scene mesh) when the scene has a mesh and frustum-only conditioning otherwise; `full` and
+scene mesh) when the scene has a usable mesh and frustum-only conditioning otherwise; `full` and
 `frustum_only` force one of them. The channel uses TLS unless the plaintext option is set; use
-plaintext only for development.
+plaintext only for development (the service itself then needs `OBSERVATION_PROCESSOR_INSECURE=1`).
+The service rejects a frame with more than 512 detections (`OBSERVATION_PROCESSOR_MAX_DETECTIONS`);
+that frame is processed locally and counted as a failed call.
 
 The call deadline blocks the tracking step, so keep it below the time-chunking interval
 (1000 / `time_chunking_rate_fps` ms); a warning is logged when it is longer (by the Scene Controller

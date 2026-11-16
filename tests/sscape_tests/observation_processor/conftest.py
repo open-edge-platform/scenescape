@@ -1,41 +1,126 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate the observation processor gRPC stubs (package scenescape_api) for these tests.
+"""Import paths and fixtures for Observation Processor unit tests (service and Controller client)."""
 
-The controller image generates the same package at build time (controller/Dockerfile).
-"""
-
-import atexit
-import shutil
 import sys
-import tempfile
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock, patch
 
-import grpc_tools
-from grpc_tools import protoc
+import open3d as o3d
+import numpy as np
+import pytest
 
-_PROTO = Path(__file__).resolve().parents[3] / "observation_processor" / "proto" \
-  / "observation_processor.proto"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+for source in (
+  REPO_ROOT / "observation_processor" / "src",
+  REPO_ROOT / "spatial_performance_primitives",
+  REPO_ROOT / "spatial_performance_primitives" / "frustum_gaussian" / "python",
+):
+  if str(source) not in sys.path:
+    sys.path.insert(0, str(source))
 
-
-def _generate_stubs():
-  out_dir = Path(tempfile.mkdtemp(prefix="scenescape-api-"))
-  atexit.register(shutil.rmtree, out_dir, ignore_errors=True)
-  well_known_protos = Path(grpc_tools.__file__).parent / "_proto"
-  result = protoc.main([
-    "grpc_tools.protoc",
-    f"-Iscenescape_api/observation_processor/v1={_PROTO.parent}",
-    f"-I{well_known_protos}",
-    f"--python_out={out_dir}",
-    f"--grpc_python_out={out_dir}",
-    "scenescape_api/observation_processor/v1/observation_processor.proto",
-  ])
-  if result != 0:
-    raise RuntimeError(f"protoc failed for {_PROTO}")
-  return out_dir
+from observation_processor.conditioning import process_detections
+from observation_processor.grpc_api import observation_processor_pb2 as pb
+from observation_processor.scene_provider import SceneProvider
 
 
-_stub_dir = str(_generate_stubs())
-if _stub_dir not in sys.path:
-  sys.path.insert(0, _stub_dir)
+def _fake_frustum_observations(boxes):
+  count = len(boxes)
+  return {
+    "mu": np.zeros((count, 3)),
+    "Sigma": np.tile(np.eye(3), (count, 1, 1)),
+    "ray": np.tile([0.0, 0.0, -1.0], (count, 1)),
+    "depth_est": np.full(count, 2.0),
+    "depth_sigma": np.full(count, 0.1),
+    "depth_lo": np.zeros(count),
+    "depth_hi": np.full(count, 10.0),
+    "score": np.full(count, 0.8),
+    "edge_valid": np.full(count, 15, dtype=np.uint8),
+  }
+
+
+class APIResult(dict):
+  """Small RESTResult equivalent for isolated REST fixtures."""
+
+  def __init__(self, value=None, status=200):
+    super().__init__(value or {})
+    self.statusCode = status
+
+
+@pytest.fixture
+def projection_configuration():
+  """Warm a real reasoner with a floor mesh, without connecting to a database."""
+  scene = {"uid": "scene", "map": "/media/floor.glb"}
+  camera = {
+    "uid": "camera", "intrinsics": {"fx": 100, "fy": 100, "cx": 64, "cy": 48},
+    "translation": [0, 0, 3], "rotation": [180, 0, 0], "resolution": [128, 96],
+  }
+  assets = [
+    {"name": "person", "x_size": 0.6, "y_size": 0.5, "z_size": 1.8},
+    {"name": "car", "x_size": 2.0, "y_size": 4.5, "z_size": 1.5,
+      "project_to_map": True},
+  ]
+  rest = Mock()
+  rest.getScenes.side_effect = lambda *args: APIResult({"results": [scene]})
+  rest.getScene.side_effect = lambda uid: APIResult(scene) if uid == "scene" \
+      else APIResult(status=404)
+  rest.getCameras.side_effect = lambda *args: APIResult({"results": [camera]})
+  rest.getAssets.side_effect = lambda *args: APIResult({"results": assets})
+  mesh = o3d.geometry.TriangleMesh.create_box(width=20, height=20, depth=0.1)
+  mesh.translate([-10, -10, -0.1])
+  tensor_mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
+  projector = Mock(side_effect=lambda *args, **kwargs:
+                   _fake_frustum_observations(kwargs["boxes"]))
+  transformer = Mock(side_effect=lambda observations, pose: observations)
+  with patch("observation_processor.scene_provider.RESTClient", return_value=rest), \
+       patch.object(SceneProvider, "_mesh_bytes", return_value=b"floor mesh"), \
+       patch.object(SceneProvider, "_load_world_mesh", return_value=tensor_mesh) as load, \
+       patch("observation_processor.conditioning.fg.project_frustum_batch", projector), \
+       patch("observation_processor.conditioning.fg.transform_to_world_batch", transformer):
+    provider = SceneProvider()
+    provider.warm()
+    yield SimpleNamespace(provider=provider, rest=rest, scene=scene, camera=camera,
+                assets=assets, mesh=tensor_mesh, load=load,
+                projector=projector, transformer=transformer)
+
+
+@pytest.fixture
+def frame():
+  """A valid mixed-category-capable input frame."""
+  request = pb.ProcessDetectionsRequest(
+    scene_id="scene", camera_id="camera", mode=pb.CONDITIONING_MODE_FRUSTUM_ONLY,
+    include_diagnostics=True)
+  request.timestamp.seconds = 1234567890
+  request.timestamp.nanos = 123456789
+  request.detections.add(
+    detection_id="detection", category="person",
+    bounding_box_px=pb.BoundingBoxPx(x=54, y=25, width=20, height=46))
+  return request
+
+
+@pytest.fixture
+def process_frame(projection_configuration):
+  """Run the projection pipeline in-process without starting a gRPC server."""
+  return lambda request: process_detections(request, projection_configuration.provider)
+
+
+def _alias_controller_stubs():
+  """Serve the Controller's `scenescape_api` stub imports from the service's committed stubs.
+
+  The Controller image generates `scenescape_api.observation_processor.v1.*` from the same proto.
+  Both would register the same protobuf symbols, which fails when loaded in one process.
+  """
+  from observation_processor.grpc_api import observation_processor_pb2, observation_processor_pb2_grpc
+  package = "scenescape_api.observation_processor.v1"
+  for name in ("scenescape_api", "scenescape_api.observation_processor", package):
+    module = sys.modules.setdefault(name, ModuleType(name))
+    module.__path__ = []
+  sys.modules[f"{package}.observation_processor_pb2"] = observation_processor_pb2
+  sys.modules[f"{package}.observation_processor_pb2_grpc"] = observation_processor_pb2_grpc
+  sys.modules[package].observation_processor_pb2 = observation_processor_pb2
+  sys.modules[package].observation_processor_pb2_grpc = observation_processor_pb2_grpc
+
+
+_alias_controller_stubs()

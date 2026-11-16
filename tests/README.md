@@ -163,9 +163,32 @@ make run_ui_tests
 
 # Run all unit tests
 make run_unit_tests
-
-
 ```
+
+Observation Processor cache and projection tests are part of the unit suite.
+They mock the frustum projection kernel so its behavior is covered by the
+library's own tests. `make run_unit_tests` generates the Observation Processor
+protobuf bindings with the test virtualenv for the duration of the pytest run.
+Existing generated bindings are restored, and newly generated files are removed
+afterward.
+
+### OpenAPI schema drift checks
+
+```bash
+# Manager: Schemathesis contract tests against the in-proces Django app
+make check-manager-contract
+
+# Autocalibration: Schemathesis contract tests against the in-process Flask app
+make check-autocalibration-contract
+
+# Mapping: Schemathesis contract tests against the in-process Flask app
+make check-mapping-contract
+```
+
+In pre-merge CI, the **Check OpenAPI Contracts** job runs only the checks for
+services whose implementation, contract tests, or committed OpenAPI specifications
+changed. Changes to shared contract dependencies or the BAT workflow run all three
+checks. Spec-only changes do not start the BAT job.
 
 ### Running tests via pytest directly
 
