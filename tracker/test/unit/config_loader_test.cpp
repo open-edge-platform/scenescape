@@ -5,11 +5,15 @@
 #include "config_loader.hpp"
 #include "scene_loader.hpp"
 
+#include <rv/tracking/MultipleObjectTracker.hpp>
+#include <rv/tracking/TrackManager.hpp>
 #include <rv/Utils.hpp>
 
 #include "env_vars.hpp"
 #include "utils/scoped_env.hpp"
 
+#include <bit>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -803,6 +807,221 @@ TEST(ConfigLoaderTest, AssociationFromJsonAndEnv) {
     EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, 8.0);
     EXPECT_EQ(config.tracking.association.distanceType(), rv::tracking::DistanceType::Euclidean);
     EXPECT_DOUBLE_EQ(config.tracking.association.costThreshold(), 8.0);
+}
+
+// Filter settings (q, r, P0) and the birth-clustering radius
+
+namespace {
+
+/// A config whose tracking block is `tracking_block` (a JSON object text).
+std::string config_with_tracking(const std::string& tracking_block) {
+    return R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "tracking": )" +
+           tracking_block + R"(,
+      "scenes": {
+        "source": "file",
+        "file_path": ")" +
+           empty_scenes_path() + R"("
+      }
+    })";
+}
+
+std::string config_with_filter(const std::string& filter_block) {
+    return config_with_tracking(R"({"filter": )" + filter_block + "}");
+}
+
+std::uint64_t bits(double value) {
+    return std::bit_cast<std::uint64_t>(value);
+}
+
+constexpr const char* kPermissiveSchema = R"({
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object"
+})";
+
+} // namespace
+
+TEST(ConfigLoaderTest, FilterDefaultsAreTheProductionConstantsBitForBit) {
+    for (const std::string& json : {MINIMAL_CONFIG(), config_with_tracking("{}"),
+                                    config_with_tracking(R"({"filter": {}})")}) {
+        TempFile config_file(json);
+        const auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_EQ(bits(config.tracking.filter.process_noise),
+                  bits(rv::tracking::kProductionProcessNoise));
+        EXPECT_EQ(bits(config.tracking.filter.base_measurement_noise),
+                  bits(rv::tracking::kProductionMeasurementNoise));
+        EXPECT_EQ(bits(config.tracking.filter.init_state_covariance),
+                  bits(rv::tracking::kProductionInitStateCovariance));
+        EXPECT_EQ(bits(config.tracking.association.birth_cluster_radius_m),
+                  bits(rv::tracking::kDefaultBirthClusterRadiusM));
+    }
+}
+
+TEST(ConfigLoaderTest, FilterProductionConstantsWrittenAsJsonParseToTheSameBits) {
+    // Written out in a config, the production values must reach the filter as the very same
+    // doubles: RapidJSON's default number parsing is not guaranteed correctly rounded.
+    TempFile config_file(config_with_tracking(R"({
+      "filter": {"process_noise": 1e-4, "base_measurement_noise": 0.2, "init_state_covariance": 1.0},
+      "association": {"birth_cluster_radius_m": 2.0}
+    })"));
+    const auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(bits(config.tracking.filter.process_noise),
+              bits(rv::tracking::kProductionProcessNoise));
+    EXPECT_EQ(bits(config.tracking.filter.base_measurement_noise),
+              bits(rv::tracking::kProductionMeasurementNoise));
+    EXPECT_EQ(bits(config.tracking.filter.init_state_covariance),
+              bits(rv::tracking::kProductionInitStateCovariance));
+    EXPECT_EQ(bits(config.tracking.association.birth_cluster_radius_m),
+              bits(rv::tracking::kDefaultBirthClusterRadiusM));
+
+    for (const char* text : {"0.0001", "1E-4", "1.0e-4", "0.00010"}) {
+        SCOPED_TRACE(text);
+        TempFile spelled(config_with_filter(std::string(R"({"process_noise": )") + text + "}"));
+        EXPECT_EQ(
+            bits(load_config(spelled.path(), get_schema_path()).tracking.filter.process_noise),
+            bits(1e-4));
+    }
+}
+
+TEST(ConfigLoaderTest, FilterFromJson) {
+    TempFile config_file(config_with_filter(
+        R"({"process_noise": 2e-4, "base_measurement_noise": 0.5, "init_state_covariance": 16})"));
+    const auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_DOUBLE_EQ(config.tracking.filter.process_noise, 2e-4);
+    EXPECT_DOUBLE_EQ(config.tracking.filter.base_measurement_noise, 0.5);
+    EXPECT_DOUBLE_EQ(config.tracking.filter.init_state_covariance, 16.0);
+}
+
+TEST(ConfigLoaderTest, FilterPartialBlockKeepsTheOtherDefaults) {
+    TempFile config_file(config_with_filter(R"({"base_measurement_noise": 0.5})"));
+    const auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_DOUBLE_EQ(config.tracking.filter.base_measurement_noise, 0.5);
+    EXPECT_EQ(bits(config.tracking.filter.process_noise),
+              bits(rv::tracking::kProductionProcessNoise));
+    EXPECT_EQ(bits(config.tracking.filter.init_state_covariance),
+              bits(rv::tracking::kProductionInitStateCovariance));
+}
+
+TEST(ConfigLoaderTest, FilterEnvOverridesJsonAndDefault) {
+    TempFile config_file(config_with_filter(
+        R"({"process_noise": 2e-4, "base_measurement_noise": 0.5, "init_state_covariance": 16})"));
+    ScopedEnv process_noise(tracker::env::FILTER_PROCESS_NOISE, "3e-4");
+    ScopedEnv measurement_noise(tracker::env::FILTER_BASE_MEASUREMENT_NOISE, "0.75");
+    ScopedEnv init_covariance(tracker::env::FILTER_INIT_STATE_COVARIANCE, "4");
+    const auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_DOUBLE_EQ(config.tracking.filter.process_noise, 3e-4);
+    EXPECT_DOUBLE_EQ(config.tracking.filter.base_measurement_noise, 0.75);
+    EXPECT_DOUBLE_EQ(config.tracking.filter.init_state_covariance, 4.0);
+
+    TempFile minimal(MINIMAL_CONFIG());
+    EXPECT_DOUBLE_EQ(load_config(minimal.path(), get_schema_path()).tracking.filter.process_noise,
+                     3e-4);
+}
+
+TEST(ConfigLoaderTest, FilterEnvProductionValuesGiveTheConstantBits) {
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv process_noise(tracker::env::FILTER_PROCESS_NOISE, "1e-4");
+    ScopedEnv measurement_noise(tracker::env::FILTER_BASE_MEASUREMENT_NOISE, "0.2");
+    ScopedEnv init_covariance(tracker::env::FILTER_INIT_STATE_COVARIANCE, "1.0");
+    const auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(bits(config.tracking.filter.process_noise),
+              bits(rv::tracking::kProductionProcessNoise));
+    EXPECT_EQ(bits(config.tracking.filter.base_measurement_noise),
+              bits(rv::tracking::kProductionMeasurementNoise));
+    EXPECT_EQ(bits(config.tracking.filter.init_state_covariance),
+              bits(rv::tracking::kProductionInitStateCovariance));
+}
+
+TEST(ConfigLoaderTest, FilterJsonInvalidValueThrows) {
+    // Draft-04 validation ignores the schema's numeric exclusiveMinimum, so the loader checks the
+    // range itself: test it with the production schema and with a permissive one.
+    TempFile permissive(kPermissiveSchema);
+    for (const char* key : {"process_noise", "base_measurement_noise", "init_state_covariance"}) {
+        for (const char* value :
+             {"0", "0.0", "-1", "-0.01", "\"0.2\"", "true", "null", "[]", "{}"}) {
+            SCOPED_TRACE(std::string(key) + " = " + value);
+            TempFile config_file(
+                config_with_filter(std::string("{\"") + key + "\": " + value + "}"));
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+            EXPECT_THROW(load_config(config_file.path(), permissive.path()), std::runtime_error);
+        }
+    }
+}
+
+TEST(ConfigLoaderTest, FilterUnknownKeyIsRejectedBySchema) {
+    TempFile config_file(config_with_filter(R"({"process_noise": 2e-4, "motion_models": ["CV"]})"));
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, FilterEnvInvalidValueThrows) {
+    TempFile config_file(MINIMAL_CONFIG());
+    for (const char* name :
+         {tracker::env::FILTER_PROCESS_NOISE, tracker::env::FILTER_BASE_MEASUREMENT_NOISE,
+          tracker::env::FILTER_INIT_STATE_COVARIANCE}) {
+        for (const char* value :
+             {"not_a_number", "0", "-1", "nan", "inf", "-inf", "1e99999", "0.2x"}) {
+            SCOPED_TRACE(std::string(name) + "=" + value);
+            ScopedEnv env(name, value);
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        }
+    }
+}
+
+TEST(ConfigLoaderTest, BirthClusterRadiusFromJsonAndEnv) {
+    TempFile config_file(
+        config_with_tracking(R"({"association": {"birth_cluster_radius_m": 3.5}})"));
+    EXPECT_DOUBLE_EQ(load_config(config_file.path(), get_schema_path())
+                         .tracking.association.birth_cluster_radius_m,
+                     3.5);
+
+    TempFile zero(config_with_tracking(R"({"association": {"birth_cluster_radius_m": 0}})"));
+    EXPECT_DOUBLE_EQ(
+        load_config(zero.path(), get_schema_path()).tracking.association.birth_cluster_radius_m,
+        0.0);
+
+    ScopedEnv env(tracker::env::ASSOCIATION_BIRTH_CLUSTER_RADIUS_M, "4.25");
+    EXPECT_DOUBLE_EQ(load_config(config_file.path(), get_schema_path())
+                         .tracking.association.birth_cluster_radius_m,
+                     4.25);
+}
+
+TEST(ConfigLoaderTest, BirthClusterRadiusIsIndependentOfMethodAndMaxRadius) {
+    for (const char* method : {"euclidean", "position_mahalanobis"}) {
+        SCOPED_TRACE(method);
+        TempFile config_file(
+            config_with_tracking(std::string(R"({"association": {"method": ")") + method +
+                                 R"(", "max_radius_m": 7.0, "birth_cluster_radius_m": 3.5}})"));
+        const auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.association.birth_cluster_radius_m, 3.5);
+        EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, 7.0);
+    }
+    TempFile without(config_with_tracking(R"({"association": {"max_radius_m": 7.0}})"));
+    EXPECT_EQ(bits(load_config(without.path(), get_schema_path())
+                       .tracking.association.birth_cluster_radius_m),
+              bits(rv::tracking::kDefaultBirthClusterRadiusM));
+}
+
+TEST(ConfigLoaderTest, BirthClusterRadiusJsonInvalidValueThrows) {
+    TempFile permissive(kPermissiveSchema);
+    for (const char* value : {"-1", "-0.01", "\"2\"", "true", "null", "[]"}) {
+        SCOPED_TRACE(value);
+        TempFile config_file(config_with_tracking(
+            std::string(R"({"association": {"birth_cluster_radius_m": )") + value + "}}"));
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        EXPECT_THROW(load_config(config_file.path(), permissive.path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, BirthClusterRadiusEnvInvalidValueThrows) {
+    TempFile config_file(MINIMAL_CONFIG());
+    for (const char* value : {"not_a_number", "-1", "nan", "inf", "1e99999", "2x"}) {
+        SCOPED_TRACE(value);
+        ScopedEnv env(tracker::env::ASSOCIATION_BIRTH_CLUSTER_RADIUS_M, value);
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
 }
 
 TEST(ConfigLoaderTest, AssociationMahalanobisCostThresholdUsesChi2) {

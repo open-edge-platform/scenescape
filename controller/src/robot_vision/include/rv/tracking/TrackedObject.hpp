@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <optional>
 
 #include "rv/tracking/Classification.hpp"
 
@@ -97,10 +98,18 @@ public:
 
   std::string toString() const;
 
-  // tracked object parameters; fixed-size matrices, so copies never share them
+  // tracked object parameters (track outputs, written by the estimator on predict/correct);
+  // fixed-size matrices, so copies never share them
   MeasurementVector predictedMeasurementMean;
-  MeasurementMatrix predictedMeasurementCov;
-  StateMatrix errorCovariance;
+  MeasurementMatrix predictedMeasurementCov; ///< S = H P H^T + R_default (association / UI window)
+  MeasurementMatrix predictedStateMeasurementCov; ///< H P H^T: track uncertainty in measurement space, without R
+  StateMatrix errorCovariance;                    ///< P
+
+  /// Per-detection measurement noise R. Unset means the tracker default R. When set, it drives
+  /// information-weighted multi-camera fusion, the association gate (S = H P H^T + R) and the Kalman update.
+  /// Callers must store a matrix accepted by validatedMeasurementNoiseCov (finite, symmetric, PD); track()
+  /// re-validates detections at ingestion.
+  std::optional<MeasurementMatrix> measurementNoiseCov;
 
   Classification classification;
 
@@ -131,6 +140,13 @@ public:
    */
   MeasurementVector measurementVector() const;
 };
+
+/// Symmetrized R when every entry is finite and the result is positive definite.
+/// Throws std::invalid_argument otherwise (same contract as the Python setter).
+TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise);
+
+/// If measurementNoiseCov is set, replace it with validatedMeasurementNoiseCov(*it).
+void ensureValidMeasurementNoiseCov(TrackedObject &object);
 
 static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");
 static_assert(TrackedObject::MeasurementSize == MeasurementIndex::YAW + 1,
