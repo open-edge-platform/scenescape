@@ -93,7 +93,12 @@ def test_registration_error_status_handled(request, record_xml_attribute, scenes
   TEST_NAME = "NEX-T27164"
 
   test = RegistrationErrorHandlingTest(TEST_NAME, request, record_xml_attribute)
-  test.execute_test()
+  try:
+    test.execute_test()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   common.record_test_result(TEST_NAME, test.exitCode)
 

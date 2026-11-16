@@ -9,9 +9,11 @@ import open3d as o3d
 import numpy as np
 import pytest
 
-from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate, getPoseMatrix
+pytest.importorskip("hloc.pipelines.SceneScape")
+
+from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromImage
-from scene_common.transform import convertToTransformMatrix
+from scene_common.transform import convertToTransformMatrix, getPoseMatrix
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import MARKERLESS
 
@@ -33,12 +35,12 @@ def test_camCalibObject(scenescape_env, createCamCalibObject):
   """! Tests Creation of a CameraCalibrationMonocularPoseEstimate object. """
   assert isinstance(createCamCalibObject, CameraCalibrationMonocularPoseEstimate)
 
-def test_decodeImage(scenescape_env, createCamCalibObject ,convertImageToBase64,
+def test_decode_image(scenescape_env, createCamCalibObject ,convertImageToBase64,
                      convertBadImageToBase64):
   """! Tests if the images being sent via mqtt is decoded right. """
   cam_obj = createCamCalibObject
-  assert isinstance(cam_obj.decodeImage(convertImageToBase64), np.ndarray)
-  assert isinstance(cam_obj.decodeImage(convertBadImageToBase64), NoneType)
+  assert isinstance(cam_obj.decode_image(convertImageToBase64), np.ndarray)
+  assert isinstance(cam_obj.decode_image(convertBadImageToBase64), NoneType)
 
 def test_getPoseMatrix(scenescape_env, createSceneObject, expectedPoseMat):
   """! Tests if basic Pose Matrix generated is correct. """
@@ -47,28 +49,29 @@ def test_getPoseMatrix(scenescape_env, createSceneObject, expectedPoseMat):
   assert pose_mat.shape == (4, 4)
   assert np.allclose(expectedPoseMat, pose_mat)
 
-def test_convertYUpToYDown(scenescape_env, createCamCalibObject, createSceneObject, rotAndTrans,
+def test_convert_y_up_to_y_down(scenescape_env, createCamCalibObject, createSceneObject, rotAndTrans,
                            expectedMatForYupToYDown):
   """! Tests upon rotation and translation, do we get the right matrix in
        Scenescape co-ordinate system. """
   rot, trans = rotAndTrans
   cam_obj = createCamCalibObject
   cam_obj.scene_pose_mat = getPoseMatrix(createSceneObject)
-  val = createCamCalibObject.convertYUpToYDown(rot, trans)
+  val = createCamCalibObject.convert_y_up_to_y_down(rot, trans)
   assert val.shape == (4, 4)
   assert np.allclose(expectedMatForYupToYDown, val)
 
-def test_convertToTransformMatrix(scenescape_env, createCamCalibObject, rotAndTrans,
-                                  expectedMatForTransformMatrix):
+def test_convertToTransformMatrix(scenescape_env, createCamCalibObject, createSceneObject,
+                                  rotAndTrans, expectedMatForTransformMatrix):
   """! Test markerless.convertToTransformMatrix returns 4x4 shaped matrix. """
   rot, trans = rotAndTrans
+  createCamCalibObject.scene_pose_mat = getPoseMatrix(createSceneObject)
   val = convertToTransformMatrix(createCamCalibObject.scene_pose_mat, rot, trans)
   assert val.shape == (4, 4)
   assert np.allclose(expectedMatForTransformMatrix, val)
 
-def test_getMarkerlessConfig(scenescape_env, createCamCalibObject, createSceneObject, hlocConfig):
+def test_get_markerless_config(scenescape_env, createCamCalibObject, createSceneObject, hlocConfig):
   """! Test to check if hloc config generated is right. """
-  cfg = createCamCalibObject.generateMarkerlessConfig(createSceneObject)
+  cfg = createCamCalibObject.generate_markerless_config(createSceneObject)
   assert isinstance(cfg, dict)
   assert cfg['hloc']['global_feature'] == "netvlad"
   assert cfg['hloc']['min_matches'] == 20

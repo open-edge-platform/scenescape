@@ -31,14 +31,25 @@ Before You Begin, ensure the following:
    > - To remove a point, right click on the point.
    > - To move a point, click and drag the point to the desired location.
 5. Adjust the points to refine the camera's alignment with the scene.
-6. Click **Save Camera** to persist the calibration.
-7. Use **Reset Points** to clear all points (if needed).
+6. Leave **Pose locked** checked unless this camera should accept live MQTT
+   extrinsics and optics (for example a handheld device). Calibrated cameras
+   default to locked so stored calibration is not overridden by camera
+   messages. See [Camera Pose Lock](../../api-reference.md#camera-pose-lock).
+7. Click **Save Camera** to persist the calibration.
+8. Use **Reset Points** to clear all points (if needed).
    > **Notes:**
    >
    > - To add new points after clicking reset, refer to the instructions in step 4 above.
    > - You must reset points if the scene map, translation, or rotation changes.
 
 **Expected Result**: The projection aligns with the scene based on user-defined calibration.
+
+Manual calibration uses the displayed camera image resolution and fixes the
+principal point at its center: `cx = width / 2`, `cy = height / 2`. Save Camera
+persists that resolution and centered principal point. Use a full-resolution
+image for this first-order calibration; a thumbnail is treated as the calibration
+image, not scaled to a different sensor resolution. Other calibration methods
+and API clients can still supply an off-center principal point.
 
 ### 2. Use Advanced Calibration Features
 

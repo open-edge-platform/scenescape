@@ -63,7 +63,9 @@ function makeCalibration({ homeResponse } = {}) {
       shown.mapper = mapper;
     },
     arePointsLocked: () => shown.state !== "home",
-    updateImageSrc: spy(),
+    updateImageSrc(image, onLoad) {
+      onLoad?.();
+    },
     getImageSize: () => [2688, 1512],
     getCalibrationPoints: () => ({}),
     calibrationUpdated: false,

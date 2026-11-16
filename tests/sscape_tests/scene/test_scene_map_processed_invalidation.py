@@ -14,17 +14,20 @@ from scene_common.options import APRILTAG
 
 
 def _scene_with_map(map_name="scene.png"):
-  """Build an unsaved Scene whose map FieldFile is mocked (no MEDIA_ROOT I/O)."""
+  """Build an unsaved Scene with a named map but no MEDIA_ROOT I/O."""
   scene = Scene(name="map_invalidate_scene", scale=100.0, camera_calibration=APRILTAG)
   scene.pk = 1
   scene.id = 1
-  map_field = MagicMock()
-  map_field.name = map_name
-  map_field.path = f"/tmp/{map_name}"
-  scene.map = map_field
-  scene._original_map = map_field
+  scene.map = map_name
+  scene._original_map = scene.map.name
   scene._original_polycam_data = scene.polycam_data
   return scene
+
+
+def test_original_map_snapshot_does_not_follow_fieldfile_mutation():
+  scene = Scene(name="snapshot", map="original.png")
+  scene.map.name = "replacement.png"
+  assert scene._original_map == "original.png"
 
 
 @patch("manager.models.sendUpdateCommand")
@@ -52,9 +55,10 @@ def test_reuploading_same_map_name_clears_map_processed(mock_model_save, _mock_c
   scene.pk = 1
   scene.id = 1
   scene.map = "Queuing.png"
-  scene._original_map = scene.map
+  scene._original_map = scene.map.name
   scene._original_polycam_data = scene.polycam_data
   scene.map_processed = timezone.now()
+  scene.default_source_map_id = 1
 
   scene.map = SimpleUploadedFile("Queuing.png", b"new map bytes")
   assert scene.map == scene._original_map
@@ -63,6 +67,7 @@ def test_reuploading_same_map_name_clears_map_processed(mock_model_save, _mock_c
     scene.save(send_update_command=False)
 
   assert scene.map_processed is None
+  assert scene.default_source_map_id is None
   mock_model_save.assert_called()
 
 

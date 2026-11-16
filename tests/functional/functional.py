@@ -4,12 +4,16 @@
 from tests.diagnostic import Diagnostic
 import numpy as np
 import threading
+import time
 import json
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.utils.log import get_logger
 
 log = get_logger(__name__)
+
+# Seconds to wait for the broker handshake before giving up on a connection.
+MQTT_CONNECT_TIMEOUT_S = 10
 
 class FunctionalTest(Diagnostic):
   def buildArgparser(self):
@@ -35,9 +39,7 @@ class FunctionalTest(Diagnostic):
     data = json.loads(message.payload.decode('utf-8'))
     if data is not None:
       log.debug(f"Tracking received topic={message.topic} payload={data}")
-      self._sceneReadyCondition.acquire()
-      self._sceneReadyCondition.notify()
-      self._sceneReadyCondition.release()
+      self._sceneReadyEvent.set()
     return
 
   def sceneControllerReady(self, waitTopic, publishTopic, timeout,
@@ -60,28 +62,24 @@ class FunctionalTest(Diagnostic):
       f"Waiting for ready connected={self.pubsub.isConnected()} "
       f"topic={waitTopic}"
     )
+    # Create the signal before subscribing
+    self._sceneReadyEvent = threading.Event()
     self.pubsub.addCallback(waitTopic, self._trackingReceived)
 
-    self._sceneReadyCondition = threading.Condition()
     max_count = timeout / interval
     count = 0
     ready = False
 
     # Make copy of detection since it will be modified
     detection_pub = detection.copy()
-    self._sceneReadyCondition.acquire()
     while not ready and count < max_count:
       log.debug(f"Try {count} of {max_count} publishTopic={publishTopic}")
       detection_pub['timestamp'] = get_iso_time(beginEpoch + count * interval)
       self.pubsub.publish(publishTopic, json.dumps(detection_pub))
-      if self._sceneReadyCondition.wait(interval):
-        ready = True
+      ready = self._sceneReadyEvent.wait(interval)
       count += 1
-    self._sceneReadyCondition.release()
 
     self.pubsub.removeCallback(waitTopic)
-
-    del self._sceneReadyCondition
 
     return count if ready else None
 
@@ -105,24 +103,43 @@ class FunctionalTest(Diagnostic):
     return locations
 
   def getScene(self):
-    res = self.rest.getScenes({'id': self.params['scene_id']})
-    assert res['results'], ("Scene does not exist", self.params['scene_id'], res.statusCode, res.errors)
+    scene_id = getattr(self, 'sceneUID', None) or self.params['scene_id']
+    res = self.rest.getScenes({'id': scene_id})
+    assert res['results'], ("Scene does not exist", scene_id, res.statusCode, res.errors)
     return
+
+  def waitForConnection(self, pubsub, timeout=MQTT_CONNECT_TIMEOUT_S):
+    """Block until `pubsub` reports a live broker connection.
+
+    @param      pubsub      PubSub instance with its network loop started
+    @param      timeout     seconds to wait before giving up
+    @return                 True when connected, False on timeout
+    """
+    deadline = get_epoch_time() + timeout
+    while not pubsub.isConnected() and get_epoch_time() < deadline:
+      time.sleep(0.05)
+    return pubsub.isConnected()
 
   def sceneScapeReady(self, max_attempts, controller_wait):
     attempts = 0
     ready = None
     frameRate = 10
     objData = self.objData()
+    scene_id = getattr(self, 'sceneUID', None) or self.params['scene_id']
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
                          self.params['broker_url'],
                          port=int(self.params['broker_port']))
     waitTopic = PubSub.formatTopic(PubSub.DATA_SCENE,
-                                   scene_id=self.params['scene_id'], thing_type="person")
+                                   scene_id=scene_id, thing_type="person")
     publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])
     self.pubsub.connect()
     self.pubsub.loopStart()
+    if not self.waitForConnection(self.pubsub):
+      log.error('Timed out connecting to the broker; scene controller probe '
+                'cannot subscribe or publish.')
+      self.pubsub.loopStop()
+      return False
 
     while attempts < max_attempts:
       attempts += 1

@@ -384,6 +384,7 @@ class KubeClient():
       'action': "save"
     }
     camera_data.update(camera)
+    camera_data['scene_uid'] = camera.get('scene')
     return camera_data
 
   def initializeCameras(self):

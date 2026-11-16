@@ -18,7 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T19882")
-def test_reid_semantic_unique_count(params):
+def test_reid_semantic_unique_count(demo_scene, params, record_xml_attribute):
   """! Tests the unique count for each scene when RE-ID with
   semantic classification (age-gender) is enabled.
   @param    params                  Dict of test parameters.

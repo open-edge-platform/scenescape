@@ -7,6 +7,7 @@ Tests the complete integration with TrackEval library for computing
 tracking metrics on 3D point tracking data.
 """
 
+import json
 import pytest
 import sys
 from pathlib import Path
@@ -16,7 +17,7 @@ import shutil
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from evaluators.trackeval_evaluator import TrackEvalEvaluator
+from evaluators.trackeval_evaluator import TrackEvalEvaluator, ground_truth_fps, main
 
 
 @pytest.fixture
@@ -63,7 +64,6 @@ def mock_tracker_outputs():
 @pytest.fixture
 def mock_ground_truth_file(tmp_path):
   """Create mock ground truth JSONL file in canonical Tracker Output Format."""
-  import json
   gt_file = tmp_path / "ground_truth.jsonl"
   gt_frames = [
     {
@@ -344,3 +344,89 @@ class TestSetBaseFps:
     ev.set_output_folder(temp_result_folder)
     with pytest.raises(RuntimeError, match="Frame rate is required"):
       ev.process_tracker_outputs(mock_tracker_outputs, mock_ground_truth_file)
+
+
+def write_scenario(directory, frames=20, interval_ms=100, track_offset=0.0):
+  """Write tracks.jsonl and groundtruth.jsonl: one object moving along x, tracked x-shifted."""
+  directory.mkdir(parents=True, exist_ok=True)
+  truth, tracks = [], []
+  for frame in range(frames):
+    milliseconds = frame * interval_ms
+    timestamp = f"1970-01-01T00:00:{milliseconds // 1000:02d}.{milliseconds % 1000:03d}000Z"
+    x = 0.1 * frame
+    truth.append({"timestamp": timestamp,
+                  "objects": [{"id": 1, "category": "person", "translation": [x, 0.0, 0.0]}]})
+    tracks.append({"id": "scene", "name": "scene", "timestamp": timestamp, "objects": [
+      {"id": "1", "category": "person", "translation": [x + track_offset, 0.0, 0.0]}]})
+  (directory / "groundtruth.jsonl").write_text("".join(json.dumps(f) + "\n" for f in truth))
+  (directory / "tracks.jsonl").write_text("".join(json.dumps(f) + "\n" for f in tracks))
+  return directory
+
+
+class TestCommandLine:
+  """Test the command-line entry point on a ScenarioRecorder-style directory."""
+
+  def test_defaults(self, tmp_path, capsys):
+    """Default metrics and frame rate; results in <input>/metrics."""
+    scenario = write_scenario(tmp_path / "scenario")
+
+    assert main([str(scenario)]) == 0
+
+    out = capsys.readouterr().out
+    assert "Frame rate: 10 fps" in out
+    summary = out[out.index("=== Evaluation Results ==="):].splitlines()
+    assert summary == [
+      "=== Evaluation Results ===",
+      "",
+      "[TrackEvalEvaluator]",
+      "  HOTA: 1.0000",
+      "  MOTA: 1.0000",
+      "  IDF1: 1.0000",
+      "",
+      f"Results saved to: {scenario / 'metrics'}",
+    ]
+    assert (scenario / "metrics" / "evaluation_seq.txt").is_file()
+
+  def test_options(self, tmp_path, capsys):
+    """--metrics, --fps and --output are applied; a 0.5 m offset lowers localization accuracy."""
+    scenario = write_scenario(tmp_path / "scenario", track_offset=0.5)
+    output = tmp_path / "out"
+
+    arguments = ["--metrics", "LocA,IDSW", "--fps", "5", "--output", str(output)]
+    assert main([str(scenario), *arguments]) == 0
+
+    out = capsys.readouterr().out
+    summary = out[out.index("=== Evaluation Results ==="):].splitlines()
+    assert "Frame rate: 5 fps" in out
+    assert [line.split(":")[0] for line in summary[3:5]] == ["  LocA", "  IDSW"]
+    assert 0.0 < float(summary[3].split(":")[1]) < 1.0
+    assert summary[4] == "  IDSW: 0.0000"
+    assert output.is_dir() and not (scenario / "metrics").exists()
+
+  @pytest.mark.parametrize("arguments", [
+    ["--metrics", "HOTA,NOPE"],
+    ["--fps", "0"],
+  ])
+  def test_rejects_invalid_options(self, tmp_path, arguments):
+    """Unknown metrics and a non-positive frame rate are usage errors."""
+    scenario = write_scenario(tmp_path / "scenario")
+    with pytest.raises(SystemExit):
+      main([str(scenario), *arguments])
+
+  def test_rejects_missing_files(self, tmp_path):
+    """Both tracks.jsonl and groundtruth.jsonl are required."""
+    scenario = write_scenario(tmp_path / "scenario")
+    (scenario / "tracks.jsonl").unlink()
+    with pytest.raises(SystemExit):
+      main([str(scenario)])
+
+  def test_ground_truth_fps(self, tmp_path):
+    """Median interval of distinct ground-truth timestamps; a single timestamp needs --fps."""
+    scenario = write_scenario(tmp_path / "scenario", interval_ms=40)
+    assert ground_truth_fps(scenario / "groundtruth.jsonl") == pytest.approx(25.0)
+
+    single = write_scenario(tmp_path / "single", frames=1)
+    with pytest.raises(ValueError, match="pass --fps"):
+      ground_truth_fps(single / "groundtruth.jsonl")
+    with pytest.raises(SystemExit):
+      main([str(single)])

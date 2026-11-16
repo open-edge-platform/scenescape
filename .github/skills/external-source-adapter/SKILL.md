@@ -61,21 +61,28 @@ guidance, rejection reasons, and full JSON examples are defined only in
    `source_id`. Do not put a scene uid in the topic path. Prefer `wgs84` for
    mobile agents (geospatial auto-attach); use
    `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` for `scene`-frame poses.
-2. Choose a persistent `source_id` and per-object `id` (see Choosing a
-   `source_id` in `data_formats.md`); never mint fresh UUIDs on each restart.
+2. Choose a persistent `source_id` (see Choosing a `source_id` in
+   `data_formats.md`); never mint fresh UUIDs on each restart. For Cartesian
+   `track=false` observations, also choose persistent per-object `id`s. For
+   mounted-camera pixel detections, use `track=true` or omit `track` (pixels
+   with `track=false` are discarded).
 3. Map native observations into source-local `translation` (metres) relative to
-   the source origin described by `pose`.
+   the source origin described by `pose`, or into per-camera `bounding_box_px`
+   under a complete `cameras[]` array when publishing mounted-cam detections.
 4. Choose `reference_frame` (`wgs84` vs `scene`) correctly; honor
    `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for `scene` poses.
 5. Convert the source's native orientation (euler, DCM, etc.) into the
    contract's quaternion `(x, y, z, w)`. Do not invent alternate rotation
    field shapes.
 6. Use ISO 8601 UTC timestamps (`scene_common.timestamp.get_iso_time` is fine).
-7. **Pose-only sources** (GNSS/attitude with no separate detections): either
-   publish `pose` with an empty `objects` array (cache refresh), or report the
-   platform itself as one object at `[0, 0, 0]` using the same persistent id as
-   `source_id` — see Choosing a `source_id` in `data_formats.md`. Do not mint a
-   second identity for "the vehicle."
+7. **Pose-only sources** (GNSS/attitude with no separate detections): publish
+   `pose` with an empty `objects` array (or an explicit platform object at
+   `[0, 0, 0]` with `id == source_id`). The controller always materializes the
+   platform as a trusted scene object on accepted messages — see Platform
+   citizenship in `data_formats.md`. Do not mint a second identity for "the
+   vehicle." Include `cameras[]` (mount + intrinsics) when frustums should
+   appear; the controller projects that config onto the platform object's
+   `cameras` field for the 3D view.
 8. Publish over authenticated MQTT with the Scenescape CA cert (see the how-to
    skeleton using `scene_common.mqtt.PubSub` and `PubSub.DATA_EXTERNAL`).
 9. Keep credentials in environment variables or secret files — never hard-code
