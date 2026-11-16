@@ -161,10 +161,6 @@ jobs:
             lcov
           pip install conan gcovr
 
-      - name: "Configure Conan"
-        run: |
-          conan profile detect --force
-
       - name: "Detect runner image"
         id: runner-image
         run: echo "name=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
@@ -176,6 +172,12 @@ jobs:
           key: conan-${{ runner.os }}-${{ steps.runner-image.outputs.name }}-${{ hashFiles('tracker/conanfile.txt') }}
           restore-keys: |
             conan-${{ runner.os }}-${{ steps.runner-image.outputs.name }}-
+
+      # Runs after the cache restore so the profile always reflects this
+      # runner's compiler rather than the one stored in the restored cache.
+      - name: "Configure Conan"
+        run: |
+          conan profile detect --force
 
       - name: "Build release"
         run: make -C tracker build
