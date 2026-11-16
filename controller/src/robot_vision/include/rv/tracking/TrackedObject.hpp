@@ -145,9 +145,6 @@ public:
 /// Throws std::invalid_argument otherwise (same contract as the Python setter).
 TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise);
 
-/// True when validatedMeasurementNoiseCov would accept noise (does not throw).
-bool isValidMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise);
-
 /// If measurementNoiseCov is set, replace it with validatedMeasurementNoiseCov(*it).
 void ensureValidMeasurementNoiseCov(TrackedObject &object);
 

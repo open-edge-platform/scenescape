@@ -145,19 +145,6 @@ TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObjec
   return symmetric;
 }
 
-bool isValidMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise)
-{
-  try
-  {
-    (void)validatedMeasurementNoiseCov(noise);
-    return true;
-  }
-  catch (const std::invalid_argument &)
-  {
-    return false;
-  }
-}
-
 void ensureValidMeasurementNoiseCov(TrackedObject &object)
 {
   if (object.measurementNoiseCov)
