@@ -71,6 +71,14 @@ def resolve_compose_files(compose_files, dri_path="/dev/dri"):
   device node exists so CPU-only hosts can still start video profiles.
   """
   files = list(compose_files)
+  includes_tracking_service = any(
+    os.path.basename(path).startswith("compose.scene")
+    or os.path.basename(path) == "compose.tracker.yml"
+    for path in files
+  )
+  positioning_compose = f"{COMPOSE}/compose.positioning.yml"
+  if includes_tracking_service and positioning_compose not in files:
+    files.append(positioning_compose)
   if not _host_has_dri(dri_path):
     return tuple(files)
   for marker, override in _GPU_DRI_OVERRIDES:
@@ -206,6 +214,30 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
     "retail-video": WaitConfig(),
     "scene": _SCENE,
     "analytics": _ANALYTICS,
+  },
+)
+
+TRACK_ANNOTATION_CONTROLLER = ServiceProfile(
+  name="track_annotation_controller",
+  compose_files=FULL_STACK_WITH_VIDEO_AND_RETAIL.compose_files + (
+    f"{DLS}/compose.track-annotation.yml",
+  ),
+  wait_for=FULL_STACK_WITH_VIDEO_AND_RETAIL.wait_for,
+)
+
+TRACK_ANNOTATION_TRACKER = ServiceProfile(
+  name="track_annotation_tracker",
+  compose_files=tuple(
+    path for path in TRACK_ANNOTATION_CONTROLLER.compose_files
+    if path != f"{COMPOSE}/compose.scene.yml"
+  ) + (f"{COMPOSE}/compose.tracker.yml",),
+  wait_for={
+    **{
+      service: readiness
+      for service, readiness in TRACK_ANNOTATION_CONTROLLER.wait_for.items()
+      if service != "scene"
+    },
+    "tracker": WaitConfig(log_pattern="MQTT connected"),
   },
 )
 
@@ -494,6 +526,46 @@ SCENE_NO_DB = ServiceProfile(
   },
 )
 
+PTZ_ENFORCE = ServiceProfile(
+  name="ptz_enforce",
+  compose_files=(
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.scene-ptz.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
+  },
+)
+
+PTZ_SHADOW = ServiceProfile(
+  name="ptz_shadow",
+  compose_files=(
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.scene-ptz-shadow.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
+  },
+)
+
 MARKERLESS = ServiceProfile(
   name="markerless",
   compose_files=(
@@ -604,6 +676,8 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_RETAIL_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
+    TRACK_ANNOTATION_CONTROLLER,
+    TRACK_ANNOTATION_TRACKER,
     REID,
     REID_CORE,
     REID_QDRANT,
@@ -618,6 +692,8 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_AUTOCALIBRATION,
     FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
     SCENE_NO_DB,
+    PTZ_ENFORCE,
+    PTZ_SHADOW,
     MARKERLESS,
     INFERENCE_PERF,
     STABILITY,

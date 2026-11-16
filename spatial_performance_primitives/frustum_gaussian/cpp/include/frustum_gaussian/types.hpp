@@ -9,9 +9,10 @@
 namespace fg {
 
 // ---------------------------------------------------------------------------
-// Edge clipping bit flags.
-// Bit = 1 means the corresponding bounding-box edge is NOT clipped by the
-// image border (i.e. the true object boundary is visible).
+// Edge bit positions shared by BoundingBox.clipped and FrustumObservation.edge_valid.
+// Interpretation depends on the field that carries the mask:
+//   clipped:    bit = 1 → that edge IS clipped by the image border
+//   edge_valid: bit = 1 → that edge is NOT clipped (usable for depth)
 // ---------------------------------------------------------------------------
 constexpr uint8_t EDGE_LEFT   = 0x01;
 constexpr uint8_t EDGE_RIGHT  = 0x02;

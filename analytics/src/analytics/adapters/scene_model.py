@@ -6,7 +6,6 @@ from typing import Optional
 import numpy as np
 
 from scene_common import log
-from scene_common.camera import Camera
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mesh_util import createObjectMesh, createRegionMesh, getMeshAxisAlignedProjectionToXY
@@ -47,6 +46,7 @@ class AnalyticsScene(SceneModel):
     self.regulated_rate = 30
     self.external_update_rate = 30
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     return
 
   def _hydrateFromSceneData(self, scene_data):
@@ -86,10 +86,18 @@ class AnalyticsScene(SceneModel):
     Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
 
     The matrix is calculated lazily on first access and cached for subsequent calls.
+    Returns None when the geospatial inputs are incomplete or invalid. A computation
+    failure is logged once and remembered until the cache is invalidated.
     """
-    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
+        and self.output_lla and self.map_corners_lla is not None):
+      try:
+        mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+      except (TypeError, ValueError, IndexError) as exc:
+        self._trs_xyz_to_lla_failed = True
+        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
+                  self.map_file, "error:", exc)
     return self._trs_xyz_to_lla
 
   def _invalidate_trs_xyz_to_lla(self):
@@ -98,21 +106,11 @@ class AnalyticsScene(SceneModel):
     This method should be called when the scene geospatial mapping parameters change.
     """
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     return
 
   def _updateChildren(self, newChildren):
     self.children = [x['name'] for x in newChildren]
-    return
-
-  def updateCameras(self, newCameras):
-    old = set(self.cameras.keys())
-    new = set([x['uid'] for x in newCameras])
-    for cameraData in newCameras:
-      camID = cameraData['uid']
-      self.cameras[camID] = Camera(camID, cameraData, resolution=cameraData['resolution'])
-    deleted = old - new
-    for camID in deleted:
-      self.cameras.pop(camID)
     return
 
   def _updateRegions(self, existingRegions, newRegions):
@@ -177,6 +175,9 @@ class AnalyticsScene(SceneModel):
 
   def getTrackedObjects(self, detection_type):
     return self._ingestion.get_objects(detection_type)
+
+  def getAllTrackedObjects(self):
+    return self._ingestion.get_all_objects()
 
   def _deserializeTrackedObjects(self, serialized_objects):
     return self._ingestion.deserialize(serialized_objects, self.sensors)
@@ -267,7 +268,7 @@ class AnalyticsScene(SceneModel):
     """
     for obj in curObjects:
       existing = getattr(obj, 'visibility', None)
-      if existing:
+      if getattr(obj, '_visibility_from_producer', bool(existing)):
         continue
       vis = []
       for sname in self.cameras:

@@ -14,11 +14,18 @@ Builds and caches one observation_conditioning.AmodalReasoner per
 camera calibration changes. Caches are loaded eagerly with warm() and have no
 expiry: configuration changes always go through the Manager, which publishes
 "update" on scenescape/cmd/database — the server subscribes to that topic and
-calls invalidate(), scheduling a complete refresh by the readiness worker.
+calls invalidate(), waking the readiness worker for a configuration refresh.
 Meshes and calibrated-camera reasoners are loaded before publishing the new
-snapshot, including when a mesh is overwritten at the same URL.
+snapshot. A mesh that fails to load for one scene is logged and skipped (the
+previous mesh is retained when available); other scenes continue, and AUTO
+falls back to FRUSTUM_ONLY for scenes without a usable mesh. Unchanged meshes
+and reasoners are reused after checking mesh content, mesh pose and
+calibration; same-URL mesh replacements are detected. Requests retain the last
+successfully warmed snapshot throughout refreshes and configuration-store
+failures.
 """
 
+import hashlib
 import os
 import tempfile
 import threading
@@ -30,12 +37,17 @@ from scipy.spatial.transform import Rotation
 
 from scene_common import log
 from scene_common.rest_client import RESTClient
+from scene_common.transform import CameraIntrinsics
 
 DEFAULT_REST_URL = "https://web.scenescape.intel.com/api/v1"
 DEFAULT_AUTH = "/run/secrets/observation_processor.auth"
 DEFAULT_ROOTCERT = "/run/secrets/certs/scenescape-ca.pem"
 DEFAULT_MEDIA_ROOT = "/workspace/media"
 DEFAULT_NUM_LAYERS = 4
+MAX_SCENE_MESH_BYTES = 100 * 1024 * 1024
+# Cap amodal depth-map bake cost (width * height). 4K UHD is the hard ceiling.
+DEFAULT_MAX_CAMERA_PIXELS = 3840 * 2160
+MESH_DOWNLOAD_CHUNK_SIZE = 64 * 1024
 DEFAULT_WORLD_UP = (0.0, 0.0, 1.0)
 DISTORTION_KEYS = ("k1", "k2", "p1", "p2", "k3", "k4", "k5", "k6",
                    "s1", "s2", "s3", "s4", "taux", "tauy")
@@ -49,6 +61,22 @@ PEDESTRIAN_PRIOR = {
 # Assets define sizes but no size uncertainty; derive sigma as this fraction
 # of each dimension.
 DEFAULT_SIGMA_FRACTION = 0.15
+
+
+def _http_origin(url):
+  try:
+    parsed = urlsplit(url)
+    scheme = parsed.scheme.lower()
+    hostname = parsed.hostname
+    port = parsed.port
+  except ValueError:
+    return None
+  if scheme not in ("http", "https") or hostname is None \
+      or parsed.username is not None or parsed.password is not None:
+    return None
+  if port is None:
+    port = 443 if scheme == "https" else 80
+  return scheme, hostname.lower(), port
 
 
 class StoreUnavailableError(Exception):
@@ -67,8 +95,85 @@ class CameraNotCalibratedError(Exception):
   """The camera record has no usable intrinsics or pose."""
 
 
+class InvalidAssetPriorError(ValueError):
+  """An object-library asset has invalid size dimensions for projection."""
+
+
 class SceneMeshMissingError(Exception):
   """The scene has no GLB mesh (image-based map or no map at all)."""
+
+
+class SceneMeshTooLargeError(Exception):
+  """The scene GLB exceeds the configured maximum mesh size."""
+
+
+class CameraResolutionUnsupportedError(Exception):
+  """Camera image size exceeds the amodal depth-map bake limit."""
+
+
+# Geometry problems that should not abort a multi-scene warm().
+_MESH_WARM_ERRORS = (
+  SceneMeshTooLargeError, SceneMeshMissingError, StoreUnavailableError,
+  OSError, ValueError, RuntimeError,
+)
+
+
+def _append_mesh_chunk(content: bytearray, chunk: bytes) -> None:
+  if len(content) + len(chunk) > MAX_SCENE_MESH_BYTES:
+    raise SceneMeshTooLargeError(
+      f"scene mesh exceeds maximum size of {MAX_SCENE_MESH_BYTES} bytes")
+  content.extend(chunk)
+
+
+def _read_mesh_file(path: str) -> bytes:
+  """Read a local mesh, checking size before and while loading."""
+  try:
+    size = os.path.getsize(path)
+  except OSError as exc:
+    raise StoreUnavailableError(f"scene mesh is unreadable: {path}") from exc
+  if size < 0 or size > MAX_SCENE_MESH_BYTES:
+    raise SceneMeshTooLargeError(
+      f"scene mesh exceeds maximum size of {MAX_SCENE_MESH_BYTES} bytes")
+  content = bytearray()
+  with open(path, "rb") as handle:
+    while True:
+      chunk = handle.read(MESH_DOWNLOAD_CHUNK_SIZE)
+      if not chunk:
+        break
+      _append_mesh_chunk(content, chunk)
+  return bytes(content)
+
+
+def _read_mesh_response(reply, url):
+  if reply.status_code != 200:
+    raise StoreUnavailableError(f"download {url}: HTTP {reply.status_code}")
+  content_length = reply.headers.get("Content-Length")
+  if content_length is not None:
+    try:
+      declared_size = int(content_length)
+    except ValueError as exc:
+      raise StoreUnavailableError("scene mesh has invalid Content-Length") from exc
+    if declared_size < 0 or declared_size > MAX_SCENE_MESH_BYTES:
+      raise SceneMeshTooLargeError(
+        f"scene mesh exceeds maximum size of {MAX_SCENE_MESH_BYTES} bytes")
+  content = bytearray()
+  for chunk in reply.iter_content(chunk_size=MESH_DOWNLOAD_CHUNK_SIZE):
+    _append_mesh_chunk(content, chunk)
+  return bytes(content)
+
+
+def max_camera_pixels() -> int:
+  """Maximum width*height accepted when baking an amodal reasoner."""
+  raw = os.getenv("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS")
+  if raw is None or not raw.strip():
+    return DEFAULT_MAX_CAMERA_PIXELS
+  try:
+    value = int(raw)
+  except ValueError as exc:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS must be an integer") from exc
+  if value <= 0:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_CAMERA_PIXELS must be positive")
+  return value
 
 
 def pose_mat_from_pose(translation, rotation, scale):
@@ -116,20 +221,28 @@ class CameraInfo:
     intrinsics = record.get("intrinsics") or {}
     translation = record.get("translation")
     rotation = record.get("rotation")
-    if not all(k in intrinsics for k in ("fx", "fy", "cx", "cy")) \
-       or translation is None or rotation is None:
+    if translation is None or rotation is None:
       raise CameraNotCalibratedError(record.get("name") or record.get("uid"))
     self.uid = record.get("uid")
     self.name = record.get("name")
-    self.intrinsics = {k: float(intrinsics[k]) for k in ("fx", "fy", "cx", "cy")}
-    self.distortion = record.get("distortion")
     resolution = record.get("resolution")
     if resolution:
       self.width, self.height = int(resolution[0]), int(resolution[1])
+    elif all(k in intrinsics for k in ("cx", "cy")):
+      # Pinhole calibrations imply a centered image with no explicit resolution.
+      self.width = int(float(intrinsics["cx"]) * 2)
+      self.height = int(float(intrinsics["cy"]) * 2)
     else:
-      # Convention shared with CameraIntrinsics.getResolutionFromIntrinsics.
-      self.width = int(self.intrinsics["cx"] * 2)
-      self.height = int(self.intrinsics["cy"] * 2)
+      raise CameraNotCalibratedError("camera resolution is required for FOV intrinsics")
+    try:
+      matrix = CameraIntrinsics(intrinsics, resolution=[self.width, self.height]).intrinsics
+      self.intrinsics = {
+        "fx": float(matrix[0, 0]), "fy": float(matrix[1, 1]),
+        "cx": float(matrix[0, 2]), "cy": float(matrix[1, 2]),
+      }
+    except (TypeError, ValueError, IndexError, OverflowError, ZeroDivisionError) as exc:
+      raise CameraNotCalibratedError("invalid camera intrinsics") from exc
+    self.distortion = record.get("distortion")
     self.pose_mat = pose_mat_from_pose(translation, rotation, record.get("scale"))
     self.distortion_coefficients = self._validate_calibration()
 
@@ -167,27 +280,34 @@ class CameraInfo:
 
 
 class AssetPrior:
-  """Size prior and per-object defaults derived from an object-library asset."""
+  """Size prior and map-projection default derived from an object-library asset."""
 
-  def __init__(self, prior, axis_aware_sizing=True, project_to_map=False):
+  def __init__(self, prior, project_to_map=False):
     self.prior = prior
-    self.axis_aware_sizing = axis_aware_sizing
     self.project_to_map = project_to_map
 
   @classmethod
   def from_asset(cls, asset):
-    sizes = [float(asset.get(k) or 0.0) for k in ("x_size", "y_size", "z_size")]
-    if not np.all(np.isfinite(sizes)) or any(s <= 0.0 for s in sizes):
-      raise ValueError("asset dimensions must be finite and positive")
+    category = asset.get("name") or "<unknown>"
+    size_keys = ("x_size", "y_size", "z_size")
+    try:
+      sizes = [float(asset.get(key) or 0.0) for key in size_keys]
+    except (TypeError, ValueError, OverflowError) as exc:
+      raise InvalidAssetPriorError(
+        f"asset category '{category}' has non-numeric size dimensions") from exc
+    invalid_sizes = [key for key, size in zip(size_keys, sizes)
+                     if not np.isfinite(size) or size <= 0.0]
+    if invalid_sizes:
+      raise InvalidAssetPriorError(
+        f"asset category '{category}' has invalid size dimensions: "
+        f"{', '.join(invalid_sizes)} must be finite and positive")
     prior = {
       "mu_x": sizes[0], "mu_y": sizes[1], "mu_z": sizes[2],
       "sigma_x": sizes[0] * DEFAULT_SIGMA_FRACTION,
       "sigma_y": sizes[1] * DEFAULT_SIGMA_FRACTION,
       "sigma_z": sizes[2] * DEFAULT_SIGMA_FRACTION,
     }
-    return cls(prior,
-               axis_aware_sizing=bool(asset.get("axis_aware_sizing", True)),
-               project_to_map=bool(asset.get("project_to_map", False)))
+    return cls(prior, project_to_map=bool(asset.get("project_to_map", False)))
 
 
 class SceneProvider:
@@ -203,12 +323,15 @@ class SceneProvider:
     self.num_layers = int(num_layers)
     self._rest = None
     self._lock = threading.Lock()
+    self._refresh_event = threading.Event()
     self._generation = 0
     self._loaded_generation = -1
     self._pinned = False
     self._cache = {}        # (kind, key) -> value
     self._world_meshes = {} # scene_id -> (mesh_key, tensor_mesh)
     self._reasoners = {}    # (scene_id, camera_name) -> (key, reasoner)
+    self._previous_world_meshes = {}
+    self._previous_reasoners = {}
 
   @classmethod
   def from_env(cls):
@@ -224,8 +347,8 @@ class SceneProvider:
   def snapshot(self):
     """Pin one fully warmed configuration for the duration of a request."""
     with self._lock:
-      if self._loaded_generation != self._generation:
-        raise StoreUnavailableError("configuration refresh is pending")
+      if self._loaded_generation < 0:
+        raise StoreUnavailableError("configuration is not initialized")
       snapshot = SceneProvider(self.rest_url, self.auth, self.rootcert,
                                self.media_root, self.num_layers)
       snapshot._cache = self._cache
@@ -233,9 +356,15 @@ class SceneProvider:
       snapshot._reasoners = self._reasoners
       snapshot._rest = self._rest
       snapshot._loaded_generation = self._loaded_generation
-      snapshot._generation = self._generation
+      snapshot._generation = self._loaded_generation
       snapshot._pinned = True
     return snapshot
+
+  @property
+  def has_snapshot(self) -> bool:
+    """Whether a fully warmed configuration is available for requests."""
+    with self._lock:
+      return self._loaded_generation >= 0
 
   @property
   def needs_refresh(self) -> bool:
@@ -250,8 +379,10 @@ class SceneProvider:
     """
     with self._lock:
       generation = self._generation
-    snapshot = SceneProvider(self.rest_url, self.auth, self.rootcert,
-                             self.media_root, self.num_layers)
+      snapshot = SceneProvider(self.rest_url, self.auth, self.rootcert,
+                               self.media_root, self.num_layers)
+      snapshot._previous_world_meshes = self._world_meshes.copy()
+      snapshot._previous_reasoners = self._reasoners.copy()
     snapshot._load_configuration()
     with self._lock:
       if generation != self._generation:
@@ -283,17 +414,39 @@ class SceneProvider:
     if not self.scene_has_mesh(scene):
       return
     scene_id = scene["uid"]
-    self.get_world_mesh(scene_id)
+    try:
+      self.get_world_mesh(scene_id)
+    except _MESH_WARM_ERRORS as exc:
+      previous = self._previous_world_meshes.get(scene_id)
+      if previous is not None:
+        with self._lock:
+          self._world_meshes[scene_id] = previous
+        log.warning(
+          f"SceneProvider: mesh warm failed for scene {scene_id} ({exc}); "
+          "retaining previous mesh")
+      else:
+        log.warning(
+          f"SceneProvider: mesh warm failed for scene {scene_id} ({exc}); "
+          "continuing without mesh (AUTO falls back to FRUSTUM_ONLY)")
+        return
     for record in self._cache[("cameras", scene_id)]:
       try:
         self.get_reasoner(scene_id, record["uid"])
-      except CameraNotCalibratedError as exc:
-        log.warning(f"SceneProvider: skipping uncalibrated camera {record['uid']}: {exc}")
+      except (CameraNotCalibratedError, CameraResolutionUnsupportedError) as exc:
+        log.warning(f"SceneProvider: skipping camera {record['uid']}: {exc}")
+      except _MESH_WARM_ERRORS as exc:
+        log.warning(f"SceneProvider: skipping reasoner for camera {record['uid']}: {exc}")
 
   def invalidate(self) -> None:
     """Schedule a full refresh, retaining the previous snapshot until it succeeds."""
     with self._lock:
       self._generation += 1
+      self._refresh_event.set()
+
+  def wait_for_refresh(self, timeout: float) -> None:
+    """Wait for a database event or the next periodic readiness probe."""
+    self._refresh_event.wait(timeout)
+    self._refresh_event.clear()
 
   # ---- REST plumbing -----------------------------------------------------
 
@@ -400,6 +553,38 @@ class SceneProvider:
     map_url = scene.get("map") or ""
     return map_url.lower().endswith(".glb")
 
+  def has_usable_mesh(self, scene_id, require_mesh=False) -> bool:
+    """Return whether a loadable scene mesh is available for conditioning.
+
+    When ``require_mesh`` is false (AUTO / FRUSTUM_ONLY), size and parse
+    failures are logged and treated as no mesh so callers can fall back to
+    frustum-only projection. Transient store errors still propagate.
+    """
+    scene = self.get_scene(scene_id)
+    if not self.scene_has_mesh(scene):
+      if require_mesh:
+        raise SceneMeshMissingError("FULL conditioning requires a GLB scene mesh")
+      return False
+    try:
+      self.get_world_mesh(scene_id)
+      return True
+    except SceneMeshTooLargeError:
+      if require_mesh:
+        raise
+      log.warning(
+        f"SceneProvider: scene {scene_id} mesh exceeds size limit; "
+        "using FRUSTUM_ONLY")
+      return False
+    except (SceneMeshMissingError, OSError, ValueError, RuntimeError) as exc:
+      if require_mesh:
+        if isinstance(exc, SceneMeshMissingError):
+          raise
+        raise SceneMeshMissingError(str(exc)) from exc
+      log.warning(
+        f"SceneProvider: scene {scene_id} mesh is unusable ({exc}); "
+        "using FRUSTUM_ONLY")
+      return False
+
   def get_world_mesh(self, scene_id):
     """Scene mesh as an open3d tensor TriangleMesh in the world frame.
 
@@ -414,15 +599,22 @@ class SceneProvider:
       scene_mesh_pose_mat(scene).reshape(-1), 6).tolist()))
     with self._lock:
       entry = meshes.get(scene_id)
-      if entry is not None and entry[0] == mesh_key:
+      if entry is not None and entry[0][:2] == mesh_key:
         return entry[1]
-    mesh = self._load_world_mesh(scene)
+    data = self._mesh_bytes(scene["map"])
+    mesh_key += (hashlib.sha256(data).digest(),)
+    previous = self._previous_world_meshes.get(scene_id)
+    if previous is not None and previous[0] == mesh_key:
+      mesh = previous[1]
+    else:
+      mesh = self._load_world_mesh(scene, data)
     with self._lock:
       meshes[scene_id] = (mesh_key, mesh)
     return mesh
 
-  def _load_world_mesh(self, scene):
-    data = self._mesh_bytes(scene["map"])
+  def _load_world_mesh(self, scene, data=None):
+    if data is None:
+      data = self._mesh_bytes(scene["map"])
     mesh = self._glb_to_tensor_mesh(data)
     mesh.transform(scene_mesh_pose_mat(scene))
     log.info("SceneProvider: loaded scene mesh", scene.get("name"),
@@ -433,8 +625,7 @@ class SceneProvider:
     """Mesh file content: shared media volume first, HTTP download fallback."""
     path = self._local_media_path(map_url)
     if path is not None:
-      with open(path, "rb") as handle:
-        return handle.read()
+      return _read_mesh_file(path)
     return self._download(map_url)
 
   def _local_media_path(self, map_url):
@@ -452,17 +643,23 @@ class SceneProvider:
     return full
 
   def _download(self, url):
-    client = self._client()
     # Manager may return media URLs relative to the server root.
     url = urljoin(self.rest_url, url)
+    manager_origin = _http_origin(self.rest_url)
+    if manager_origin is None or _http_origin(url) != manager_origin:
+      raise StoreUnavailableError("scene mesh URL must share the Manager origin")
+    client = self._client()
+    reply = None
     try:
       reply = client.session.get(url, headers={"Authorization": f"Token {client.token}"},
-                                 verify=client.verify_ssl, timeout=client.timeout)
+                                 verify=client.verify_ssl, timeout=client.timeout,
+                                 stream=True, allow_redirects=False)
+      return _read_mesh_response(reply, url)
     except requests.exceptions.RequestException as exc:
       raise StoreUnavailableError(str(exc)) from exc
-    if reply.status_code != 200:
-      raise StoreUnavailableError(f"download {url}: HTTP {reply.status_code}")
-    return reply.content
+    finally:
+      if reply is not None:
+        reply.close()
 
   @staticmethod
   def _glb_to_tensor_mesh(data):
@@ -490,24 +687,34 @@ class SceneProvider:
     with self._lock:
       reasoners = self._reasoners
     camera = self.get_camera(scene_id, camera_id)
+    pixels = camera.width * camera.height
+    limit = max_camera_pixels()
+    if pixels > limit:
+      raise CameraResolutionUnsupportedError(
+        f"camera {camera_id} resolution {camera.width}x{camera.height} "
+        f"({pixels} pixels) exceeds the amodal bake limit of {limit} pixels")
     mesh = self.get_world_mesh(scene_id)
-    key = (camera.cache_key(), id(mesh))
+    key = (camera.cache_key(), id(mesh), self.num_layers)
     cache_id = (scene_id, camera_id)
     with self._lock:
       entry = reasoners.get(cache_id)
       if entry is not None and entry[0] == key:
         return entry[1]
-    reasoner = AmodalReasoner(
-      mesh=mesh,
-      rwc_z_up=np.asarray(DEFAULT_WORLD_UP, dtype=np.float64),
-      camera_intrinsics=camera.k_matrix,
-      camera_extrinsics=camera.pose_mat,
-      width=camera.width,
-      height=camera.height,
-      num_layers=self.num_layers,
-    )
+    previous = self._previous_reasoners.get(cache_id)
+    if previous is not None and previous[0] == key:
+      reasoner = previous[1]
+    else:
+      reasoner = AmodalReasoner(
+        mesh=mesh,
+        rwc_z_up=np.asarray(DEFAULT_WORLD_UP, dtype=np.float64),
+        camera_intrinsics=camera.k_matrix,
+        camera_extrinsics=camera.pose_mat,
+        width=camera.width,
+        height=camera.height,
+        num_layers=self.num_layers,
+      )
+      log.info("SceneProvider: built AmodalReasoner", scene_id, camera_id,
+               f"{camera.width}x{camera.height}")
     with self._lock:
       reasoners[cache_id] = (key, reasoner)
-    log.info("SceneProvider: built AmodalReasoner", scene_id, camera_id,
-             f"{camera.width}x{camera.height}")
     return reasoner

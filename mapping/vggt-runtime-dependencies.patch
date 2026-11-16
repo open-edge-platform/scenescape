@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Match the service's NumPy/OpenCV requirements and avoid an unused demo UI import.
+diff --git a/pyproject.toml b/pyproject.toml
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,12 +1,12 @@
+ [project]
+ authors = [{name = "Jianyuan Wang", email = "jianyuan@robots.ox.ac.uk"}]
+ dependencies = [
+-    "numpy<2",
++    "numpy>=2,<3",
+     "Pillow",
+     "huggingface_hub",
+     "einops",
+     "safetensors",
+-    "opencv-python",
++    "opencv-python-headless==4.13.0.92",
+ ]
+ name = "vggt"
+ requires-python = ">= 3.10"
+diff --git a/visual_util.py b/visual_util.py
+--- a/visual_util.py
++++ b/visual_util.py
+@@ -5,7 +5,6 @@
+ # LICENSE file in the root directory of this source tree.
+ 
+ import trimesh
+-import gradio as gr
+ import numpy as np
+ import matplotlib
+ from scipy.spatial.transform import Rotation

@@ -30,6 +30,10 @@ secrets:
     file: ${SECRETSDIR}/calibration.auth
   observation_processor.auth:
     file: ${SECRETSDIR}/observation_processor.auth
+  observation-processor-cert:
+    file: ${SECRETSDIR}/certs/scenescape-observation-processor.crt
+  observation-processor-key:
+    file: ${SECRETSDIR}/certs/scenescape-observation-processor.key
   autocalibration-cert:
     file: ${SECRETSDIR}/certs/scenescape-autocalibration.crt
   autocalibration-key:
@@ -38,6 +42,8 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.crt
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
+  positioning.auth:
+    file: ${SECRETSDIR}/positioning.auth
 
 x-controller-base: &controller-base
   image: intel/scenescape-controller:${VERSION:-latest}
@@ -59,6 +65,8 @@ x-controller-base: &controller-base
     CONTROLLER_ENABLE_TRACING: ${CONTROLLER_ENABLE_TRACING}
     CONTROLLER_TRACING_ENDPOINT: ${CONTROLLER_TRACING_ENDPOINT}
     CONTROLLER_TRACING_SAMPLE_RATIO: ${CONTROLLER_TRACING_SAMPLE_RATIO}
+    CONTROLLER_PTZ_ENABLED: ${CONTROLLER_PTZ_ENABLED:-false}
+    CONTROLLER_PTZ_SHADOW_MODE: ${CONTROLLER_PTZ_SHADOW_MODE:-false}
     no_proxy: ${no_proxy},.scenescape.intel.com
     NO_PROXY: ${NO_PROXY},.scenescape.intel.com
   command: >
@@ -71,8 +79,11 @@ x-controller-base: &controller-base
       target: /home/scenescape/Scenescape/tracker-config.json
     - source: reid-config
       target: /home/scenescape/Scenescape/reid-config.json
+    - source: ptz-consumer-config
+      target: /home/scenescape/Scenescape/ptz-consumer-config.json
   volumes:
     - vol-media:/home/scenescape/Scenescape/media
+    - ./deployment/positioning-assignments.json:/home/scenescape/Scenescape/positioning-assignments.json:ro
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
@@ -89,7 +100,7 @@ x-controller-base: &controller-base
 # - Default (no profile): Core services including autocalibration
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
-# - controller: Scene Controller (tracking) + Analytics service
+# - controller: Scene Controller (tracking) + Analytics service + Positioning
 # - tracker: Tracker service + Analytics service (no Scene Controller)
 # - observation-processor: Observation Processor service
 
@@ -201,8 +212,12 @@ services:
       - https_proxy=${https_proxy}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      - PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
       - OHSOME_API_KEY=${OHSOME_API_KEY}
       - OSM_MAX_ROI_FEATURES=${OSM_MAX_ROI_FEATURES:-200}
+      # Per-request timeout (seconds) for the Manager's internal REST calls while
+      # importing a scene. Raise if imports of scenes with large .glb maps time out.
+      - SCENE_IMPORT_REST_TIMEOUT_S=${SCENE_IMPORT_REST_TIMEOUT_S:-300}
       # Max upload size for scene map files (blueprints, .glb meshes). Default
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.
@@ -224,6 +239,7 @@ services:
       - browser.auth
       - calibration.auth
       - observation_processor.auth
+      - positioning.auth
     restart: always
     pids_limit: 1000
 
@@ -264,6 +280,49 @@ services:
         target: certs/scenescape-ca.pem
       - django
       - controller.auth
+    restart: always
+    pids_limit: 1000
+
+  positioning:
+    image: intel/scenescape-positioning:${VERSION:-latest}
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    networks:
+      scenescape:
+        aliases:
+          - positioning.scenescape.intel.com
+    profiles:
+      - controller
+      - tracker
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    command:
+      - --broker
+      - broker.scenescape.intel.com
+      - --brokerauth
+      - /run/secrets/positioning.auth
+      - --rootcert
+      - /run/secrets/certs/scenescape-ca.pem
+      - --ntp
+      - ntpserv
+    volumes:
+      - ./deployment/positioning-assignments.json:/app/deployment/positioning-assignments.json:ro
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - positioning.auth
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
     restart: always
     pids_limit: 1000
 
@@ -489,6 +548,8 @@ services:
       OBSERVATION_PROCESSOR_REST_URL: https://web.scenescape.intel.com/api/v1
       OBSERVATION_PROCESSOR_AUTH: /run/secrets/observation_processor.auth
       OBSERVATION_PROCESSOR_ROOTCERT: /run/secrets/certs/scenescape-ca.pem
+      OBSERVATION_PROCESSOR_CERT: /run/secrets/certs/scenescape-observation-processor.crt
+      OBSERVATION_PROCESSOR_KEY: /run/secrets/certs/scenescape-observation-processor.key
       OBSERVATION_PROCESSOR_MEDIA_ROOT: /workspace/media
       OBSERVATION_PROCESSOR_BROKER: broker.scenescape.intel.com
       OBSERVATION_PROCESSOR_READY_INTERVAL_SECONDS: "10"
@@ -499,6 +560,10 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
+      - source: observation-processor-cert
+        target: certs/scenescape-observation-processor.crt
+      - source: observation-processor-key
+        target: certs/scenescape-observation-processor.key
       - observation_processor.auth
     restart: always
     pids_limit: 1000
@@ -548,6 +613,8 @@ configs:
     file: ./controller/config/tracker-config.json
   reid-config:
     file: ./controller/config/reid-config.json
+  ptz-consumer-config:
+    file: ./controller/config/ptz-consumer-config.json
 
 volumes:
   vol-db:

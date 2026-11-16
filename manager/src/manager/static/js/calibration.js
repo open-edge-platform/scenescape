@@ -261,8 +261,23 @@ function updateCalibrationView(msg) {
     $("#id_distortion_p2").val(),
     $("#id_distortion_k3").val(),
   ];
-  camera_calibration.updateCalibrationViews(image, cameraMatrix, distCoeffs);
+  camera_calibration.updateCalibrationViews(
+    image,
+    cameraMatrix,
+    distCoeffs,
+    msg.resolution,
+    msg.timestamp,
+  );
   $("#snapshot").trigger("click");
+}
+
+function updateCalibrationPTZPose(msg) {
+  camera_calibration.updatePTZPose(
+    msg,
+    $("#scene").val(),
+    $("#ptz_calibration_version").val(),
+    $("#sensor_id").val(),
+  );
 }
 
 function handleAutoCalibrationPose(msg) {
@@ -294,6 +309,7 @@ export {
   manageCalibrationState,
   initializeCalibrationSettings,
   updateCalibrationView,
+  updateCalibrationPTZPose,
   handleAutoCalibrationPose,
   setMqttForCalibration,
   getCalibrationServiceStatus,

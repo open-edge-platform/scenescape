@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Match the service's tested headless OpenCV pin instead of the upstream pin.
+diff --git a/pyproject.toml b/pyproject.toml
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -14,7 +14,7 @@ dependencies = [
+     "huggingface_hub",
+     "hydra-core",
+     "natsort",
+-    "opencv-python-headless==4.10.0.84",
++    "opencv-python-headless==4.13.0.92",
+     "orjson",
+     "pillow-heif",
+     "plyfile",

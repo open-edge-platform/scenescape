@@ -6,7 +6,7 @@
 
 """Dense per-pixel depth/normal map built by ray-casting the static scene mesh.
 
-Implements the depth-map idea from docs/ALGORITHM_V2.md: at load time cast one ray
+Implements the depth-map idea from amodal_reasoner_algorithm.md: at load time cast one ray
 per pixel into the (static, world-frame) scene mesh and cache the hit distance and
 surface normal in dense H x W matrices so later lookups are O(1).
 """

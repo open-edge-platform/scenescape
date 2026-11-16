@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,8 @@ import frustum_gaussian as fg
 import numpy as np
 
 from observation_processor.grpc_api import observation_processor_pb2 as pb
+from scene_common import log
+
 from observation_processor.scene_provider import (
   CameraInfo, CameraNotCalibratedError, SceneMeshMissingError, SceneProvider,
 )
@@ -24,10 +27,25 @@ PRIOR_KEYS = ("mu_x", "mu_y", "mu_z", "sigma_x", "sigma_y", "sigma_z")
 MIN_DEPTH_VARIANCE = 1e-4
 MESH_FOOT_VARIANCE = 0.05 ** 2
 UNOBSERVABLE_SIGMA = 1e8
+DEFAULT_MAX_DETECTIONS = 512
 
 
 class InvalidRequestError(ValueError):
   """The frame does not satisfy the published request contract."""
+
+
+def max_detections() -> int:
+  """Maximum detections accepted in one ProcessDetections request."""
+  raw = os.getenv("OBSERVATION_PROCESSOR_MAX_DETECTIONS")
+  if raw is None or not raw.strip():
+    return DEFAULT_MAX_DETECTIONS
+  try:
+    value = int(raw)
+  except ValueError as exc:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_DETECTIONS must be an integer") from exc
+  if value <= 0:
+    raise ValueError("OBSERVATION_PROCESSOR_MAX_DETECTIONS must be positive")
+  return value
 
 
 @dataclass
@@ -55,6 +73,10 @@ def validate_request(request: pb.ProcessDetectionsRequest) -> None:
   if request.mode not in (pb.CONDITIONING_MODE_AUTO, pb.CONDITIONING_MODE_FULL,
                           pb.CONDITIONING_MODE_FRUSTUM_ONLY):
     raise InvalidRequestError("unknown conditioning mode")
+  limit = max_detections()
+  if len(request.detections) > limit:
+    raise InvalidRequestError(
+      f"at most {limit} detections are allowed per request")
   for index, detection in enumerate(request.detections):
     _validate_detection(detection, index)
 
@@ -100,7 +122,7 @@ def prepare_batch(request: pb.ProcessDetectionsRequest, provider: SceneProvider,
     asset = provider.get_asset_prior(detection.category)
     priors.append([asset.prior[key] for key in PRIOR_KEYS])
     axis_aware.append(detection.axis_aware_sizing if detection.HasField("axis_aware_sizing")
-                      else asset.axis_aware_sizing)
+                      else False)
     project_to_map.append(detection.project_to_map if detection.HasField("project_to_map")
                           else asset.project_to_map)
   raw = np.asarray(boxes, dtype=np.float64)
@@ -256,6 +278,27 @@ def assemble_measurements(request: pb.ProcessDetectionsRequest, response: pb.Pro
     ))
 
 
+def resolve_mode_and_mesh(request: pb.ProcessDetectionsRequest,
+                          snapshot: SceneProvider, scene) -> tuple[int, bool]:
+  """Resolve AUTO/FULL/FRUSTUM_ONLY and whether a usable mesh is available."""
+  mode = request.mode
+  require_mesh = mode == pb.CONDITIONING_MODE_FULL
+  has_mesh = snapshot.has_usable_mesh(request.scene_id, require_mesh=require_mesh)
+  if mode != pb.CONDITIONING_MODE_AUTO:
+    return mode, has_mesh
+  if has_mesh:
+    return pb.CONDITIONING_MODE_FULL, True
+  if snapshot.scene_has_mesh(scene):
+    log.warning(
+      f"observation-processor: scene {request.scene_id} declares a GLB mesh "
+      "but it is unusable; AUTO selected FRUSTUM_ONLY")
+  return pb.CONDITIONING_MODE_FRUSTUM_ONLY, False
+
+
+def _needs_reasoner(has_mesh: bool, mode: int, batch: DetectionBatch) -> bool:
+  return has_mesh and (mode == pb.CONDITIONING_MODE_FULL or np.any(batch.project_to_map))
+
+
 def process_detections(request: pb.ProcessDetectionsRequest,
                        provider: SceneProvider) -> pb.ProcessDetectionsResponse:
   """Resolve one configuration snapshot and execute the complete projection pipeline."""
@@ -263,22 +306,16 @@ def process_detections(request: pb.ProcessDetectionsRequest,
   snapshot = provider.snapshot()
   scene = snapshot.get_scene(request.scene_id)
   camera = snapshot.get_camera(request.scene_id, request.camera_id)
-  coefficients = camera.distortion_coefficients
-  has_mesh = snapshot.scene_has_mesh(scene)
-  mode = request.mode
-  if mode == pb.CONDITIONING_MODE_AUTO:
-    mode = pb.CONDITIONING_MODE_FULL if has_mesh else pb.CONDITIONING_MODE_FRUSTUM_ONLY
-  if mode == pb.CONDITIONING_MODE_FULL and not has_mesh:
-    raise SceneMeshMissingError("FULL conditioning requires a GLB scene mesh")
+  mode, has_mesh = resolve_mode_and_mesh(request, snapshot, scene)
   response = pb.ProcessDetectionsResponse(
     scene_id=request.scene_id, camera_id=request.camera_id, timestamp=request.timestamp, mode=mode)
   if not request.detections:
     return response
-  batch = prepare_batch(request, snapshot, camera, coefficients)
+  batch = prepare_batch(request, snapshot, camera, camera.distortion_coefficients)
   observations = project_batch(batch, camera)
   observations["origin"] = camera.pose_mat[:3, 3].copy()
   reasoner = None
-  if has_mesh and (mode == pb.CONDITIONING_MODE_FULL or np.any(batch.project_to_map)):
+  if _needs_reasoner(has_mesh, mode, batch):
     reasoner = snapshot.get_reasoner(request.scene_id, request.camera_id)
   assemble_measurements(request, response, batch, observations, reasoner, camera)
   return response

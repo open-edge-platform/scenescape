@@ -8,10 +8,11 @@ A scenario directory holds up to four JSONL files, written by ScenarioRecorder
 
 - groundtruth.jsonl: canonical ground truth, optionally with size, rotation,
   velocity and a "truth" object (speed, yaw_rate, acceleration)
-- detections.jsonl: canonical camera-data frames with 3D detections
+- detections.jsonl: canonical camera-data frames with 3D detections, optionally
+  with a per-detection R ("measurement_noise_covariance")
 - tracks.jsonl: canonical tracker output
 - estimator.jsonl: one "config" line per track, then one "step" line per
-  estimator step
+  estimator step; steps whose detections carry R add "HPHt"
 
 Any file may be missing, e.g. estimator.jsonl for real tracker output. An
 evaluation pipeline run directory (pipeline_engine.py) is read the same way,
@@ -57,6 +58,7 @@ GROUND_TRUTH_COLUMNS = [
 ]
 DETECTION_COLUMNS = [
   "t", "sensor_id", "object_id", "category", "x", "y", "z", "length", "width", "height", "yaw",
+  "measurement_noise_cov",  # the detection's own R (7x7 array), None without one
 ]
 TRACK_COLUMNS = [
   "t", "track_id", "category", "x", "y", "z", "length", "width", "height", "yaw", "vx", "vy", "vz",
@@ -64,7 +66,7 @@ TRACK_COLUMNS = [
 
 
 @dataclass
-class EstimatorTrace:
+class EstimatorTrace:  # pylint: disable=too-many-instance-attributes
   """Estimator steps of one track. Arrays are indexed by step, in file order."""
 
   config: Dict[str, Any]
@@ -74,6 +76,9 @@ class EstimatorTrace:
   covariance: np.ndarray                 # (N, states, states)
   predicted_measurement: np.ndarray      # (N, 7), NaN at init
   predicted_measurement_cov: np.ndarray  # (N, 7, 7), NaN at init
+  # (N, 7, 7) H P H^T, S without R: written for steps whose detections carry their own R,
+  # NaN otherwise
+  predicted_state_measurement_cov: Optional[np.ndarray] = None
 
   @property
   def motion_models(self) -> List[str]:
@@ -103,6 +108,8 @@ class Scenario:
   # True when detections are in scene coordinates and their ids are ground-truth ids (a recording);
   # False for pipeline runs, so detections must not be compared with tracks or ground truth.
   detections_in_scene: bool = True
+  # Times of all ground-truth frames, including frames without objects, which ground_truth omits.
+  ground_truth_times: np.ndarray = field(default_factory=lambda: np.empty(0))
 
   @property
   def object_ids(self) -> List[str]:
@@ -175,15 +182,29 @@ def load_scenario(directory) -> Scenario:
     estimator=_estimator(raw[ESTIMATOR_FILE], seconds),
     files={name: path for name, path in paths.items() if path.is_file()},
     detections_in_scene=not pipeline_run,
+    ground_truth_times=np.array(sorted({seconds(stamp) for stamp, _ in raw[GROUND_TRUTH_FILE]
+                                        if stamp is not None})),
   )
+
+
+def _frame_rate(times: np.ndarray) -> Optional[float]:
+  times = np.unique(times)
+  if len(times) < 2:
+    return None
+  return 1.0 / float(np.median(np.diff(times)))
 
 
 def frame_rate(table: pd.DataFrame) -> Optional[float]:
   """Frame rate from the median interval between distinct times; None for fewer than two."""
-  times = np.unique(table["t"].to_numpy())
-  if len(times) < 2:
-    return None
-  return 1.0 / float(np.median(np.diff(times)))
+  return _frame_rate(table["t"].to_numpy())
+
+
+def ground_truth_frame_rate(scenario: Scenario) -> Optional[float]:
+  """Ground-truth frame rate from all its frames, as TrackEval sees them; None for fewer than two.
+
+  Unlike frame_rate(scenario.ground_truth), frames without objects count.
+  """
+  return _frame_rate(scenario.ground_truth_times)
 
 
 def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None,
@@ -196,7 +217,7 @@ def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None,
   Pairs need utils.tracks.MIN_OVERLAP_FRAMES shared frames. `space` selects the axes of the
   distance ("xyz", "xy" or "z"); a position without a z is compared in the plane.
   """
-  fps = fps or frame_rate(scenario.ground_truth)
+  fps = fps or ground_truth_frame_rate(scenario)
   if fps is None or scenario.tracks.empty:
     return []
   origin = min(table["t"].min() for table in (scenario.tracks, scenario.ground_truth)
@@ -283,6 +304,8 @@ def _detections(lines, seconds) -> pd.DataFrame:
           "object_id": str(obj["id"]) if "id" in obj else "", "category": category,
           "x": x, "y": y, "z": z, "length": length, "width": width, "height": height,
           "yaw": yaw_from_quaternion(obj.get("rotation")),
+          "measurement_noise_cov": (np.asarray(obj["measurement_noise_covariance"], dtype=float)
+                                    if "measurement_noise_covariance" in obj else None),
         })
   return _table(rows, DETECTION_COLUMNS)
 
@@ -321,7 +344,7 @@ def _estimator(lines, seconds) -> Dict[str, EstimatorTrace]:
 def _trace(config, steps, seconds) -> EstimatorTrace:
   def stack(key: str, shape: Tuple[int, ...]) -> np.ndarray:
     return np.array([
-      np.asarray(step[key], dtype=float) if step[key] is not None else np.full(shape, math.nan)
+      np.asarray(step[key], dtype=float) if step.get(key) is not None else np.full(shape, math.nan)
       for _, step in steps
     ]).reshape((len(steps), *shape))
 
@@ -336,4 +359,5 @@ def _trace(config, steps, seconds) -> EstimatorTrace:
     covariance=stack("P", (states, states)),
     predicted_measurement=stack("z_pred", (measurements,)),
     predicted_measurement_cov=stack("S", (measurements, measurements)),
+    predicted_state_measurement_cov=stack("HPHt", (measurements, measurements)),
   )

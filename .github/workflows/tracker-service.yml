@@ -112,12 +112,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: "Install Trivy"
-        run: |
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install -y trivy
+      - name: Trivy Setup
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          cache: true
+          version: v0.76.2
 
       - name: "Run Trivy scan"
         continue-on-error: true
@@ -127,7 +126,7 @@ jobs:
     name: "Native build and unit tests"
     needs: detect-changes
     if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Free up runner space
         run: |
@@ -163,17 +162,23 @@ jobs:
             lcov
           pip install conan gcovr
 
-      - name: "Configure Conan"
-        run: |
-          conan profile detect --force
+      - name: "Detect runner image"
+        id: runner-image
+        run: echo "name=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: "Cache Conan packages"
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.conan2
-          key: conan-${{ runner.os }}-${{ hashFiles('tracker/conanfile.txt') }}
+          key: conan-${{ runner.os }}-${{ steps.runner-image.outputs.name }}-${{ hashFiles('tracker/conanfile.txt') }}
           restore-keys: |
-            conan-${{ runner.os }}-
+            conan-${{ runner.os }}-${{ steps.runner-image.outputs.name }}-
+
+      # Runs after the cache restore so the profile always reflects this
+      # runner's compiler rather than the one stored in the restored cache.
+      - name: "Configure Conan"
+        run: |
+          conan profile detect --force
 
       - name: "Build release"
         run: make -C tracker build

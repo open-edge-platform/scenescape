@@ -105,7 +105,7 @@ void applyMeasurement(const AcceptedMeasurement& measurement, rv::tracking::Trac
     object.length = mean(3);
     object.width = mean(4);
     object.height = mean(5);
-    object.zMeasured = true;
+    object.z_measured = true;
     object.measurementNoiseCov = measurement.noise;
 }
 

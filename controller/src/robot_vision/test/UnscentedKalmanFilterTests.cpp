@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+#include <functional>
+#include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -118,4 +121,144 @@ TEST(UnscentedKalmanFilterTest, LinearModelMatchesExactKalmanFilter)
     ASSERT_LT(cv::norm(filter->getErrorCov(), errorCov, cv::NORM_INF), 1e-9);
   }
   EXPECT_GT(state.at<double>(idx::Vx), 0.5) << "velocity must be learned for the comparison to be meaningful";
+}
+
+// Bug: a failed Cholesky factorisation was ignored, so the sigma points used a half-factorised matrix whose earlier
+// diagonal entries were stored inverted; fails on 6277c8cf5 (variance 4 comes out as 0.25).
+TEST(UnscentedKalmanFilterTest, PredictRecoversFromNonPositiveDefiniteCovariance)
+{
+  // Variance 4 everywhere except a slightly negative yaw-rate variance, which the CV model resets anyway.
+  cv::Mat errorCov = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 4.0;
+  errorCov.at<double>(idx::YawRate, idx::YawRate) = -1e-3;
+  const cv::Mat processNoise = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 1e-3;
+  auto filter = makeCvFilter(cv::Mat::zeros(kStateSize, 1, CV_64F), errorCov, processNoise, 0.2);
+
+  filter->predict(cv::Mat(1, 1, CV_64F, cv::Scalar(kDeltaT)));
+
+  const cv::Mat predicted = filter->getErrorCov();
+  ASSERT_TRUE(cv::checkRange(filter->getState()));
+  ASSERT_TRUE(cv::checkRange(predicted));
+  EXPECT_GT(rv::tracking::test::minEigenvalue(predicted), 0.0);
+  // The other states keep their variance: x gets 4 + dt^2 * 4 from the velocity, plus the process noise.
+  EXPECT_NEAR(predicted.at<double>(idx::X, idx::X), 4.0 + kDeltaT * kDeltaT * 4.0 + 1e-3, 1e-9);
+  EXPECT_NEAR(predicted.at<double>(idx::Height, idx::Height), 4.0 + 1e-3, 1e-9);
+}
+
+// Bug: Cholesky failure on non-finite P skipped repair (checkRange false) and still used the half-factor; sigma
+// points and later P stayed NaN.
+TEST(UnscentedKalmanFilterTest, PredictRecoversFromNonFiniteCovariance)
+{
+  cv::Mat errorCov = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 4.0;
+  errorCov.at<double>(idx::X, idx::X) = std::numeric_limits<double>::quiet_NaN();
+  const cv::Mat processNoise = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 1e-3;
+  auto filter = makeCvFilter(cv::Mat::zeros(kStateSize, 1, CV_64F), errorCov, processNoise, 0.2);
+
+  filter->predict(cv::Mat(1, 1, CV_64F, cv::Scalar(kDeltaT)));
+
+  ASSERT_TRUE(cv::checkRange(filter->getState()));
+  const cv::Mat predicted = filter->getErrorCov();
+  ASSERT_TRUE(cv::checkRange(predicted));
+  EXPECT_GT(rv::tracking::test::minEigenvalue(predicted), 0.0);
+}
+
+// The reduced update selects the observed rows of small matrices for every model and detection. All rows but yaw are
+// contiguous, so they must be views of the matrix rather than copies; rows with gaps are still copied.
+TEST(UnscentedKalmanFilterTest, SelectRowsAndBlockShareContiguousData)
+{
+  cv::Mat matrix(kMeasurementSize, kMeasurementSize, CV_64F);
+  for (int i = 0; i < kMeasurementSize; ++i)
+  {
+    for (int j = 0; j < kMeasurementSize; ++j)
+    {
+      matrix.at<double>(i, j) = 10.0 * i + j;
+    }
+  }
+  const std::vector<int> leading{0, 1, 2, 3, 4, 5};
+
+  const cv::Mat rows = cv::detail::tracking::selectRows(matrix, leading);
+  const cv::Mat block = cv::detail::tracking::selectBlock(matrix, leading);
+  EXPECT_EQ(rows.data, matrix.data) << "contiguous rows must share the matrix data";
+  EXPECT_EQ(block.data, matrix.data) << "a contiguous block must share the matrix data";
+  EXPECT_DOUBLE_EQ(cv::norm(rows, matrix.rowRange(0, 6), cv::NORM_INF), 0.0);
+  EXPECT_DOUBLE_EQ(cv::norm(block, matrix(cv::Range(0, 6), cv::Range(0, 6)), cv::NORM_INF), 0.0);
+
+  const std::vector<int> gapped{0, 2, 6};
+  const cv::Mat gappedBlock = cv::detail::tracking::selectBlock(matrix, gapped);
+  for (int i = 0; i < 3; ++i)
+  {
+    for (int j = 0; j < 3; ++j)
+    {
+      EXPECT_DOUBLE_EQ(gappedBlock.at<double>(i, j), matrix.at<double>(gapped[i], gapped[j]));
+    }
+  }
+}
+
+// Bug: after correct(z, rows, R), the overloads without R and the base-class correct(z) reused that R until the next
+// predict; only correct(z, rows, noArray()) restored the default (Copilot review of #2129).
+TEST(UnscentedKalmanFilterTest, CorrectWithoutNoiseAfterCorrectWithNoiseUsesDefaultR)
+{
+  using Filter = cv::detail::tracking::UnscentedKalmanFilterMod;
+  constexpr double kDefaultNoise = 0.2;
+  const cv::Mat identity = cv::Mat::eye(kStateSize, kStateSize, CV_64F);
+  const cv::Mat sharpNoise = cv::Mat::eye(kMeasurementSize, kMeasurementSize, CV_64F) * 1e-4;
+  const cv::Mat defaultNoise = cv::Mat::eye(kMeasurementSize, kMeasurementSize, CV_64F) * kDefaultNoise;
+  const std::vector<int> allRows{0, 1, 2, 3, 4, 5, 6};
+  const std::vector<int> withoutYaw{0, 1, 2, 3, 4, 5};
+
+  TrackedObject start;
+  start.length = start.width = start.height = 1.0;
+  TrackedObject first = start;
+  first.x = 1.0;
+  TrackedObject second = start;
+  second.y = 1.0;
+  const cv::Mat firstMeasurement(first.measurementVector());
+  const cv::Mat secondMeasurement(second.measurementVector());
+
+  // Two corrections without a predict between them; the first carries its own R.
+  auto correctTwice = [&](const std::function<void(Filter &)> &secondCorrect) {
+    auto filter = makeCvFilter(start.stateVector(), identity, identity * 1e-3, kDefaultNoise);
+    filter->predict(cv::Mat(1, 1, CV_64F, cv::Scalar(kDeltaT)));
+    filter->correct(firstMeasurement, allRows, sharpNoise);
+    secondCorrect(*filter);
+    return std::make_pair(filter->getState(), filter->getErrorCov());
+  };
+
+  struct Case
+  {
+    std::string name;
+    const std::vector<int> &rows;
+    std::function<void(Filter &)> secondCorrect;
+  };
+  const std::vector<Case> cases{
+    {"correct(z)", allRows, [&](Filter &filter) { filter.correct(secondMeasurement); }},
+    {"base correct(z)",
+     allRows,
+     [&](Filter &filter) {
+       static_cast<cv::detail::tracking::UnscentedKalmanFilter &>(filter).correct(secondMeasurement);
+     }},
+    {"correct(z, rows)", withoutYaw, [&](Filter &filter) { filter.correct(secondMeasurement, withoutYaw); }},
+    {"correct(z, rows, noArray())",
+     withoutYaw,
+     [&](Filter &filter) { filter.correct(secondMeasurement, withoutYaw, cv::noArray()); }},
+  };
+
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    const auto expected
+      = correctTwice([&](Filter &filter) { filter.correct(secondMeasurement, testCase.rows, defaultNoise); });
+    const auto actual = correctTwice(testCase.secondCorrect);
+    EXPECT_LT(cv::norm(actual.first, expected.first, cv::NORM_INF), 1e-12);
+    EXPECT_LT(cv::norm(actual.second, expected.second, cv::NORM_INF), 1e-12);
+  }
+}
+
+// The covariance repair needs double precision: float32 rounding loses its eigenvalue floor. robot_vision only creates
+// double-precision filters, so single precision is rejected.
+TEST(UnscentedKalmanFilterTest, RejectsSinglePrecision)
+{
+  const cv::detail::tracking::UnscentedKalmanFilterParams params(
+    kStateSize, kMeasurementSize, 1, 1e-3, 0.2, cv::makePtr<rv::tracking::CVModel>(), CV_32F);
+
+  EXPECT_THROW(cv::detail::tracking::createUnscentedKalmanFilterMod(params), cv::Exception);
 }

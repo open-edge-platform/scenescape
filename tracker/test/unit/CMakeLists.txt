@@ -39,6 +39,7 @@ set(TRACKER_LIB_SOURCES
 
 add_executable(tracker_tests
     logger_test.cpp
+    association_window_test.cpp
     cli_test.cpp
     config_loader_test.cpp
     coordinate_transformer_test.cpp
@@ -54,6 +55,7 @@ add_executable(tracker_tests
     scene_registry_test.cpp
     time_chunk_buffer_test.cpp
     tracking_worker_test.cpp
+    tracking_replay_test.cpp
     proxy_utils_test.cpp
     track_publisher_test.cpp
     time_chunk_scheduler_test.cpp

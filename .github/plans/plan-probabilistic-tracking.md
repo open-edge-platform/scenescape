@@ -6,9 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 # Implementation Plan: Probabilistic Tracking Association
 
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
-- **Date**: 2026-06-06
-- **Status**: Phase 1 complete; Phases 2–3 open
-- **ADR**: [ADR-0017](../../docs/adr/0017-probabilistic-tracking-association.md)
+- **Date**: 2026-11-11
+- **Status**: Phase 1 implemented, opt-in (shipped configs use `euclidean`); default flip pending the Wildtrack regression; Phases 2–3: R consumed in `robot_vision` (#2129), producer #2149 (experimental), evaluation open; non-planar Z/`vz` on `release-2026.3.0` (#2109)
+- **ADR**: [ADR-0019](../../docs/adr/0019-probabilistic-tracking-association.md)
 - **Design**: [Probabilistic Tracking Association](../../docs/design/probabilistic-tracking-association.md)
 - **Evaluation**: [ADR-0009](../../docs/adr/0009-tracking-evaluation.md), [Tracker Evaluation Pipeline](../../docs/design/tracker-evaluation-pipeline.md)
 
@@ -18,14 +18,14 @@ This plan tracks **tasks, validation, and exit criteria**. Architecture and desi
 
 ## Phase 1 — Track-side position Mahalanobis
 
-**Status:** Complete (production default `position_mahalanobis`, `max_radius_m: 10`).
+**Status:** Implemented and validated as an alternative. The services default to `position_mahalanobis` (0.99, `max_radius_m: 10`) without an `association` block, but the shipped configs select `euclidean` until the Wildtrack regression below is resolved; `controller/config/tracker-config-mahalanobis.json` and `tracker/config/tracker-mahalanobis.json` select Phase 1.
 
 ### 1.1 robot_vision
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Add `DistanceType::PositionMahalanobis` | `ObjectMatching.hpp/.cpp` | 2×2 block on (x,y) |
-| Chi-squared gate helper | `ObjectMatching.cpp` / `Utils.hpp` | `df=2` |
+| Add `DistanceType::PositionMahalanobis` | `ObjectMatching.hpp/.cpp` | 2×2 block on (x,y); 3×3 on (x,y,z) with Z tracking |
+| Chi-squared gate helper | `ObjectMatching.cpp` / `Utils.hpp` | `df=2`; `df=3` with Z tracking |
 | Keep `max_radius_m` as hard ceiling | `ObjectMatching.cpp` | Independent of χ² |
 | Velocity-aligned kinematic process noise | `MultiModelKalmanEstimator.cpp` | Along-track ≫ cross-track Q |
 | UKF / IMM association covariance fixes | UKF + IMM | Top-model S; Sxy sigma points; yaw-rate init |
@@ -37,7 +37,7 @@ This plan tracks **tasks, validation, and exit criteria**. Architecture and desi
 | Task | Location |
 |------|----------|
 | `AssociationConfig` on `TrackingConfig` | `inc/config_loader.hpp` |
-| Schema + defaults | `schema/config.schema.json`, `config/tracker.json` |
+| Schema + defaults | `schema/config.schema.json`, `config/tracker.json` (`euclidean`), `config/tracker-mahalanobis.json` |
 | Env var overrides | `inc/env_vars.hpp`, `src/config_loader.cpp` |
 | Wire method + gate | `src/tracking_worker.cpp` |
 | Remove hardcoded 2.0 m association threshold | `src/tracking_worker.cpp` |
@@ -49,42 +49,52 @@ Follow [Tracker Agents.md](../../tracker/Agents.md) config checklist.
 | Task | Location |
 |------|----------|
 | Read association config | `ilabs_tracking.py` |
-| Stop averaging `tracking_radius` for association | `ilabs_tracking.py` |
-| Feature-flag parity with tracker service | controller tracker config JSON |
+| Stop averaging `tracking_radius` for `position_mahalanobis` and for `euclidean` with `max_radius_m`; without it `euclidean` keeps the average, as before | `ilabs_tracking.py` |
+| Feature-flag parity with tracker service | controller tracker config JSON (`tracker-config.json` `euclidean`, `tracker-config-mahalanobis.json`) |
 | Birth clustering Euclidean ~2 m; equal-weight multi-cam geometry | `MultipleObjectTracker` / fuse path |
 
 ### 1.4 Soft deprecation
 
 | Task | Status |
 |------|--------|
-| Warn when `tracking_radius` differs and method ≠ euclidean | Done / follow-up as needed |
-| Document deprecation in object library / user guide | Follow-up PR |
+| Warn once per tracker when `tracking_radius` differs and is ignored (`position_mahalanobis`, or `euclidean` with `max_radius_m`) | Done |
+| Document in object library / user guide | Done (`how-to-define-object-properties.md`, `how-to-configure-tracker.md`) |
 | Do **not** remove `tracking_radius` DB field in Phase 1 | Held |
 
 ### Phase 1 exit criteria
 
 - [x] Feature flag ships; `position_mahalanobis` validated vs Euclidean
-- [x] Evaluation metrics within thresholds on gated datasets
+- [ ] Evaluation metrics within thresholds on gated datasets: Unity yes; Wildtrack no (Controller-TC and Tracker-Service HOTA −0.02, jerk up), see the validation notes
 - [x] CI unit coverage for association wiring
-- [x] ADR-0017 → `Accepted` for Phase 1 scope
-- [x] Default flip → `position_mahalanobis` after Controller-TC + Wildtrack re-signoff
+- [x] ADR-0019 → `Accepted` for Phase 1 scope
+- [ ] Default flip → `position_mahalanobis` (shipped configs; services already default to it without a block) after the Wildtrack regression is resolved and Controller-TC + Wildtrack re-signoff
 
 ### Phase 1 validation notes
 
-Artifacts under `/tmp/phase1-signoff/`, `/tmp/phase1-tc-vs-tracker/`, `/tmp/phase1-default-flip/`.
+Supersedes the earlier sign-off notes, whose artefacts (`/tmp/phase1-*`) are gone and whose Wildtrack gains the current results do not reproduce. Details are in the PR 4 description.
 
-- **Unity Controller-Immediate 10 fps** (2026-08-15): Mahalanobis matched or slightly improved AssA/LocA; lower jitter once config reached category trackers.
-- **Covariance shaping** (2026-08-16): fixed isotropic Q / broken Sxy / IMM inflation → velocity-aligned coast ellipses (unit-tested).
-- **Unity Immediate 1 fps / Tracker-Service 10 fps** (2026-08-16): essentially tied vs Euclidean.
-- **Controller-TC vs Tracker** (2026-08-16): Fix 1 birth Euclidean ~2 m; Fix 2 equal-weight geometry average — CLR HOTA 71→77, IDF1 71→99.
-- **Default-flip re-signoff** (2026-08-16):
+**Accuracy** (Tracker Evaluation black-box harness; `feature/prob-tracking-extracted-association` @ `057d04cf7` vs `main` @ `5ac534ed1`; 3 runs per dataset and side; Controller-Immediate, Controller-Time-Chunking, Tracker-Service). A delta counts only when |Δ| exceeds the min-to-max range of the runs (noise); Wildtrack Tracker-Service is deterministic, so its deltas are exact.
 
-| Suite | HOTA Δ | AssA Δ | LocA Δ | IDSW Δ | Gate |
-|-------|--------|--------|--------|--------|------|
-| Unity Controller-TC 10 fps | −0.03 | −0.04 | −0.01 | 0 | **PASS** |
-| Wildtrack Tracker-Service 2 fps | **+0.69** | **+0.92** | **+0.51** | +23 | **PASS** primary; IDSW over +5% budget |
+- **Euclidean** (branch, 2 m) matches `main` everywhere: no delta above noise on Unity or Wildtrack, Wildtrack Tracker-Service bit-identical.
+- **Unity**: Mahalanobis matches `main` on HOTA, MOTA, IDF1 and location errors; marginal Controller-TC jitter (`rms_jerk` +10–15 %, `acceleration_variance_ratio` +18 %).
+- **Wildtrack with Mahalanobis is worse than `main`** on Controller-TC and Tracker-Service, and the regression comes entirely from `position_mahalanobis`:
 
-Residual: Controller-TC `rms_jerk_ratio` +17% vs +10% budget; Wildtrack IDSW. Accepted for Phase 1; revisit with Phase 2 R.
+| Wildtrack | `main` | Mahalanobis | Euclidean |
+|-----------|--------|-------------|-----------|
+| HOTA, Controller-TC | 0.6473 | **0.6271** | 0.6474 |
+| HOTA, Tracker-Service | 0.7643 | **0.7431** | 0.7643 |
+| `rms_jerk`, Controller-TC | 2.456 | **2.828** | 2.398 |
+| `rms_jerk`, Tracker-Service | 1.814 | **2.671** | 1.814 |
+
+  IDF1 −0.024 / −0.021, Tracker-Service MOTA −0.026, location errors +0.03–0.09 m.
+- Controller-Immediate drops 3–7 % of messages on Unity and 35–48 % on Wildtrack on every side; Controller-TC and Tracker-Service drop none.
+
+**Performance** (`main` @ `9aa829b12` vs PR 4 @ `51506dc51`; Euclidean / Mahalanobis):
+
+- robot_vision benchmark (one pinned core, median of 7, 2 passes): Euclidean −0.7 to −1.7 % in all 12 cases with 50 / 200 people; Mahalanobis −0.7 to +2.9 %, and +8.1 % (single-threaded) / +13.0 % (8 cores) with 300 people and 4 overlapping cameras.
+- Tracker Service `make test-load` (4 cameras × 15 fps × 300 objects, 1 min): 0 % dropped and 300 tracks on every side; Tracker CPU per run 133.7 s on `main`, −0.3 % Euclidean, +1.3 % Mahalanobis; Track-stage p50 / p99 25.7 / 35.6 ms on `main`, unchanged Euclidean, +4.5 % / +7.4 % Mahalanobis; end-to-end latency within noise. A 10 m Euclidean gate costs +3 % CPU and +12 % Track p50.
+
+**Kept from the earlier notes** (implemented and covered by unit tests, not re-measured): covariance shaping (velocity-aligned coast ellipses) and the cross-camera fixes (Euclidean ~2 m birth clustering, equal-weight geometry average).
 
 ---
 
@@ -96,12 +106,11 @@ Residual: Controller-TC `rms_jerk_ratio` +17% vs +10% budget; Wildtrack IDSW. Ac
 
 | Task | Location |
 |------|----------|
-| Pixel→world Σ_xy in `CoordinateTransformer` | `tracker/src/coordinate_transformer.cpp` |
-| `position_covariance_xy` on `Detection` | `tracker/inc/tracking_types.hpp` |
+| R producer — **replaced** by the observation processor client (#2149), not `CoordinateTransformer` | Tracker Service, Controller |
 | Optional `measurementCovariance` on `TrackedObject` — **done** as 7×7 `measurementNoiseCov` (Python `measurement_noise_covariance`) | `robot_vision` |
-| `DistanceType::PositionMahalanobisCombined` | `ObjectMatching.cpp` |
-| `measurement_uncertainty.*` config | schema, loader, controller |
-| Calibrate α offline; record default | eval harness + design/plan appendix |
+| Per-pair `H P Hᵀ + R` in `PositionMahalanobis` — **done**, no separate method; R present or not is the switch | `ObjectMatching.cpp` |
+| `measurement_uncertainty.*` config — **not planned** with #2149 as the producer | schema, loader, controller |
+| Calibrate R and the gate probability on evaluation data | eval harness |
 
 ### Phase 2 validation
 
@@ -109,14 +118,14 @@ Residual: Controller-TC `rms_jerk_ratio` +17% vs +10% budget; Wildtrack IDSW. Ac
 cd tracker && make test-unit-coverage
 ```
 
-- Transformer tests: Σ grows with bbox height, range, lower confidence; Jacobian FD vs analytic
-- Matching: combined gate wider at long range
+- Matching: gate with R wider at long range — **done**
+- Scenario: paired runs with and without R (`MeasurementNoiseScenarioTest`) — **done**
 - Eval: metric test + Wildtrack; AssA up, ID switches down, LocA hold/improve
 
 ### Phase 2 exit criteria
 
-- [ ] α calibrated and documented
-- [ ] `position_mahalanobis_combined` passes evaluation thresholds
+- [ ] R and the gate probability calibrated on the producer's data
+- [ ] `position_mahalanobis` with R from the producer passes evaluation thresholds
 - [ ] Per-object `tracking_radius` unused in association paths
 - [ ] Optional debug emit of Σ_xy for sampled detections
 
@@ -131,12 +140,12 @@ cd tracker && make test-unit-coverage
 | Task | Location |
 |------|----------|
 | `correct(measurement, R_optional)` — **done**: R is read from the measurement's `measurementNoiseCov` | `MultiModelKalmanEstimator.*`, `UnscentedKalmanFilter.*` |
-| Thread R onto `TrackedObject` before correct | `tracking_worker.cpp`, `ilabs_tracking.py` |
-| Global filter noise knobs in config | schema, loader |
+| Thread R onto `TrackedObject` before correct — in #2149 | Tracker Service, `ilabs_tracking.py` |
+| Global filter noise knobs in config — **done** (both services) | schema, loader, `ilabs_tracking.py` |
 | Deprecate `tracking_radius` in manager + user guide | `manager/`, `docs/user-guide/` |
 | (Later) multi-cam class/confidence fusion | `fuseMetadata` |
 
-**Status (robot_vision, `feature/prob-tracking-extracted-3d-R`):** a detection that carries R gets information-weighted multi-camera fusion (`fuseGeometry`), association with S = H P Hᵀ + R in `PositionMahalanobis` and `Mahalanobis`, the UKF / IMM update (gain and model likelihood) with its R, and a birth P seeded from it. Without R every path is unchanged. Nothing sets R yet (Controller, Tracker Service), so production behaviour is unchanged. The gate becomes R-aware whenever R is present, not through a separate `position_mahalanobis_combined` method.
+**Status (robot_vision, `feature/prob-tracking-extracted-3d-R`):** a detection that carries R gets information-weighted multi-camera fusion (`fuseGeometry`; z from measured detections only), association with S = H P Hᵀ + R in `PositionMahalanobis` (z gated per pair by `position_gate`, as without R) and `Mahalanobis`, the UKF / IMM update (gain and model likelihood) with its R on the same observed rows (z left out for a planar detection on a track with `z_measured`), and a birth P seeded from it. Without R every path is unchanged. R comes from #2149 (experimental); without it production behaviour is unchanged. The gate becomes R-aware whenever R is present, not through a separate `position_mahalanobis_combined` method (decided): whether the producer sets R is the switch. Open: evaluation with R.
 
 ### Phase 3 validation
 
@@ -148,14 +157,30 @@ cd tracker && make test-unit-coverage
 
 - [ ] End-to-end: predict → associate(S_pred + R) → correct(R)
 - [ ] `tracking_radius` deprecated in object-library docs
-- [ ] Default method → `position_mahalanobis_combined`
+- [ ] R producer enabled by default
 - [ ] Metrics meet or exceed Phase 2 on gated datasets
+
+---
+
+## Track location uncertainty in the output (controller + tracker)
+
+**Goal:** See [design §5.7](../../docs/design/probabilistic-tracking-association.md#57-track-location-uncertainty-in-the-output). **Status:** not started; both services publish only `association_window`.
+
+| Task | Location |
+|------|----------|
+| Field definition | `data_formats.md`, `tracker/schema/scene-data.schema.json` |
+| Tracker Service output | `tracking_types.hpp`, `track_publisher.cpp` |
+| Controller output | `ilabs_tracking.py`, `scene_common` |
+
+### Exit criteria
+
+- [ ] Both services publish the field; unit tests check it against the filter's P
 
 ---
 
 ## Non-planar Z / `vz` tracking (controller + tracker)
 
-**Status:** Controller + tracker Z/`vz` tracking on `feature/prob-tracking-extracted-3d`. Tracker 3D detection input (`translation` / `size` / `rotation`) came through main (#2050) and is merged.  
+**Status:** Controller + tracker Z/`vz` tracking merged to `release-2026.3.0` (#2109). Tracker 3D detection input (`translation` / `size` / `rotation`) came through main (#2050) and is merged.  
 **Out of scope here:** mesh/DEM foot-ray for plain 2D cameras (separate PR). Issue 1 from the `vz` review (ground-plane pixel path) stays deferred.
 
 ### Shared (`robot_vision`) — done with controller
@@ -164,21 +189,25 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 
 | Item | Detail | Commit / notes |
 |------|--------|----------------|
-| State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | `ee393034` |
-| Process noise | Independent `Q[vz,vz]` | same |
-| 3D association | Euclidean + `PositionMahalanobis` on `(x,y,z)`; birth cluster Euclidean is 3D | `0f4c1b5a` |
-| χ² gate | Matching uses `df=3` (~11.34 @ p=0.99); UI XY ellipse stays `df=2` | same |
-| Named indices | `StateIndex` / `MeasurementIndex` | same |
-| `isDynamic` | `vx²+vy²+vz² > 1` (vertical counts toward coast aging) | same |
-| Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association | same |
+| State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | |
+| Process noise | `Q[vz,vz]` scales with `|vz|` like planar along-track with speed (`qVel·(1+\|vz\|)·Δt`); independent of planar heading | |
+| Sticky `z_measured` | Track keeps measured-z once any update measured it (like `orientation_observed`) | |
+| `position_gate` helpers | `PositionGate.hpp`: `gatesZ` / `positionDof` / `positionChi2` / `appendPositionMeasurementRows` / `xyCostScaleForChi2Threshold3` — single XY-vs-XYZ policy for association, birth, UKF rows, and UI windows | |
+| Planar UKF update | `observedMeasurementRows` includes z when the detection measured it **or** the track has never measured z (floor lock); omits z only to protect sticky measured height from later planar ground points | |
+| 3D association | Euclidean + `PositionMahalanobis` via `position_gate::gatesZ`; birth clustering by the same rule | |
+| χ² gate | `positionChi2(p, includeZ)` — df=3 (~11.34 @ p=0.99) or df=2 (~9.21); UI ellipse uses `trackCanGateZ` | |
+| Named indices | `StateIndex` / `MeasurementIndex` | |
+| `isDynamic` | `vx²+vy²+vz² > 1` (vertical counts toward coast aging) | |
+| Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association; sticky planar correct / planar handover keep height; `|vz|` alone uses the dynamic coast timeout; `position_gate` helpers; birth fusion ORs `z_measured` | |
 
 ### Controller-only — done (skip for tracker)
 
 | Item | Location |
 |------|----------|
 | Association params use `chi2_threshold(p, 3)` | `ilabs_tracking.association_match_params` |
-| Association window viz uses `chi2_threshold(p, 2)` | `ilabs_tracking.build_association_window` |
-| Publish `velocity[2]` from UKF `vz` | `ilabs_tracking` |
+| Association window viz uses `chi2_threshold(p, 3)` for tracks with measured z, `(p, 2)` without | `ilabs_tracking.build_association_window` |
+| Publish `velocity[2]` from UKF `vz` | `ilabs_tracking` (unit: `test_from_tracked_object_publishes_vertical_velocity`) |
+| `has_measured_z` from detection `translation` key | `moving_object` (pixel/`distance` alone stay false; child-scene/external world `translation` marks true today) |
 | Prefer detection `translation` / 3D bbox Z when present | `moving_object.mapObjectDetectionToWorld` (already) |
 | Functional climb via external-source MQTT | `tests/functional/test_z_tracking.py` |
 
@@ -188,9 +217,9 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 
 | # | Task | Location | Status |
 |---|------|----------|--------|
-| T1 | χ² `df=3` for match cost; `df=2` for association-window ellipse | `association_config.hpp`, `association_window.hpp` | Done |
+| T1 | χ² `df=3` match threshold (XY pairs scaled to `df=2`); association-window ellipse at the track's df | `association_config.hpp`, `association_window.hpp` | Done |
 | T2 | Detection `translation` / `size` / `rotation` input, translation path preserves Z | #2050 (through main) | Done |
-| T3 | Set `zMeasured = true` on the translation path | `coordinate_transformer.cpp` | Done |
+| T3 | Set `z_measured = true` on the translation path | `coordinate_transformer.cpp` | Done |
 | T5 | Assert published `velocity[2]` / `translation[2]` | `track_publisher_test.cpp` | Done |
 | T6 | End-to-end: stacked-floor 3D detections stay separate; climbing 3D detection publishes `translation[2]` / `velocity[2]` | `tracking_worker_test.cpp`, `coordinate_transformer_test.cpp` | Done |
 
@@ -199,15 +228,29 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 | # | Item | Notes |
 |---|------|-------|
 | F1 | 3D detection input (`translation` / `size` / `rotation`, bbox-less detections) | **Done:** #2050. |
-| F2 | Wildtrack (planar) eval after χ² `df=3` | Gate loosened ~9.21→11.34 at p=0.99 for planar scenes. **Run Wildtrack eval; mitigate from results** (do not pre-mitigate). |
+| F2 | Wildtrack (planar) eval after Z tracking | Planar pairs keep the `df=2` gate (9.21 at p=0.99). **Run Wildtrack eval.** |
 | F3 | Ingest 3D detection `rotation` into tracker / UKF yaw | **Done:** #2050. |
 | F4 | Size for 3D detections | **Done:** #2050 requires `size` with `translation`. |
 | F5 | Mesh / DEM foot-ray for bbox-only cameras | Separate PR. |
 | F6 | Schema `distance` alone without `translation` | Deferred. |
-| F8 | One z reference for pixel (ground point) and 3D (box centre) detections | **TODO:** a mixed track publishes a midpoint height, splits on a camera → 3D handover at ≥ ~2 m centre height, and gets spurious `vz` when sensors alternate. |
-| F7 | Hybrid birth: `EuclideanBirth` + `zMeasured` | **Done:** XY if either planar; XYZ when both measured. Revisit after metrics. Tracker sets `zMeasured` on translation detections (T3). |
+| F8 | One z reference for pixel (ground point) and 3D (box centre) detections | **Open:** association gates z only when both sides measured it, and planar UKF corrects omit z after sticky `z_measured`, so handovers keep one track and no longer drag height to the floor. A mixed track can still average differing z references while both measure z; unify foot vs box-centre later. |
+| F7 | Hybrid birth: `EuclideanBirth` + `z_measured` | **Done:** XY if either planar; XYZ when both measured (`position_gate`). Tracker sets `z_measured` on translation detections (T3). Birth-cluster re-fuse ORs `z_measured` like track↔detection fusion. |
 
-**Birth clustering note (not association default):** Unmatched detection→detection fusion uses `DistanceType::EuclideanBirth` ~`kDefaultBirthClusterRadiusM` (2 m), even when track→detection association is `position_mahalanobis`. Raw detections lack `predictedMeasurementCov`, so Mahalanobis cannot birth-cluster. `EuclideanBirth` is XY when either side lacks `zMeasured` (planar + 3D OD still fuse); XYZ when both have measured Z (stacked floors stay separate). Revisit after metrics / multi-floor datasets.
+**Birth clustering note (not association default):** Unmatched detection→detection fusion uses `DistanceType::EuclideanBirth` ~`kDefaultBirthClusterRadiusM` (2 m), even when track→detection association is `position_mahalanobis`. Raw detections lack `predictedMeasurementCov`, so Mahalanobis cannot birth-cluster. `EuclideanBirth` is XY when either side lacks `z_measured` (planar + 3D OD still fuse); XYZ when both have measured Z (stacked floors stay separate). Revisit after metrics / multi-floor datasets.
+
+### Position subspace maintainability
+
+**Done:** Call sites go through `rv::tracking::position_gate` (and Python `gates_z` / `position_chi2`) instead of open-coding `z_measured ? 3 : 2` / dual Euclidean formulas. Mahalanobis still keeps a dual XY/XYZ inverse cache for speed, but the gate decision is one `gatesZ` check plus `xyCostScaleForChi2Threshold3`.
+
+**Do not do yet (deferred):**
+
+| Approach | Why wait |
+|----------|----------|
+| Always-3D association with huge `R_zz` for planar detections | One math path, but needs Phase 2 `R_meas` and changes coast / gate semantics |
+| Template / `if constexpr` forests per df | Still two mental models; worse to read than `position_gate` |
+| Leaving `z_measured` branches without routing them through `position_gate` | Re-scatters XY/XYZ policy; new axes (size in the gate, Phase 2) would multiply `if`s again |
+| Per-edge matcher thresholds (drop `xy_scale`) | Cleaner than scaling df=2 costs to chi2(p,3), but needs bipartite matcher API changes |
+| Normalized gate cost `d² / chi2(p, df)` with threshold 1 | Nice long-term ranking across subspaces; changes assignment costs vs today’s scaled d² — validate on Wildtrack first |
 
 ### Tracker validation
 
@@ -219,15 +262,18 @@ cd tracker && make test-unit test-robot-vision
 
 ## Rollout checklist
 
-1. [x] Phase 1 default flip (`position_mahalanobis`); `euclidean` rollback retained
-2. [ ] Phase 2 opt-in combined; default stays Phase 1 until sign-off
-3. [ ] Phase 3 default flip to combined
-4. [x] Controller non-planar Z/`vz` + 3D association (`0f4c1b5a` / `ee393034`)
+1. [ ] Phase 1 default flip (`position_mahalanobis`): shipped configs stay `euclidean`, with Mahalanobis alternative configs, until the Wildtrack regression is resolved
+2. [ ] Phase 2 opt-in: R from #2149; detections without R stay Phase 1
+3. [ ] Phase 3: R producer enabled by default after evaluation
+4. [x] Controller non-planar Z/`vz` + 3D association
 5. [x] Tracker χ² df=3 parity + `vz` publish tests
 6. [ ] F2: Wildtrack eval post–χ² df=3; mitigate from results
-7. [x] F1: Tracker 3D detection input (#2050) + `zMeasured` (T3)
-8. [x] F7: Hybrid birth clustering (`EuclideanBirth` / `zMeasured`)
-9. [ ] F8: One z reference for pixel and 3D detections
+7. [x] F1: Tracker 3D detection input (#2050) + `z_measured` (T3)
+8. [x] F7: Hybrid birth (`EuclideanBirth` / `z_measured`) + birth-cluster `z_measured` OR
+9. [ ] F8: One z reference for pixel and 3D detections (mitigated: gated association + planar UKF omits z)
+10. [x] Planar UKF updates omit z only when the track already has sticky measured height and the detection does not
+11. [x] `position_gate` helpers centralize XY vs XYZ (association, UKF rows, UI); deferred alternatives listed above
+12. [ ] Track location uncertainty in the output
 
 ```mermaid
 gantt
@@ -255,10 +301,12 @@ gantt
 |-----------|---------|---------|---------|
 | `robot_vision/ObjectMatching.*` | ✓ | ✓ | |
 | `robot_vision/TrackedObject.*` | | ✓ | ✓ |
-| `robot_vision/MultiModelKalmanEstimator.*` | | | ✓ |
-| `tracker/coordinate_transformer.*` | | ✓ | |
+| `robot_vision/MultiModelKalmanEstimator.*` | ✓ | | ✓ |
+| Tracker / Controller observation processor client (#2149) | | ✓ | ✓ |
 | `tracker/config_loader.*`, schema | ✓ | ✓ | ✓ |
 | `tracker/tracking_worker.cpp` | ✓ | ✓ | ✓ |
 | `controller/ilabs_tracking.py` | ✓ | ✓ | ✓ |
+| `controller/config/`, `tracker/config/` (shipped and Mahalanobis configs) | ✓ | | |
+| `scene_common/association.py` | ✓ | | |
 | `manager/models.py` (deprecation) | | | ✓ |
 | `tools/tracker/evaluation/` | ✓ | ✓ | ✓ |

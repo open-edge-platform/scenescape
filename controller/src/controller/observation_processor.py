@@ -180,6 +180,8 @@ def _pixel_box(sscape_object):
   """Pixel box (x, y, width, height) of a camera detection the service can process, else None."""
   if getattr(sscape_object, 'has_measured_z', False):
     return None
+  if getattr(sscape_object, 'metric_distance', None) is not None:
+    return None  # the sensor measured the depth; keep the local depth placement
   if not isinstance(getattr(sscape_object, 'camera', None), Camera):
     return None
   box = getattr(sscape_object, 'boundingBoxPixels', None)
@@ -341,7 +343,7 @@ def apply_measurement(rv_object, measurement):
   rv_object.length = mean[3]
   rv_object.width = mean[4]
   rv_object.height = mean[5]
-  rv_object.zMeasured = True
+  rv_object.z_measured = True
   return True
 
 

@@ -28,6 +28,19 @@ def _export_record(metrics):
   }
 
 
+def _dropped_record(totals_by_reason):
+  """One export of tracker.mqtt.dropped with one cumulative series per reason."""
+  return _export_record([{
+      "name": "tracker.mqtt.dropped",
+      "unit": "{message}",
+      "sum": {"dataPoints": [
+          {"attributes": [_attr("scene", "Test_Scene"), _attr("reason", reason)],
+           "timeUnixNano": "1000", "asInt": str(total)}
+          for reason, total in totals_by_reason.items()
+      ]},
+  }])
+
+
 @pytest.fixture
 def metrics_file(tmp_path):
   """A two-export collector output with histogram, counter, and gauge metrics."""
@@ -204,56 +217,217 @@ class TestCollectMetricValues:
   def test_missing_file_returns_empty(self, tmp_path):
     assert metrics_recorder.collect_metric_values(tmp_path / "absent.json") == {}
 
+  def test_counter_totals_per_reason(self, tmp_path):
+    path = tmp_path / "metrics.json"
+    path.write_text(json.dumps(_dropped_record({"rejected_schema": 4, "dropped_queue_full": 2})) + "\n")
+    stats = metrics_recorder.collect_metric_values(path)["tracker.mqtt.dropped"]["stats"]
+    assert stats["total"] == 6
+    assert stats["by_reason"] == {"rejected_schema": 4, "dropped_queue_full": 2}
+
+  def test_all_rejected_tracker_run_is_flagged(self, tmp_path):
+    # Every message failed validation: tracker.mqtt.messages never increments.
+    path = tmp_path / "metrics.json"
+    path.write_text(json.dumps(_dropped_record({"rejected_schema": 500})) + "\n")
+    result = metrics_recorder.check_dropped_frames(metrics_recorder.collect_metric_values(path))
+    assert result["dropped"] == 500
+    assert result["received"] == 500
+    assert result["ratio"] == 1.0
+    assert result["exceeded"] is True
+
 
 class TestCheckDroppedFrames:
-  def _values_with_dropped(self, total):
+  def _values(self, dropped, messages=1000):
     return {
         "scenescape_controller_mqtt_messages_dropped": {
             "kind": "sum",
             "unit": "1",
-            "stats": {"total": total, "delta": {}},
-        }
+            "stats": {"total": dropped, "delta": {}},
+        },
+        "scenescape_controller_mqtt_messages": {
+            "kind": "sum",
+            "unit": "1",
+            "stats": {"total": messages, "delta": {}},
+        },
     }
 
   def test_counts_dropped_and_ratio(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(5), output_frame_count=1000
-    )
+    result = metrics_recorder.check_dropped_frames(self._values(5))
     assert result["dropped"] == 5
-    assert result["output_frames"] == 1000
+    assert result["received"] == 1000
     assert result["ratio"] == pytest.approx(0.005)
     assert result["exceeded"] is False
 
   def test_exceeds_threshold(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(50), output_frame_count=1000
-    )
+    result = metrics_recorder.check_dropped_frames(self._values(50))
     assert result["ratio"] == pytest.approx(0.05)
     assert result["exceeded"] is True
 
   def test_sums_controller_and_tracker_metrics(self):
-    values = self._values_with_dropped(3)
+    values = self._values(3, messages=600)
     values["tracker.mqtt.dropped"] = {
         "kind": "sum", "unit": "1", "stats": {"total": 7, "delta": {}},
     }
-    result = metrics_recorder.check_dropped_frames(values, output_frame_count=1000)
+    values["tracker.mqtt.messages"] = {
+        "kind": "sum", "unit": "1", "stats": {"total": 400, "delta": {}},
+    }
+    result = metrics_recorder.check_dropped_frames(values)
     assert result["dropped"] == 10
+    assert result["received"] == 1000
 
-  def test_zero_output_frames_yields_zero_ratio(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(5), output_frame_count=0
-    )
+  def test_ratio_is_per_message_not_per_frame(self):
+    # 2 cameras x 800 frames = 1600 messages; 64 drops is 4%, not 8% of 800 frames.
+    result = metrics_recorder.check_dropped_frames(self._values(64, messages=1600))
+    assert result["ratio"] == pytest.approx(0.04)
+
+  def test_dropped_without_received_messages_is_flagged(self):
+    result = metrics_recorder.check_dropped_frames(self._values(5, messages=0))
+    assert result["ratio"] == 1.0
+    assert result["exceeded"] is True
+
+  def test_nothing_received_or_dropped_yields_zero_ratio(self):
+    result = metrics_recorder.check_dropped_frames(self._values(0, messages=0))
     assert result["ratio"] == 0.0
     assert result["exceeded"] is False
 
+  def test_tracker_rejections_count_as_received(self):
+    # tracker.mqtt.messages counts accepted messages only; rejected ones are only in tracker.mqtt.dropped.
+    values = {
+        "tracker.mqtt.messages": {
+            "kind": "sum", "unit": "1", "stats": {"total": 900, "delta": {}},
+        },
+        "tracker.mqtt.dropped": {
+            "kind": "sum", "unit": "1",
+            "stats": {"total": 150, "delta": {},
+                      "by_reason": {"rejected_lag": 100, "dropped_queue_full": 50}},
+        },
+    }
+    result = metrics_recorder.check_dropped_frames(values)
+    assert result["received"] == 1000
+    assert result["ratio"] == pytest.approx(0.15)
+
   def test_no_dropped_metric_reports_zero(self):
-    result = metrics_recorder.check_dropped_frames({}, output_frame_count=1000)
+    result = metrics_recorder.check_dropped_frames({})
     assert result["dropped"] == 0
     assert result["exceeded"] is False
 
   def test_custom_threshold(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(5), output_frame_count=1000, threshold=0.001
-    )
+    result = metrics_recorder.check_dropped_frames(self._values(5), threshold=0.001)
     assert result["exceeded"] is True
+
+
+class TestCheckDroppedFramesCategories:
+  """Loss is judged per category; the worst category is the reported ratio."""
+
+  def _values(self, by_category, messages=1600, metric="scenescape_controller_mqtt_messages"):
+    dropped_metric = (
+        "tracker.mqtt.dropped" if metric == "tracker.mqtt.messages"
+        else "scenescape_controller_mqtt_messages_dropped"
+    )
+    total = sum(v for reasons in by_category.values() for v in reasons.values())
+    by_reason = {}
+    for reasons in by_category.values():
+      for reason, value in reasons.items():
+        by_reason[reason] = by_reason.get(reason, 0) + value
+    return {
+        dropped_metric: {
+            "kind": "sum", "unit": "1",
+            "stats": {"total": total, "by_reason": by_reason, "by_category": by_category,
+                      "delta": {}},
+        },
+        metric: {"kind": "sum", "unit": "1", "stats": {"total": messages, "delta": {}}},
+    }
+
+  def test_worst_category_is_the_reported_ratio(self):
+    # The average over both categories is 0.97%, but FW190D lost 1.19% of its inputs.
+    values = self._values({"person": {"tracker_busy": 12}, "FW190D": {"tracker_busy": 19}})
+    result = metrics_recorder.check_dropped_frames(
+        values, inputs_per_category={"person": 1600, "FW190D": 1593})
+    assert result["dropped"] == 31
+    assert result["worst_category"] == "FW190D"
+    assert result["ratio"] == pytest.approx(19 / 1593)
+    assert result["categories"]["person"] == {"dropped": 12, "inputs": 1600, "ratio": 12 / 1600}
+    assert result["exceeded"] is True
+
+  def test_all_categories_below_the_threshold_is_not_flagged(self):
+    values = self._values({"person": {"tracker_busy": 4}, "FW190D": {"tracker_busy": 8}})
+    result = metrics_recorder.check_dropped_frames(
+        values, inputs_per_category={"person": 1600, "FW190D": 1600})
+    assert result["ratio"] == pytest.approx(0.005)
+    assert result["exceeded"] is False
+
+  def test_category_without_drops_is_listed(self):
+    values = self._values({"person": {"tracker_busy": 16}})
+    result = metrics_recorder.check_dropped_frames(
+        values, inputs_per_category={"person": 1600, "FW190D": 1600})
+    assert result["categories"]["FW190D"]["ratio"] == 0.0
+    assert result["worst_category"] == "person"
+
+  def test_message_level_drops_count_for_every_category(self):
+    values = self._values({
+        "": {"fell_behind": 8, "ptz_dwell": 8},
+        "person": {"tracker_busy": 16},
+    })
+    result = metrics_recorder.check_dropped_frames(
+        values, inputs_per_category={"person": 1600, "FW190D": 1600})
+    assert result["categories"]["FW190D"]["dropped"] == 16
+    assert result["categories"]["person"]["dropped"] == 32
+    assert result["ratio"] == pytest.approx(0.02)
+
+  def test_message_level_drops_are_an_upper_bound_for_a_rare_category(self):
+    # Documented limit: the counter has no category, so one dropped person-only message is
+    # also counted against the rare "car" category, which lost nothing itself.
+    values = self._values({"": {"ptz_dwell": 1}}, messages=1000)
+    result = metrics_recorder.check_dropped_frames(
+        values, inputs_per_category={"person": 990, "car": 10})
+    assert result["categories"]["car"]["ratio"] == pytest.approx(0.1)
+    assert result["worst_category"] == "car"
+    assert result["exceeded"] is True
+
+  def test_category_drops_without_inputs_use_the_received_count(self):
+    result = metrics_recorder.check_dropped_frames(self._values({"person": {"tracker_busy": 96}}))
+    assert result["categories"]["person"]["inputs"] == 1600
+    assert result["ratio"] == pytest.approx(0.06)
+
+  def test_tracker_service_rejections_count_for_every_category(self):
+    values = self._values(
+        {"": {"rejected_lag": 100}, "person": {"dropped_queue_full": 40, "dropped_max_workers": 20}},
+        messages=900, metric="tracker.mqtt.messages")
+    result = metrics_recorder.check_dropped_frames(values, inputs_per_category={"person": 1000})
+    # 100 rejected messages plus 60 queue and worker-limit drops out of 1000 inputs.
+    assert result["received"] == 1000
+    assert result["categories"]["person"]["dropped"] == 160
+    assert result["ratio"] == pytest.approx(0.16)
+
+  def test_drops_without_a_category_breakdown_are_taken_as_message_level(self):
+    values = {
+        "scenescape_controller_mqtt_messages_dropped": {
+            "kind": "sum", "unit": "1", "stats": {"total": 20, "delta": {}},
+        },
+        "scenescape_controller_mqtt_messages": {
+            "kind": "sum", "unit": "1", "stats": {"total": 1000, "delta": {}},
+        },
+    }
+    result = metrics_recorder.check_dropped_frames(values)
+    assert result["categories"] == {}
+    assert result["worst_category"] is None
+    assert result["ratio"] == pytest.approx(0.02)
+
+  def test_collected_counter_keeps_totals_per_category_and_reason(self, tmp_path):
+    record = _export_record([{
+        "name": "scenescape_controller_mqtt_messages_dropped",
+        "unit": "1",
+        "sum": {"dataPoints": [
+            {"attributes": [_attr("category", category), _attr("reason", reason)],
+             "timeUnixNano": "1000", "asInt": str(total)}
+            for category, reason, total in (
+                ("person", "tracker_busy", 12), ("FW190D", "tracker_busy", 19),
+                ("", "fell_behind", 3))
+        ]},
+    }])
+    path = tmp_path / "metrics.json"
+    path.write_text(json.dumps(record) + "\n")
+    stats = metrics_recorder.collect_metric_values(path)[
+        "scenescape_controller_mqtt_messages_dropped"]["stats"]
+    assert stats["by_category"] == {
+        "person": {"tracker_busy": 12}, "FW190D": {"tracker_busy": 19}, "": {"fell_behind": 3}}
 

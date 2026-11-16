@@ -12,8 +12,8 @@ services:
       - TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR=true
       - TRACKER_OBSERVATION_PROCESSOR_HOST=observation-processor.scenescape.intel.com
       - TRACKER_OBSERVATION_PROCESSOR_PORT=50052
-      # The observation processor serves plaintext gRPC only.
-      - TRACKER_OBSERVATION_PROCESSOR_INSECURE=true
+      # The observation processor serves TLS; verify it with the SceneScape CA.
+      - TRACKER_OBSERVATION_PROCESSOR_CA_CERT=/run/secrets/certs/scenescape-ca.pem
     depends_on:
       observation-processor:
         condition: service_healthy

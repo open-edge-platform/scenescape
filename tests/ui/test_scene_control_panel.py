@@ -25,9 +25,8 @@ def capture_when_rendered(browser):
   return common.capture_3d_canvas(browser)
 
 @pytest.mark.test_name("NEX-T10474")
-@pytest.mark.fresh_stack
 @common.mock_display
-def test_scene_control_panel(params, record_xml_attribute):
+def test_scene_control_panel(demo_scene, params, record_xml_attribute):
   """! Test the Scene Control Panel in the 3D UI.
   @param    params                  List of test parameters.
   @param    record_xml_attribute    Function for recording test name.

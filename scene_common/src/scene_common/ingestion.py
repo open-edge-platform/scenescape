@@ -115,6 +115,10 @@ class SceneDataIngestion:
     """Return all live objects for *detection_type*."""
     return [o for o in self._objects.values() if o.category == detection_type]
 
+  def get_all_objects(self) -> List[SimpleNamespace]:
+    """Return all live objects across detection types."""
+    return list(self._objects.values())
+
   def deserialize(
     self,
     serialized_objects,
@@ -152,6 +156,22 @@ class SceneDataIngestion:
   # Internal helpers
   # ------------------------------------------------------------------
 
+  @staticmethod
+  def _set_observation_info(obj: SimpleNamespace, obj_data: dict) -> None:
+    previous = getattr(obj, 'info', None) or {}
+    obj.info = {'category': obj.category, 'confidence': obj.confidence}
+    if 'source_id' in obj_data:
+      obj.info['source_id'] = obj_data['source_id']
+    # Platform camera mounts/intrinsics must survive regulated republish so
+    # the 3D view can keep rendering frustums. Carry forward the last known
+    # cameras list when a later snapshot omits the field.
+    if 'cameras' in obj_data:
+      obj.info['cameras'] = obj_data['cameras']
+    elif 'cameras' in previous:
+      obj.info['cameras'] = previous['cameras']
+    # Sensor modality is distinct from an external publisher's identity.
+    obj.source = obj_data.get('source')
+
   def _build_one(self, obj_data: dict, sensors: dict) -> SimpleNamespace:
     """Build or update a single live object from an MQTT dict.
 
@@ -185,11 +205,9 @@ class SceneDataIngestion:
     # None when omitted so Analytics can FOV-fill. Explicit [] is preserved here
     # but Analytics _updateVisible also treats empty as fill-eligible.
     obj.visibility = obj_data.get('visibility')
-    obj.info = {'category': obj.category, 'confidence': obj.confidence}
+    obj._visibility_from_producer = bool(obj.visibility)
+    self._set_observation_info(obj, obj_data)
     obj.association_window = obj_data.get('association_window')
-    # Debug aid carried through from the publisher (e.g. "lidar"/"camera");
-    # not part of the curated obj.info reconstruction above.
-    obj.source = obj_data.get('source')
 
     # Reconstruct bbMeters from size when available
     if obj.size and len(obj.size) == 3:

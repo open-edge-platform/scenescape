@@ -16,7 +16,7 @@ rv::tracking::TrackedObject makeObject(double z, double height, bool z_measured)
     rv::tracking::TrackedObject object;
     object.z = z;
     object.height = height;
-    object.zMeasured = z_measured;
+    object.z_measured = z_measured;
     return object;
 }
 
@@ -31,7 +31,7 @@ TEST(ZReferenceTest, ToCentreOfMassRaisesUnmeasuredZByHalfHeight) {
     EXPECT_DOUBLE_EQ(objects_per_camera[0][0].z, 0.85);
     EXPECT_DOUBLE_EQ(objects_per_camera[0][1].z, 0.8) << "hover z keeps its offset";
     EXPECT_DOUBLE_EQ(objects_per_camera[1][0].z, 0.85) << "every camera is converted";
-    EXPECT_FALSE(objects_per_camera[0][0].zMeasured);
+    EXPECT_FALSE(objects_per_camera[0][0].z_measured);
 }
 
 TEST(ZReferenceTest, ToCentreOfMassKeepsMeasuredZ) {

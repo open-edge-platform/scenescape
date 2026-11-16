@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = ["scikit-build-core>=0.8", "pybind11>=2.12"]
+requires = ["scikit-build-core==1.1.2", "pybind11==3.0.4"]
 build-backend = "scikit_build_core.build"
 
 [project]

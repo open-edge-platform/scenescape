@@ -11,6 +11,7 @@ from google.protobuf import text_format
 
 from observation_processor.grpc_api import observation_processor_pb2 as pb
 from observation_processor.grpc_api import observation_processor_pb2_grpc
+from observation_processor.grpc_tls import create_channel
 
 MODES = {
   "auto": pb.CONDITIONING_MODE_AUTO,
@@ -31,6 +32,10 @@ def main():
   parser.add_argument("--mode", choices=MODES, default="auto")
   parser.add_argument("--include-diagnostics", action="store_true")
   parser.add_argument("--timeout", type=float, default=10.0)
+  parser.add_argument("--rootcert", default=None,
+                      help="CA certificate used to verify the service (TLS mode)")
+  parser.add_argument("--insecure", action="store_true",
+                      help="Use plaintext gRPC (local development only)")
   args = parser.parse_args()
 
   request = pb.ProcessDetectionsRequest(
@@ -48,7 +53,8 @@ def main():
   )
 
   try:
-    with grpc.insecure_channel(args.target) as channel:
+    with create_channel(args.target, rootcert=args.rootcert,
+                        insecure=args.insecure or None) as channel:
       response = observation_processor_pb2_grpc.ObservationProcessorServiceStub(
         channel).ProcessDetections(
         request, timeout=args.timeout)

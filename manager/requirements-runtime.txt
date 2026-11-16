@@ -25,6 +25,7 @@ pyarrow==23.0.1
 PyYAML==6.0.3
 requests==2.33.0
 scipy==1.17.1
+segno==1.6.6
 setuptools==84.1.0
 shapely==2.1.1
 trimesh==4.11.5

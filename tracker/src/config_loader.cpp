@@ -6,10 +6,12 @@
 #include "env_vars.hpp"
 #include "json_utils.hpp"
 
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <optional>
 #include <stdexcept>
+#include <utility>
 
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
@@ -20,6 +22,52 @@
 namespace tracker {
 
 namespace {
+
+bool is_positive(double value) {
+    return value > 0.0;
+}
+
+bool is_non_negative(double value) {
+    return value >= 0.0;
+}
+
+/// The JSON number at `pointer`, or nullopt when the key is absent. It must be a finite number that
+/// passes `valid`: the schema alone is not enough, RapidJSON validates draft-04 and ignores a
+/// numeric exclusiveMinimum, and validation may be skipped or weakened.
+std::optional<double> read_checked_number(const rapidjson::Document& doc, const char* pointer,
+                                          bool (*valid)(double), const char* requirement) {
+    const auto* value = rapidjson::Pointer(pointer).Get(doc);
+    if (value == nullptr) {
+        return std::nullopt;
+    }
+    if (!value->IsNumber()) {
+        throw std::runtime_error(std::string(pointer) + " must be a number");
+    }
+    const double number = value->GetDouble();
+    if (!std::isfinite(number) || !valid(number)) {
+        throw std::runtime_error(std::string(pointer) + " must be a finite number " + requirement +
+                                 ": " + std::to_string(number));
+    }
+    return number;
+}
+
+/// An environment value that must be a finite number passing `valid`; anything else is an error
+/// naming the variable.
+double parse_checked_env_number(const std::string& v, const std::string& s, bool (*valid)(double),
+                                const char* requirement) {
+    try {
+        std::size_t parsed = 0;
+        const double number = std::stod(v, &parsed);
+        if (parsed != v.size() || !std::isfinite(number) || !valid(number)) {
+            throw std::runtime_error(s + " must be a finite number " + requirement + ": " + v);
+        }
+        return number;
+    } catch (const std::invalid_argument&) {
+        throw std::runtime_error("Invalid " + s + ": " + v);
+    } catch (const std::out_of_range&) {
+        throw std::runtime_error("Value out of range for " + s + ": " + v);
+    }
+}
 
 rapidjson::SchemaDocument load_schema(const std::filesystem::path& schema_path) {
     std::ifstream ifs(schema_path);
@@ -412,14 +460,51 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_GATE_PROBABILITY,
                                      kDefaultAssociationGateProbability)
             .GetDouble();
+    // RapidJSON validates draft-04, which ignores the schema's numeric exclusiveMinimum.
+    if (!(config.tracking.association.gate_probability > 0.0 &&
+          config.tracking.association.gate_probability <= 1.0)) {
+        throw std::runtime_error("tracking.association.gate_probability must be in (0, 1]: " +
+                                 std::to_string(config.tracking.association.gate_probability));
+    }
     // Without max_radius_m the default depends on the method, so it is resolved after the env
-    // overrides below.
+    // overrides below. Validate here too: schema minimum:0 is not enough if validation is skipped
+    // or a non-finite value slips through.
     std::optional<double> association_max_radius_m;
     if (auto* max_radius_m =
             GetValueByPointer(config_doc, json::TRACKING_ASSOCIATION_MAX_RADIUS_M)) {
-        association_max_radius_m = max_radius_m->GetDouble();
+        if (!max_radius_m->IsNumber()) {
+            throw std::runtime_error("tracking.association.max_radius_m must be a number");
+        }
+        const double radius = max_radius_m->GetDouble();
+        if (!std::isfinite(radius) || radius < 0.0) {
+            throw std::runtime_error(
+                "tracking.association.max_radius_m must be a finite number >= 0: " +
+                std::to_string(radius));
+        }
+        association_max_radius_m = radius;
     }
     load_observation_processor(config_doc, config);
+
+    // Birth-clustering radius and Kalman filter settings. A missing key keeps the struct default,
+    // which is robot_vision's production constant itself, so an absent block is bit-identical to
+    // the constants.
+    if (auto radius =
+            read_checked_number(config_doc, json::TRACKING_ASSOCIATION_BIRTH_CLUSTER_RADIUS_M,
+                                is_non_negative, ">= 0")) {
+        config.tracking.association.birth_cluster_radius_m = *radius;
+    }
+    if (auto value = read_checked_number(config_doc, json::TRACKING_FILTER_PROCESS_NOISE,
+                                         is_positive, "> 0")) {
+        config.tracking.filter.process_noise = *value;
+    }
+    if (auto value = read_checked_number(config_doc, json::TRACKING_FILTER_BASE_MEASUREMENT_NOISE,
+                                         is_positive, "> 0")) {
+        config.tracking.filter.base_measurement_noise = *value;
+    }
+    if (auto value = read_checked_number(config_doc, json::TRACKING_FILTER_INIT_STATE_COVARIANCE,
+                                         is_positive, "> 0")) {
+        config.tracking.filter.init_state_covariance = *value;
+    }
 
     // NTP configuration (optional; server empty/missing = use OS clock)
     if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
@@ -519,8 +604,12 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               tracker::env::ASSOCIATION_GATE_PROBABILITY,
               [](const std::string& v, const std::string& s) {
                   try {
-                      double probability = std::stod(v);
-                      if (probability <= 0.0 || probability > 1.0) {
+                      std::size_t parsed = 0;
+                      double probability = std::stod(v, &parsed);
+                      if (parsed != v.size()) {
+                          throw std::runtime_error("Invalid " + s + ": " + v);
+                      }
+                      if (!std::isfinite(probability) || probability <= 0.0 || probability > 1.0) {
                           throw std::runtime_error(s + " must be in (0, 1]: " + v);
                       }
                       return probability;
@@ -531,10 +620,38 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                   }
               });
     apply_env(association_max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
-              parse_positive_double);
+              [](const std::string& v, const std::string& s) {
+                  try {
+                      std::size_t parsed = 0;
+                      double radius = std::stod(v, &parsed);
+                      if (parsed != v.size() || !std::isfinite(radius) || radius < 0.0) {
+                          throw std::runtime_error(s + " must be a finite number >= 0: " + v);
+                      }
+                      return radius;
+                  } catch (const std::invalid_argument&) {
+                      throw std::runtime_error("Invalid " + s + ": " + v);
+                  } catch (const std::out_of_range&) {
+                      throw std::runtime_error("Value out of range for " + s + ": " + v);
+                  }
+              });
     config.tracking.association.max_radius_m =
         association_max_radius_m.value_or(defaultMaxRadiusM(config.tracking.association.method));
     apply_observation_processor_env(config);
+    apply_env(config.tracking.association.birth_cluster_radius_m,
+              tracker::env::ASSOCIATION_BIRTH_CLUSTER_RADIUS_M,
+              [](const std::string& v, const std::string& s) {
+                  return parse_checked_env_number(v, s, is_non_negative, ">= 0");
+              });
+    for (const auto& [target, name] :
+         {std::pair{&config.tracking.filter.process_noise, tracker::env::FILTER_PROCESS_NOISE},
+          std::pair{&config.tracking.filter.base_measurement_noise,
+                    tracker::env::FILTER_BASE_MEASUREMENT_NOISE},
+          std::pair{&config.tracking.filter.init_state_covariance,
+                    tracker::env::FILTER_INIT_STATE_COVARIANCE}}) {
+        apply_env(*target, name, [](const std::string& v, const std::string& s) {
+            return parse_checked_env_number(v, s, is_positive, "> 0");
+        });
+    }
 
     // NTP overrides: env vars take precedence;
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {

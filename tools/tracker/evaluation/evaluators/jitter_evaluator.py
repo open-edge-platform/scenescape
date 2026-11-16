@@ -17,7 +17,7 @@ from utils.timeline import (
   parse_timestamp,
   resolve_ground_truth_path,
 )
-from utils.tracks import SPACE_AXES, space_axes
+from utils.tracks import present_axes, space_axes
 
 
 class JitterEvaluator(TrackerEvaluator):
@@ -357,9 +357,8 @@ class JitterEvaluator(TrackerEvaluator):
         ts.timestamp() for ts, _ in history
       ], dtype=float)  # seconds since epoch
 
-      positions = np.array(
-        [pos for _, pos in history], dtype=float
-      )[:, list(SPACE_AXES[self._space])]  # shape (n, axes of the space)
+      positions = np.array([pos for _, pos in history], dtype=float)
+      positions = positions[:, present_axes(self._space, positions.shape[1])]  # shape (n, axes)
 
       # --- velocity: forward difference on positions ---
       # v[i] = (p[i+1] - p[i]) / dt[i],  shape (n-1, axes)

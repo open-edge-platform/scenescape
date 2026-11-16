@@ -6,6 +6,7 @@
 import numpy as np
 import pytest
 
+import frustum_gaussian as fg
 from frustum_gaussian import transform_to_world_batch
 from frustum_gaussian._pure import project_frustum_batch_numpy
 
@@ -49,6 +50,66 @@ def test_pose_scale_updates_depth_metadata_and_world_point(scale, ray):
   assert world["depth_sigma"][0] == pytest.approx(np.sqrt(radial_variance))
   assert world["score"][0] == observations["score"][0]
   assert world["edge_valid"][0] == observations["edge_valid"][0]
+
+
+def test_native_transform_batch_accepts_valid_shapes():
+  if fg._cpp is None:
+    pytest.skip("frustum_gaussian native extension is not built")
+
+  observations = {
+    "mu": np.array([[1.0, 2.0, 3.0], [2.0, 4.0, 6.0]], dtype=np.float32),
+    "Sigma": np.tile(np.eye(3, dtype=np.float32), (2, 1, 1)),
+    "ray": np.array([[0.0, 0.0, 1.0], [0.6, 0.0, 0.8]], dtype=np.float32),
+    "depth_est": np.array([5.0, 10.0], dtype=np.float32),
+    "depth_sigma": np.array([1.0, 2.0], dtype=np.float32),
+    "depth_lo": np.array([4.0, 8.0], dtype=np.float32),
+    "depth_hi": np.array([6.0, 12.0], dtype=np.float32),
+    "score": np.array([0.7, 0.9], dtype=np.float32),
+    "edge_valid": np.array([15, 3], dtype=np.uint8),
+  }
+  pose = np.eye(4, dtype=np.float32)
+  pose[:3, 3] = [3.0, -4.0, 2.0]
+
+  native = fg._cpp.transform_to_world_batch(observations, pose)
+  expected = transform_to_world_batch(observations, pose)
+
+  for key in expected:
+    np.testing.assert_allclose(native[key], expected[key])
+
+
+@pytest.mark.parametrize(
+  "key,shape",
+  [
+    ("mu", (2, 2)),
+    ("Sigma", (1, 3, 3)),
+    ("ray", (1, 3)),
+    ("depth_est", (1,)),
+    ("depth_sigma", (1,)),
+    ("depth_lo", (1,)),
+    ("depth_hi", (1,)),
+  ],
+)
+def test_native_transform_batch_rejects_mismatched_shapes(key, shape):
+  if fg._cpp is None:
+    pytest.skip("frustum_gaussian native extension is not built")
+
+  observations = {
+    "mu": np.zeros((2, 3), dtype=np.float32),
+    "Sigma": np.zeros((2, 3, 3), dtype=np.float32),
+    "ray": np.zeros((2, 3), dtype=np.float32),
+    "depth_est": np.zeros(2, dtype=np.float32),
+    "depth_sigma": np.zeros(2, dtype=np.float32),
+    "depth_lo": np.zeros(2, dtype=np.float32),
+    "depth_hi": np.zeros(2, dtype=np.float32),
+  }
+  observations[key] = np.zeros(shape, dtype=np.float32)
+
+  with pytest.raises(ValueError) as error:
+    fg._cpp.transform_to_world_batch(
+      observations, np.eye(4, dtype=np.float32),
+    )
+
+  assert f"obs_dict['{key}']" in str(error.value)
 
 
 def test_numpy_backend_accepts_degenerate_box_axes_under_strict_errors():

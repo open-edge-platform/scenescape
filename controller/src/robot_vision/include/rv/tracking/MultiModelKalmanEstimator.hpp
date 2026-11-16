@@ -121,10 +121,13 @@ private:
    * @brief Velocity-aligned, dt-scaled process noise of one motion model (no direct position noise).
    *
    * Along-track velocity noise is larger than cross-track so the predicted measurement covariance
-   * elongates in the direction of motion. CA repeats it on the acceleration, CTRV adds turn-rate noise.
-   * States the model resets to 0 get a small floor that keeps the covariance positive definite.
+   * elongates in the direction of motion. Vertical velocity noise scales with |vz| the same way
+   * along-track scales with planar speed. CA repeats the planar block on acceleration; CTRV adds
+   * turn-rate noise. States the model resets to 0 get a small floor that keeps the covariance
+   * positive definite.
    */
-  static cv::Mat processNoiseCov(MotionModel model, double processNoise, double vx, double vy, double deltaT);
+  static cv::Mat processNoiseCov(MotionModel model, double processNoise, double vx, double vy, double vz,
+                                 double deltaT);
 
   /**
    * @brief Combines probability coming from the three models and calculates the conditional probability
@@ -143,11 +146,15 @@ private:
                           std::vector<cv::Mat> &stateEstimates);
 
   /**
-   * @brief Updates the Model Probability to be used in the correction step
+   * @brief Updates the Model Probability to be used in the correction step.
+   *
+   * measurement / predictedMeasurements / measurementNoiseCovariance are full-size owning mats;
+   * observedRows selects the components used in the likelihood (views only for this call).
    */
   static void updateModelProbability(cv::Mat const &measurement,
                                      std::vector<cv::Mat> const &predictedMeasurements,
                                      std::vector<cv::Mat> const &measurementNoiseCovariance,
+                                     const std::vector<int> &observedRows,
                                      cv::Mat &modelProbability,
                                      double maxProbability,
                                      double minProbability);
@@ -188,7 +195,6 @@ private:
   std::size_t mNumberOfModels{0u};
 
   double mProcessNoise{1e-4};
-  double mMeasurementNoise{1e-2};
 };
 } // namespace tracking
 } // namespace rv

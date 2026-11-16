@@ -415,7 +415,7 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesObservationProcessorFactoryForNewWor
                     object.z = 0.85;
                     object.length = object.width = 0.5;
                     object.height = 1.7;
-                    object.zMeasured = true;
+                    object.z_measured = true;
                 }
                 processed.emplace_back(std::move(geometry));
             }

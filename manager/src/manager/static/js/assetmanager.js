@@ -12,10 +12,16 @@ import {
   updateLabelFields,
 } from "/static/js/draw.js";
 import { SetupMarkHover } from "/static/js/interactions.js";
+import {
+  clearPlatformFrustums,
+  setPlatformFrustumsVisible,
+  syncPlatformFrustums,
+} from "/static/js/platformfrustums.js";
 
 // Detection source ("lidar"/"camera") is untrusted MQTT data; only these
 // values are ever shown in the label.
 const KNOWN_SOURCES = ["lidar", "camera"];
+const PLATFORM_FRUSTUM_COLOR = 0x4fc3f7;
 
 export default function AssetManager(
   scene,
@@ -30,6 +36,7 @@ export default function AssetManager(
   let marks = {};
   let associationWindows = {};
   let showAssociationWindows = false;
+  let showPlatformFrustums = true;
 
   const associationMaterial = new THREE.LineBasicMaterial({
     color: 0x33cc66,
@@ -97,6 +104,13 @@ export default function AssetManager(
       const obj = scene.getObjectById(mark.id);
       if (obj) {
         obj.visible = shouldShow;
+      }
+    }
+    // plot() stops while marks are hidden, so their windows would freeze;
+    // the next plot() after showing the marks redraws them.
+    if (!shouldShow) {
+      for (const objectId of Object.keys(associationWindows)) {
+        removeAssociationWindow(objectId);
       }
     }
   }
@@ -177,6 +191,14 @@ export default function AssetManager(
     windowObj.visible = true;
   }
 
+  function setFrustumsVisible(shouldShow) {
+    showPlatformFrustums = shouldShow;
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) setPlatformFrustumsVisible(obj, shouldShow);
+    }
+  }
+
   // Plot marks on the scene
   function plot(msg) {
     // Scenescape sends only current marks, so we need to determine
@@ -201,6 +223,7 @@ export default function AssetManager(
       // Delete from the marks object
       // Remove from the scene
       if (del) {
+        clearPlatformFrustums(del);
         const labelObj = del.getObjectByName("css2dLabel");
         if (labelObj && labelObj.element && labelObj.element.parentNode) {
           labelObj.element.parentNode.removeChild(labelObj.element);
@@ -232,26 +255,39 @@ export default function AssetManager(
       }
 
       let thisMark = scene.getObjectById(mark.id);
-      // Change the position using the object's translation vector
+      // Body pose only on the mark so camera mounts stay in meters; apply
+      // asset scale/centering to the visual child instead of the mark root.
       thisMark.position.set(...obj.translation);
-
+      thisMark.scale.set(1, 1, 1);
       if (obj.rotation) {
-        const qt = new THREE.Quaternion().fromArray(obj.rotation);
-        thisMark.quaternion.copy(qt);
+        thisMark.quaternion.copy(
+          new THREE.Quaternion().fromArray(obj.rotation),
+        );
+      } else {
+        thisMark.quaternion.identity();
       }
 
+      const model = thisMark.getObjectByName("model");
       let scale = new THREE.Vector3(1, 1, 1);
-      let translate;
+      let translateZ = 0;
       if (obj.asset_scale) {
         scale.fromArray(Array(3).fill(obj.asset_scale));
-        translate = 0;
       } else if (obj.size) {
         scale.fromArray(obj.size);
-        translate = scale.z / 2;
+        translateZ = scale.z / 2;
       }
-      thisMark.translateZ(translate);
-      thisMark.scale.copy(scale);
-      const model = thisMark.getObjectByName("model");
+      if (model) {
+        model.position.set(0, 0, translateZ);
+        model.scale.copy(scale);
+      }
+      if (Array.isArray(obj.cameras)) {
+        syncPlatformFrustums(thisMark, obj.cameras, {
+          color: PLATFORM_FRUSTUM_COLOR,
+          visible: showPlatformFrustums,
+        });
+      } else {
+        clearPlatformFrustums(thisMark);
+      }
       const indicator = thisMark.getObjectByName("indicator");
       const labelObj = thisMark.getObjectByName("css2dLabel");
 
@@ -391,6 +427,7 @@ export default function AssetManager(
     plot,
     setMarksVisibility,
     setAssociationWindowsVisibility,
+    setFrustumsVisible,
     renderLabels,
     setLabelMode,
     setCamera,

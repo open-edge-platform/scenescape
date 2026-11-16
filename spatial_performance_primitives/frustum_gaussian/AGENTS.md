@@ -1,7 +1,12 @@
 # frustum-gaussian — AI Agent Guide
 
-This file provides context for AI coding agents working in this repository.
+This file provides context for AI coding agents working in this package.
 Read it before making any changes.
+
+Library scope only: APIs, invariants, and local tests. Service wiring (gRPC,
+Manager, Compose) belongs in
+[docs/design/observation-processor-service.md](../../docs/design/observation-processor-service.md)
+and the Observation Processor user guide — do not restate those here.
 
 ---
 
@@ -13,10 +18,10 @@ camera or world frame. It is fast, numerically careful, and deliberately narrow 
 
 It does **not**:
 
-- Apply surface / terrain constraints (that is the Phase 2 scene-projection library)
-- Decide whether an object is on the ground or flying (Phase 2 concern)
-- Track objects across frames (Phase 3)
-- Fuse observations from multiple cameras (Phase 3a)
+- Apply surface / terrain constraints (that is `observation_conditioning`)
+- Decide whether an object is on the ground or flying (downstream concern)
+- Track objects across frames
+- Fuse observations from multiple cameras
 
 The interface boundary is the `FrustumObservation` struct. Everything downstream of
 `transform_to_world_batch()` belongs to another library.
@@ -26,20 +31,14 @@ The interface boundary is the `FrustumObservation` struct. Everything downstream
 ## Repository layout
 
 ```
-include/frustum_gaussian/
-    types.hpp        — all public structs (BoundingBox, Intrinsics, ShapePrior,
-                       DetectorNoise, FrustumObservation)
-    frustum.hpp      — public API declarations
-src/
-    frustum.cpp      — single-detection kernel: project_frustum(), transform_to_world()
-    batch.cpp        — batched kernel: project_frustum_batch(), TBB parallelism
-python/              — pybind11 bindings
-tests/               — unit + integration tests
-benchmarks/
-    bench_batch_variants.py   — N=1-100 Python benchmark (NumPy / serial / opt)
-    REPORT.md                 — benchmark results and analysis
-README.md            — quick-start, math summary, build
-ALGORITHM.md         — full algorithm derivation, architecture, deployment scenarios
+cpp/
+    include/frustum_gaussian/  — types.hpp, frustum.hpp
+    src/                       — frustum.cpp, batch.cpp
+    tests/                     — native GoogleTest suite
+python/frustum_gaussian/       — pybind11 / pure-Python package
+tests/                         — Python unit tests
+README.md                      — quick-start, math summary, build, latency table
+ALGORITHM.md                   — full algorithm derivation and deployment notes
 ```
 
 ---
@@ -56,7 +55,7 @@ ALGORITHM.md         — full algorithm derivation, architecture, deployment sce
 3. **`PARALLEL_THRESHOLD = 64` — do not lower without re-benchmarking.**
    Validated on Intel Core Ultra X7 368H. Below 64 the TBB thread-wake cost (~2-4 µs)
    dominates the parallel work, making the optimized variant _slower_ than serial.
-   See `benchmarks/REPORT.md` for the full N=1-100 dataset.
+   See the latency summary in `README.md` (full `benchmarks/` tree was not vendored).
 
 4. **Use `atan` for angular subtenses — not the small-angle approximation.**
    For FOV > ~50° the small-angle form (α ≈ Δu/f) introduces 3-5% depth error at image
@@ -123,19 +122,18 @@ frame. Depth estimates and bounds follow the transformed ray length;
 
 ---
 
-## Object modes — Phase 2 decides, not this library
+## Object modes — downstream decides, not this library
 
 This library returns the same unconstrained Gaussian regardless of object class.
-The downstream **scene-projection library** (planned, not yet built) applies:
+Sibling package **`observation_conditioning`** applies:
 
 - **Scene-projected** (vehicles, pedestrians, shelf items, anything touching a surface):
-  intersect center ray with terrain mesh → condition Gaussian on terrain z.
+  intersect center ray with the scene mesh → condition Gaussian depth on the hit.
 - **FREE_3D** (drones, birds, aircraft, retail products being carried, any unknown posture):
-  pass raw Gaussian to information-form fuser; depth resolved by multi-camera intersection
-  or temporal velocity bounds.
+  pass the raw Gaussian through; depth resolved by multi-camera fusion or temporal bounds.
 
 Do not add mode-switching logic to this library. The `edge_valid`, `depth_lo`, `depth_hi`,
-and `ray` fields carry all the information the Phase 2 layer needs.
+and `ray` fields carry what conditioning needs.
 
 **GRAVITY_ALIGNED** (upright vertical axis) is a learnable per-class property, not an
 a priori assumption. Most ground-contact objects do not have a known orientation from a
@@ -144,7 +142,7 @@ concepts.
 
 ---
 
-## Temporal constraints — Phase 3 decides, not this library
+## Temporal constraints — tracker decides, not this library
 
 - Velocity bounds from world-coordinate displacement across frames
 - Size refinement from repeated unoccluded traversals (angular subtense sequence)
@@ -157,16 +155,16 @@ These flow back as tightened `ShapePrior` values on the _next_ call to
 
 ## Typical class priors
 
-| Class          | μ_x  | μ_y  | μ_z    | Phase 2 mode    |
-| -------------- | ---- | ---- | ------ | --------------- |
-| Pedestrian     | 0.55 | 0.55 | 1.70 m | Scene-projected |
-| Cyclist        | 0.65 | 1.10 | 1.60 m | Scene-projected |
-| Car            | 2.00 | 4.50 | 1.50 m | Scene-projected |
-| Bus            | 2.50 | 9.00 | 3.20 m | Scene-projected |
-| Drone          | 0.30 | 0.30 | 0.20 m | FREE_3D         |
-| Bird           | 0.40 | 0.25 | 0.15 m | FREE_3D         |
-| Aircraft       | 15.0 | 12.0 | 4.0 m  | FREE_3D         |
-| Retail product | 0.12 | 0.08 | 0.20 m | FREE_3D         |
+| Class          | μ_x  | μ_y  | μ_z    | Conditioning mode |
+| -------------- | ---- | ---- | ------ | ----------------- |
+| Pedestrian     | 0.55 | 0.55 | 1.70 m | Scene-projected   |
+| Cyclist        | 0.65 | 1.10 | 1.60 m | Scene-projected   |
+| Car            | 2.00 | 4.50 | 1.50 m | Scene-projected   |
+| Bus            | 2.50 | 9.00 | 3.20 m | Scene-projected   |
+| Drone          | 0.30 | 0.30 | 0.20 m | FREE_3D           |
+| Bird           | 0.40 | 0.25 | 0.15 m | FREE_3D           |
+| Aircraft       | 15.0 | 12.0 | 4.0 m  | FREE_3D           |
+| Retail product | 0.12 | 0.08 | 0.20 m | FREE_3D           |
 
 Retail products are FREE_3D because they are carried at arbitrary heights. Their wide
 σ_z (0.12 m) reflects the enormous variety of product heights within a single class.
@@ -185,8 +183,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DFG_BUILD_TESTS=ON
 cmake --build build -j$(nproc)
 ctest --test-dir build --output-on-failure
 
-# Benchmark (N=1-100, 20 000 reps)
-python3 benchmarks/bench_batch_variants.py --reps 20000 --warmup 500
+# Latency numbers: see README.md § Benchmarks (scripts not vendored here)
 ```
 
 ---
@@ -225,8 +222,8 @@ bb.clipped = fg::EDGE_LEFT | fg::EDGE_TOP;  // explicit: left and top are clippe
 
 ## Known limitations and open work
 
-- **Scene-projection library (Phase 2):** Not yet built. Surface conditioning, FREE_3D
-  passthrough, and upright-axis flag are all planned for this separate optimized component.
+- **Mesh conditioning:** Implemented in sibling `observation_conditioning/` (surface
+  contact, FREE_3D passthrough; upright-axis refinements still future work there).
 - **Mermaid chart colors:** `%%{init}` `plotColorPalette` directives in `xychart-beta`
   are ignored by the GitHub Markdown renderer. Colors render correctly in local Markdown
   previews only. This is a GitHub limitation, not a bug in the charts.

@@ -3,7 +3,8 @@
 A fast C++/Python library that converts 2D bounding box detections and oriented 3D bounding boxes into Gaussian observations suitable for multi-camera object tracking.
 
 > **How it works:** [ALGORITHM.md](ALGORITHM.md) — projection derivation, depth bounds, object modes, pipeline architecture
-> **Performance:** [benchmarks/REPORT.md](benchmarks/REPORT.md) — latency and throughput across N = 1–100 detections
+> **Performance:** see the summary table under **Benchmarks** below
+> **Service integration:** [Observation Processor design](../../docs/design/observation-processor-service.md) — do not duplicate service contracts here
 
 ## Concept
 
@@ -17,11 +18,23 @@ The library is **stateless and mode-agnostic**. It does not decide whether an ob
 
 ### C++
 
+From the repository root, build the standalone C++ library and run its native
+tests with the local Makefile targets:
+
+```bash
+make -C spatial_performance_primitives/frustum_gaussian build-cpp
+make -C spatial_performance_primitives/frustum_gaussian test-cpp
+```
+
+To consume the library from another CMake project, add it with `FetchContent`:
+
 ```cmake
 include(FetchContent)
 FetchContent_Declare(frustum_gaussian
-  GIT_REPOSITORY https://github.com/intel/frustum-gaussian.git
-  GIT_TAG        main)
+  GIT_REPOSITORY https://github.com/open-edge-platform/scenescape.git
+  GIT_TAG        main
+  SOURCE_SUBDIR  spatial_performance_primitives/frustum_gaussian
+)
 FetchContent_MakeAvailable(frustum_gaussian)
 target_link_libraries(my_target PRIVATE frustum_gaussian_core)
 ```
@@ -249,38 +262,49 @@ result = fg.project_frustum_batch(
 
 ### Requirements
 
-| Dependency   | Version                       | Notes                                             |
-| ------------ | ----------------------------- | ------------------------------------------------- |
-| CMake        | ≥ 3.20                        |                                                   |
-| C++ compiler | C++20                         | GCC ≥ 12, Clang ≥ 15, Intel oneAPI DPC++ ≥ 2024.0 |
-| Eigen3       | ≥ 3.4                         | Header-only                                       |
-| Intel TBB    | 2021+ (oneTBB) or classic TBB | `libtbb-dev` on Ubuntu                            |
-| pybind11     | ≥ 2.12                        | Python bindings only                              |
-| Python       | ≥ 3.10                        | Python bindings only                              |
+| Dependency   | Version                       | Notes                                                 |
+| ------------ | ----------------------------- | ----------------------------------------------------- |
+| CMake        | ≥ 3.20                        |                                                       |
+| C++ compiler | C++20                         | GCC ≥ 12, Clang ≥ 15, Intel oneAPI DPC++ ≥ 2024.0     |
+| Eigen3       | ≥ 3.4                         | Header-only                                           |
+| Intel TBB    | 2021+ (oneTBB) or classic TBB | `libtbb-dev` on Ubuntu                                |
+| GoogleTest   | 1.17.0                        | Installed by the `test-cpp` Makefile target via Conan |
+| gcovr        | Current Python package        | Required by `test-cpp-coverage`                       |
+| pybind11     | ≥ 2.12                        | Python bindings only                                  |
+| Python       | ≥ 3.10                        | Python bindings and tests                             |
 
 Optional: OpenVINO ≥ 2024.0 (planned depth-estimation head).
 
-### CMake standalone
+### Makefile
+
+Run these targets from this directory. `build` builds and installs the Python
+wheel containing the native C++ extension. `build-cpp` builds only the standalone
+C++ core library. `test-cpp` installs pinned GoogleTest with Conan before
+configuring and running CTest. `test-unit` runs both the C++ suite and the Python
+suite; the latter installs the wheel first so the native-extension parity test
+exercises the compiled backend. Set `PYTHON` to an environment with pytest and
+NumPy installed; the repository test environment can be selected with
+`PYTHON=../../tests/.venv/bin/python`.
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DFG_BUILD_TESTS=ON
-cmake --build build -j$(nproc)
-ctest --test-dir build --output-on-failure
+make build
+make build-cpp
+make test-cpp
+make test-cpp-coverage
+make test-python
+make test-unit PYTHON=../../tests/.venv/bin/python
 ```
 
-### Python wheel
-
-```bash
-pip install .
-pytest tests/
-```
+Python coverage for these tests is collected by the root
+`make run_unit_tests_coverage` target. Native C++ coverage is measured locally
+with `test-cpp-coverage`, which enforces 90% line and 50% branch coverage by
+default and writes HTML and XML reports under
+`build-coverage/coverage/cpp/`. Override the thresholds with
+`CPP_COVERAGE_LINE_MIN` and `CPP_COVERAGE_BRANCH_MIN`.
 
 ### Benchmarks
 
-```bash
-python3 benchmarks/bench_batch_variants.py --reps 20000 --warmup 500
-```
-
+Standalone `benchmarks/` scripts from the upstream package are not vendored here.
 Expected throughput on a 16-core Intel Core Ultra 7 at Release with oneTBB:
 
 | N detections | Latency | Throughput |
@@ -292,8 +316,7 @@ Expected throughput on a 16-core Intel Core Ultra 7 at Release with oneTBB:
 
 ## Pipeline fit
 
-This library is the **per-camera projection kernel** in a broader Gaussian splat-like
-tracking system. Its outputs feed a planned chain of downstream components:
+This library is the **per-camera projection kernel**. Typical downstream use:
 
 ```
 2D detector                     3D detector (LiDAR / stereo / monocular-3D DNN)
@@ -301,15 +324,12 @@ tracking system. Its outputs feed a planned chain of downstream components:
               └──────────────────────────────────┘
                            ← this library →
                     └─▶ transform_to_world[_batch]()
-                            └─▶ scene-projection layer   (surface conditioning, FREE_3D)
-                                    └─▶ information-form multi-camera fuser
-                                                └─▶ volumetric tracker
+                            └─▶ observation_conditioning   (mesh / FREE_3D)
+                                    └─▶ multi-camera fuser / tracker
 ```
 
-The `mu`, `Sigma`, `ray`, `depth_lo`, `depth_hi`, and `score` fields are the interface contract with the scene-projection layer, which decides how to apply terrain or surface constraints depending on each object's class and posture.
+The `mu`, `Sigma`, `ray`, `depth_lo`, `depth_hi`, and `score` fields are the interface
+contract with [`observation_conditioning`](../observation_conditioning/), which applies
+scene-mesh constraints (or passes FREE_3D detections through) before fusion/tracking.
 
-For the full architectural rationale, object mode discussion, and deployment scenarios see [ALGORITHM.md](ALGORITHM.md).
-
-## License
-
-Apache-2.0 © 2026 Intel Corporation
+For algorithm details and deployment notes see [ALGORITHM.md](ALGORITHM.md).

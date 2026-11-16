@@ -7,6 +7,13 @@ import unittest
 from datetime import datetime, timedelta
 import cv2
 
+# The velocity process noise grows with speed and has a floor (see "Kalman filter settings" in
+# controller/src/robot_vision/README.md), so a constant-velocity track follows the detection noise more
+# closely than with the former isotropic process noise: 3 to 6 times the velocity error. The noise is
+# seeded so the checks are deterministic; the worst of these tests is at about a third of the tolerance.
+VELOCITY_TOLERANCE = 0.05  # m/s
+NOISE_SEED = 1
+
 def create_object_at_location(x : float = 0., y: float= 0., z : float= 0., yaw : float = 0., classification=np.full((1,), 1.0)):
   object_ = tracking.TrackedObject()
   object_.x = x
@@ -87,11 +94,12 @@ class TestTracking(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -103,8 +111,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
   def test_constant_velocity_single_object_with_noise_use_track_distance_overload(self):
     """
@@ -133,11 +141,12 @@ class TestTracking(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -149,8 +158,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
 class TestMultiModelKalmanEstimator(unittest.TestCase):
   def test_constant_velocity_single_object_with_noise(self):
@@ -169,10 +178,11 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
     estimator.initialize(initial_estimate, initial_timestamp, motion_models=[tracking.MotionModel.CV]) # initialize tracker with zero objects
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -180,8 +190,8 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
       object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
       estimator.track(object_, timestamp)
     tracked_object = estimator.current_state()
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
   def testPredictFunctionDoubleAndTimestamp(self):
     estimator_a = tracking.MultiModelKalmanEstimator()
@@ -224,11 +234,12 @@ class TestTrackManager(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -242,8 +253,8 @@ class TestTrackManager(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
     # set track as suspended, reliable tracks should be empty now
     track_manager.suspend_track(tracked_object.id)
@@ -325,11 +336,13 @@ class TestMatchFunction(unittest.TestCase):
     timestamp = datetime.now()
     track_id = manager.create_track(seed, timestamp)
 
-    for _ in range(10):
+    # predict() drops pending measurements, so measure after it. 2 s of measurements let the
+    # isotropic initial velocity variance settle below the along-track process noise.
+    for _ in range(20):
       timestamp += timedelta(milliseconds=100)
+      manager.predict(timestamp)
       seed.x += 0.5
       manager.set_measurement(track_id, seed)
-      manager.predict(timestamp)
       manager.correct()
       seed = manager.get_tracks()[0]
 
@@ -350,20 +363,32 @@ class TestMatchFunction(unittest.TestCase):
     ahead = create_object_at_location(x=pred_x + 2.0, y=pred_y)
     lateral = create_object_at_location(x=pred_x, y=pred_y + 2.0)
 
-    # Equal Euclidean distance: Hungarian must pick the along-track detection.
-    assignments, _, _ = tracking.match(
-      [track],
-      [ahead, lateral],
-      tracking.DistanceType.PositionMahalanobis,
-      chi2_gate,
-      10.0,
-    )
-    self.assertEqual(len(assignments), 1)
-    self.assertEqual(assignments[0], (0, 0))
+    def assigned_measurements(measurements, threshold):
+      assignments, _, _ = tracking.match(
+        [track], measurements, tracking.DistanceType.PositionMahalanobis, threshold, 10.0)
+      return [measurement for _, measurement in assignments]
 
-    d2_ahead = (2.0 ** 2) * s11 / (s00 * s11)
-    d2_lateral = (2.0 ** 2) * s00 / (s00 * s11)
-    self.assertLess(d2_ahead, d2_lateral)
+    # Equal Euclidean distance, both inside a wide gate: the matcher takes the along-track
+    # detection, the lower cost.
+    self.assertEqual(assigned_measurements([lateral, ahead], 100.0), [1])
+    # At chi2(0.99, 2) the along-track detection is inside the gate and the lateral one outside.
+    self.assertEqual(assigned_measurements([ahead], chi2_gate), [0])
+    self.assertEqual(assigned_measurements([lateral], chi2_gate), [])
+
+  def test_constructor_max_radius_applies_to_convenience_track(self):
+    """The track() overloads without a distance type use the constructor's max_radius_m."""
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.motion_models = [tracking.MotionModel.CV]
+    first = create_object_at_location(x=0.0, y=0.0)
+    second = create_object_at_location(x=1.5, y=0.0)
+    start = datetime.now()
+    for max_radius_m, expected_tracks in [(float('inf'), 1), (1.0, 2)]:
+      with self.subTest(max_radius_m=max_radius_m):
+        tracker = tracking.MultipleObjectTracker(
+          tracker_config, tracking.DistanceType.Euclidean, 5.0, max_radius_m=max_radius_m)
+        tracker.track([first], start)
+        tracker.track([second], start + timedelta(seconds=0.1))
+        self.assertEqual(len(tracker.get_tracks()), expected_tracks)
 
   def test_position_mahalanobis_fuses_multi_camera_detections(self):
     """Cross-camera birth clustering must fuse in meters under PositionMahalanobis.
@@ -429,6 +454,22 @@ class TestMatchFunction(unittest.TestCase):
       2,
       'birth clustering must stay at ~2 m, not follow max_radius_m=10',
     )
+    self.assertEqual(tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M, 2.0)
+
+    # A wider birth_cluster_radius_m fuses them.
+    tracker3 = tracking.MultipleObjectTracker(
+      tracker_config, tracking.DistanceType.PositionMahalanobis, chi2_gate)
+    tracker3.update_tracker_params(10)
+    tracker3.track(
+      [[cam0], [beyond_birth]],
+      datetime.now(),
+      tracking.DistanceType.PositionMahalanobis,
+      chi2_gate,
+      0.5,
+      10.0,
+      birth_cluster_radius_m=3.5,
+    )
+    self.assertEqual(len(tracker3.get_tracks()), 1)
 
   def test_multi_camera_detections_fuse_into_one_track(self):
     """Cross-camera birth clustering must fuse one object into a single track with averaged geometry."""
@@ -770,6 +811,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       obj = create_object_at_location(
         x=x, y=y, z=z, yaw=yaw,
         classification=classification_data.classification('Person', 1.0))
+      obj.z_measured = True
       # Orienting measurement so UKF correct applies yaw (not zero innovation).
       # Assign the full dict — pybind setitem on the returned map is not sticky.
       obj.attributes = {'has_orientation': 'true'}
@@ -805,6 +847,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       measurement = create_object_at_location(
         x=t, y=0.0, z=vz * t,
         classification=classification_data.classification('Person', 1.0))
+      measurement.z_measured = True
       estimator.track(measurement, timestamp)
 
     state = estimator.current_state()
@@ -856,10 +899,12 @@ class TestNonPlanarTracking(unittest.TestCase):
     self.assertAlmostEqual(tracks[0].vz, 0.0, delta=0.05)
 
   def test_euclidean_association_separates_stacked_floors(self):
-    """Same XY at different Z must not match within a 2 m Euclidean gate."""
+    """Same XY at different Z must not match within a 2 m Euclidean gate once both sides measured z."""
     track = create_object_at_location(x=1.0, y=2.0, z=0.0)
     same_floor = create_object_at_location(x=1.0, y=2.0, z=0.1)
     upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
+    for obj in (track, same_floor, upper_floor):
+      obj.z_measured = True
 
     assignments, _, _ = tracking.match(
       [track], [same_floor, upper_floor],
@@ -871,6 +916,18 @@ class TestNonPlanarTracking(unittest.TestCase):
       [track], [upper_floor],
       tracking.DistanceType.Euclidean, 2.0, 2.0)
     self.assertEqual(len(assignments), 0)
+
+  def test_euclidean_association_ignores_z_without_measured_z(self):
+    """A planar detection (ground point, no measured z) matches on x and y whatever its z."""
+    track = create_object_at_location(x=1.0, y=2.0, z=0.0)
+    upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
+    measured_upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
+    measured_upper_floor.z_measured = True
+
+    for detection in (upper_floor, measured_upper_floor):
+      assignments, _, _ = tracking.match(
+        [track], [detection], tracking.DistanceType.Euclidean, 2.0, 2.0)
+      self.assertEqual(assignments, [(0, 0)])
 
   def test_mot_coasts_climbing_z_without_measurements(self):
     """After a climb, empty frames continue z via estimated vz."""
@@ -889,6 +946,7 @@ class TestNonPlanarTracking(unittest.TestCase):
       obj = create_object_at_location(
         x=0.4 * last_t, y=0.0, z=vz * last_t,
         classification=classification_data.classification('Person', 1.0))
+      obj.z_measured = True
       tracker.track([obj], timestamp)
 
     tracks = tracker.get_reliable_tracks()
@@ -914,3 +972,102 @@ class TestNonPlanarTracking(unittest.TestCase):
     obj.vx = 0.5
     obj.vz = 0.5
     self.assertFalse(obj.isDynamic())
+
+  def test_planar_correct_after_measured_does_not_pull_z(self):
+    """Planar UKF updates omit z only after the track has sticky measured z."""
+    planar = create_object_at_location(x=1.0, y=2.0, z=0.0)
+    measured = create_object_at_location(x=1.0, y=2.0, z=1.2)
+    measured.z_measured = True
+
+    estimator = tracking.MultiModelKalmanEstimator()
+    timestamp = datetime.now()
+    estimator.initialize(
+      measured, timestamp, process_noise=1e-5, measurement_noise=1e-3,
+      motion_models=[tracking.MotionModel.CV])
+    self.assertTrue(estimator.current_state().z_measured)
+    self.assertAlmostEqual(estimator.current_state().z, 1.2, places=6)
+
+    for frame in range(5):
+      timestamp = timestamp + timedelta(milliseconds=100)
+      estimator.predict(timestamp)
+      planar.x = 1.0 + 0.1 * (frame + 1)
+      estimator.correct(planar)
+      state = estimator.current_state()
+      self.assertTrue(state.z_measured)
+      self.assertAlmostEqual(state.z, 1.2, delta=0.2)
+      self.assertAlmostEqual(state.vz, 0.0, delta=0.15)
+
+  def test_sticky_measured_z_keeps_height_through_planar_handover(self):
+    classification_data = tracking.ClassificationData(['Person'])
+    tracker = tracking.MultipleObjectTracker(
+      self._tracker_config(), tracking.DistanceType.Euclidean, 2.0)
+    initial_timestamp = datetime.now()
+    tracker.track([], initial_timestamp)
+
+    step = 0.1
+    vz = 0.5
+    climb_s = 3.0
+    planar_frames = 10
+    last_t = step
+    for t in np.arange(step, climb_s, step):
+      last_t = float(t)
+      timestamp = initial_timestamp + timedelta(seconds=last_t)
+      obj = create_object_at_location(
+        x=1.4 * last_t, y=0.0, z=vz * last_t,
+        classification=classification_data.classification('Person', 1.0))
+      obj.z_measured = True
+      tracker.track([obj], timestamp)
+
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    self.assertTrue(tracks[0].z_measured)
+    z_at_handover = tracks[0].z
+    vz_at_handover = tracks[0].vz
+    self.assertGreater(z_at_handover, 1.0)
+    track_id = tracks[0].id
+
+    for frame in range(planar_frames):
+      t = climb_s + step * (frame + 1)
+      timestamp = initial_timestamp + timedelta(seconds=t)
+      planar = create_object_at_location(
+        x=1.4 * t, y=0.0, z=0.0,
+        classification=classification_data.classification('Person', 1.0))
+      planar.z_measured = False
+      tracker.track([planar], timestamp)
+
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    self.assertEqual(tracks[0].id, track_id)
+    self.assertTrue(tracks[0].z_measured)
+    # Planar corrects omit z, so height coasts with vz instead of falling to the ground point.
+    self.assertAlmostEqual(
+      tracks[0].z, z_at_handover + vz_at_handover * planar_frames * step, delta=0.45)
+    self.assertGreater(tracks[0].z, 1.0)
+
+  def test_vertical_speed_alone_uses_dynamic_coast_timeout(self):
+    def run_coast(climbing):
+      config = self._tracker_config()
+      config.non_measurement_frames_dynamic = 3
+      config.non_measurement_frames_static = 20
+      tracker = tracking.MultipleObjectTracker(config, tracking.DistanceType.Euclidean, 2.0)
+      timestamp = datetime.now()
+      tracker.track([], timestamp)
+      step = 0.1
+      for t in np.arange(step, 2.0, step):
+        timestamp = timestamp + timedelta(seconds=step)
+        obj = create_object_at_location(
+          x=0.0, y=0.0, z=(1.2 * float(t) if climbing else 0.0))
+        obj.z_measured = climbing
+        tracker.track([obj], timestamp)
+      self.assertEqual(len(tracker.get_tracks()), 1)
+      if climbing:
+        self.assertTrue(tracker.get_tracks()[0].isDynamic())
+      else:
+        self.assertFalse(tracker.get_tracks()[0].isDynamic())
+      for _ in range(5):
+        timestamp = timestamp + timedelta(milliseconds=100)
+        tracker.track([], timestamp)
+      return len(tracker.get_tracks())
+
+    self.assertEqual(run_coast(True), 0)
+    self.assertEqual(run_coast(False), 1)

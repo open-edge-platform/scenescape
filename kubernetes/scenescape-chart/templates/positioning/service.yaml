@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.positioning.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-positioning
+spec:
+  clusterIP: None
+  selector:
+    app: {{ .Release.Name }}-positioning
+{{- end }}

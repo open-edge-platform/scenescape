@@ -14,6 +14,7 @@ Usage:
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
   python run_black_box_evaluation.py --dataset wildtrack
+  python run_black_box_evaluation.py --observation-processor
 
 Programmatic use:
 
@@ -74,12 +75,39 @@ DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _run_config(config_path: Path, session_output: Path, image_tag: str | None = None) -> dict:
+OBSERVATION_PROCESSOR_RUN_SUFFIX = "-ObservationProcessor"
+
+
+def _enable_observation_processor(cfg: dict) -> None:
+  """Turn on the experimental observation processor service in a loaded config.
+
+  Sets ``harness.config.observation_processor.enabled`` and suffixes
+  ``pipeline.run_name`` so legacy and experimental runs stay distinguishable.
+
+  Raises:
+    ValueError: If the config has no ``observation_processor`` block.
+  """
+  harness_cfg = cfg.get("harness", {}).get("config", {})
+  if not isinstance(harness_cfg.get("observation_processor"), dict):
+    raise ValueError("config has no harness.config.observation_processor block")
+  harness_cfg["observation_processor"]["enabled"] = True
+  pipeline = cfg["pipeline"]
+  pipeline["run_name"] = pipeline.get("run_name", "Run") + OBSERVATION_PROCESSOR_RUN_SUFFIX
+
+
+def _run_config(
+  config_path: Path,
+  session_output: Path,
+  image_tag: str | None = None,
+  observation_processor: bool = False,
+) -> dict:
   """Load *config_path*, set its output base to *session_output*, run it.
 
   If *image_tag* is given, the tag portion of the harness ``container_image``
   is replaced with that value.  When *None* the tag from the YAML file is used
   unchanged (intended for manual runs where the user edits the YAML directly).
+  If *observation_processor* is true, the experimental observation processor
+  service is enabled for the run (see ``_enable_observation_processor``).
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
@@ -114,6 +142,9 @@ def _run_config(config_path: Path, session_output: Path, image_tag: str | None =
     cfg["harness"]["config"]["tracker_config_path"] = str(
       (_SCRIPT_DIR / raw_tracker_cfg).resolve()
     )
+
+  if observation_processor:
+    _enable_observation_processor(cfg)
 
   # Write the patched config to a temp file so load_configuration() can
   # persist the config copy and run full validation.
@@ -162,6 +193,7 @@ def run_all(
   image_tag: str | None = None,
   output_dir: Path | None = None,
   dataset: str = DEFAULT_DATASET,
+  observation_processor: bool = False,
 ) -> list[tuple[str, dict | Exception]]:
   """Run all black-box evaluation configs and return results.
 
@@ -172,6 +204,8 @@ def run_all(
     output_dir: Base directory for session output.  Defaults to
                 ``DEFAULT_OUTPUT_BASE``.
     dataset:    Config set to run (``"unity"`` by default, or ``"wildtrack"``).
+    observation_processor: Enable the experimental observation processor
+                service in every config (disabled in the shipped YAMLs).
 
   Returns:
     List of ``(run_name, metrics_dict)`` pairs.  On failure for a run the
@@ -189,7 +223,7 @@ def run_all(
     print(f"  Running: {config_path.name}")
     print(f"{'─' * 60}")
     try:
-      metrics = _run_config(config_path, session_output, image_tag)
+      metrics = _run_config(config_path, session_output, image_tag, observation_processor)
       results.append((run_name, metrics))
     except Exception as exc:
       traceback.print_exc()
@@ -213,9 +247,18 @@ def main() -> int:
       "--dataset", choices=sorted(_CONFIG_DIRS), default=DEFAULT_DATASET,
       help=f"Config set / dataset to run (default: {DEFAULT_DATASET})",
   )
+  parser.add_argument(
+      "--observation-processor", action="store_true",
+      help="Run the experimental observation processor service next to the "
+           "tracker/controller in every config (default: disabled)",
+  )
   args = parser.parse_args()
 
-  results = run_all(output_dir=args.output, dataset=args.dataset)
+  results = run_all(
+    output_dir=args.output,
+    dataset=args.dataset,
+    observation_processor=args.observation_processor,
+  )
   failed = sum(1 for _, r in results if isinstance(r, Exception))
   return failed
 

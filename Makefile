@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid observation_processor
 
 # Image variables
@@ -82,15 +82,17 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics positioning
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics positioning)
 DEPLOYMENT_TEST ?= 0
 
 # First-party application trees; this list is the complexity scope of record.
 COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
 	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
 	manager/src/manager mapping/src observation_processor/src/observation_processor  reid/src/reid \
-	scene_common/src/scene_common model_download/src
+	scene_common/src/scene_common model_download/src \
+	spatial_performance_primitives/frustum_gaussian/python/frustum_gaussian \
+	spatial_performance_primitives/observation_conditioning
 COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
 COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
 COMPLEXITY_TOP ?= 20
@@ -131,7 +133,7 @@ help:
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, positioning, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
@@ -190,6 +192,10 @@ help:
 	@echo ""
 	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
 	@echo ""
+	@echo "  check-manager-contract          Check manager behavior vs. its committed OpenAPI spec"
+	@echo "  check-autocalibration-contract  Check autocalibration behavior vs. its committed OpenAPI spec"
+	@echo "  check-mapping-contract          Check mapping behavior vs. its committed OpenAPI spec"
+	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
 	@echo "  lint-python-pylint          Lint python files using pylint"
@@ -205,6 +211,8 @@ help:
 	@echo "  prettier-write              Format code using prettier"
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
+	@echo ""
+	@echo "  generate-positioning-proto  Regenerate Positioning protobuf/gRPC Python stubs"
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
@@ -242,7 +250,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid \
+autocalibration controller manager analytics mapping cluster_analytics reid positioning \
 	observation_processor: build-common
 
 # Helper function to build images in parallel
@@ -399,8 +407,8 @@ build-sources-image: sources.Dockerfile
 		--build-arg http_proxy=$(http_proxy) \
 		--build-arg https_proxy=$(https_proxy) \
 		--build-arg no_proxy=$(no_proxy) \
-		--rm -t $(SOURCES_IMAGE):$(VERSION) . \
-	&& docker tag $(SOURCES_IMAGE):$(VERSION) $(SOURCES_IMAGE):latest
+		--rm -t intel/$(SOURCES_IMAGE):$(VERSION) . \
+	&& docker tag intel/$(SOURCES_IMAGE):$(VERSION) intel/$(SOURCES_IMAGE):latest
 	@echo "DONE ==> Building the image with 3rd party sources"
 
 # ======================= Model Installer ============================
@@ -417,8 +425,18 @@ PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
 UNIT_COV_CONFIG := $(TESTS_DIR)/config.coveragerc
 UNIT_COV_FAIL_UNDER ?= 70
+SPATIAL_PERFORMANCE_UNIT_TESTS := \
+	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/tests \
+	$(CURDIR)/spatial_performance_primitives/observation_conditioning/tests
+SPATIAL_PERFORMANCE_PYTHONPATH := \
+	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/python:$(CURDIR)/spatial_performance_primitives
 UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
 	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
+UNIT_TEST_EXTRA_ARGS ?=
+RV_DIR := $(CURDIR)/controller/src/robot_vision
+RV_BUILD_STAMP := $(CURDIR)/tests/.venv/.robot_vision.built
+RV_BUILD_INPUTS := $(RV_DIR)/include $(RV_DIR)/src $(RV_DIR)/python $(RV_DIR)/cmake \
+	$(RV_DIR)/CMakeLists.txt $(RV_DIR)/pyproject.toml
 
 .PHONY: setup-tests
 setup-tests: init-secrets .env setup-pytest build-common
@@ -446,14 +464,17 @@ setup-pytest:
 		PATH="$(CURDIR)/tests/.venv/bin:$$PATH" \
 			$(MAKE) -C $(CURDIR)/scene_common/src/fast_geometry all install; \
 	fi
-	@if ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
+	@if [ ! -f "$(RV_BUILD_STAMP)" ] \
+		|| [ -n "$$(find $(RV_BUILD_INPUTS) -type d -name __pycache__ -prune -o -newer "$(RV_BUILD_STAMP)" -print -quit)" ] \
+		|| ! $(CURDIR)/tests/.venv/bin/python3 -c "import robot_vision; assert hasattr(robot_vision, 'tracking')" 2>/dev/null; then \
 		echo "Building robot_vision C++ extension..."; \
 		for pkg in libopencv-dev libeigen3-dev; do \
 			dpkg -s $$pkg > /dev/null 2>&1 || { echo "ERROR: $$pkg is required to build robot_vision. See tests/README.md for installation instructions."; exit 1; }; \
 		done; \
 		$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir scikit-build-core cmake; \
 		OpenCV_DIR="/usr/lib/x86_64-linux-gnu/cmake/opencv4" \
-			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(CURDIR)/controller/src/robot_vision; \
+			$(CURDIR)/tests/.venv/bin/pip install --no-cache-dir --no-build-isolation $(RV_DIR) \
+			&& touch $(RV_BUILD_STAMP); \
 	fi
 	@FF_LOCATIONS="$$(which -a firefox 2>/dev/null || true)"; \
 	if [ -z "$$FF_LOCATIONS" ]; then \
@@ -487,6 +508,25 @@ ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_z
 .PHONY: check-zephyr-ids
 check-zephyr-ids:
 	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
+
+# ============================== OpenAPI schema drift checks ==============================
+# Contract checks fail on drift, the Manager PR review reminder is advisory.
+# None of these targets rewrites a spec file.
+
+.PHONY: check-manager-contract
+check-manager-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/manager_api/ $(PYTEST_FLAGS) || \
+		(echo "Manager OpenAPI contract check failed" && exit 1)
+		
+.PHONY: check-autocalibration-contract
+check-autocalibration-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/autocalibration_api/ $(PYTEST_FLAGS) || \
+		(echo "Autocalibration OpenAPI contract check failed" && exit 1)
+
+.PHONY: check-mapping-contract
+check-mapping-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/mapping_api/ $(PYTEST_FLAGS) || \
+		(echo "Mapping OpenAPI contract check failed" && exit 1)
 
 .PHONY: run_tests
 run_tests: setup-tests
@@ -533,18 +573,24 @@ run_ui_tests: setup-tests
 run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
-	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
+	$(MAKE) run_sscape_unit_suite
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_unit_tests_coverage
 run_unit_tests_coverage: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests with coverage..."
-	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) \
-		--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report= \
-		|| (echo "Unit tests failed" && exit 1)
+	$(MAKE) run_sscape_unit_suite UNIT_TEST_EXTRA_ARGS="--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report="
 	$(MAKE) check-unit-coverage
 	@echo "DONE ==> Running unit tests with coverage"
+
+.PHONY: run_sscape_unit_suite
+run_sscape_unit_suite:
+	PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONPATH="$(SPATIAL_PERFORMANCE_PYTHONPATH)$${PYTHONPATH:+:$${PYTHONPATH}}" \
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(SPATIAL_PERFORMANCE_UNIT_TESTS) \
+	$(PYTEST_FLAGS) $(UNIT_TEST_EXTRA_ARGS) \
+		|| { echo "Unit tests failed"; exit 1; }
 
 .PHONY: check-unit-coverage
 check-unit-coverage:
@@ -615,51 +661,15 @@ GENERATE_JUNITXML = -o junit_logging=all --junitxml tests/reports/test_reports/$
 
 .PHONY: run_metric_tests
 run_metric_tests: setup-tests
-	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
-	@echo "Running metric tests..."
-	$(MAKE) -j $(NPROCS) _run_metric_tests SUPASS=$(SUPASS) || (echo "Metric tests failed" && exit 1)
+	@echo "Running metric tests (black-box evaluation suite)..."
+	@mkdir -p $(TEST_DATA)/smoke tests/reports/test_reports
+	@LOGFILE=$(TEST_DATA)/smoke/black-box-metric-$(shell date -u +"%F-%T").log ; \
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		$(PYTEST) -s $(GENERATE_JUNITXML) \
+		tests/system/metric/test_black_box_evaluation.py \
+		-o junit_suite_name=black-box-metric | tee -i $$LOGFILE \
+	|| (echo "Metric tests failed" && exit 1)
 	@echo "DONE ==> Running metric tests"
-
-.PHONY: _run_metric_tests
-_run_metric_tests: idc-error-metric msoce-metric velocity-metric
-
-define metric-recipe =
-	$(eval TEST_SCRIPT=$1)
-	$(eval TEST_SUITE=$2)
-	$(eval LOGFILE=$(TEST_DATA)/smoke/$@-$(shell date -u +"%F-%T").log)
-	@set -ex \
-	  ; echo RUNNING METRIC TEST $@ \
-	  ; if [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ]; then \
-		METRIC="--metric $3" ; \
-		THRESHOLD="--threshold $4" ; \
-		FRAME_RATE="--camera_frame_rate $5" \
-	  ; fi \
-	  ; mkdir -p $(shell dirname $(LOGFILE)) \
-	  ; $(PYTEST) -s $(GENERATE_JUNITXML) $(TEST_SCRIPT) \
-			$${METRIC} $${THRESHOLD} $${FRAME_RATE} \
-			-o junit_suite_name=$(TEST_SUITE) | tee -i $(LOGFILE) \
-	  ; echo "MAKE_TARGET: $@" | tee -ia $(LOGFILE) \
-	  ; echo END TEST $@
-endef
-
-.PHONY: distance-msoce
-distance-msoce: # NEX-T10524
-	$(call metric-recipe, tests/system/metric/test_distance_thresh.py, distance-threshold)
-
-.PHONY: idc-error-metric
-idc-error-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, idc-metric, idc-error, 0.05, 10)
-
-.PHONY: msoce-metric
-msoce-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, msoce-metric, msoce, 0.05, 10)
-
-.PHONY: velocity-metric
-velocity-metric: # NEX-T10463
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 30)
-	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
 # ============================= Lint ==================================
 
@@ -775,6 +785,14 @@ prettier-write: prettier-dependency
 .PHONY: add-licensing
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
+
+# ===================== Code Generation =============================
+
+.PHONY: generate-positioning-proto
+generate-positioning-proto:
+	@echo "==> Generating Positioning protobuf stubs..."
+	@docs/user-guide/api-docs/positioning/v1/generate.sh || (echo "Positioning protobuf generation failed" && exit 1)
+	@echo "DONE ==> Generating Positioning protobuf stubs"
 
 # ===================== Docker Compose Demo ==========================
 

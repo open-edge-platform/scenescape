@@ -164,7 +164,7 @@ class RESTClient:
     auth_url = urljoin(self.url, "auth")
     try:
       reply = self.session.post(auth_url, data={'username': user, 'password': password},
-                                verify=self.verify_ssl)
+                                verify=self.verify_ssl, timeout=self.timeout)
     except requests.exceptions.ConnectionError as err:
       result = RESTResult(
           "ConnectionError", errors=(
@@ -209,7 +209,7 @@ class RESTClient:
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
-                              headers=headers, verify=self.verify_ssl)
+                              headers=headers, verify=self.verify_ssl, timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.CREATED)
 
   def _get(self, endpoint, parameters):
@@ -226,12 +226,13 @@ class RESTClient:
                  endpoint, full_path, parameters)
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.get(full_path, params=parameters, headers=headers,
-                             verify=self.verify_ssl)
+                             verify=self.verify_ssl, timeout=self.timeout)
     response = self.decodeReply(reply, HTTPStatus.OK)
     next_url = response.get('next')
 
     while next_url:
-      reply = self.session.get(next_url, headers=headers, verify=self.verify_ssl)
+      reply = self.session.get(
+          next_url, headers=headers, verify=self.verify_ssl, timeout=self.timeout)
       current_response = self.decodeReply(reply, HTTPStatus.OK)
       if current_response.statusCode != HTTPStatus.OK:
         return current_response
@@ -257,7 +258,7 @@ class RESTClient:
     headers = {'Authorization': f"Token {self.token}"}
     data_args = self.prepareDataArgs(data, files)
     reply = self.session.post(full_path, **data_args, files=files,
-                              headers=headers, verify=self.verify_ssl)
+                              headers=headers, verify=self.verify_ssl, timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _delete(self, endpoint):
@@ -274,7 +275,8 @@ class RESTClient:
     reply = self.session.delete(
         full_path,
         headers=headers,
-        verify=self.verify_ssl)
+        verify=self.verify_ssl,
+        timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.OK)
 
   def _separateFiles(self, data, fields):
@@ -692,7 +694,7 @@ class RESTClient:
     full_path = urljoin(self.url, "aclcheck")
     headers = {'Authorization': f"Token {self.token}"} if hasattr(self, 'token') and self.token else {}
     reply = self.session.post(full_path, json=data, headers=headers,
-                              verify=self.verify_ssl)
+                              verify=self.verify_ssl, timeout=self.timeout)
     return self.decodeReply(reply, (HTTPStatus.OK, HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN))
 
   # CalibrationMarker
@@ -749,4 +751,3 @@ class RESTClient:
     with open(zip_file_path, "rb") as f:
       files = {"zipFile": (os.path.basename(zip_file_path), f)}
       return self._create(endpoint, data={}, files=files)
-

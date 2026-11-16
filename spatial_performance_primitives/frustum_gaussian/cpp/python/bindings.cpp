@@ -262,15 +262,29 @@ static py::dict transform_world_batch(
     F32Array depth_hi_in = obs_dict["depth_hi"].cast<F32Array>();
 
     auto mui = mu_in.request();
+    auto Sgi = Sigma_in.request();
+    auto rayi = ray_in.request();
+    auto depth_esti = depth_est_in.request();
+    auto depth_sigmai = depth_sigma_in.request();
+    auto depth_loi = depth_lo_in.request();
+    auto depth_hii = depth_hi_in.request();
+
+    require_shape(mui, {-1, 3}, "obs_dict['mu']");
     const ssize_t N = mui.shape[0];
+    require_shape(Sgi, {N, 3, 3}, "obs_dict['Sigma']");
+    require_shape(rayi, {N, 3}, "obs_dict['ray']");
+    require_shape(depth_esti, {N}, "obs_dict['depth_est']");
+    require_shape(depth_sigmai, {N}, "obs_dict['depth_sigma']");
+    require_shape(depth_loi, {N}, "obs_dict['depth_lo']");
+    require_shape(depth_hii, {N}, "obs_dict['depth_hi']");
 
     const float* mu_p  = static_cast<const float*>(mui.ptr);
-    const float* Sg_p  = static_cast<const float*>(Sigma_in.request().ptr);
-    const float* ray_p = static_cast<const float*>(ray_in.request().ptr);
-    const float* depth_est_p = static_cast<const float*>(depth_est_in.request().ptr);
-    const float* depth_sigma_p = static_cast<const float*>(depth_sigma_in.request().ptr);
-    const float* depth_lo_p = static_cast<const float*>(depth_lo_in.request().ptr);
-    const float* depth_hi_p = static_cast<const float*>(depth_hi_in.request().ptr);
+    const float* Sg_p  = static_cast<const float*>(Sgi.ptr);
+    const float* ray_p = static_cast<const float*>(rayi.ptr);
+    const float* depth_est_p = static_cast<const float*>(depth_esti.ptr);
+    const float* depth_sigma_p = static_cast<const float*>(depth_sigmai.ptr);
+    const float* depth_lo_p = static_cast<const float*>(depth_loi.ptr);
+    const float* depth_hi_p = static_cast<const float*>(depth_hii.ptr);
 
     auto mu_out    = py::array_t<float>({N, (ssize_t)3});
     auto Sigma_out = py::array_t<float>({N, (ssize_t)3, (ssize_t)3});

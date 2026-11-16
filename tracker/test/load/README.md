@@ -43,6 +43,12 @@ Run generator unit tests without Docker or k6 (Node.js required):
 make -C test/load test-generator
 ```
 
+Run the dropped-message SLI unit tests without Docker or k6 (after `make -C test/load setup`):
+
+```bash
+cd test/load && .venv/bin/pytest test_sli.py
+```
+
 ReID load-test embeddings are generated for pixel-box detections, since a
 `reid_sighting` requires the source frame's pixel bounding box. In mixed mode,
 3D detections exercise geometry without an embedding; the 2D detections carry
@@ -98,15 +104,23 @@ graph LR
 
 ## SLI Thresholds
 
-| SLI              | Target         | Kind    | Metric                  | Description                        |
-| ---------------- | -------------- | ------- | ----------------------- | ---------------------------------- |
-| Dropped messages | < 0.1%         | Gate    | `tracker.mqtt.dropped`  | Ratio of dropped to total messages |
-| Active tracks    | == NUM_OBJECTS | Gate    | `tracker.tracks.active` | Tracks match expected object count |
-| Throughput       | ≥ input rate   | Warning | `tracker.mqtt.messages` | Sustained msg/s vs input rate      |
-| Latency p50      | < 1/FPS s      | Warning | `tracker.mqtt.latency`  | Median end-to-end latency          |
-| Latency p99      | < 2/FPS s      | Warning | `tracker.mqtt.latency`  | 99th percentile tail latency       |
+| SLI              | Target         | Kind    | Metric                  | Description                           |
+| ---------------- | -------------- | ------- | ----------------------- | ------------------------------------- |
+| Dropped messages | < 0.1%         | Gate    | `tracker.mqtt.dropped`  | Ratio of dropped to received messages |
+| Active tracks    | == NUM_OBJECTS | Gate    | `tracker.tracks.active` | Tracks match expected object count    |
+| Throughput       | ≥ input rate   | Warning | `tracker.mqtt.messages` | Sustained received msg/s vs input     |
+| Latency p50      | < 1/FPS s      | Warning | `tracker.mqtt.latency`  | Median end-to-end latency             |
+| Latency p99      | < 2/FPS s      | Warning | `tracker.mqtt.latency`  | 99th percentile tail latency          |
 
 **Gate** tests fail the build. **Warning** tests emit `pytest.warns()` but always pass.
+
+Received messages are `tracker.mqtt.messages`, which counts accepted messages only, plus the messages
+rejected on arrival (`tracker.mqtt.dropped` with a `rejected_*` reason, e.g. lag or schema). Messages
+dropped later (`dropped_*`, e.g. queue full) were already accepted, and count once per active
+category, so with several categories the ratio errs high and can exceed 100%. A run in which the
+tracker received no messages fails the dropped-message gate. The computation is in [sli.py](sli.py).
+Messages from cameras that are not in `config/scenes.json` never reach the tracker (it subscribes
+only to registered cameras), so they show only as a throughput warning.
 
 ### Latency Threshold Rationale
 
@@ -155,7 +169,10 @@ After all tests, a summary table is printed with hardware context, observed valu
     End-to-end                 106.82      181.19
 ```
 
-The hardware section helps reproduce results across machines. The per-stage breakdown is informational only — no thresholds are enforced. Note how the 900-object load test shows WARN on latency (p50/p99 exceed thresholds) but PASS on drops—the queue absorbs transient slowness as long as median processing keeps pace.
+When messages are rejected, the messages line splits them, e.g.
+`Messages: 3568 received (96 accepted, 3472 rejected), 3472 dropped (rejected_lag)`. A KPI that was
+not measured (its test errored or was deselected) shows `n/a`. The hardware section helps reproduce
+results across machines. The per-stage breakdown is informational only — no thresholds are enforced. Note how the 900-object load test shows WARN on latency (p50/p99 exceed thresholds) but PASS on drops—the queue absorbs transient slowness as long as median processing keeps pace.
 
 ## Configuration
 
@@ -207,7 +224,7 @@ pixel maps to ≈ 5.5 cm on the ground plane, giving a visible area of roughly
 2 m apart at the default 300 objects, so every detection is far closer to its
 own track's prediction than to a neighbour's. The tracker's association
 (`tracking.association` in the tracker config, by default the
-`position_mahalanobis` gate) therefore matches each detection to its own track,
+`euclidean` 2 m gate) therefore matches each detection to its own track,
 and each detection produces exactly one track regardless of object count.
 
 ### Movement
@@ -231,6 +248,8 @@ path under load.
 | File                                                     | Purpose                               |
 | -------------------------------------------------------- | ------------------------------------- |
 | [test_load.py](test_load.py)                             | SLI test cases                        |
+| [sli.py](sli.py)                                         | Dropped-message SLI computation       |
+| [test_sli.py](test_sli.py)                               | SLI computation unit tests            |
 | [conftest.py](conftest.py)                               | Fixtures, Prometheus scraper, summary |
 | [simulate-detections.js](simulate-detections.js)         | k6 MQTT load generator                |
 | [compose.yml](compose.yml)                               | Docker Compose stack                  |

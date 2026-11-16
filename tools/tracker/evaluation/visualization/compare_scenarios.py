@@ -48,7 +48,7 @@ from visualization.scenario_data import (  # noqa: E402
   GROUND_TRUTH_FILE,
   Scenario,
   align_track_to_truth,
-  frame_rate,
+  ground_truth_frame_rate,
   load_scenario,
   match_tracks_to_truth,
 )
@@ -67,7 +67,7 @@ TABLE_COLUMNS = ["metric", "before", "after", "delta", "verdict"]
 def _pair_frames(scenario: Scenario, warm_up: float, fps: Optional[float],
                  space: str = "xyz") -> List[pd.DataFrame]:
   """Aligned rows of every paired track after the warm-up that have ground truth."""
-  tolerance = 0.5 / (frame_rate(scenario.ground_truth) or 1.0)
+  tolerance = 0.5 / (ground_truth_frame_rate(scenario) or 1.0)
   frames = []
   for track_id, object_id in match_tracks_to_truth(scenario, fps, space):
     rows = align_track_to_truth(scenario, track_id, object_id, tolerance)

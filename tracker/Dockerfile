@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:4594d59540d1948417f6ca2829ddd9294493a7c68b7528f4dd459de7f203a750
+ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:58e12be899275afaa05f1b03051ab19037ed7f252528e57a3a9ad7e220a62578
 
 # --- Build stage ---
 FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS builder
