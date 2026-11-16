@@ -234,9 +234,9 @@ public:
   }
 
   // split: each person seen by one camera (round-robin); overlap: every camera sees every person.
-  std::vector<std::vector<TrackedObject>> cameraViews(int numCameras, bool overlap)
+  std::vector<std::vector<TrackedObject>> cameraViews(int numSources, bool overlap)
   {
-    const size_t cameras = static_cast<size_t>(std::max(1, numCameras));
+    const size_t cameras = static_cast<size_t>(std::max(1, numSources));
     while (cameraIds.size() < cameras)
     {
       cameraIds.push_back("camera_" + std::to_string(cameraIds.size()));
@@ -279,7 +279,7 @@ private:
   std::vector<std::string> cameraIds;
 };
 
-// Objects is either one camera's detections or the per-camera batch; both overloads share this signature.
+// Objects is either one source's detections or the per-source batch; both overloads share this signature.
 template <typename Objects>
 void callTrack(MultipleObjectTracker &tracker,
                Objects objects,
@@ -295,7 +295,7 @@ void callTrack(MultipleObjectTracker &tracker,
 void runTrack(::benchmark::State &state, bool immediate)
 {
   const int numPeople = static_cast<int>(state.range(0));
-  const int numCameras = static_cast<int>(state.range(1));
+  const int numSources = static_cast<int>(state.range(1));
   const bool overlap = state.range(2) != 0;
   PeopleTrackingBenchmarkFixture fixture;
   fixture.resetPeople(static_cast<size_t>(numPeople));
@@ -305,11 +305,11 @@ void runTrack(::benchmark::State &state, bool immediate)
 
   for (auto _ : state)
   {
-    auto perCamera = fixture.cameraViews(numCameras, overlap);
+    auto perCamera = fixture.cameraViews(numSources, overlap);
     const auto timestamp = fixture.getTimestamp(frameCount);
-    for (const auto &cameraObjects : perCamera)
+    for (const auto &sourceObjects : perCamera)
     {
-      detections += static_cast<int64_t>(cameraObjects.size());
+      detections += static_cast<int64_t>(sourceObjects.size());
     }
 
     if (immediate)

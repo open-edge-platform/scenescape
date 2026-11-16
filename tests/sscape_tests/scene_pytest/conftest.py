@@ -41,10 +41,10 @@ class _StubTracking(Tracking):
   def trackCategory(self, objects, when, tracks):
     self.all_tracker_objects = list(objects)
 
-  def trackCategoryBatched(self, objects_per_camera, when, tracks):
+  def trackCategoryBatched(self, objects_per_source, when, tracks):
     self.all_tracker_objects = []
-    for camera_objects in objects_per_camera:
-      self.all_tracker_objects.extend(camera_objects)
+    for source_objects in objects_per_source:
+      self.all_tracker_objects.extend(source_objects)
 
   def updateReidConfig(self, reid_config_data=None):
     self.reid_config_data = reid_config_data if reid_config_data else {}

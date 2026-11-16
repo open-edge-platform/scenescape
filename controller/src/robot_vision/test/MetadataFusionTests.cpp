@@ -47,9 +47,9 @@ TEST(MetadataFusionPolicyTest, CoversEveryWinnerSelectionCase)
     const char *name;
     bool winnerExists;
     std::optional<double> candidateConfidence;
-    size_t candidateCameraIndex;
+    size_t candidateSourceIndex;
     std::optional<double> winnerConfidence;
-    size_t winnerCameraIndex;
+    size_t winnerSourceIndex;
     bool expected;
   };
 
@@ -73,9 +73,9 @@ TEST(MetadataFusionPolicyTest, CoversEveryWinnerSelectionCase)
     SCOPED_TRACE(testCase.name);
     EXPECT_EQ(rv::tracking::metadata_fusion::shouldReplace(testCase.winnerExists,
                                                            testCase.candidateConfidence,
-                                                           testCase.candidateCameraIndex,
+                                                           testCase.candidateSourceIndex,
                                                            testCase.winnerConfidence,
-                                                           testCase.winnerCameraIndex),
+                                                           testCase.winnerSourceIndex),
               testCase.expected);
   }
 }

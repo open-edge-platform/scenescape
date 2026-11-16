@@ -53,10 +53,10 @@ static_assert(MeasurementIndex::X == 0 && MeasurementIndex::HEIGHT == 5 && Measu
               "x, y, z, length, width, height must lead the measurement vector, followed by yaw");
 
 bool anyMatchMeasuredZ(const std::vector<std::pair<size_t, size_t>> &matches,
-                       const std::vector<std::vector<TrackedObject>> &objectsPerCamera)
+                       const std::vector<std::vector<TrackedObject>> &objectsPerSource)
 {
   return std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
-    return objectsPerCamera[match.first][match.second].z_measured;
+    return objectsPerSource[match.first][match.second].z_measured;
   });
 }
 
@@ -88,7 +88,7 @@ fusionInformation(const TrackedObject &object, bool anyZMeasured, double default
  * also fills the geometry-yaw covariance.
  */
 void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
-                  const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
+                  const std::vector<std::vector<TrackedObject>> &objectsPerSource,
                   TrackedObject &measurement,
                   double defaultMeasurementNoise)
 {
@@ -98,7 +98,7 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
   }
 
   const bool anyMeasurementNoise = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
-    return objectsPerCamera[match.first][match.second].measurementNoiseCov.has_value();
+    return objectsPerSource[match.first][match.second].measurementNoiseCov.has_value();
   });
 
   if (anyMeasurementNoise)
@@ -109,13 +109,13 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
     const TrackedObject::MeasurementMatrix defaultNoise
       = TrackedObject::MeasurementMatrix::eye() * defaultMeasurementNoise;
 
-    const bool anyZMeasured = anyMatchMeasuredZ(matches, objectsPerCamera);
+    const bool anyZMeasured = anyMatchMeasuredZ(matches, objectsPerSource);
 
     FusedMatrix information;
     FusedVector informationVector;
-    for (const auto &[cameraIndex, objectIndex] : matches)
+    for (const auto &[sourceIndex, objectIndex] : matches)
     {
-      const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+      const auto &object = objectsPerSource[sourceIndex][objectIndex];
       const FusedMatrix noiseInv = fusionInformation(object, anyZMeasured, defaultMeasurementNoise);
       information += noiseInv;
       informationVector += noiseInv * object.measurementVector().get_minor<kFusedSize, 1>(0, 0);
@@ -151,9 +151,9 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
   double sumWidth = 0.0;
   double sumHeight = 0.0;
 
-  for (const auto &[cameraIndex, objectIndex] : matches)
+  for (const auto &[sourceIndex, objectIndex] : matches)
   {
-    const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+    const auto &object = objectsPerSource[sourceIndex][objectIndex];
     sumX += object.x;
     sumY += object.y;
     sumZ += object.z;
@@ -181,28 +181,28 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
  * Cov(x_f, yaw_s) = R_f * I_s * Cov(x_s, yaw_s), I_s the information fuseGeometry took from s.
  */
 void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
-                       const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
+                       const std::vector<std::vector<TrackedObject>> &objectsPerSource,
                        TrackedObject &fusedObject,
                        double defaultMeasurementNoise)
 {
   const TrackedObject *best = nullptr;
   double bestConfidence = -1.0;
-  size_t bestCameraIndex = 0;
+  size_t bestSourceIndex = 0;
 
-  for (const auto &[cameraIndex, objectIndex] : matches)
+  for (const auto &[sourceIndex, objectIndex] : matches)
   {
-    const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+    const auto &object = objectsPerSource[sourceIndex][objectIndex];
     if (!orientation::hasOrientation(object))
     {
       continue;
     }
     const double confidence = object.classification.size() > 0 ? object.classification.maxCoeff() : 0.0;
     if (best == nullptr || confidence > bestConfidence
-        || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
+        || (confidence == bestConfidence && sourceIndex > bestSourceIndex))
     {
       best = &object;
       bestConfidence = confidence;
-      bestCameraIndex = cameraIndex;
+      bestSourceIndex = sourceIndex;
     }
   }
 
@@ -220,7 +220,7 @@ void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
       if (matches.size() > 1)
       {
         const auto cross = noise.get_minor<kGeometrySize, kGeometrySize>(0, 0)
-          * fusionInformation(*best, anyMatchMeasuredZ(matches, objectsPerCamera), defaultMeasurementNoise)
+          * fusionInformation(*best, anyMatchMeasuredZ(matches, objectsPerSource), defaultMeasurementNoise)
           * bestNoise.get_minor<kGeometrySize, 1>(0, MeasurementIndex::YAW);
         for (int row = 0; row < kGeometrySize; ++row)
         {
@@ -364,13 +364,13 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
 
 std::vector<tracking::TrackedObject>
 MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
-                                                  std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
+                                                  std::vector<std::vector<tracking::TrackedObject>> &objectsPerSource,
                                                   const DistanceType &distanceType,
                                                   double distanceThreshold,
                                                   double maxRadiusM)
 {
-  const size_t numCameras = objectsPerCamera.size();
-  if (numCameras == 0 || tracks.empty())
+  const size_t numSources = objectsPerSource.size();
+  if (numSources == 0 || tracks.empty())
   {
     return tracks; // No sources or tracks, return all tracks as unassigned
   }
@@ -379,19 +379,19 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   std::vector<bool> isTrackAssigned(tracks.size(), false);
 
   // Store assignments and unassigned objects for each source
-  std::vector<std::vector<std::pair<size_t, size_t>>> assignments(numCameras);
-  std::vector<std::vector<size_t>> unassignedObjectsPerCamera(numCameras);
+  std::vector<std::vector<std::pair<size_t, size_t>>> assignments(numSources);
+  std::vector<std::vector<size_t>> unassignedObjectsPerSource(numSources);
 
 // Parallelizable matching phase
 #pragma omp parallel for
-  for (size_t i = 0; i < numCameras; ++i)
+  for (size_t i = 0; i < numSources; ++i)
   {
     std::vector<size_t> unassignedTracks;
     match(tracks,
-          objectsPerCamera[i],
+          objectsPerSource[i],
           assignments[i],
           unassignedTracks,
-          unassignedObjectsPerCamera[i],
+          unassignedObjectsPerSource[i],
           distanceType,
           distanceThreshold,
           maxRadiusM);
@@ -400,11 +400,11 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   // Group all source matches per track index so each track gets one fused measurement.
   std::vector<std::vector<std::pair<size_t, size_t>>> matchesPerTrack(tracks.size());
   const double defaultMeasurementNoise = mTrackManager.getConfig().mDefaultMeasurementNoise;
-  for (size_t cameraIdx = 0; cameraIdx < numCameras; ++cameraIdx)
+  for (size_t sourceIdx = 0; sourceIdx < numSources; ++sourceIdx)
   {
-    for (const auto &assignment : assignments[cameraIdx])
+    for (const auto &assignment : assignments[sourceIdx])
     {
-      matchesPerTrack[assignment.first].push_back(std::make_pair(cameraIdx, assignment.second));
+      matchesPerTrack[assignment.first].push_back(std::make_pair(sourceIdx, assignment.second));
     }
   }
 
@@ -420,14 +420,14 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     // Seed from the latest matched source, then fuse geometry across all sources
     // that matched this track (metadata still uses confidence / source-order policy).
     const auto &lastMatch = matches.back();
-    auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
-    fuseGeometry(matches, objectsPerCamera, fusedObject, defaultMeasurementNoise);
-    applyOrientingYaw(matches, objectsPerCamera, fusedObject, defaultMeasurementNoise);
+    auto fusedObject = objectsPerSource[lastMatch.first][lastMatch.second];
+    fuseGeometry(matches, objectsPerSource, fusedObject, defaultMeasurementNoise);
+    applyOrientingYaw(matches, objectsPerSource, fusedObject, defaultMeasurementNoise);
     // The update measured z if any matched source did, whichever source seeds the fused object.
     fusedObject.z_measured = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
-      return objectsPerCamera[match.first][match.second].z_measured;
+      return objectsPerSource[match.first][match.second].z_measured;
     });
-    metadata_fusion::fuseMetadata(matches, objectsPerCamera, fusedObject);
+    metadata_fusion::fuseMetadata(matches, objectsPerSource, fusedObject);
     metadata_fusion::mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
 
     mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
@@ -435,10 +435,10 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   }
 
   // Remove assigned objects from each source's object list using filterByIndex
-  for (size_t i = 0; i < numCameras; ++i)
+  for (size_t i = 0; i < numSources; ++i)
   {
     // Use the unassigned objects from the matching phase
-    objectsPerCamera[i] = filterByIndex(objectsPerCamera[i], unassignedObjectsPerCamera[i]);
+    objectsPerSource[i] = filterByIndex(objectsPerSource[i], unassignedObjectsPerSource[i]);
   }
 
   // Filter unassigned tracks
@@ -456,14 +456,14 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   return unassignedTracks;
 }
 
-void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerSource,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
 {
-  track(objectsPerCamera, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold, mMaxRadiusM);
+  track(objectsPerSource, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold, mMaxRadiusM);
 }
 
-void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerSource,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   const DistanceType &distanceType,
                                   double distanceThreshold,
@@ -471,7 +471,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
                                   double maxRadiusM,
                                   double birthClusterRadiusM)
 {
-  if (objectsPerCamera.empty())
+  if (objectsPerSource.empty())
   {
     mTrackManager.predict(timestamp);
     mTrackManager.correct();
@@ -480,21 +480,21 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   }
 
   // Reject invalid per-detection R before association, fusion, birth, or the Kalman update.
-  for (auto &cameraObjects : objectsPerCamera)
+  for (auto &sourceObjects : objectsPerSource)
   {
-    for (auto &object : cameraObjects)
+    for (auto &object : sourceObjects)
     {
       ensureValidMeasurementNoiseCov(object);
     }
   }
 
-  std::vector<std::vector<tracking::TrackedObject>> lowScoreObjectsPerCamera;
-  lowScoreObjectsPerCamera.reserve(objectsPerCamera.size());
-  for (auto &objects : objectsPerCamera)
+  std::vector<std::vector<tracking::TrackedObject>> lowScoreObjectsPerSource;
+  lowScoreObjectsPerSource.reserve(objectsPerSource.size());
+  for (auto &objects : objectsPerSource)
   {
     std::vector<tracking::TrackedObject> lowScoreObjects;
     splitByThreshold(objects, lowScoreObjects, scoreThreshold);
-    lowScoreObjectsPerCamera.push_back(std::move(lowScoreObjects));
+    lowScoreObjectsPerSource.push_back(std::move(lowScoreObjects));
   }
 
   // 1. - Predict
@@ -503,16 +503,16 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   // 2.- Associate with the reliable states first
   auto tracks = mTrackManager.getReliableTracks();
 
-  tracks = matchAndAssignMeasurements(tracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
+  tracks = matchAndAssignMeasurements(tracks, objectsPerSource, distanceType, distanceThreshold, maxRadiusM);
 
-  tracks = matchAndAssignMeasurements(tracks, lowScoreObjectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
+  tracks = matchAndAssignMeasurements(tracks, lowScoreObjectsPerSource, distanceType, distanceThreshold, maxRadiusM);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   auto unreliableTracks = mTrackManager.getUnreliableTracks();
-  matchAndAssignMeasurements(unreliableTracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
+  matchAndAssignMeasurements(unreliableTracks, objectsPerSource, distanceType, distanceThreshold, maxRadiusM);
 
   auto suspendedTracks = mTrackManager.getSuspendedTracks();
-  matchAndAssignMeasurements(suspendedTracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
+  matchAndAssignMeasurements(suspendedTracks, objectsPerSource, distanceType, distanceThreshold, maxRadiusM);
 
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();
@@ -532,22 +532,22 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   std::vector<std::vector<std::pair<size_t, size_t>>> clusterMembers;
   const double defaultMeasurementNoise = mTrackManager.getConfig().mDefaultMeasurementNoise;
   size_t totalUnassignedObjects = 0;
-  for (auto &cameraObjects : objectsPerCamera)
+  for (auto &sourceObjects : objectsPerSource)
   {
-    totalUnassignedObjects += cameraObjects.size();
+    totalUnassignedObjects += sourceObjects.size();
   }
   newObjects.reserve(totalUnassignedObjects);
   clusterMembers.reserve(totalUnassignedObjects);
 
-  for (size_t cameraIndex = 0; cameraIndex < objectsPerCamera.size(); ++cameraIndex)
+  for (size_t sourceIndex = 0; sourceIndex < objectsPerSource.size(); ++sourceIndex)
   {
-    const auto &cameraObjects = objectsPerCamera[cameraIndex];
+    const auto &sourceObjects = objectsPerSource[sourceIndex];
     if (newObjects.empty())
     {
-      for (size_t objectIndex = 0; objectIndex < cameraObjects.size(); ++objectIndex)
+      for (size_t objectIndex = 0; objectIndex < sourceObjects.size(); ++objectIndex)
       {
-        newObjects.push_back(cameraObjects[objectIndex]);
-        clusterMembers.push_back({{cameraIndex, objectIndex}});
+        newObjects.push_back(sourceObjects[objectIndex]);
+        clusterMembers.push_back({{sourceIndex, objectIndex}});
       }
       continue;
     }
@@ -555,28 +555,28 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
     std::vector<std::pair<size_t, size_t>> assignments;
     std::vector<size_t> unassignedTracks;
     std::vector<size_t> unassignedObjects;
-    match(newObjects, cameraObjects, assignments, unassignedTracks, unassignedObjects,
+    match(newObjects, sourceObjects, assignments, unassignedTracks, unassignedObjects,
           DistanceType::EuclideanBirth, birthClusterRadiusM, birthClusterRadiusM);
 
-    for (const auto &[newObjectIndex, cameraObjectIndex] : assignments)
+    for (const auto &[newObjectIndex, sourceObjectIndex] : assignments)
     {
       auto &members = clusterMembers[newObjectIndex];
-      members.emplace_back(cameraIndex, cameraObjectIndex);
+      members.emplace_back(sourceIndex, sourceObjectIndex);
       // Re-fuse on every join, not once after the loop: later sources are matched against the fused cluster.
       auto &fusedObject = newObjects[newObjectIndex];
-      fuseGeometry(members, objectsPerCamera, fusedObject, defaultMeasurementNoise);
-      applyOrientingYaw(members, objectsPerCamera, fusedObject, defaultMeasurementNoise);
+      fuseGeometry(members, objectsPerSource, fusedObject, defaultMeasurementNoise);
+      applyOrientingYaw(members, objectsPerSource, fusedObject, defaultMeasurementNoise);
       // Same sticky rule as track↔detection fusion: any measured-z source marks the birth seed.
       fusedObject.z_measured = std::any_of(members.begin(), members.end(), [&](const auto &match) {
-        return objectsPerCamera[match.first][match.second].z_measured;
+        return objectsPerSource[match.first][match.second].z_measured;
       });
-      metadata_fusion::fuseMetadata(members, objectsPerCamera, fusedObject);
+      metadata_fusion::fuseMetadata(members, objectsPerSource, fusedObject);
     }
 
     for (const auto objectIndex : unassignedObjects)
     {
-      newObjects.push_back(cameraObjects[objectIndex]);
-      clusterMembers.push_back({{cameraIndex, objectIndex}});
+      newObjects.push_back(sourceObjects[objectIndex]);
+      clusterMembers.push_back({{sourceIndex, objectIndex}});
     }
   }
 

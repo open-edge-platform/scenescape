@@ -171,13 +171,13 @@ private:
      * MOT association and Kalman filter update, then converts
      * RobotVision tracks to output Track structs with UUID IDs.
      *
-     * @param objects_per_camera Per-camera world-coordinate detections
+     * @param objects_per_source Per-source world-coordinate detections
      * @param chunk Input chunk (for category and debug logging)
      * @param timestamp Canonical timestamp for tracker time advancement
      * @return Vector of reliable tracks in world coordinates
      */
     std::vector<Track>
-    match_and_convert(std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera,
+    match_and_convert(std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_source,
                       const Chunk& chunk, std::chrono::system_clock::time_point timestamp);
 
     /**

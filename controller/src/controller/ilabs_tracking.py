@@ -478,7 +478,7 @@ class IntelLabsTracking(Tracking):
     }
 
   def _birth_cluster_radius(self):
-    """Radius that groups new detections of different cameras: the configured ``birth_cluster_radius_m`` when set,
+    """Radius that groups new detections of different sources: the configured ``birth_cluster_radius_m`` when set,
     else the tracking_radius gate when association uses it, else the default."""
     configured = self.association_config.get("birth_cluster_radius_m")
     if configured is not None:
@@ -613,15 +613,15 @@ class IntelLabsTracking(Tracking):
     self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
     return
 
-  def trackCategoryBatched(self, objects_per_camera, when, already_tracked_objects):
-    """Create reliable tracks for objects from multiple cameras using batched tracking"""
+  def trackCategoryBatched(self, objects_per_source, when, already_tracked_objects):
+    """Create reliable tracks for objects from multiple sources using batched tracking"""
     when = datetime.fromtimestamp(when)
-    self.update_tracks_batched(objects_per_camera, when)
+    self.update_tracks_batched(objects_per_source, when)
     tracked_objects = self.tracker.get_reliable_tracks()
     self.uuid_manager.pruneInactiveTracks(tracked_objects)
 
     # Flatten all objects for from_tracked_object lookup
-    all_objects = [obj for camera_objects in objects_per_camera for obj in camera_objects]
+    all_objects = [obj for source_objects in objects_per_source for obj in source_objects]
 
     tracks_from_detections = [self.from_tracked_object(tracked_object, all_objects)
                               for tracked_object in tracked_objects]
@@ -631,18 +631,18 @@ class IntelLabsTracking(Tracking):
     self.all_tracker_objects = tracks_from_detections + self.already_tracked_objects
     return
 
-  def update_tracks_batched(self, objects_per_camera, timestamp):
-    """Update tracks using batched per-camera object data"""
-    rv_objects_per_camera = []
+  def update_tracks_batched(self, objects_per_source, timestamp):
+    """Update tracks using batched per-source object data"""
+    rv_objects_per_source = []
     flat_objects = []
 
-    for camera_objects in objects_per_camera:
-      rv_camera_objects = [self.to_rv_object(sscape_object) for sscape_object in camera_objects]
-      rv_objects_per_camera.append(rv_camera_objects)
-      flat_objects.extend(camera_objects)
+    for source_objects in objects_per_source:
+      rv_source_objects = [self.to_rv_object(sscape_object) for sscape_object in source_objects]
+      rv_objects_per_source.append(rv_source_objects)
+      flat_objects.extend(source_objects)
 
     self.tracker.track(
-      rv_objects_per_camera,
+      rv_objects_per_source,
       timestamp,
       **self._association_kwargs(flat_objects),
       birth_cluster_radius_m=self._birth_cluster_radius(),

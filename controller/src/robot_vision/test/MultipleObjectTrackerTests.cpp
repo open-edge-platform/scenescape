@@ -989,7 +989,7 @@ TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarCameraAndThreeDSensorKeepsO
 TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
 {
   // A detection 1.5 m from the track, inside the wide gate: the track takes it without a ceiling; with a 1 m ceiling
-  // from the constructor it starts a second track. Both convenience overloads (one list, objects per camera).
+  // from the constructor it starts a second track. Both convenience overloads (one list, objects per source).
   using namespace rv::tracking::test;
   const auto first = makeDetection(0.0, 0.0, 0.0, 0.5, 0.5, 1.7);
   const auto second = makeDetection(1.5, 0.0, 0.0, 0.5, 0.5, 1.7);

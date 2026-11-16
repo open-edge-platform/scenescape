@@ -24,12 +24,12 @@ inline constexpr char TransientPrefix[] = "metadata_transient.";
 /// Prefer confidence, then later source order; missing confidence loses to present confidence.
 bool shouldReplace(bool winnerExists,
                    const std::optional<double> &candidateConfidence,
-                   size_t candidateCameraIndex,
+                   size_t candidateSourceIndex,
                    const std::optional<double> &winnerConfidence,
-                   size_t winnerCameraIndex);
+                   size_t winnerSourceIndex);
 
 void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
-                  const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
+                  const std::vector<std::vector<TrackedObject>> &objectsPerSource,
                   TrackedObject &measurement);
 void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurement);
 

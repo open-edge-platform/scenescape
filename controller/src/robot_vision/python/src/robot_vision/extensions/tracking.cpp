@@ -374,24 +374,24 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def("track",
          py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
          "Trigger the track step for the next timestamp with objects per source. Use the constructor's distance type, threshold and max_radius_m.",
-         py::arg("objects_per_camera"),
+         py::arg("objects_per_source"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
     .def("track",
          [](rv::tracking::MultipleObjectTracker &self,
-            std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera,
+            std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_source,
             const std::chrono::system_clock::time_point &timestamp,
             const rv::tracking::DistanceType &distance_type,
             double distance_threshold,
             double probability_threshold,
             double max_radius_m,
             double birth_cluster_radius_m) {
-           self.track(std::move(objects_per_camera), timestamp, distance_type, distance_threshold,
+           self.track(std::move(objects_per_source), timestamp, distance_type, distance_threshold,
                       probability_threshold, max_radius_m, birth_cluster_radius_m);
          },
          "Trigger the track step for the next timestamp with objects per source. Run match() with the given distance type and threshold; "
          "unmatched detections of different sources within birth_cluster_radius_m (Euclidean, m) start one track.",
-         py::arg("objects_per_camera"),
+         py::arg("objects_per_source"),
          py::arg("timestamp"),
          py::arg("distance_type"),
          py::arg("distance_threshold"),

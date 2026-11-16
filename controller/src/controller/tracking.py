@@ -161,7 +161,7 @@ class Tracking(Thread):
     raise NotImplemented
     return
 
-  def trackCategoryBatched(self, objects_per_camera, when, tracks):
+  def trackCategoryBatched(self, objects_per_source, when, tracks):
     # You must implement in your subclass if batched mode is used
     raise NotImplemented
     return

@@ -70,17 +70,17 @@ public:
   /**
    * @brief Sets the list of measurements from multiple sources and triggers the tracking procedure with the
    * constructor's distance type, threshold and maxRadiusM
-   * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one source
+   * @param objectsPerSource Vector of vectors, where each inner vector contains objects from one source
    * @param timestamp Time point for this tracking iteration
    * @param scoreThreshold Threshold for object scoring
    */
-  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerSource,
              const std::chrono::system_clock::time_point &timestamp,
              double scoreThreshold = 0.50);
 
   /**
    * @brief Sets the batched list of measurements from multiple sources and triggers the tracking procedure
-   * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one source
+   * @param objectsPerSource Vector of vectors, where each inner vector contains objects from one source
    * @param timestamp Time point for this tracking iteration
    * @param distanceType Distance type for matching
    * @param distanceThreshold Distance threshold for matching
@@ -89,7 +89,7 @@ public:
    * @param birthClusterRadiusM Euclidean radius (m) that groups unmatched detections of different sources into one new
    * track
    */
-  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
+  void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerSource,
              const std::chrono::system_clock::time_point &timestamp,
              const DistanceType & distanceType, double distanceThreshold,
              double scoreThreshold = 0.50,
@@ -171,7 +171,7 @@ private:
    */
   std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
     const std::vector<tracking::TrackedObject> &tracks,
-    std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
+    std::vector<std::vector<tracking::TrackedObject>> &objectsPerSource,
     const DistanceType &distanceType,
     double distanceThreshold,
     double maxRadiusM = std::numeric_limits<double>::infinity());

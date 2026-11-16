@@ -478,7 +478,7 @@ struct TrackedObject {
 };
 
 class MultipleObjectTracker {
-    void track(std::vector<std::vector<TrackedObject>> objects_per_camera,
+    void track(std::vector<std::vector<TrackedObject>> objects_per_source,
                time_point timestamp, DistanceType type, double threshold);
     auto getReliableTracks() -> std::vector<TrackedObject>;
 };

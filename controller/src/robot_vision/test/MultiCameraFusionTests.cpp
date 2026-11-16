@@ -25,7 +25,7 @@ using rv::tracking::test::atMs;
 using rv::tracking::test::diagonalMeasurementNoise;
 using rv::tracking::test::makeDetection;
 using Detections = std::vector<TrackedObject>;
-using DetectionsPerCamera = std::vector<Detections>;
+using DetectionsPerSource = std::vector<Detections>;
 
 constexpr double kFusionGate = 2.0;
 
@@ -140,7 +140,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraBirthClusteringWeightsCamerasEqually)
   const Detections cameras = {makeDetection(7.0, 7.0, 0.0, 0.5, 0.4, 1.5), makeDetection(7.6, 7.3, 0.1, 0.6, 0.5, 1.8),
                               makeDetection(8.2, 7.9, 0.3, 0.8, 0.6, 2.1)};
 
-  tracker.track(DetectionsPerCamera{{cameras[0]}, {cameras[1]}, {cameras[2]}}, atMs(10));
+  tracker.track(DetectionsPerSource{{cameras[0]}, {cameras[1]}, {cameras[2]}}, atMs(10));
 
   const auto tracks = tracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U);
@@ -153,7 +153,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraBirthKeepsDetectionsBeyondGateSeparat
   const auto near = makeDetection(7.0, 7.0, 0.0, 0.5, 0.5, 1.7);
   const auto far = makeDetection(7.0 + kFusionGate + 0.5, 7.0, 0.0, 0.5, 0.5, 1.7);
 
-  tracker.track(DetectionsPerCamera{{near}, {far}}, atMs(10));
+  tracker.track(DetectionsPerSource{{near}, {far}}, atMs(10));
 
   const auto tracks = tracksSortedByX(tracker);
   ASSERT_EQ(tracks.size(), 2U);
@@ -171,7 +171,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraBirthClusteringUsesTheGivenRadius)
   {
     SCOPED_TRACE(radius);
     auto tracker = makeFusionTracker();
-    tracker.track(DetectionsPerCamera{{near}, {far}},
+    tracker.track(DetectionsPerSource{{near}, {far}},
                   atMs(10),
                   rv::tracking::DistanceType::Euclidean,
                   1.0,
@@ -191,7 +191,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraBirthPairsDetectionsOfSeveralObjects)
   const Detections right = {makeDetection(4.0, 0.0, 0.0, 0.9, 0.8, 1.5), makeDetection(4.5, -0.2, 0.1, 1.0, 0.9, 1.6),
                             makeDetection(3.8, 0.3, 0.3, 1.1, 1.0, 1.4)};
 
-  tracker.track(DetectionsPerCamera{{left[0], right[0]}, {right[1], left[1]}, {left[2], right[2]}}, atMs(10));
+  tracker.track(DetectionsPerSource{{left[0], right[0]}, {right[1], left[1]}, {left[2], right[2]}}, atMs(10));
 
   const auto tracks = tracksSortedByX(tracker);
   ASSERT_EQ(tracks.size(), 2U);
@@ -211,7 +211,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraBirthSeedsFromFirstMatchedCamera)
     cameras[camera].attributes["info"] = "detection-" + std::to_string(camera);
   }
 
-  tracker.track(DetectionsPerCamera{{cameras[0]}, {cameras[1]}, {cameras[2]}}, atMs(10));
+  tracker.track(DetectionsPerSource{{cameras[0]}, {cameras[1]}, {cameras[2]}}, atMs(10));
 
   const auto tracks = tracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U);
@@ -229,8 +229,8 @@ TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateAveragesWorldPosition)
 
   for (int frame = 0; frame < 2; ++frame)
   {
-    tracker.track(DetectionsPerCamera{{cam0}, {cam1}}, atMs(10 + 100 * frame));
-    twin.track(DetectionsPerCamera{{averageOf({cam0, cam1})}}, atMs(10 + 100 * frame));
+    tracker.track(DetectionsPerSource{{cam0}, {cam1}}, atMs(10 + 100 * frame));
+    twin.track(DetectionsPerSource{{averageOf({cam0, cam1})}}, atMs(10 + 100 * frame));
   }
 
   expectSameSingleTrack(tracker, twin);
@@ -246,7 +246,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraMovingObjectMatchesPreAveragedSingleC
 
   for (int frame = 0; frame < 4; ++frame)
   {
-    DetectionsPerCamera perCamera;
+    DetectionsPerSource perCamera;
     Detections all;
     for (auto detection : bias)
     {
@@ -256,7 +256,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraMovingObjectMatchesPreAveragedSingleC
       all.push_back(detection);
     }
     tracker.track(perCamera, atMs(10 + 100 * frame));
-    twin.track(DetectionsPerCamera{{averageOf(all)}}, atMs(10 + 100 * frame));
+    twin.track(DetectionsPerSource{{averageOf(all)}}, atMs(10 + 100 * frame));
   }
 
   expectSameSingleTrack(tracker, twin);
@@ -269,15 +269,15 @@ TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateUsesOnlyMatchedCameras)
   auto twin = makeFusionTracker();
   const auto camA = makeDetection(7.0, 7.0, 0.0, 0.5, 0.5, 1.7);
   const auto camB = makeDetection(7.6, 7.3, 0.0, 0.5, 0.5, 1.9);
-  tracker.track(DetectionsPerCamera{{camA}, {camB}}, atMs(10));
-  twin.track(DetectionsPerCamera{{averageOf({camA, camB})}}, atMs(10));
+  tracker.track(DetectionsPerSource{{camA}, {camB}}, atMs(10));
+  twin.track(DetectionsPerSource{{averageOf({camA, camB})}}, atMs(10));
 
   auto movedA = camA;
   movedA.x += 0.1;
   auto farB = camB;
   farB.x += 3.0 * kFusionGate;
-  tracker.track(DetectionsPerCamera{{movedA}, {farB}}, atMs(110));
-  twin.track(DetectionsPerCamera{{movedA}}, atMs(110));
+  tracker.track(DetectionsPerSource{{movedA}, {farB}}, atMs(110));
+  twin.track(DetectionsPerSource{{movedA}}, atMs(110));
 
   const auto tracks = tracksSortedByX(tracker);
   const auto twinTracks = twin.getTracks();
@@ -375,12 +375,12 @@ TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
   {
     SCOPED_TRACE(measuredFirst ? "measured camera first" : "measured camera last");
     auto tracker = makeFusionTracker();
-    tracker.track(DetectionsPerCamera{{planar}}, atMs(0), rv::tracking::DistanceType::Euclidean, kFusionGate);
+    tracker.track(DetectionsPerSource{{planar}}, atMs(0), rv::tracking::DistanceType::Euclidean, kFusionGate);
     ASSERT_EQ(tracker.getTracks().size(), 1U);
     ASSERT_FALSE(tracker.getTracks()[0].z_measured);
 
     const auto cameras
-      = measuredFirst ? DetectionsPerCamera{{measured}, {planar}} : DetectionsPerCamera{{planar}, {measured}};
+      = measuredFirst ? DetectionsPerSource{{measured}, {planar}} : DetectionsPerSource{{planar}, {measured}};
     tracker.track(cameras, atMs(100), rv::tracking::DistanceType::Euclidean, kFusionGate);
     ASSERT_EQ(tracker.getTracks().size(), 1U);
     EXPECT_TRUE(tracker.getTracks()[0].z_measured);
@@ -430,7 +430,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraBirthFusionWeightsByMeasurementNoise)
   auto cam1 = makeDetection(7.91, 6.69, 0.0, 0.5, 0.5, 0.5);
   cam1.measurementNoiseCov = diagonalMeasurementNoise(4.0, 0.01, 0.2);
 
-  tracker.track(DetectionsPerCamera{{cam0}, {cam1}}, atMs(10));
+  tracker.track(DetectionsPerSource{{cam0}, {cam1}}, atMs(10));
 
   const auto tracks = tracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U);
@@ -465,8 +465,8 @@ TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateFusesByMeasurementNoise)
 
   for (int frame = 0; frame < 3; ++frame)
   {
-    tracker.track(DetectionsPerCamera{{cam0}, {cam1}}, atMs(10 + 100 * frame));
-    twin.track(DetectionsPerCamera{{fused}}, atMs(10 + 100 * frame));
+    tracker.track(DetectionsPerSource{{cam0}, {cam1}}, atMs(10 + 100 * frame));
+    twin.track(DetectionsPerSource{{fused}}, atMs(10 + 100 * frame));
   }
 
   expectSameSingleTrack(tracker, twin);
@@ -481,7 +481,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionUsesDefaultNoiseForDetectionsWi
 
   for (int frame = 0; frame < 2; ++frame)
   {
-    tracker.track(DetectionsPerCamera{{withR}, {withoutR}}, atMs(10 + 100 * frame));
+    tracker.track(DetectionsPerSource{{withR}, {withoutR}}, atMs(10 + 100 * frame));
   }
 
   const auto &measurements = tracker.mTrackManager.mMeasurementMap;
@@ -495,7 +495,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionUsesDefaultNoiseForDetectionsWi
 
 // The fused measurement of the only track after two frames, so the first one births it and the second fuses.
 const TrackedObject &fusedMeasurementAfterTwoFrames(rv::tracking::MultipleObjectTracker &tracker,
-                                                    const DetectionsPerCamera &cameras)
+                                                    const DetectionsPerSource &cameras)
 {
   for (int frame = 0; frame < 2; ++frame)
   {
@@ -516,7 +516,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRTakesZFromMeasuredDetectio
   measured.z_measured = true;
   measured.measurementNoiseCov = diagonalMeasurementNoise(0.04, 0.04, 0.05);
 
-  const auto &fused = fusedMeasurementAfterTwoFrames(tracker, DetectionsPerCamera{{planar}, {measured}});
+  const auto &fused = fusedMeasurementAfterTwoFrames(tracker, DetectionsPerSource{{planar}, {measured}});
 
   EXPECT_NEAR(fused.z, 0.9, 1e-9);
   ASSERT_TRUE(fused.measurementNoiseCov);
@@ -537,9 +537,9 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRTakesZFromMeasuredDetectio
   measuredB.z_measured = true;
   measuredB.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.3);
 
-  for (const auto &cameras : {DetectionsPerCamera{{planar}, {measuredA}, {measuredB}},
-                              DetectionsPerCamera{{measuredA}, {planar}, {measuredB}},
-                              DetectionsPerCamera{{measuredA}, {measuredB}, {planar}}})
+  for (const auto &cameras : {DetectionsPerSource{{planar}, {measuredA}, {measuredB}},
+                              DetectionsPerSource{{measuredA}, {planar}, {measuredB}},
+                              DetectionsPerSource{{measuredA}, {measuredB}, {planar}}})
   {
     auto tracker = makeFusionTracker();
     const auto &fused = fusedMeasurementAfterTwoFrames(tracker, cameras);
@@ -563,7 +563,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithCorrelatedRIgnoresPlanarZAt
   (*measured.measurementNoiseCov)(MeasurementIndex::X, MeasurementIndex::Z) = 0.8;
   (*measured.measurementNoiseCov)(MeasurementIndex::Z, MeasurementIndex::X) = 0.8;
 
-  for (const auto &cameras : {DetectionsPerCamera{{planar}, {measured}}, DetectionsPerCamera{{measured}, {planar}}})
+  for (const auto &cameras : {DetectionsPerSource{{planar}, {measured}}, DetectionsPerSource{{measured}, {planar}}})
   {
     auto tracker = makeFusionTracker();
     tracker.track(cameras, atMs(10));
@@ -594,7 +594,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithRKeepsPlanarZWhenNoDetectio
   auto cam1 = makeDetection(7.1, 7.0, 0.2, 0.5, 0.5, 1.8);
   cam1.measurementNoiseCov = diagonalMeasurementNoise(0.01, 0.01, 0.3);
 
-  const auto &fused = fusedMeasurementAfterTwoFrames(tracker, DetectionsPerCamera{{cam0}, {cam1}});
+  const auto &fused = fusedMeasurementAfterTwoFrames(tracker, DetectionsPerSource{{cam0}, {cam1}});
 
   EXPECT_NEAR(fused.z, (0.0 / 0.1 + 0.2 / 0.3) / (1.0 / 0.1 + 1.0 / 0.3), 1e-9);
   ASSERT_TRUE(fused.measurementNoiseCov);
@@ -612,7 +612,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithoutMeasurementNoiseLeavesRU
 
   for (int frame = 0; frame < 2; ++frame)
   {
-    tracker.track(DetectionsPerCamera{{cam0}, {cam1}}, atMs(10 + 100 * frame));
+    tracker.track(DetectionsPerSource{{cam0}, {cam1}}, atMs(10 + 100 * frame));
   }
 
   const auto &measurements = tracker.mTrackManager.mMeasurementMap;
@@ -628,10 +628,10 @@ TEST(MultipleObjectTrackerTest, TrackRejectsInvalidDetectionMeasurementNoise)
   auto tracker = makeFusionTracker();
   auto detection = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
   detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::zeros();
-  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(10)), std::invalid_argument);
+  EXPECT_THROW(tracker.track(DetectionsPerSource{{detection}}, atMs(10)), std::invalid_argument);
 
   detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::eye() * -0.2;
-  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(20)), std::invalid_argument);
+  EXPECT_THROW(tracker.track(DetectionsPerSource{{detection}}, atMs(20)), std::invalid_argument);
 
   auto asymmetric = diagonalMeasurementNoise(0.2, 0.2, 0.2);
   asymmetric(0, 1) = 5.0;
@@ -639,7 +639,7 @@ TEST(MultipleObjectTrackerTest, TrackRejectsInvalidDetectionMeasurementNoise)
   // Strong asymmetry that is indefinite after symmetrization is rejected
   // (0.5*(5+0)=2.5 off-diagonal with 0.2 diagonals).
   detection.measurementNoiseCov = asymmetric;
-  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(30)), std::invalid_argument);
+  EXPECT_THROW(tracker.track(DetectionsPerSource{{detection}}, atMs(30)), std::invalid_argument);
 }
 
 // The fused R after two frames of an orienting detection (x variance 1, z variance 0.3, yaw variance 1,
@@ -664,7 +664,7 @@ TrackedObject::MeasurementMatrix fusedNoiseWithCorrelatedYaw(bool orientingMeasu
 
   for (int frame = 0; frame < 2; ++frame)
   {
-    tracker.track(DetectionsPerCamera{{orienting}, {other}}, atMs(10 + 100 * frame));
+    tracker.track(DetectionsPerSource{{orienting}, {other}}, atMs(10 + 100 * frame));
   }
   const auto &measurements = tracker.mTrackManager.mMeasurementMap;
   EXPECT_EQ(measurements.size(), 1U);
@@ -724,7 +724,7 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusedYawVarianceFollowsSelectedOrient
 
   for (int frame = 0; frame < 2; ++frame)
   {
-    tracker.track(DetectionsPerCamera{{orienting}, {cameraOnly}}, atMs(10 + 100 * frame));
+    tracker.track(DetectionsPerSource{{orienting}, {cameraOnly}}, atMs(10 + 100 * frame));
   }
 
   const auto &measurements = tracker.mTrackManager.mMeasurementMap;

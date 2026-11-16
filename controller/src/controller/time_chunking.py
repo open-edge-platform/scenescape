@@ -114,8 +114,8 @@ class TimeChunkProcessor(threading.Thread):
             metrics.inc_dropped(metrics_attributes, len(camera_dict))
             continue
 
-          # Create aggregated lists: list of lists where each inner list contains objects from one camera
-          objects_per_camera = []
+          # Create aggregated lists: list of lists where each inner list contains objects from one source
+          objects_per_source = []
           latest_when = 0
           all_already_tracked = []
 
@@ -123,13 +123,13 @@ class TimeChunkProcessor(threading.Thread):
           sorted_camera_items = sorted(camera_dict.items(), key=lambda x: x[1][1])  # Sort by 'when' (index 1 in tuple)
 
           for camera_id, (objects, when, already_tracked) in sorted_camera_items:
-            objects_per_camera.append(objects)  # Keep objects from each camera in separate list
+            objects_per_source.append(objects)  # Keep objects from each source in separate list
             latest_when = max(latest_when, when)
             all_already_tracked.extend(already_tracked)
 
-          # Single enqueue for aggregated camera data in this category
-          if objects_per_camera:
-            tracker.queue.put((objects_per_camera, latest_when, all_already_tracked, BATCHED_MODE))
+          # Single enqueue for aggregated source data in this category
+          if objects_per_source:
+            tracker.queue.put((objects_per_source, latest_when, all_already_tracked, BATCHED_MODE))
 
     log.info("TimeChunkProcessor thread exiting")
 
