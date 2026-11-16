@@ -18,8 +18,8 @@ from scipy.spatial.transform import Rotation
 
 from scene_common import log
 from scene_common.earth_lla import (
-  footprintAnchorFromCornersLLA,
-  convertLLAToECEF, convertECEFToLLA, calculateTRSLocal2LLAFromSurfacePoints
+  footprintAnchorFromCornersLLA, llaToFrameLocalXY,
+  convertECEFToLLA, calculateTRSLocal2LLAFromSurfacePoints
 )
 from scene_common.mesh_util import extractMeshFromGLB, getPosedMeshFootprint
 
@@ -157,8 +157,7 @@ def compute_glb_pose_and_corners(frame_corners_lla, anchor_lat, anchor_lng, anch
   frame_trs = calculateTRSLocal2LLAFromSurfacePoints(frame_corners_local, frame_corners_lla)
 
   # Convert anchor (global LLA) to frame-local metres
-  anchor_ecef = convertLLAToECEF([anchor_lat, anchor_lng, 0.0])
-  anchor_local = np.linalg.inv(frame_trs[:3, :3]) @ (anchor_ecef - frame_trs[:3, 3])
+  anchor_local = llaToFrameLocalXY(frame_corners_lla, anchor_lat, anchor_lng)
 
   # Load raw mesh and apply axis conversion
   mesh, _ = extractMeshFromGLB(glb_path, rotation=None)

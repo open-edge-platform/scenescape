@@ -93,17 +93,9 @@ def _preview_resp(token, existing_content=None):
   }
 
 
-def _accept_resp():
-  """Successful commit response."""
-  return {
-    "status": 200,
-    "body": {"anchor": {"lat": 37, "lng": -122, "heading_deg": 0}, "footprint_m": {"width": 100, "height": 60}},
-  }
-
-
-def _accept_flow(steps, **extra):
-  """Upload tok1 with no saved model, then run the given steps (typically starting with accept)."""
-  return _align([_NO_SAVED, _preview_resp("tok1"), _accept_resp()], [["upload"], *steps], **extra)
+def _last_opacity(res):
+  """Opacity most recently set on the map overlay."""
+  return [c[1] for c in res["calls"] if c[0] == "setOverlayOpacity"][-1]
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
@@ -138,15 +130,12 @@ class TestGlbAlignment:
     assert (res["fileDisabled"], res["filePointerEvents"], res["fileTitle"]) == (False, "", "")
 
   def test_upload_locks_file_input_while_in_flight(self):
-    """Upload and accept are disabled with a loading hint until the preview request settles."""
+    """Upload is disabled with a loading hint until the preview request settles."""
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"]])
     assert res["fetches"][1]["ui"] == {
       "fileDisabled": True,
       "filePointerEvents": "none",
       "fileWrapTitle": "loading glb...",
-      "acceptDisabled": True,
-      "acceptPointerEvents": "none",
-      "acceptTitle": "loading glb...",
     }
     assert res["fetches"][0]["ui"]["fileDisabled"] is False
 
@@ -228,21 +217,6 @@ class TestGlbAlignment:
     assert res["confirms"] == []
     assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
 
-  @pytest.mark.parametrize("answer, methods", [(True, ["GET", "POST", "POST"]), (False, ["GET", "POST"])])
-  def test_accept_over_applied_model_confirms_existing_content(self, answer, methods):
-    """Accepting a replacement re-applies it when the saved model is applied, so it asks first."""
-    responses = [_saved_model_get(use_glb_map=True), _preview_resp("tok1", _CONTENT), _accept_resp()]
-    res = _align(responses, [["upload"], ["accept"]], confirm=answer)
-    assert len(res["confirms"]) == 1 and "2 cameras" in res["confirms"][0]
-    assert [f["method"] for f in res["fetches"]] == methods
-
-  def test_accept_over_unapplied_model_does_not_confirm(self):
-    """A replacement over a saved model that is not applied is only stored, so it does not ask."""
-    responses = [_saved_model_get(), _preview_resp("tok1", _CONTENT), _accept_resp()]
-    res = _align(responses, [["upload"], ["accept"]], confirm=False)
-    assert res["confirms"] == []
-    assert len(res["fetches"]) == 3
-
   def test_save_scene_over_applied_model_declined_is_prevented(self):
     """Save Scene Updates with a staged replacement of an applied model is blocked when declined."""
     responses = [_saved_model_get(use_glb_map=True), _preview_resp("tok1", _CONTENT)]
@@ -251,10 +225,13 @@ class TestGlbAlignment:
     assert submit["prevented"] is True
     assert res["formInputs"] == []
 
-  def test_legend_swatches_use_overlay_frame_colors(self):
-    """The legend swatches take their colors from the frame colors drawn on the map."""
-    res = _align([_NO_SAVED], [])
-    assert res["legendColors"] == [FRAME_APPLIED, FRAME_UNAPPLIED]
+  def test_save_scene_with_staged_model_posts_token_and_anchor(self):
+    """A staged model is saved only by Save Scene Updates, which carries its token and anchor."""
+    res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["submit"]])
+    (submit,) = res["submits"]
+    assert submit["prevented"] is False
+    assert [(i["name"], i["value"]) for i in res["formInputs"]][0] == ("glb_token", "tok1")
+    assert [f["method"] for f in res["fetches"]] == ["GET", "POST"]
 
   def test_upload_without_map_location_is_refused(self):
     """Upload is rejected without a map location and the control stays disabled and unlabelled."""
@@ -312,14 +289,27 @@ class TestGlbAlignment:
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["heading", "90"], ["heading", ""]])
     assert res["anchor"]["heading_deg"] == 90
 
-  def test_saved_only_model_hides_staged_only_controls(self):
-    """Opacity and Accept apply to a staged model only; a saved model shows heading, Reset and Cancel."""
-    res = _align([_saved_model_get()], [])
-    assert res["acceptDisplay"] == "none"
-    assert res["opacityDisplay"] == "none"
-    res = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"]])
-    assert res["acceptDisplay"] == ""
-    assert res["opacityDisplay"] == ""
+  @pytest.mark.parametrize("responses, steps, resting", [
+    ([_NO_SAVED, _preview_resp("tok1")], [["upload"]], 0.6),
+    ([_saved_model_get()], [], 1),
+  ])
+  def test_hold_without_drag_fades_overlay_and_release_restores_it(self, responses, steps, resting):
+    """A press on the model fades it so the map shows through, even without dragging, and release restores it."""
+    pressed = _align(responses, steps + [["press", [0, 0]]])
+    assert _last_opacity(pressed) == 0.25
+    assert pressed["dirty"] is False
+    released = _align(responses, steps + [["press", [0, 0]], ["release"]])
+    assert _last_opacity(released) == resting
+    assert released["dirty"] is False
+
+  def test_drag_fades_overlay_until_release(self):
+    """The overlay stays faded for the whole drag and returns to its resting opacity on release."""
+    responses = [_NO_SAVED, _preview_resp("tok1")]
+    dragging = _align(responses, [["upload"], ["press", [0, 0]]])
+    assert _last_opacity(dragging) == 0.25
+    res = _align(responses, [["upload"], ["drag", [0, 0], [100, 100]]])
+    assert _last_opacity(res) == 0.6
+    assert res["dirty"] is True
 
   def test_reset_restores_original(self):
     """Reset restores the staged anchor and clears the unsaved flag."""
@@ -348,70 +338,6 @@ class TestGlbAlignment:
     assert res["headingValue"] == "45.0"
     assert res["anchor"]["heading_deg"] == 45
 
-  def test_accept_saves_and_reloads_without_confirm(self):
-    """Accept posts the token and anchor and removes the overlay, even over existing content."""
-    responses = [_NO_SAVED, _preview_resp("tok1", {"cameras": 2, "regions": 0, "sensors": 0}), _accept_resp()]
-    res = _align(responses, [["upload"], ["accept"]], confirm=False)
-    assert len(res["fetches"]) == 3
-    commit = res["fetches"][2]
-    assert commit["url"].endswith("geospatial-glb")
-    assert commit["method"] == "POST"
-    assert commit["body"]["token"] == "tok1"
-    assert commit["body"]["anchor"]["lat"] == 37
-    assert res["confirms"] == []
-    assert any("removeOverlay" in str(c) for c in res["calls"])
-
-  def test_accept_locks_controls_while_committing_and_after_success(self):
-    """Accept and upload are disabled during the commit and stay disabled while the page reloads."""
-    res = _accept_flow([["accept"]])
-    assert res["fetches"][2]["ui"] == {
-      "fileDisabled": True,
-      "filePointerEvents": "none",
-      "fileWrapTitle": "saving glb...",
-      "acceptDisabled": True,
-      "acceptPointerEvents": "none",
-      "acceptTitle": "saving glb...",
-    }
-    assert res["acceptDisabled"] is True
-    assert res["acceptTitle"] == "saving glb..."
-
-  def test_accept_unlocks_after_error(self):
-    """Accept is re-enabled with the error shown when the commit fails, so the user can retry."""
-    responses = [_NO_SAVED, _preview_resp("tok1"), {"status": 400, "body": {"error": "Token expired"}}]
-    res = _align(responses, [["upload"], ["accept"]])
-    assert res["status"] == "Token expired"
-    assert (res["acceptDisabled"], res["acceptPointerEvents"], res["acceptTitle"]) == (False, "", "")
-
-  def test_replacement_upload_locks_accept_until_done(self):
-    """Accept is locked during a replacement upload so it cannot commit the previous token."""
-    res = _align([_NO_SAVED, _preview_resp("tok1"), _preview_resp("tok2")], [["upload"], ["upload"]])
-    assert res["fetches"][2]["ui"]["acceptDisabled"] is True
-    assert res["fetches"][2]["ui"]["acceptTitle"] == "loading glb..."
-    assert res["acceptDisabled"] is False
-
-  def test_accept_stashes_live_view_before_reload(self):
-    """Accept stores the live map view so the reload keeps it instead of the DB view."""
-    res = _accept_flow([["accept"]])
-    assert res["mapCalls"] == ["save", "load"]
-    assert res["stored"] == {
-      "path": "/scene/s1/update/",
-      "provider": "google",
-      "settings": {"lat": 37.5, "lng": -121.5, "zoom": 17.5, "rotation": 12},
-    }
-
-  def test_take_restores_stashed_view_once(self):
-    """The stashed view is returned for the same page and provider, then consumed."""
-    res = _accept_flow([["accept"], ["take", "google"], ["take", "google"]])
-    assert res["takes"] == [{"lat": 37.5, "lng": -121.5, "zoom": 17.5, "rotation": 12}, {}]
-    assert res["stored"] is None
-
-  @pytest.mark.parametrize("take_step", [["take", "mapbox"], ["take", "google", "/scene/s2/update/"]])
-  def test_take_ignores_stash_from_other_provider_or_page(self, take_step):
-    """A view captured on another map provider (zoom scales differ) or scene page is not restored."""
-    res = _accept_flow([["accept"], take_step])
-    assert res["takes"] == [{}]
-    assert res["stored"] is None
-
   def test_choose_file_with_staged_model_confirms_then_replaces(self):
     """Choosing a file while a model is staged asks to discard it, then uploads the new one."""
     responses = [_NO_SAVED, _preview_resp("tok1"), _preview_resp("tok2")]
@@ -424,7 +350,7 @@ class TestGlbAlignment:
     assert res["fetches"][2]["url"].endswith("geospatial-glb-preview")
 
   def test_choose_file_with_saved_model_confirms_and_keeps_it(self):
-    """Choosing a file while a model is saved asks to replace it; the saved model stays until accept."""
+    """Choosing a file while a model is saved asks to replace it; the saved model stays until you save the new one."""
     res = _align([_saved_model_get()], [["click"]], geomapReady=True)
     assert len(res["confirms"]) == 1
     assert "replace" in res["confirms"][0].lower()
@@ -744,12 +670,11 @@ def test_proposed_and_saved_panels_share_styling():
   assert panel <= _element_classes(html, "glbAlignControls")
 
 
-def test_template_explains_frame_colors_and_heading():
-  """The form names both frame colors in text and gives the heading control a tooltip."""
+def test_template_gives_heading_control_a_tooltip():
+  """The heading control explains its unit and range, and the removed controls are gone."""
   html = _SCENE_UPDATE_TEMPLATE.read_text()
-  legend = re.search(r'id="glbFrameLegend".*?</small>', html, re.S).group(0)
-  assert "green" in legend and "red" in legend
-  assert 'id="glbLegendApplied"' in legend and 'id="glbLegendUnapplied"' in legend
+  for removed in ("glbFrameLegend", "glbOpacity", "glbAccept"):
+    assert removed not in html
   label = re.search(r'<label\s[^>]*for="glbHeadingNumber"[^>]*>', html).group(0)
   assert 'title="' in label
 

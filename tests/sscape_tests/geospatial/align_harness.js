@@ -97,8 +97,6 @@ class FakeForm extends FakeEl {
 function load(args) {
   const fakeEls = {};
   const fakeForm = new FakeForm();
-  const sessionStore = new Map();
-  const mapCalls = [];
   const confirms = [];
   const docGetElementById = (id) => {
     if (!fakeEls[id]) {
@@ -146,9 +144,6 @@ function load(args) {
         fileDisabled: fakeEls.glbFileInput?.disabled ?? null,
         filePointerEvents: fakeEls.glbFileInput?.style.pointerEvents ?? null,
         fileWrapTitle: fakeEls.glbFileWrap?.title ?? null,
-        acceptDisabled: fakeEls.glbAccept?.disabled ?? null,
-        acceptPointerEvents: fakeEls.glbAccept?.style.pointerEvents ?? null,
-        acceptTitle: fakeEls.glbAcceptWrap?.title ?? null,
       },
     };
     if (opts.body instanceof FakeFormData) {
@@ -222,16 +217,6 @@ function load(args) {
         return args.confirm ?? true;
       },
       location: { reload() {}, pathname: "/scene/s1/update/" },
-      sessionStorage: {
-        getItem: (k) => sessionStore.get(k) ?? null,
-        setItem: (k, v) => sessionStore.set(k, String(v)),
-        removeItem: (k) => sessionStore.delete(k),
-      },
-      saveCurrentMapSettings: () => mapCalls.push("save"),
-      loadSavedGeospatialSettings: () => {
-        mapCalls.push("load");
-        return { lat: 37.5, lng: -121.5, zoom: 17.5, rotation: 12 };
-      },
       mapManager:
         args.mapReady === false
           ? undefined
@@ -259,8 +244,6 @@ function load(args) {
     fakeForm,
     fetches,
     strategy,
-    sessionStore,
-    mapCalls,
     confirms,
   };
 }
@@ -277,20 +260,10 @@ function statusListOf(statusEl) {
 
 const scenarios = {
   async align(args) {
-    const {
-      ctx,
-      fakeEls,
-      fakeForm,
-      fetches,
-      strategy,
-      sessionStore,
-      mapCalls,
-      confirms,
-    } = load(args);
+    const { ctx, fakeEls, fakeForm, fetches, strategy, confirms } = load(args);
     const a = new ctx.__api.GlbAlignment();
     if (args.geomapReady) ctx.window.fire("geomap-ready", {});
     const events = [];
-    const takes = [];
     const clicks = [];
 
     const savePosShown = () =>
@@ -318,7 +291,7 @@ const scenarios = {
         status: fakeEls["glbAlignStatus"]?.textContent || "",
       });
     };
-    const drag = (from, to) => {
+    const press = (from) => {
       const ev0 = {
         type: "pointerdown",
         clientX: from[0],
@@ -330,7 +303,10 @@ const scenarios = {
       };
       fakeEls["map"].fire("pointerdown", ev0);
       events.push({ prevented: !!ev0.prevented });
-      if (ev0.prevented) {
+      return ev0;
+    };
+    const drag = (from, to) => {
+      if (press(from).prevented) {
         ctx.window.fire("pointermove", { clientX: to[0], clientY: to[1] });
         ctx.window.fire("pointerup", {});
       }
@@ -375,15 +351,14 @@ const scenarios = {
           headEl.fire("input", { target: headEl });
         } else if (step[0] === "headingBlur") {
           fakeEls["glbHeadingNumber"].fire("change", {});
-        } else if (step[0] === "accept") {
-          await a._accept?.();
         } else if (step[0] === "reset") {
           a._reset?.();
         } else if (step[0] === "cancel") {
           a._cancel?.();
-        } else if (step[0] === "take") {
-          if (step[2]) ctx.window.location.pathname = step[2];
-          takes.push(ctx.window.takeGlbAcceptedView(step[1]));
+        } else if (step[0] === "press") {
+          press(step[1]);
+        } else if (step[0] === "release") {
+          ctx.window.fire("pointerup", {});
         } else if (step[0] === "submit") {
           submit();
         } else if (step[0] === "saveAndSubmit") {
@@ -403,14 +378,9 @@ const scenarios = {
       fetches,
       calls: strategy.calls,
       events,
-      takes,
       clicks,
       confirms,
       staged: a.staged?.token ?? null,
-      mapCalls,
-      stored: sessionStore.has("glbAcceptedView")
-        ? JSON.parse(sessionStore.get("glbAcceptedView"))
-        : null,
       savePosTrail,
       frameTrail,
       sceneFormTrail,
@@ -420,24 +390,15 @@ const scenarios = {
       mapFrame: frameState(),
       savedBlockDisplay: fakeEls["glbSavedBlock"]?.style?.display ?? null,
       useChecked: fakeEls["glbUse"]?.checked ?? null,
-      legendColors: [
-        fakeEls["glbLegendApplied"]?.style?.borderColor ?? null,
-        fakeEls["glbLegendUnapplied"]?.style?.borderColor ?? null,
-      ],
       savedAnchor: a.saved?.anchor ?? null,
       status: fakeEls["glbAlignStatus"]?.textContent || "",
       statusList: statusListOf(fakeEls["glbAlignStatus"]),
       controlsDisplay: fakeEls["glbAlignControls"]?.style?.display ?? "none",
       headingValue: fakeEls["glbHeadingNumber"]?.value ?? null,
       headingRangeValue: fakeEls["glbHeadingRange"]?.value ?? null,
-      acceptDisplay: fakeEls["glbAcceptWrap"]?.style?.display ?? "",
-      opacityDisplay: fakeEls["glbOpacityGroup"]?.style?.display ?? "",
       fileDisabled: fakeEls["glbFileInput"]?.disabled ?? false,
       filePointerEvents: fakeEls["glbFileInput"]?.style?.pointerEvents ?? "",
       fileTitle: fakeEls["glbFileWrap"]?.title ?? "",
-      acceptDisabled: fakeEls["glbAccept"]?.disabled ?? false,
-      acceptPointerEvents: fakeEls["glbAccept"]?.style?.pointerEvents ?? "",
-      acceptTitle: fakeEls["glbAcceptWrap"]?.title ?? "",
       rowDisplay: fakeEls["glbAlignRow"]?.style?.display ?? "",
       hint: fakeEls["glbAlignHint"]?.textContent || "",
       anchor: a.anchor,

@@ -7,6 +7,7 @@
 
 import json
 import os
+import re
 import tempfile
 import time
 import uuid
@@ -869,7 +870,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.assertFalse(self.scene.glb_anchor)
 
   def test_staged_glb_is_accepted_with_scene_update(self):
-    """Save Scene Updates with a staged GLB stores it, the same as the Accept button."""
+    """Save Scene Updates with a staged GLB stores it in the same save as the other scene fields."""
     token = self._stage_glb()
 
     with self.captureOnCommitCallbacks(execute=True):
@@ -1066,5 +1067,25 @@ class TestScenePagesMapImage(TestCase):
       resp = self.client.get(url)
       self.assertEqual(resp.status_code, 200)
       self.assertContains(resp, f'src="{scene.map.url}"')
+
+  def _map_origin(self, scene):
+    html = self.client.get(reverse('sceneDetail', args=[scene.id])).content.decode()
+    value = re.search(r'id="map-origin"\s+value="([^"]*)"', html).group(1)
+    return [float(v) for v in value.split(',')]
+
+  def test_applied_glb_page_offsets_the_map_origin_to_the_model_corner(self):
+    """The 2D page gets the model's SW corner in the frame, so regions are stored in the frame."""
+    scene = self._scene_with_map("pages_scene.png")
+    frame = localFootprintCornersLLA(37.38689, -121.96411, 0.0, 100.0, 100.0).tolist()
+    model = localFootprintCornersLLA(37.38689, -121.96411, 0.0, 40.0, 20.0).tolist()
+    Scene.objects.filter(pk=scene.pk).update(
+      use_glb_map=True, base_map_corners_lla=frame, map_corners_lla=model)
+    x, y = self._map_origin(scene)
+    self.assertAlmostEqual(x, 30.0, places=2)
+    self.assertAlmostEqual(y, 40.0, places=2)
+
+  def test_unapplied_page_keeps_the_image_origin(self):
+    scene = self._scene_with_map("pages_scene.png")
+    self.assertEqual(self._map_origin(scene), [0.0, 0.0])
 
 

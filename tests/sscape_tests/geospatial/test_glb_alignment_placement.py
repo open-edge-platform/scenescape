@@ -16,6 +16,7 @@ Coverage:
 
 import os
 import tempfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -23,10 +24,12 @@ import pytest
 from scipy.spatial.transform import Rotation
 
 from manager import glb_alignment, glb_staging, glb_state
+from manager.models import Scene
 from scene_common.earth_lla import (
   localFootprintCornersLLA, convertLLAToECEF, convertECEFToLLA,
   calculateTRSLocal2LLAFromSurfacePoints, footprintAnchorFromCornersLLA
 )
+from scene_common.glb_top_view import generateOrthoView
 from scene_common.mesh_util import extractMeshFromGLB, getPosedMeshFootprint
 
 # Import trimesh after scene_common to avoid conflicts
@@ -434,3 +437,52 @@ def test_non_finite_anchor_raises_error():
   with pytest.raises(glb_alignment.GlbAlignmentError) as exc_info:
     glb_alignment.parse_anchor({'lat': 52.0, 'lng': float('inf'), 'heading_deg': 0.0})
   assert exc_info.value.status == 400
+
+
+def _applied_scene(glb_path, frame_heading, anchor_heading, anchor_offset):
+  """Scene stand-in whose GLB is posed inside a 120x80 m frame, with the pose that placed it."""
+  frame_corners_lla = localFootprintCornersLLA(
+    center_lat=52.0, center_lng=21.0, heading_deg=frame_heading, width_m=120.0, height_m=80.0
+  )
+  frame_trs = calculateTRSLocal2LLAFromSurfacePoints(
+    np.array([[0, 0, 0], [120, 0, 0], [120, 80, 0], [0, 80, 0]]), frame_corners_lla
+  )
+  anchor_local = np.array([60.0 + anchor_offset[0], 40.0 + anchor_offset[1], 0.0])
+  anchor_lla = convertECEFToLLA(frame_trs[:3, :3] @ anchor_local + frame_trs[:3, 3])
+  with patch.object(glb_staging, 'ALIGN_ROTATION_X', 90.0):
+    rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
+      frame_corners_lla, anchor_lla[0], anchor_lla[1], anchor_heading, glb_path=glb_path
+    )
+  scene = SimpleNamespace(use_glb_map=True, base_map_corners_lla=frame_corners_lla.tolist(),
+                          map_corners_lla=map_corners_lla)
+  return scene, rotation, translation
+
+
+@pytest.mark.parametrize("frame_heading", [0.0, 25.0])
+@pytest.mark.parametrize("anchor_heading", [0.0, 37.0, 270.0])
+@pytest.mark.parametrize("anchor_offset", [(0.0, 0.0), (40.0, 0.0), (0.0, -25.0)])
+def test_map_origin_is_posed_footprint_corner_and_matches_thumbnail(
+    frame_heading, anchor_heading, anchor_offset, temp_glb_dir):
+  """The 2D map origin is the posed footprint's SW corner in the frame, where the thumbnail starts."""
+  glb_path = _create_box_glb(width_m=30.0, height_m=3.0, depth_m=20.0,
+                             path=os.path.join(temp_glb_dir, 'box.glb'))
+  scene, rotation, translation = _applied_scene(glb_path, frame_heading, anchor_heading, anchor_offset)
+
+  mesh, _ = extractMeshFromGLB(glb_path, rotation=None)
+  footprint = getPosedMeshFootprint(mesh, rotation, translation)
+  assert np.allclose(Scene.mapOrigin(scene), footprint[0][:2], atol=1e-3)
+
+  thumb_scene = SimpleNamespace(rotation_x=rotation[0], rotation_y=rotation[1], rotation_z=rotation[2])
+  image, _ = generateOrthoView(thumb_scene, glb_path)
+  width, height = footprint[2][:2] - footprint[0][:2]
+  assert image.shape[1] / image.shape[0] == pytest.approx(width / height, rel=0.03)
+
+
+@pytest.mark.parametrize("scene", [
+  SimpleNamespace(use_glb_map=False, base_map_corners_lla=[[1, 1, 0]] * 4, map_corners_lla=[[1, 1, 0]] * 4),
+  SimpleNamespace(use_glb_map=True, base_map_corners_lla=None, map_corners_lla=[[1, 1, 0]] * 4),
+  SimpleNamespace(use_glb_map=True, base_map_corners_lla=[[1, 1, 0]] * 4, map_corners_lla=None),
+])
+def test_map_origin_is_zero_without_an_applied_glb(scene):
+  """Negative: an unapplied scene or one without frame corners keeps the image origin."""
+  assert Scene.mapOrigin(scene) == [0.0, 0.0]

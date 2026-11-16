@@ -10,7 +10,6 @@ const DEFAULT_OPACITY = 0.6;
 const SAVED_OPACITY = 1;
 const FRAME_APPLIED = "#2e7d32";
 const FRAME_UNAPPLIED = "#c62828";
-const GLB_ACCEPTED_VIEW_KEY = "glbAcceptedView";
 const MAP_EMPTY_HINT =
   "Set the map location and save the scene before aligning a 3D model.";
 const PREVIEW_MISSING_HINT =
@@ -105,7 +104,6 @@ class GlbAlignment {
     this.staged = null;
     this.saved = null;
     this.anchor = null;
-    this.opacity = DEFAULT_OPACITY;
     this.dirty = false;
     this._isMoving = false;
     this.uploading = false;
@@ -118,14 +116,10 @@ class GlbAlignment {
       file: byId("glbFileInput"),
       fileWrap: byId("glbFileWrap"),
       controls: byId("glbAlignControls"),
-      opacity: byId("glbOpacity"),
-      opacityGroup: byId("glbOpacityGroup"),
       headingNumber: byId("glbHeadingNumber"),
       headingRange: byId("glbHeadingRange"),
       footprint: byId("glbFootprint"),
       status: byId("glbAlignStatus"),
-      accept: byId("glbAccept"),
-      acceptWrap: byId("glbAcceptWrap"),
       reset: byId("glbReset"),
       cancel: byId("glbCancel"),
       map: byId("map"),
@@ -140,14 +134,7 @@ class GlbAlignment {
       useCheckbox: byId("glbUse"),
       savePosBtn: byId("glbSavePosition"),
       savePosWrap: byId("glbSavePositionWrap"),
-      legendApplied: byId("glbLegendApplied"),
-      legendUnapplied: byId("glbLegendUnapplied"),
     };
-
-    if (this.ui.legendApplied)
-      this.ui.legendApplied.style.borderColor = FRAME_APPLIED;
-    if (this.ui.legendUnapplied)
-      this.ui.legendUnapplied.style.borderColor = FRAME_UNAPPLIED;
 
     window.addEventListener("geomap-ready", () => {
       this.mapReady = true;
@@ -164,10 +151,6 @@ class GlbAlignment {
 
     on(this.ui.file, "click", (e) => this._confirmReplaceStaged(e));
     on(this.ui.file, "change", (e) => this._handleFileUpload(e));
-    on(this.ui.opacity, "input", (e) => {
-      this.opacity = parseFloat(e.target.value);
-      this._strategy().setOverlayOpacity(this.opacity);
-    });
 
     // The edited control is not rewritten while typing; the number field is normalized on change.
     const updateHeading = (e) => {
@@ -189,7 +172,6 @@ class GlbAlignment {
     on(this.ui.headingRange, "pointerdown", () => this._beginMove());
     on(this.ui.headingRange, "pointerup", () => this._endMove());
 
-    on(this.ui.accept, "click", () => this._accept());
     on(this.ui.reset, "click", () => this._reset());
     on(this.ui.cancel, "click", () => this._cancel());
 
@@ -241,9 +223,6 @@ class GlbAlignment {
     this.ui.file.disabled = busy || this._mapEmpty();
     this.ui.file.style.pointerEvents = busy ? "none" : "";
     this.ui.fileWrap.title = hint;
-    this.ui.accept.disabled = busy;
-    this.ui.accept.style.pointerEvents = busy ? "none" : "";
-    this.ui.acceptWrap.title = hint;
     if (this.ui.savePosBtn) {
       this.ui.savePosBtn.disabled = busy;
       this.ui.savePosBtn.style.pointerEvents = busy ? "none" : "";
@@ -325,13 +304,10 @@ class GlbAlignment {
     return this.saved?.use_glb_map ? FRAME_APPLIED : FRAME_UNAPPLIED;
   }
 
-  // Heading is available for a staged or saved GLB; opacity and Accept only apply to a staged one.
+  // Heading is available for a staged or saved GLB.
   _updateControlsVisibility() {
     if (this.ui.controls)
       this.ui.controls.style.display = this.staged || this.saved ? "" : "none";
-    const stagedDisplay = this.staged ? "" : "none";
-    this.ui.opacityGroup.style.display = stagedDisplay;
-    this.ui.acceptWrap.style.display = stagedDisplay;
     if (!this.ui.savePosBtn) return;
     const show = !this.staged && !!this.saved && this.dirty;
     this.ui.savePosBtn.style.display = show ? "" : "none";
@@ -365,7 +341,7 @@ class GlbAlignment {
 
     const msg = this.staged
       ? "Discard the staged 3D model and choose a new one?"
-      : "Replace the saved 3D model with a new one? The saved model is kept until you accept the new one.";
+      : "Replace the saved 3D model with a new one? The saved model is kept until you save the new one.";
     if (!window.confirm(msg)) {
       e.preventDefault();
       return;
@@ -401,7 +377,6 @@ class GlbAlignment {
       };
 
       this.anchor = { ...startAnchor };
-      this.opacity = DEFAULT_OPACITY;
       this.dirty = false;
       this._updateInputs();
       this._updateSavedBlockVisibility();
@@ -409,7 +384,11 @@ class GlbAlignment {
       this.ui.footprint.textContent = `Footprint: ${this.staged.footprint.width.toFixed(1)} × ${this.staged.footprint.height.toFixed(1)} m`;
 
       const corners = buildOverlayCorners(this.anchor, this.staged.footprint);
-      this._strategy().setOverlay(this.staged.imageUrl, corners, this.opacity);
+      this._strategy().setOverlay(
+        this.staged.imageUrl,
+        corners,
+        DEFAULT_OPACITY,
+      );
       e.target.value = "";
     } catch (error) {
       this._showError(this._uploadErrorMessage(error));
@@ -429,7 +408,6 @@ class GlbAlignment {
   _updateInputs() {
     this.ui.headingNumber.value = this.anchor.heading_deg.toFixed(1);
     this.ui.headingRange.value = this.anchor.heading_deg;
-    this.ui.opacity.value = this.opacity;
     this._updateFarAnchorHint();
   }
 
@@ -448,7 +426,7 @@ class GlbAlignment {
     try {
       const strategy = this._strategy();
       const corners = this._corners();
-      const base = this.staged ? this.opacity : SAVED_OPACITY;
+      const base = this.staged ? DEFAULT_OPACITY : SAVED_OPACITY;
       const opacity = this._isMoving ? Math.min(base, MOVING_OPACITY) : base;
       strategy.updateOverlay(corners);
       strategy.setOverlayOpacity(opacity);
@@ -498,66 +476,15 @@ class GlbAlignment {
     window.addEventListener("pointercancel", end);
   }
 
+  // Renders at once so a press without a drag already shows the map underneath.
   _beginMove() {
     this._isMoving = true;
+    this._render();
   }
 
   _endMove() {
     this._isMoving = false;
     this._render();
-  }
-
-  async _accept() {
-    if (!this.staged || !this.anchor) return;
-    if (
-      this.saved?.use_glb_map &&
-      !this._confirmApplyOverwrite(this.staged.existingContent)
-    )
-      return;
-
-    this.ui.status.textContent = "";
-    this.saving = true;
-    this._updateLocks();
-
-    try {
-      await requestJson(
-        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
-        {
-          method: "POST",
-          body: {
-            token: this.staged.token,
-            anchor: this.anchor,
-          },
-        },
-      );
-
-      this.dirty = false;
-      this._stashAcceptedView();
-      this._strategy().removeOverlay();
-      this.ui.status.textContent = "3D model saved; reloading...";
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (error) {
-      this.saving = false;
-      this._updateLocks();
-      this._showError(error.message);
-    }
-  }
-
-  // Keeps the live view across the reload; the saved DB view would otherwise replace it.
-  _stashAcceptedView() {
-    try {
-      window.saveCurrentMapSettings?.();
-      window.sessionStorage.setItem(
-        GLB_ACCEPTED_VIEW_KEY,
-        JSON.stringify({
-          path: window.location.pathname,
-          provider: this.ui.mapProvider.value,
-          settings: window.loadSavedGeospatialSettings?.() ?? {},
-        }),
-      );
-    } catch (error) {
-      console.error("Could not store the accepted map view:", error);
-    }
   }
 
   _reset() {
@@ -567,7 +494,6 @@ class GlbAlignment {
     } else if (this.saved) {
       this.anchor = { ...this.saved.anchor };
     }
-    this.opacity = DEFAULT_OPACITY;
     this.dirty = false;
     this._updateInputs();
     this._render();
@@ -769,28 +695,6 @@ class GlbAlignment {
       this._updateLocks();
     }
   }
-}
-
-// One-shot: read on the reload after accept. Only restores for the same page and map provider.
-function takeGlbAcceptedView(provider) {
-  try {
-    const raw = window.sessionStorage.getItem(GLB_ACCEPTED_VIEW_KEY);
-    window.sessionStorage.removeItem(GLB_ACCEPTED_VIEW_KEY);
-    const stashed = raw ? JSON.parse(raw) : null;
-    if (
-      stashed?.path === window.location.pathname &&
-      stashed.provider === provider
-    ) {
-      return stashed.settings;
-    }
-  } catch (error) {
-    console.error("Could not read the accepted map view:", error);
-  }
-  return {};
-}
-
-if (typeof window !== "undefined") {
-  window.takeGlbAcceptedView = takeGlbAcceptedView;
 }
 
 if (typeof document !== "undefined") {

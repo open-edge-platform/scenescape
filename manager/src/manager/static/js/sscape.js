@@ -19,6 +19,7 @@ import {
 import {
   metersToPixels,
   pixelsToMeters,
+  setMapOrigin,
   checkMqttConnection,
   updateElements,
 } from "/static/js/utils.js";
@@ -717,11 +718,10 @@ function stringifyRois() {
     // Convert from pixels to meters and change origin to bottom left
     points.forEach(function (point, n) {
       if (n % 2 === 0) {
-        tuple = [];
-        tuple[0] = parseFloat(point / scale);
+        tuple = [point];
       } else {
-        tuple[1] = parseFloat((scene_y_max - point) / scale);
-        tuples.push(tuple);
+        tuple[1] = point;
+        tuples.push(pixelsToMeters(tuple, scale, scene_y_max));
       }
     });
 
@@ -2528,6 +2528,9 @@ $(document).ready(function () {
   }
   if ($("#scale").val() !== "") {
     scale = $("#scale").val();
+  }
+  if ($("#map-origin").val()) {
+    setMapOrigin($("#map-origin").val().split(",").map(parseFloat));
   }
 
   is_coloring_enabled = localStorage.getItem("visualize_rois") === "true";

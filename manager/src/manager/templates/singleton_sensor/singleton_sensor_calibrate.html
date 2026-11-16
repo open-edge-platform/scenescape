@@ -68,6 +68,11 @@ SPDX-License-Identifier: Apache-2.0
               id="scale"
               value="{{ objinst.scene.scale }}"
             />
+            <input
+              type="hidden"
+              id="map-origin"
+              value="{{ objinst.scene.mapOrigin|join:',' }}"
+            />
           </div>
           <svg id="svgout"></svg>
 

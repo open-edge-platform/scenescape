@@ -27,6 +27,7 @@ from django.utils.text import get_valid_filename
 from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
+from scene_common.earth_lla import llaToFrameLocalXY
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
 from scene_common.glb_top_view import generateOrthoView, getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
@@ -375,6 +376,18 @@ class Scene(models.Model):
     if self.map_type == 'geospatial_map' and self.base_map_corners_lla:
       return self.base_map_corners_lla
     return self.map_corners_lla
+
+  def mapOrigin(self):
+    """Local (x, y) of the bottom-left corner of the 2D map image.
+
+    The image of an applied GLB starts at the model's own corner, which is offset from the
+    frame origin because the model is placed inside the frame. Regions, cameras and sensors
+    are stored in the frame, so the 2D views add this offset to image coordinates.
+    """
+    if not (self.use_glb_map and self.base_map_corners_lla and self.map_corners_lla):
+      return [0.0, 0.0]
+    lat, lng = self.map_corners_lla[0][:2]
+    return llaToFrameLocalXY(self.base_map_corners_lla, lat, lng).tolist()
 
   def saveThumbnail(self):
     previous_thumbnail = self.thumbnail.name if self.thumbnail else ''

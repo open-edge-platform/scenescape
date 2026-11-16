@@ -274,39 +274,12 @@ SPDX-License-Identifier: Apache-2.0
                   >Apply saved 3D model to scene map</label
                 >
               </div>
-              <small id="glbFrameLegend" class="form-text text-muted mt-2">
-                Map overlay frame:
-                <span
-                  id="glbLegendApplied"
-                  class="d-inline-block border mx-1"
-                  style="width:1em;height:1em;border-width:3px !important;vertical-align:middle;"
-                ></span
-                >green = applied to the scene map,
-                <span
-                  id="glbLegendUnapplied"
-                  class="d-inline-block border mx-1"
-                  style="width:1em;height:1em;border-width:3px !important;vertical-align:middle;"
-                ></span
-                >red = saved but not applied (overlay only).
-              </small>
             </div>
             <div
               id="glbAlignControls"
               style="display:none;"
               class="mt-3 p-3 border rounded bg-light"
             >
-              <div class="form-group mt-2" id="glbOpacityGroup">
-                <label for="glbOpacity">Opacity</label>
-                <input
-                  type="range"
-                  id="glbOpacity"
-                  min="0.1"
-                  max="1"
-                  step="0.05"
-                  value="0.6"
-                  aria-label="Opacity control"
-                />
-              </div>
               <div class="form-group">
                 <label
                   for="glbHeadingNumber"
@@ -340,11 +313,6 @@ SPDX-License-Identifier: Apache-2.0
                 <span id="glbFootprint"></span>
               </div>
               <div class="form-group">
-                <span id="glbAcceptWrap" class="d-inline-block">
-                  <button type="button" class="btn btn-primary" id="glbAccept">
-                    Accept
-                  </button>
-                </span>
                 <button type="button" class="btn btn-secondary" id="glbReset">
                   Reset
                 </button>

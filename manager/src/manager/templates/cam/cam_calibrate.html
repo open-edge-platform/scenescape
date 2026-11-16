@@ -358,6 +358,11 @@ SPDX-License-Identifier: Apache-2.0
     value="{{ generated_pipeline_url }}"
   />
   <input type="hidden" id="scale" value="{{ caminst.scene.scale }}" />
+  <input
+    type="hidden"
+    id="map-origin"
+    value="{{ caminst.scene.mapOrigin|join:',' }}"
+  />
   <input type="hidden" id="scene" value="{{ caminst.scene.id }}" />
   <input
     type="hidden"

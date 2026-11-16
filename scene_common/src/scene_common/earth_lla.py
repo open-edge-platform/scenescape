@@ -204,6 +204,28 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float 
   trs_mat = convertLLAToCartesianTRS(map_xyz_pts, lla_pts)
   return trs_mat
 
+def llaToFrameLocalXY(frame_corners_lla, lat, lng):
+  """! Local (x, y) metres of a geographic point in a map frame.
+
+  The frame's origin is its south-west corner and its axes follow the frame's own edges, the same
+  frame as the local coordinates of an image map spanning frame_corners_lla.
+
+  @param      frame_corners_lla  Four frame corners in LLA, in either winding
+  @param      lat                Latitude of the point in degrees
+  @param      lng                Longitude of the point in degrees
+  @returns    numpy.ndarray      [x, y] in metres
+  """
+  _, _, _, width, height = footprintAnchorFromCornersLLA(frame_corners_lla)
+  frame_corners_local = np.array([
+    [0.0, 0.0, 0.0],
+    [width, 0.0, 0.0],
+    [width, height, 0.0],
+    [0.0, height, 0.0]
+  ])
+  frame_trs = calculateTRSLocal2LLAFromSurfacePoints(frame_corners_local, frame_corners_lla)
+  point_ecef = convertLLAToECEF([lat, lng, 0.0])
+  return (np.linalg.inv(frame_trs[:3, :3]) @ (point_ecef - frame_trs[:3, 3]))[:2]
+
 def _wrapDegrees180(deg):
   """! Wrap an angle in degrees into [-180, 180)."""
   return ((deg + 180.0) % 360.0) - 180.0

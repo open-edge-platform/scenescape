@@ -61,6 +61,11 @@ SPDX-License-Identifier: Apache-2.0
         <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
       {% endif %}
       <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
+      <input
+        type="hidden"
+        id="map-origin"
+        value="{{ scene.mapOrigin|join:',' }}"
+      />
       <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
     </div>
     <svg
