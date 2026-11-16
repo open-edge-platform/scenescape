@@ -135,7 +135,7 @@ function SetupInteractions(
   renderer,
   raycaster,
   orbitControls,
-  sceneViewCamera,
+  getCamera,
 ) {
   // Define camera matrix and distortion coefficients
   let selectedCamera = null;
@@ -174,12 +174,13 @@ function SetupInteractions(
 
     if (event.detail === 1) {
       pendingClick = setTimeout(() => {
+        const rect = renderer.domElement.getBoundingClientRect();
         let mouse = {
-          x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
-          y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
+          x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+          y: -((event.clientY - rect.top) / rect.height) * 2 + 1,
         };
 
-        raycaster.setFromCamera(mouse, sceneViewCamera);
+        raycaster.setFromCamera(mouse, getCamera());
         // calculate objects intersecting the picking ray
         if (scene) {
           const intersects = raycaster.intersectObjects(scene.children);
@@ -211,7 +212,7 @@ function SetupInteractions(
       x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
     };
-    raycaster.setFromCamera(mouse, sceneViewCamera);
+    raycaster.setFromCamera(mouse, getCamera());
 
     const intersects = raycaster.intersectObjects(scene.children);
     //intersects - array of (distance, point of intersection, face, object ray intersects with)
@@ -240,7 +241,7 @@ function SetupInteractions(
       x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
     };
-    raycaster.setFromCamera(mouse, sceneViewCamera);
+    raycaster.setFromCamera(mouse, getCamera());
 
     const intersects = raycaster.intersectObjects(scene.children);
     //intersects - array of (distance, point of intersection, face, object ray intersects with)
@@ -267,7 +268,7 @@ function SetupInteractions(
       x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
       y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
     };
-    raycaster.setFromCamera(mouse, sceneViewCamera);
+    raycaster.setFromCamera(mouse, getCamera());
     if (scene) {
       const intersects = raycaster.intersectObjects(scene.children);
       for (const intersect of intersects) {
@@ -290,7 +291,7 @@ function SetupInteractions(
           x: (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
           y: -(event.clientY / renderer.domElement.clientHeight) * 2 + 1,
         };
-        raycaster.setFromCamera(mouse, sceneViewCamera);
+        raycaster.setFromCamera(mouse, getCamera());
 
         if (scene) {
           const intersects = raycaster.intersectObjects(scene.children);

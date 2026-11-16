@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import deepcopy
 from typing import Optional
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import robot_vision as rv
 from scene_common import log
@@ -19,7 +21,7 @@ from scene_common.reid_constants import REID_PROVENANCE_KEY
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
-from controller.ilabs_tracking import IntelLabsTracking
+from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
 from controller.ptz import provider as ptz_provider
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -91,6 +93,7 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
+    self.association_config = normalize_association_config()
     self.time_chunking_rate_fps = time_chunking_rate_fps
 
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
@@ -127,8 +130,16 @@ class Scene(SceneModel):
       args += (self.ref_camera_frame_rate, self.suspended_track_timeout_secs, self.reid_config_data)
     elif trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_rate_fps, self.suspended_track_timeout_secs, self.reid_config_data)
-    self.tracker = self.available_trackers[self.trackerType](*args)
+    self.tracker = self.available_trackers[self.trackerType](
+      *args, association_config=self.association_config)
     self.tracker.uuid_manager.scene_id = self.name
+    return
+
+  def applyAssociationConfig(self, association_config):
+    """Apply association settings to the scene and the live tracker hierarchy."""
+    self.association_config = normalize_association_config(association_config)
+    if self.tracker is not None and hasattr(self.tracker, 'applyAssociationConfig'):
+      self.tracker.applyAssociationConfig(self.association_config)
     return
 
   def _hydrateFromSceneData(self, scene_data, reid_runtime_update=True):
@@ -155,6 +166,8 @@ class Scene(SceneModel):
     self.map_corners_lla = scene_data.get('map_corners_lla', None)
     self.retrack = scene_data.get('retrack', True)
     self.persist_attributes = scene_data.get('persist_attributes', {})
+    if 'association_config' in scene_data:
+      self.applyAssociationConfig(scene_data['association_config'])
     self._updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
     # Regions, tripwires, and sensors are owned by the Analytics service;
@@ -343,29 +356,21 @@ class Scene(SceneModel):
 
     objects = []
     child_objects = []
-    for info in new:
-      if 'lat_long_alt' in info:
-        if 'translation' in info:
-          log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
-          return None, None
-        info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
-      translation = Point(info['translation'])
-      translation = np.hstack([translation.asNumpyCartesian, [1]])
-      translation = np.matmul(cameraPose.pose_mat, translation)
-      info['translation'] = translation[:3]
+    for observation in new:
+      info = self._sceneObservationToWorld(observation, cameraPose)
+      if info is None:
+        return None, None
 
       # Embeddings travel nested under metadata (see detections_builder.prepareObjDict);
       # a top-level 'reid' key is never produced by a child scene and would bypass the
       # provenance the receiving scope relies on, so drop it.
       info.pop('reid', None)
 
-      if not child.retrack:
+      if not child.retrack and isinstance(info.get('metadata'), dict):
         # retrack=False: the child's own gid/identity resolution is trusted as-is and carried
         # forward via setGID/setPrevious in mergeAlreadyTrackedObjects. These objects never
         # reach uuid_manager.assignID, so a forwarded embedding would be dead weight here.
-        metadata = info.get('metadata')
-        if isinstance(metadata, dict):
-          metadata.pop('reid', None)
+        info['metadata'].pop('reid', None)
       # retrack=True: leave metadata.reid intact. The parent re-runs its own tracker and
       # UUIDManager over these detections so that observations of one person arriving from
       # several children (and from the parent's own cameras) collapse into a single track.
@@ -374,6 +379,8 @@ class Scene(SceneModel):
       # originating scene already owns that crop's contribution to the shared database.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
+      if 'rotation' in info:
+        mobj.rotation = info['rotation']
       log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
@@ -382,6 +389,22 @@ class Scene(SceneModel):
         child_objects.append(mobj)
 
     return objects, child_objects
+
+  @staticmethod
+  def _sceneObservationToWorld(observation: dict, pose: CameraPose) -> Optional[dict]:
+    """Transform an independent observation copy once, including its local orientation."""
+    info = deepcopy(observation)
+    if 'lat_long_alt' in info:
+      if 'translation' in info:
+        log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
+        return None
+      info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
+    point = Point(info['translation'])
+    info['translation'] = (pose.pose_mat @ np.hstack([point.asNumpyCartesian, [1]]))[:3]
+    if 'rotation' in info:
+      rotation = Rotation.from_matrix(pose.pose_mat[:3, :3]) * Rotation.from_quat(info['rotation'])
+      info['rotation'] = rotation.as_quat().tolist()
+    return info
 
   def finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     # Compute camera visibility for both retracked objects (fed into this

@@ -130,7 +130,8 @@ try {
 // ---------------------------------------------------------------------------
 // Frame geometry — objects are placed on a grid inside this pixel area.
 // The camera in scenes.json is at 50 m height with f=905, giving ~5.5 cm/px.
-// A grid cell of ~36 px already exceeds the 2.0 m tracking threshold.
+// Objects stay inside their grid cells, so each detection is closest to its
+// own track.
 // ---------------------------------------------------------------------------
 const FRAME_W = 1280;
 const FRAME_H = 720;

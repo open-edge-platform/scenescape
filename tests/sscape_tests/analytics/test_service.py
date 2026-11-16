@@ -79,6 +79,33 @@ def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   assert output['unique_detection_count'] == 3
 
 
+@pytest.mark.parametrize('frame_count', [0, 1])
+def test_regulated_person_translation_follows_scene_updates(frame_count):
+  service = _service()
+  scene = AnalyticsScene('Test scene', None)
+  scene.uid = 'scene1'
+  service.cache_manager.sceneWithID.return_value = scene
+  service.shouldPublish = MagicMock(return_value=True)
+  for timestamp, translation in [(100.0, [1.0, 2.0, 0.0]),
+                                 (101.0, [3.0, 4.0, 0.0])]:
+    message = SimpleNamespace(
+      topic=PubSub.formatTopic(PubSub.DATA_SCENE, scene_id='scene1', thing_type='person'),
+      payload=orjson.dumps({
+        'id': 'scene1', 'name': 'Test scene', 'timestamp': get_iso_time(timestamp),
+        'objects': [{
+          'id': 'person-1', 'category': 'person', 'type': 'person',
+          'translation': translation, 'frame_count': frame_count,
+        }],
+      }),
+    )
+
+    service.handleSceneDataMessage(None, None, message)
+
+    topic, payload = service.pubsub.publish.call_args.args
+    assert topic == PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id='scene1')
+    assert orjson.loads(payload)['objects'][0]['translation'] == translation
+
+
 @pytest.mark.parametrize("rotation", [[0, 0, 90], [0, 0, 2 ** 0.5, 2 ** 0.5]])
 @pytest.mark.parametrize("invalid", [
   {'translation': [1, 2], 'rotation': [0, 0, 0]},

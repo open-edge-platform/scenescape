@@ -9,6 +9,7 @@ set(EXEC_NAME RobotVisionTests)
 
 set(TEST_SOURCES
   main.cpp
+  AssociationScenarioTests.cpp
   MetadataFusionTests.cpp
   MotionScenarioTests.cpp
   MultiCameraFusionTests.cpp

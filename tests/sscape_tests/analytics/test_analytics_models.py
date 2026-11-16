@@ -60,6 +60,7 @@ class TestAnalyticsObject:
     assert obj.metadata is None
     assert obj.reid is None
     assert obj.visibility is None
+    assert obj.association_window is None
 
   def test_optional_fields_accept_arbitrary_values(self):
     sentinel = object()
@@ -133,8 +134,10 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.metadata is None
     assert ao.reid is None
     assert ao.visibility is None
+    assert ao.association_window is None
 
   def test_publishing_fields_carried_through_when_present(self):
+    association_window = {'method': 'euclidean', 'shape': 'circle', 'radius_m': 2.0}
     src = self._source_object(
       velocity=Point(1.0, 0.0, 0.0),
       info={'category': 'person', 'confidence': 0.9},
@@ -142,6 +145,7 @@ class TestMovingObjectToAnalyticsObject:
       metadata={'age': 'adult'},
       reid={'embedding_vector': [0.1, 0.2]},
       visibility=['cam1', 'cam2'],
+      association_window=association_window,
     )
 
     ao = moving_object_to_analytics_object(src)
@@ -152,6 +156,7 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.metadata == {'age': 'adult'}
     assert ao.reid == {'embedding_vector': [0.1, 0.2]}
     assert ao.visibility == ['cam1', 'cam2']
+    assert ao.association_window is association_window
 
   def test_reid_state_and_lineage_carried_through(self):
     lineage = [{'id': 'previous', 'timestamp': '2026-01-01T00:00:00Z'}]
@@ -177,3 +182,12 @@ class TestMovingObjectToAnalyticsObject:
     ao = moving_object_to_analytics_object(self._source_object())
 
     assert isinstance(ao, AnalyticsObject)
+
+  def test_association_window_survives_conversion_into_event_payload(self):
+    from analytics.event_serializer import serialize_for_event
+
+    window = {'method': 'position_mahalanobis', 'shape': 'ellipse',
+              'semi_major_m': 3.0, 'semi_minor_m': 1.0, 'angle_rad': 0.2}
+    ao = moving_object_to_analytics_object(self._source_object(association_window=window))
+
+    assert serialize_for_event(ao)['association_window'] is window

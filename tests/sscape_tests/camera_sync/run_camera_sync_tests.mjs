@@ -553,6 +553,7 @@ async function sceneCameraHarness() {
       exports = {
         CMD_CAMERA: "cmd/camera/",
         IMAGE_CAMERA: "image/camera/",
+        IMAGE_CALIBRATE: "image/calibration/camera/",
         POSITIONING_POSE: "positioning/pose/",
         MAX_INTRINSICS_UPDATE_WAIT_TIME: 0,
         DEFAULT_CAMERA_UID: undefined,

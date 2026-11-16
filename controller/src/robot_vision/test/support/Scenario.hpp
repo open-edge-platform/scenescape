@@ -193,9 +193,10 @@ struct Observation
   double t;
   TrackedObject detection;
   std::string sensorId;
+  int objectId = 1; // ground-truth object the detection comes from
 };
 
-inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, Sensor &sensor)
+inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, Sensor &sensor, int objectId = 1)
 {
   std::normal_distribution<double> noise(0.0, 1.0);
   std::vector<Observation> observations;
@@ -219,7 +220,7 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
       detection.yaw = std::remainder(sample.heading + yawError, 2.0 * std::numbers::pi);
       orientation::setHasOrientation(detection, true);
     }
-    observations.push_back({sample.t, std::move(detection), sensor.id});
+    observations.push_back({sample.t, std::move(detection), sensor.id, objectId});
   }
   return observations;
 }

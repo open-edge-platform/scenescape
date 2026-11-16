@@ -27,7 +27,12 @@ Published by the Scene Controller on `scenescape/data/scene/{scene_id}/{thing_ty
 [Data Scene Output Message Format](../controller/data_formats.md#data-scene-output-message-format)
 and [Common Output Track Fields](../controller/data_formats.md#common-output-track-fields)
 for the full field reference; the Analytics service adds `regions` and `sensors` to each
-object before republishing.
+object before republishing. External observation `source_id` is preserved in regulated
+and event output; it is provenance,
+not a geometric camera-visibility claim. Platform `cameras` (mounts and
+intrinsics used for 3D frustum rendering) are likewise preserved across
+regulated republish. See the linked common output fields for `source_id`
+semantics.
 
 ## Sensor Input Message Format
 

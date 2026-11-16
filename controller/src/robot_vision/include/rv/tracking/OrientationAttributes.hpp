@@ -7,6 +7,7 @@
 #include "rv/tracking/TrackedObject.hpp"
 
 #include <cmath>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -100,6 +101,38 @@ inline double chooseYawTowardReference(double yaw, double reference)
 }
 
 /**
+ * @brief Whether a state is fast enough for the yaw speed gate (MIN_SPEED_FOR_YAW_GATE or faster).
+ */
+inline bool movingForYawGate(const TrackedObject &state)
+{
+  return std::hypot(state.vx, state.vy) >= MIN_SPEED_FOR_YAW_GATE;
+}
+
+/**
+ * @brief Detection ``yaw`` or ``yaw + π``, whichever is closer to the direction of travel of a moving ``state``, or
+ * nullopt when it stays more than MAX_YAW_VELOCITY_RESIDUAL off it.
+ */
+inline std::optional<double> yawAlongTravel(const TrackedObject &state, double yaw)
+{
+  const double velocityHeading = std::atan2(state.vy, state.vx);
+  const double chosen = chooseYawTowardReference(yaw, velocityHeading);
+  if (std::fabs(rv::angleDifference(chosen, velocityHeading)) > MAX_YAW_VELOCITY_RESIDUAL)
+  {
+    return std::nullopt;
+  }
+  return chosen;
+}
+
+/**
+ * @brief Whether prepareYawMeasurement keeps the yaw of an orienting detection: always while ``state`` is slower than
+ * MIN_SPEED_FOR_YAW_GATE, otherwise when it is consistent with the direction of travel.
+ */
+inline bool yawPassesSpeedGate(const TrackedObject &state, double yaw)
+{
+  return !movingForYawGate(state) || yawAlongTravel(state, yaw).has_value();
+}
+
+/**
  * @brief Prepare measurement yaw for Kalman correct.
  *
  * Non-orienting sensors: yaw is not observed; the estimator leaves it out of the
@@ -117,19 +150,17 @@ inline void prepareYawMeasurement(const TrackedObject &state, TrackedObject &mea
     return;
   }
 
-  const double speed = std::hypot(state.vx, state.vy);
-  if (speed >= MIN_SPEED_FOR_YAW_GATE)
+  if (movingForYawGate(state))
   {
-    const double velocityHeading = std::atan2(state.vy, state.vx);
-    const double chosen = chooseYawTowardReference(measurement.yaw, velocityHeading);
-    if (std::fabs(rv::angleDifference(chosen, velocityHeading)) > MAX_YAW_VELOCITY_RESIDUAL)
+    const auto chosen = yawAlongTravel(state, measurement.yaw);
+    if (!chosen)
     {
       measurement.yaw = state.yaw;
       setHasOrientation(measurement, false);
       return;
     }
     // Continuous unwrap without re-applying box π-fold against a stale yaw.
-    measurement.yaw = state.previousYaw - rv::angleDifference(chosen, state.previousYaw);
+    measurement.yaw = state.previousYaw - rv::angleDifference(*chosen, state.previousYaw);
     return;
   }
 
