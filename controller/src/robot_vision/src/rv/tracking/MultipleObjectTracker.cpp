@@ -68,6 +68,7 @@ bool anyMatchMeasuredZ(const std::vector<std::pair<size_t, size_t>> &matches,
 cv::Matx<double, kGeometrySize, kGeometrySize>
 fusionInformation(const TrackedObject &object, bool anyZMeasured, double defaultMeasurementNoise)
 {
+  // track() has already rejected invalid R; unset means the tracker default.
   const auto noise
     = object.measurementNoiseCov.value_or(TrackedObject::MeasurementMatrix::eye() * defaultMeasurementNoise)
         .get_minor<kGeometrySize, kGeometrySize>(0, 0);
@@ -476,6 +477,15 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
     mTrackManager.correct();
     mLastTimestamp = timestamp;
     return;
+  }
+
+  // Reject invalid per-detection R before association, fusion, birth, or the Kalman update.
+  for (auto &cameraObjects : objectsPerCamera)
+  {
+    for (auto &object : cameraObjects)
+    {
+      ensureValidMeasurementNoiseCov(object);
+    }
   }
 
   std::vector<std::vector<tracking::TrackedObject>> lowScoreObjectsPerCamera;
