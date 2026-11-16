@@ -21,7 +21,7 @@ inline constexpr char ConfidencePrefix[] = "metadata_confidence.";
 inline constexpr char ProvenancePrefix[] = "metadata_provenance.";
 inline constexpr char TransientPrefix[] = "metadata_transient.";
 
-/// Prefer confidence, then later camera order; missing confidence loses to present confidence.
+/// Prefer confidence, then later source order; missing confidence loses to present confidence.
 bool shouldReplace(bool winnerExists,
                    const std::optional<double> &candidateConfidence,
                    size_t candidateCameraIndex,

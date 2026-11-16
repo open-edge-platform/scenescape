@@ -103,8 +103,8 @@ double mahalanobisCostFromCache(const TrackedObject &measurement,
 
   TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
 
-  // Use yaw only when both sides have orientation and the update keeps it (the speed gate). Camera detections
-  // and tracks that have never seen an orienting sensor leave yaw out — same
+  // Use yaw only when both sides have orientation and the update keeps it (the speed gate). Non-orienting
+  // detections and tracks that have never seen an orienting sensor leave yaw out — same
   // observed-row subset as the partial UKF update (inv of S without yaw), not
   // zeroing ν_yaw inside ν' S^-1 ν which still couples through off-diagonal S^-1.
   if (cache.orientationObserved && orientation::hasOrientation(measurement)

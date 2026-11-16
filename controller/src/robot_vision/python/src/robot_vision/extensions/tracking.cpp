@@ -138,7 +138,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           = rv::tracking::validatedMeasurementNoiseCov(rv::tracking::TrackedObject::MeasurementMatrix(array.data()));
       },
       "Per-detection measurement noise R (7x7, [x, y, z, length, width, height, yaw]); None uses the "
-      "tracker default R. Drives multi-camera fusion weights, the association gate (S = H P H^T + R) "
+      "tracker default R. Drives multi-source fusion weights, the association gate (S = H P H^T + R) "
       "and the Kalman update.")
     .def("__repr__", &rv::tracking::TrackedObject::toString, "String representation.");
 
@@ -373,7 +373,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp with objects per camera. Use the constructor's distance type, threshold and max_radius_m.",
+         "Trigger the track step for the next timestamp with objects per source. Use the constructor's distance type, threshold and max_radius_m.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
@@ -389,8 +389,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
            self.track(std::move(objects_per_camera), timestamp, distance_type, distance_threshold,
                       probability_threshold, max_radius_m, birth_cluster_radius_m);
          },
-         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold; "
-         "unmatched detections of different cameras within birth_cluster_radius_m (Euclidean, m) start one track.",
+         "Trigger the track step for the next timestamp with objects per source. Run match() with the given distance type and threshold; "
+         "unmatched detections of different sources within birth_cluster_radius_m (Euclidean, m) start one track.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("distance_type"),

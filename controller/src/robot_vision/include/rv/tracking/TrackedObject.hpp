@@ -106,7 +106,7 @@ public:
   StateMatrix errorCovariance;                    ///< P
 
   /// Per-detection measurement noise R. Unset means the tracker default R. When set, it drives
-  /// information-weighted multi-camera fusion, the association gate (S = H P H^T + R) and the Kalman update.
+  /// information-weighted multi-source fusion, the association gate (S = H P H^T + R) and the Kalman update.
   /// Callers must store a matrix accepted by validatedMeasurementNoiseCov (finite, symmetric, PD); track()
   /// re-validates detections at ingestion.
   std::optional<MeasurementMatrix> measurementNoiseCov;
