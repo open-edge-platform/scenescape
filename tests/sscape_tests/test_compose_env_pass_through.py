@@ -195,7 +195,7 @@ def test_mlops_dlsps_mounts_vippet_models_read_only(tmp_path, mount_type):
     **os.environ,
     "SECRETSDIR": str(secret_dir),
   }
-  overlay = f"compose.dlsps2.models-{mount_type}.yml"
+  overlay = f"compose.dlsps2-models-{mount_type}.yml"
   if mount_type == "volume":
     env["VIPPET_MODELS_VOLUME"] = "vippet-models-test"
     expected_source = "vippet-models"

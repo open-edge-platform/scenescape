@@ -82,7 +82,7 @@ VIPPET_MODELS_DIR ?= $(shell docker inspect vippet \
 	--format '{{range .Mounts}}{{if and (eq .Destination "/models") (eq .Type "bind")}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
 VIPPET_MODELS_VOLUME ?= $(shell docker inspect vippet \
 	--format '{{range .Mounts}}{{if and (eq .Destination "/models") (eq .Type "volume")}}{{.Name}}{{end}}{{end}}' 2>/dev/null)
-MLOPS_FLOW_DLSPS_MODELS_COMPOSE = $(if $(strip $(VIPPET_MODELS_DIR)),$(MLOPS_FLOW_DIR)/compose.dlsps2.models-bind.yml,$(MLOPS_FLOW_DIR)/compose.dlsps2.models-volume.yml)
+MLOPS_FLOW_DLSPS_MODELS_COMPOSE = $(if $(strip $(VIPPET_MODELS_DIR)),$(MLOPS_FLOW_DIR)/compose.dlsps2-models-bind.yml,$(MLOPS_FLOW_DIR)/compose.dlsps2-models-volume.yml)
 MLOPS_FLOW_COMPOSE_ARGS = -f docker-compose.yml -f $(MLOPS_FLOW_DIR)/compose.scenescape-override.yml
 # Queuing camera streams and the DLSPS 2.0 that runs the camera pipelines
 MLOPS_FLOW_SERVICES_COMPOSE = SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape VIPPET_NETWORK=$(VIPPET_NETWORK) \
