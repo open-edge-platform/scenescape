@@ -649,7 +649,7 @@ TEST(MultipleObjectTrackerTest, SingleJumpingDetectionTracking)
   // according to the configuration provided
   // Known issue: reported as skipped while the track splits, so the suite stays green; it passes once it holds. With
   // this measurement noise (1e-4) the 2 m-per-frame jump is a 200-sigma innovation that the UKF puts into CTRV's turn
-  // rate: the velocity flips backwards and the detection starts a new track. Until camera detections stopped
+  // rate: the velocity flips backwards and the detection starts a new track. Until planar detections stopped
   // correcting yaw, a fake yaw measurement at that noise held the turn rate at 0. With the production measurement
   // noise the track splits with or without it.
   rv::tracking::TrackedObject object01;
@@ -939,9 +939,9 @@ TEST(MultipleObjectTrackerTest, ProductionFilterFollowsClimbingZAndCoastsIt)
   EXPECT_GT(tracks[0].vz, 0.5 * vz);
 }
 
-TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarCameraAndThreeDSensorKeepsOneTrack)
+TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarAndThreeDSensorKeepsOneTrack)
 {
-  // A person walking at 1.4 m/s, seen 2 s by a pixel camera (ground point, z = 0, no measured z) and then 2 s by a
+  // A person walking at 1.4 m/s, seen 2 s by a planar source (ground point, z = 0, no measured z) and then 2 s by a
   // 3D sensor reporting the box centre at height c, or the other way round. The two z references differ by c, but z is
   // gated only when both sides measured it, so the handover keeps one track with either association method.
   using namespace rv::tracking::test;
@@ -959,9 +959,9 @@ TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarCameraAndThreeDSensorKeepsO
 
   for (const auto &method : methods)
   {
-    for (const bool cameraFirst : {true, false})
+    for (const bool planarFirst : {true, false})
     {
-      SCOPED_TRACE(std::string(method.name) + (cameraFirst ? ", camera first" : ", 3D sensor first"));
+      SCOPED_TRACE(std::string(method.name) + (planarFirst ? ", planar first" : ", 3D sensor first"));
       rv::tracking::MultipleObjectTracker objectTracker(productionConfig());
       auto timestamp = std::chrono::system_clock::now();
       std::set<rv::tracking::Id> trackIds;
@@ -970,7 +970,7 @@ TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarCameraAndThreeDSensorKeepsO
       for (int frame = 0; frame < 40; ++frame)
       {
         const double t = frame * stepS;
-        const bool planar = (frame < 20) == cameraFirst;
+        const bool planar = (frame < 20) == planarFirst;
         auto detection = makeDetection(1.4 * t, 0.0, planar ? 0.0 : method.centreHeight, 0.5, 0.5, 1.8);
         detection.z_measured = !planar;
         objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{detection}}, timestamp,

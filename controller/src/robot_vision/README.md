@@ -106,7 +106,7 @@ detection and estimate:
 ScenarioRecorder recorder("turn");  // optional case name
 recorder.truth(truth);              // object id 1, category from the truth Box (kCar, kPerson)
 FilterRun run(productionConfig(), &recorder);
-run.feed(observe(truth, camera));   // detections go under the Sensor id, "camera" unless Sensor{.id = ...}
+run.feed(observe(truth, camera));   // detections go under the Sensor id, "sensor" unless Sensor{.id = ...}
 run.coast(1.0);
 ```
 

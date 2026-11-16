@@ -41,7 +41,7 @@ target_include_directories(${BENCHMARK_EXEC_NAME}
     ${PROJECT_SOURCE_DIR}/include
 )
 
-# Custom main() parses --people/--cameras/--association-config; do not link benchmark_main.
+# Custom main() parses --people/--sources/--association-config; do not link benchmark_main.
 target_link_libraries(${BENCHMARK_EXEC_NAME}
     PRIVATE
     ${PROJECT_NAME}

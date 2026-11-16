@@ -65,15 +65,15 @@ double modelYawSpread(const FilterRun &run)
 
 } // namespace
 
-// Bug: a detection without orientation corrected yaw with the predicted yaw as a fake measurement, so every camera
-// frame shrank the yaw variance and pulled each model's yaw toward the combined yaw; fails on 4ac31c2f7.
-TEST(YawEstimationTest, CameraOnlyUpdateLeavesYawUntouched)
+// Bug: a detection without orientation corrected yaw with the predicted yaw as a fake measurement, so every
+// non-orienting frame shrank the yaw variance and pulled each model's yaw toward the combined yaw; fails on 4ac31c2f7.
+TEST(YawEstimationTest, NonOrientingUpdateLeavesYawUntouched)
 {
   // A car turning on the spot under an orienting sensor: CTRV learns the turn rate, so the models disagree on yaw.
   // Standing still, yaw is uncorrelated with the measured position and size.
   const auto truth = Trajectory({.box = kCar}).straight(1.0).turn(0.5, 2.0).sample(kFps);
-  const auto cameraDetection = makeDetection(truth.back());
-  const double cameraTime = truth.back().t + kFrame;
+  const auto planarDetection = makeDetection(truth.back());
+  const double planarTime = truth.back().t + kFrame;
 
   for (const auto &[name, models] : {std::pair{"CV", std::vector<MotionModel>{MotionModel::CV}},
                                      std::pair{"production", rv::tracking::kProductionMotionModels}})
@@ -85,10 +85,10 @@ TEST(YawEstimationTest, CameraOnlyUpdateLeavesYawUntouched)
     FilterRun run(config);
     run.feed(observe(truth, lidar));
 
-    run.estimator.predict(atSeconds(cameraTime));
+    run.estimator.predict(atSeconds(planarTime));
     const auto predictedYaws = modelYaws(run);
     const auto predictedVariances = modelYawVariances(run);
-    run.estimator.correct(cameraDetection);
+    run.estimator.correct(planarDetection);
     const auto correctedYaws = modelYaws(run);
     const auto correctedVariances = modelYawVariances(run);
 
@@ -100,40 +100,40 @@ TEST(YawEstimationTest, CameraOnlyUpdateLeavesYawUntouched)
   }
 }
 
-// Bug: camera frames shrank the yaw variance, so an orienting sensor that later saw a camera-started track moved its
-// yaw only slowly; fails on 4ac31c2f7.
-TEST(YawEstimationTest, CameraOnlyPeriodKeepsLidarResponsive)
+// Bug: non-orienting frames shrank the yaw variance, so an orienting sensor that later saw a planar-started track
+// moved its yaw only slowly; fails on 4ac31c2f7.
+TEST(YawEstimationTest, NonOrientingPeriodKeepsLidarResponsive)
 {
-  // A parked car facing 0.5 rad. The camera reports no yaw, so the track starts at yaw 0; then 1 s of LiDAR.
+  // A parked car facing 0.5 rad. The planar source reports no yaw, so the track starts at yaw 0; then 1 s of LiDAR.
   const TruthSample parked{.heading = 0.5, .box = kCar};
-  const auto yawAfterLidar = [&](double cameraSeconds) {
-    const auto truth = Trajectory(parked).straight(cameraSeconds + 1.0).sample(kFps);
-    Sensor camera;
+  const auto yawAfterLidar = [&](double planarSeconds) {
+    const auto truth = Trajectory(parked).straight(planarSeconds + 1.0).sample(kFps);
+    Sensor planar;
     Sensor lidar{.id = "lidar", .orienting = true};
     FilterRun run;
-    run.feed(observe(between(truth, 0.0, cameraSeconds + 0.5 * kFrame), camera));
-    run.feed(observe(between(truth, cameraSeconds + 0.5 * kFrame, cameraSeconds + 1.0 + 0.5 * kFrame), lidar));
+    run.feed(observe(between(truth, 0.0, planarSeconds + 0.5 * kFrame), planar));
+    run.feed(observe(between(truth, planarSeconds + 0.5 * kFrame, planarSeconds + 1.0 + 0.5 * kFrame), lidar));
     return run.state().yaw;
   };
 
   const double afterBirth = yawAfterLidar(0.0);
-  const double afterCameraPeriod = yawAfterLidar(10.0);
-  EXPECT_GE(afterCameraPeriod, afterBirth) << "yaw after 1 s of LiDAR [rad]";
+  const double afterNonOrientingPeriod = yawAfterLidar(10.0);
+  EXPECT_GE(afterNonOrientingPeriod, afterBirth) << "yaw after 1 s of LiDAR [rad]";
 }
 
-// Without yaw measurements a camera-only track keeps its covariances positive definite and its models close in yaw.
+// Without yaw measurements a non-orienting track keeps its covariances positive definite and its models close in yaw.
 // The yaw variance is not observed and keeps growing slowly (0.13 rad^2 after 60 s here, 0.55 after 10 min); the bound
 // catches a faster blow-up.
-TEST(YawEstimationTest, CameraOnlyTurningYawStaysBounded)
+TEST(YawEstimationTest, NonOrientingTurningYawStaysBounded)
 {
-  // More than four laps of a car seen by a camera only.
+  // More than four laps of a car seen by a non-orienting source only.
   const auto truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 58.0).sample(kFps);
-  Sensor camera{.positionNoise = 0.05};
+  Sensor planar{.positionNoise = 0.05};
   FilterRun run;
   std::optional<double> firstFailure;
   double maxVariance = 0.0;
   double maxSpread = 0.0;
-  for (const auto &observation : observe(truth, camera))
+  for (const auto &observation : observe(truth, planar))
   {
     run.feed({observation});
     for (const auto &filter : run.estimator.mKalmanFilters)

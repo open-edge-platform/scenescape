@@ -176,7 +176,7 @@ TEST(ScenarioSupportTest, ObserveReportsTruthWithSensorNoise)
 
   Sensor camera;
   const auto exact = observe(truth, camera);
-  EXPECT_EQ(exact.back().sensorId, "camera");
+  EXPECT_EQ(exact.back().sensorId, "sensor");
   EXPECT_DOUBLE_EQ(exact.back().detection.x, truth.back().x);
   EXPECT_DOUBLE_EQ(exact.back().detection.height, kCar.height);
   EXPECT_DOUBLE_EQ(exact.back().detection.yaw, 0.0);

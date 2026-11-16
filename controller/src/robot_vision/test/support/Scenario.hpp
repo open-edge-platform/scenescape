@@ -380,7 +380,7 @@ inline PositionCovariance depthCamera(const cv::Vec3d &position, double angularS
 
 struct Sensor
 {
-  std::string id = "camera";  // sensor id of its observations, e.g. "lidar"
+  std::string id = "sensor";  // sensor id of its observations, e.g. "lidar"
   double positionNoise = 0.0; // standard deviation [m]
   double sizeNoise = 0.0;     // standard deviation of length, width and height [m]
   double yawNoise = 0.0;      // standard deviation [rad], orienting sensors only

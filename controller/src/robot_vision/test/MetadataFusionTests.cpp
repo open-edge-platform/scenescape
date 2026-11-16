@@ -60,12 +60,12 @@ TEST(MetadataFusionPolicyTest, CoversEveryWinnerSelectionCase)
     {"missing candidate confidence loses to winner confidence", true, std::nullopt, 1, 0.5, 0, false},
     {"higher confidence wins", true, 0.9, 0, 0.7, 1, true},
     {"lower confidence loses", true, 0.7, 1, 0.9, 0, false},
-    {"equal confidence from later camera wins", true, 0.9, 1, 0.9, 0, true},
-    {"equal confidence from same camera loses", true, 0.9, 0, 0.9, 0, false},
-    {"equal confidence from earlier camera loses", true, 0.9, 0, 0.9, 1, false},
-    {"no confidence from later camera wins", true, std::nullopt, 1, std::nullopt, 0, true},
-    {"no confidence from same camera loses", true, std::nullopt, 0, std::nullopt, 0, false},
-    {"no confidence from earlier camera loses", true, std::nullopt, 0, std::nullopt, 1, false},
+    {"equal confidence from later source wins", true, 0.9, 1, 0.9, 0, true},
+    {"equal confidence from same source loses", true, 0.9, 0, 0.9, 0, false},
+    {"equal confidence from earlier source loses", true, 0.9, 0, 0.9, 1, false},
+    {"no confidence from later source wins", true, std::nullopt, 1, std::nullopt, 0, true},
+    {"no confidence from same source loses", true, std::nullopt, 0, std::nullopt, 0, false},
+    {"no confidence from earlier source loses", true, std::nullopt, 0, std::nullopt, 1, false},
   };
 
   for (const auto &testCase : cases)
@@ -96,11 +96,11 @@ TEST(MetadataFusionTest, CompanionProvenanceFollowsWinnerForNewAndExistingTracks
     auto high = makeObject(0.0,
                            {{"metadata.feature", "high"},
                             {"metadata_confidence.feature", "0.9"},
-                            {"metadata_provenance.feature", "camera-one"}});
+                            {"metadata_provenance.feature", "source-one"}});
     auto low = makeObject(0.0,
                           {{"metadata.feature", "low"},
                            {"metadata_confidence.feature", "0.7"},
-                           {"metadata_provenance.feature", "camera-two"}});
+                           {"metadata_provenance.feature", "source-two"}});
     tracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{high}, {low}},
                   InitialTimestamp + std::chrono::milliseconds(100),
                   rv::tracking::DistanceType::Euclidean,
@@ -109,7 +109,7 @@ TEST(MetadataFusionTest, CompanionProvenanceFollowsWinnerForNewAndExistingTracks
     const auto tracks = tracker.getTracks();
     ASSERT_EQ(tracks.size(), 1);
     EXPECT_EQ(tracks[0].attributes.at("metadata.feature"), "high");
-    EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.feature"), "camera-one");
+    EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.feature"), "source-one");
   }
 }
 
@@ -119,7 +119,7 @@ TEST(MetadataFusionTest, WinnerWithoutCompanionClearsPreviousProvenance)
   auto initial = makeObject(0.0,
                             {{"metadata.feature", "old"},
                              {"metadata_confidence.feature", "0.8"},
-                             {"metadata_provenance.feature", "old-camera"}});
+                             {"metadata_provenance.feature", "old-source"}});
   tracker.track(
     std::vector<rv::tracking::TrackedObject>{initial}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
   auto current = makeObject(0.0, {{"metadata.feature", "new"}, {"metadata_confidence.feature", "0.95"}});
@@ -139,7 +139,7 @@ TEST(MetadataFusionTest, SameFrameWinnerWithoutCompanionsClearsEarlierCompanions
   auto withCompanions = makeObject(0.0,
                                    {{"metadata.feature", "old"},
                                     {"metadata_confidence.feature", "0.8"},
-                                    {"metadata_provenance.feature", "old-camera"},
+                                    {"metadata_provenance.feature", "old-source"},
                                     {"metadata_transient.feature", "1"}});
   auto withoutCompanions = makeObject(0.0, {{"metadata.feature", "new"}, {"metadata_confidence.feature", "0.9"}});
   auto measurement = withCompanions;
@@ -155,7 +155,7 @@ TEST(MetadataFusionTest, HistoricalWinnerWithoutCompanionsClearsCurrentCompanion
   auto measurement = makeObject(0.0,
                                 {{"metadata.feature", "new"},
                                  {"metadata_confidence.feature", "0.8"},
-                                 {"metadata_provenance.feature", "current-camera"}});
+                                 {"metadata_provenance.feature", "current-source"}});
   rv::tracking::metadata_fusion::mergeHistoricalMetadata(track, measurement);
   EXPECT_EQ(measurement.attributes.at("metadata.feature"), "old");
   EXPECT_EQ(measurement.attributes.count("metadata_provenance.feature"), 0);
@@ -423,11 +423,11 @@ TEST(MetadataFusionTest, StoredMaximumBeatsCurrentMultiSourceFusion)
   tracker.track(
     std::vector<rv::tracking::TrackedObject>{stored}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
 
-  auto cameraOne = makeObject(
+  auto sourceOne = makeObject(
     0.1, {{"metadata.gender", R"({"label":"male","confidence":0.8})"}, {"metadata_confidence.gender", "0.8"}});
-  auto cameraTwo = makeObject(
+  auto sourceTwo = makeObject(
     0.1, {{"metadata.gender", R"({"label":"senior","confidence":0.9})"}, {"metadata_confidence.gender", "0.9"}});
-  tracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cameraOne}, {cameraTwo}},
+  tracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{sourceOne}, {sourceTwo}},
                 InitialTimestamp + std::chrono::milliseconds(100),
                 rv::tracking::DistanceType::Euclidean,
                 2.0);

@@ -17,7 +17,7 @@ mkdir -p "${OUTPUT_DIR}"
 JSON_OUTPUT=false
 ASSOC_CONFIG=""
 PEOPLE="50"
-CAMERAS="1,2"
+SOURCES="1,2"
 EXTRA_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -34,12 +34,12 @@ while [[ $# -gt 0 ]]; do
       PEOPLE="$2"
       shift 2
       ;;
-    --cameras)
-      CAMERAS="$2"
+    --sources)
+      SOURCES="$2"
       shift 2
       ;;
     --help|-h)
-      echo "Usage: $0 [--json] [--people N[,N...]] [--cameras N[,N...]] [--overlap 0|1[,...]] [--association-config path.json] [benchmark flags...]"
+      echo "Usage: $0 [--json] [--people N[,N...]] [--sources N[,N...]] [--overlap 0|1[,...]] [--association-config path.json] [benchmark flags...]"
       exit 0
       ;;
     *)
@@ -57,7 +57,7 @@ fi
 
 ARGS=(
   --people "${PEOPLE}"
-  --cameras "${CAMERAS}"
+  --sources "${SOURCES}"
   --benchmark_report_aggregates_only=true
 )
 
