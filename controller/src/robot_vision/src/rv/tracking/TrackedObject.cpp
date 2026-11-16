@@ -153,5 +153,21 @@ void ensureValidMeasurementNoiseCov(TrackedObject &object)
   }
 }
 
+void clearInvalidMeasurementNoiseCov(TrackedObject &object)
+{
+  if (!object.measurementNoiseCov)
+  {
+    return;
+  }
+  try
+  {
+    object.measurementNoiseCov = validatedMeasurementNoiseCov(*object.measurementNoiseCov);
+  }
+  catch (const std::invalid_argument &)
+  {
+    object.measurementNoiseCov.reset();
+  }
+}
+
 } // namespace tracking
 } // namespace rv

@@ -445,6 +445,8 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     });
     metadata_fusion::fuseMetadata(matches, objectsPerCamera, fusedObject);
     metadata_fusion::mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
+    // Fused R can lose PD numerically; drop it rather than throw inside OpenMP correct().
+    clearInvalidMeasurementNoiseCov(fusedObject);
 
     mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
     isTrackAssigned[trackIdx] = true;
@@ -587,6 +589,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
         return objectsPerCamera[match.first][match.second].z_measured;
       });
       metadata_fusion::fuseMetadata(members, objectsPerCamera, fusedObject);
+      clearInvalidMeasurementNoiseCov(fusedObject);
     }
 
     for (const auto objectIndex : unassignedObjects)
@@ -596,8 +599,10 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
     }
   }
 
-  for (const auto &newObject : newObjects)
+  for (auto &newObject : newObjects)
   {
+    // Birth from a single detection keeps its R; clear if fusion (or a bad seed) left it invalid.
+    clearInvalidMeasurementNoiseCov(newObject);
     mTrackManager.createTrack(newObject, timestamp);
   }
 

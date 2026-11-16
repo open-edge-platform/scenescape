@@ -421,9 +421,17 @@ std::vector<Track> TrackingWorker::match_and_convert(
                                       ? 1
                                       : omp_get_max_threads();
         ScopedOpenMpThreadLimit openmp_thread_limit(thread_limit);
-        tracker_.track(std::move(objects_per_camera), timestamp, association_config_.distanceType(),
-                       association_config_.costThreshold(), 0.5, association_config_.max_radius_m,
-                       association_config_.birth_cluster_radius_m);
+        try {
+            tracker_.track(std::move(objects_per_camera), timestamp,
+                           association_config_.distanceType(), association_config_.costThreshold(),
+                           0.5, association_config_.max_radius_m,
+                           association_config_.birth_cluster_radius_m);
+        } catch (const std::invalid_argument& error) {
+            // Per-detection R is validated at track() ingestion; one bad matrix must not tear down
+            // the worker. MOT state is unchanged when validation fails before predict.
+            LOG_ERROR("Tracking update rejected for {}/{}: {}", scope_.scene_id, scope_.category,
+                      error.what());
+        }
 
         // Get reliable tracks and map RobotVision int IDs to UUID strings
         rv_tracks = tracker_.getReliableTracks();

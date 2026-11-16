@@ -148,6 +148,10 @@ TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObjec
 /// If measurementNoiseCov is set, replace it with validatedMeasurementNoiseCov(*it).
 void ensureValidMeasurementNoiseCov(TrackedObject &object);
 
+/// Like ensureValidMeasurementNoiseCov, but clears measurementNoiseCov instead of throwing when R is
+/// invalid. Use for fused measurements that must not abort the Kalman update mid-frame.
+void clearInvalidMeasurementNoiseCov(TrackedObject &object);
+
 static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");
 static_assert(TrackedObject::MeasurementSize == MeasurementIndex::YAW + 1,
               "MeasurementSize must match the MeasurementIndex layout");

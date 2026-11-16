@@ -125,3 +125,22 @@ TEST(TrackedObjectTest, EnsureValidMeasurementNoiseLeavesUnsetAndSymmetrizesSet)
   object.measurementNoiseCov = TrackedObject::MeasurementMatrix::zeros();
   EXPECT_THROW(ensureValidMeasurementNoiseCov(object), std::invalid_argument);
 }
+
+TEST(TrackedObjectTest, ClearInvalidMeasurementNoiseDropsBadRWithoutThrowing)
+{
+  using rv::tracking::clearInvalidMeasurementNoiseCov;
+
+  TrackedObject unset;
+  clearInvalidMeasurementNoiseCov(unset);
+  EXPECT_FALSE(unset.measurementNoiseCov);
+
+  TrackedObject object;
+  object.measurementNoiseCov = diagonalNoise(0.2);
+  clearInvalidMeasurementNoiseCov(object);
+  ASSERT_TRUE(object.measurementNoiseCov);
+  EXPECT_NEAR((*object.measurementNoiseCov)(0, 0), 0.2, 1e-15);
+
+  object.measurementNoiseCov = TrackedObject::MeasurementMatrix::zeros();
+  clearInvalidMeasurementNoiseCov(object);
+  EXPECT_FALSE(object.measurementNoiseCov);
+}
