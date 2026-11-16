@@ -298,6 +298,29 @@ class TestGlbAlignment:
     assert res["anchor"]["heading_deg"] == expected
     assert res["dirty"] is True
 
+  def test_typed_heading_is_not_rewritten_until_blur(self):
+    """The number field keeps what the user typed while typing and is normalized on change."""
+    steps = [["upload"], ["heading", "4"]]
+    res = _align([_NO_SAVED, _preview_resp("tok1")], steps)
+    assert res["headingValue"] == "4"
+    assert float(res["headingRangeValue"]) == 4
+    res = _align([_NO_SAVED, _preview_resp("tok1")], steps + [["headingBlur"]])
+    assert res["headingValue"] == "4.0"
+
+  def test_empty_heading_input_is_ignored(self):
+    """Clearing the field to retype does not reset the heading to 0."""
+    res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["heading", "90"], ["heading", ""]])
+    assert res["anchor"]["heading_deg"] == 90
+
+  def test_saved_only_model_hides_staged_only_controls(self):
+    """Opacity and Accept apply to a staged model only; a saved model shows heading, Reset and Cancel."""
+    res = _align([_saved_model_get()], [])
+    assert res["acceptDisplay"] == "none"
+    assert res["opacityDisplay"] == "none"
+    res = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"]])
+    assert res["acceptDisplay"] == ""
+    assert res["opacityDisplay"] == ""
+
   def test_reset_restores_original(self):
     """Reset restores the staged anchor and clears the unsaved flag."""
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["heading", "90"], ["reset"]])
@@ -309,6 +332,21 @@ class TestGlbAlignment:
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["cancel"]])
     assert res["controlsDisplay"] == "none"
     assert any("removeOverlay" in str(c) for c in res["calls"])
+
+  def test_saved_only_model_shows_heading_controls_with_saved_heading(self):
+    """A saved GLB with no staged replacement still shows the heading control, set to the saved heading."""
+    anchor = {"lat": 37, "lng": -122, "heading_deg": 45}
+    res = _align([_saved_model_get(anchor=anchor)], [])
+    assert res["controlsDisplay"] == ""
+    assert res["headingValue"] == "45.0"
+
+  def test_cancel_with_saved_model_keeps_heading_controls(self):
+    """Cancelling a replacement returns to the saved model, so its heading control stays visible and shows the saved heading."""
+    anchor = {"lat": 37, "lng": -122, "heading_deg": 45}
+    res = _align([_saved_model_get(anchor=anchor), _preview_resp("tok1")], [["upload"], ["heading", "90"], ["cancel"]])
+    assert res["controlsDisplay"] == ""
+    assert res["headingValue"] == "45.0"
+    assert res["anchor"]["heading_deg"] == 45
 
   def test_accept_saves_and_reloads_without_confirm(self):
     """Accept posts the token and anchor and removes the overlay, even over existing content."""
@@ -590,7 +628,7 @@ class TestGlbAlignment:
     res = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"], ["cancel"]], geomapReady=True)
     assert res["frameTrail"] == [FRAME_UNAPPLIED, None, FRAME_UNAPPLIED]
     assert res["savedBlockDisplay"] == ""
-    assert res["controlsDisplay"] == "none"
+    assert res["controlsDisplay"] == ""
 
   def test_toggle_use_writes_applied_scene_fields_to_form(self):
     """Applying the GLB writes the server pose, scale and corners into the scene-edit form."""

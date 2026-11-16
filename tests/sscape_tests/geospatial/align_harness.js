@@ -110,6 +110,7 @@ function load(args) {
         fakeEls[id].closest = () => fakeForm;
       }
       if (id === "glbSavePosition") fakeEls[id].style.display = "none";
+      if (id === "glbAlignControls") fakeEls[id].style.display = "none";
       if (id === "mapProvider") fakeEls[id].value = args.provider ?? "google";
       if (id === "id_map_type")
         fakeEls[id].value = args.mapType ?? "geospatial_map";
@@ -372,6 +373,8 @@ const scenarios = {
           const headEl = fakeEls["glbHeadingNumber"];
           headEl.value = step[1];
           headEl.fire("input", { target: headEl });
+        } else if (step[0] === "headingBlur") {
+          fakeEls["glbHeadingNumber"].fire("change", {});
         } else if (step[0] === "accept") {
           await a._accept?.();
         } else if (step[0] === "reset") {
@@ -425,6 +428,10 @@ const scenarios = {
       status: fakeEls["glbAlignStatus"]?.textContent || "",
       statusList: statusListOf(fakeEls["glbAlignStatus"]),
       controlsDisplay: fakeEls["glbAlignControls"]?.style?.display ?? "none",
+      headingValue: fakeEls["glbHeadingNumber"]?.value ?? null,
+      headingRangeValue: fakeEls["glbHeadingRange"]?.value ?? null,
+      acceptDisplay: fakeEls["glbAcceptWrap"]?.style?.display ?? "",
+      opacityDisplay: fakeEls["glbOpacityGroup"]?.style?.display ?? "",
       fileDisabled: fakeEls["glbFileInput"]?.disabled ?? false,
       filePointerEvents: fakeEls["glbFileInput"]?.style?.pointerEvents ?? "",
       fileTitle: fakeEls["glbFileWrap"]?.title ?? "",

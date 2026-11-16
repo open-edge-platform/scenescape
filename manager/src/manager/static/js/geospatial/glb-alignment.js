@@ -119,6 +119,7 @@ class GlbAlignment {
       fileWrap: byId("glbFileWrap"),
       controls: byId("glbAlignControls"),
       opacity: byId("glbOpacity"),
+      opacityGroup: byId("glbOpacityGroup"),
       headingNumber: byId("glbHeadingNumber"),
       headingRange: byId("glbHeadingRange"),
       footprint: byId("glbFootprint"),
@@ -168,17 +169,22 @@ class GlbAlignment {
       this._strategy().setOverlayOpacity(this.opacity);
     });
 
+    // The edited control is not rewritten while typing; the number field is normalized on change.
     const updateHeading = (e) => {
-      const h = clampHeading(e.target.value);
-      if (h !== null && this.anchor) {
-        this.anchor.heading_deg = h;
-        this.ui.headingNumber.value = h.toFixed(1);
-        this.ui.headingRange.value = h;
-        this.dirty = true;
-        this._render();
-      }
+      const h = e.target.value === "" ? null : clampHeading(e.target.value);
+      if (h === null || !this.anchor) return;
+      this.anchor.heading_deg = h;
+      if (e.target === this.ui.headingNumber) this.ui.headingRange.value = h;
+      else this.ui.headingNumber.value = h.toFixed(1);
+      this.dirty = true;
+      this._render();
     };
     on(this.ui.headingNumber, "input", updateHeading);
+    on(
+      this.ui.headingNumber,
+      "change",
+      () => this.anchor && this._updateInputs(),
+    );
     on(this.ui.headingRange, "input", updateHeading);
     on(this.ui.headingRange, "pointerdown", () => this._beginMove());
     on(this.ui.headingRange, "pointerup", () => this._endMove());
@@ -304,6 +310,7 @@ class GlbAlignment {
     if (this.ui.useCheckbox) {
       this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
     }
+    this._updateInputs();
     this._updateSavedBlockVisibility();
     this._updateControlsVisibility();
   }
@@ -318,7 +325,13 @@ class GlbAlignment {
     return this.saved?.use_glb_map ? FRAME_APPLIED : FRAME_UNAPPLIED;
   }
 
+  // Heading is available for a staged or saved GLB; opacity and Accept only apply to a staged one.
   _updateControlsVisibility() {
+    if (this.ui.controls)
+      this.ui.controls.style.display = this.staged || this.saved ? "" : "none";
+    const stagedDisplay = this.staged ? "" : "none";
+    this.ui.opacityGroup.style.display = stagedDisplay;
+    this.ui.acceptWrap.style.display = stagedDisplay;
     if (!this.ui.savePosBtn) return;
     const show = !this.staged && !!this.saved && this.dirty;
     this.ui.savePosBtn.style.display = show ? "" : "none";
@@ -392,7 +405,6 @@ class GlbAlignment {
       this.dirty = false;
       this._updateInputs();
       this._updateSavedBlockVisibility();
-      this.ui.controls.style.display = "";
       this._updateControlsVisibility();
       this.ui.footprint.textContent = `Footprint: ${this.staged.footprint.width.toFixed(1)} × ${this.staged.footprint.height.toFixed(1)} m`;
 
@@ -575,7 +587,6 @@ class GlbAlignment {
     try {
       this._strategy().removeOverlay();
     } catch (e) {}
-    this.ui.controls.style.display = "none";
     this.staged = null;
     if (this.saved) {
       this.anchor = { ...this.saved.anchor };
@@ -584,6 +595,7 @@ class GlbAlignment {
       this.anchor = null;
     }
     this.dirty = false;
+    if (this.anchor) this._updateInputs();
     this._updateSavedBlockVisibility();
     this._updateControlsVisibility();
     this._updateFarAnchorHint();
