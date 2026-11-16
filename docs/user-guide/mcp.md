@@ -117,6 +117,14 @@ unsupported. Responses use `Cache-Control: no-store`. HTTP failures use DRF-styl
 `{"detail": "..."}` responses; MCP parsing and protocol errors use JSON-RPC
 error envelopes. Unexpected failures return a generic error.
 
+### Tool-call logging
+
+Manager logs each dispatched tool call at INFO through `mcp_server`, including
+the registered tool name, user ID, outcome, and duration. Unknown names are
+recorded as `<unknown>`; arguments, tokens, and results are excluded from these
+records. Unexpected exceptions also retain their traceback in the error log.
+HTTP access logs cover requests rejected before dispatch.
+
 ## Development and verification
 
 See the [module extension guide](../../manager/src/mcp_server/AGENTS.md) for the

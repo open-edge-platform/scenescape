@@ -3,6 +3,7 @@
 
 """Exercise actual HTTP, authentication, and thin-mcp dispatch boundaries."""
 
+import logging
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
@@ -78,6 +79,51 @@ def test_valid_tool_call(client, monkeypatch):
   result = response.json()['result']
   assert result['structuredContent']['items'][0]['id'] == str(scene.id)
   assert result['structuredContent']['next_offset'] is None
+
+
+@pytest.mark.parametrize('failure, outcome', [
+  (None, 'success'),
+  (ToolExecutionError('private-tool-error'), 'tool_error'),
+  (RuntimeError('internal-failure'), 'exception'),
+])
+def test_tool_calls_logged_once(client, monkeypatch, caplog, failure, outcome):
+  """Log success and failures centrally, excluding arguments and returned data."""
+  def list_scenes(arguments):
+    if failure:
+      raise failure
+    scene = SceneSummary(id=uuid4(), name='private-scene-name',
+                         map_type=None, scale=None, use_tracker=True)
+    return Page(items=[scene], next_offset=None)
+
+  monkeypatch.setattr(queries, 'list_scenes', list_scenes)
+  with caplog.at_level(logging.INFO, logger='mcp_server.core'):
+    rpc(client, 'tools/call', {'name': 'list_scenes', 'arguments': {'limit': 7}})
+  entries = [record for record in caplog.records if record.getMessage().startswith('MCP tool call:')]
+  assert len(entries) == 1
+  message = entries[0].getMessage()
+  assert f'tool=list_scenes user_id=1 outcome={outcome} duration_ms=' in message
+  assert entries[0].levelno == logging.INFO
+  assert all(value not in message for value in (
+    'private-scene-name', 'private-tool-error', 'ephemeral-test-token', 'arguments', 'limit',
+  ))
+
+
+@pytest.mark.parametrize('name', ['untrusted\nname', {'private': 'value'}, None])
+def test_invalid_tool_names_not_logged(client, caplog, name):
+  """Unknown or malformed names cannot inject client-controlled text into logs."""
+  with caplog.at_level(logging.INFO, logger='mcp_server.core'):
+    rpc(client, 'tools/call', {'name': name, 'arguments': {}})
+  messages = [record.getMessage() for record in caplog.records]
+  assert len(messages) == 1
+  assert 'tool=<unknown> user_id=1 outcome=protocol_error' in messages[0]
+  assert 'untrusted' not in messages[0]
+  assert 'private' not in messages[0]
+
+
+def test_discovery_does_not_log_tool_call(client, caplog):
+  with caplog.at_level(logging.INFO, logger='mcp_server.core'):
+    rpc(client)
+  assert not caplog.records
 
 
 def test_pagination_follows_continuations_up_to_offset_500(client, monkeypatch):

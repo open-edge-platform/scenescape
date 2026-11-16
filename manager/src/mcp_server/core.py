@@ -4,10 +4,12 @@
 """Delegate MCP protocol behavior to thin-mcp."""
 
 import logging
+from time import perf_counter
 
 from django.contrib.auth.base_user import AbstractBaseUser
 from pydantic import ValidationError
 from thin_mcp import JsonRpcErrorCode, McpHttpResult, McpRequest, McpRequestHeaders, McpServer
+from thin_mcp.schemas import JsonRpcErrorResponse, JsonRpcResultResponse, ToolResult
 
 from mcp_server.tools import tool_registry
 
@@ -18,6 +20,32 @@ MCP_SERVER = McpServer(
   protocol_versions=('2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'),
   tools=tool_registry,
 )
+
+
+def dispatch_request(user: AbstractBaseUser, payload: McpRequest) -> McpHttpResult:
+  """Log each tool call centrally without recording arguments or results."""
+  if payload.method != 'tools/call':
+    return MCP_SERVER.dispatch_request(user, payload)
+
+  name = payload.params.get('name')
+  # Only log registered names, never arbitrary client input or malformed params.
+  tool = name if isinstance(name, str) and tool_registry.get(name) else '<unknown>'
+  started = perf_counter()
+  outcome = 'exception'
+  try:
+    result = MCP_SERVER.dispatch_request(user, payload)
+    match result.body:
+      case JsonRpcErrorResponse():
+        outcome = 'protocol_error'
+      case JsonRpcResultResponse(result=ToolResult(is_error=True)):
+        outcome = 'tool_error'
+      case _:
+        outcome = 'success'
+    return result
+  finally:
+    duration_ms = (perf_counter() - started) * 1000
+    logger.info(f'MCP tool call: tool={tool} user_id={user.pk} '
+                f'outcome={outcome} duration_ms={duration_ms:.1f}')
 
 
 def process_request(user: AbstractBaseUser, body: bytes,
@@ -32,7 +60,9 @@ def process_request(user: AbstractBaseUser, body: bytes,
 
   try:
     result = MCP_SERVER.validate_http_request(payload, headers)
-    return result if result is not None else MCP_SERVER.dispatch_request(user, payload)
+    if result is not None:
+      return result
+    return dispatch_request(user, payload)
   except Exception:
     logger.exception('Unexpected MCP request failure.')
     return McpHttpResult.error(
