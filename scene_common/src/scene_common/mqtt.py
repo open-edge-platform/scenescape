@@ -46,36 +46,12 @@ class _Topic(Enum):
   POSITIONING_POSE = auto()
   POSITIONING_STATUS = auto()
 
-# Explicit so static analysis can resolve PubSub.<TOPIC>.
+# Really gross way to put above constants directly into PubSub class
 class _PubSubTopicBase:
-  CHANNEL = _Topic.CHANNEL
-  CMD_CAMERA = _Topic.CMD_CAMERA
-  CMD_DATABASE = _Topic.CMD_DATABASE
-  CMD_KUBECLIENT = _Topic.CMD_KUBECLIENT
-  CMD_SCENE_UPDATE = _Topic.CMD_SCENE_UPDATE
-  DATA_AUTOCALIB_CAM_POSE = _Topic.DATA_AUTOCALIB_CAM_POSE
-  DATA_CAMERA = _Topic.DATA_CAMERA
-  DATA_EXTERNAL = _Topic.DATA_EXTERNAL
-  DATA_REGION = _Topic.DATA_REGION
-  DATA_REID = _Topic.DATA_REID
-  DATA_REGULATED = _Topic.DATA_REGULATED
-  DATA_SCENE = _Topic.DATA_SCENE
-  DATA_SENSOR = _Topic.DATA_SENSOR
-  EVENT = _Topic.EVENT
-  IMAGE_CALIBRATE = _Topic.IMAGE_CALIBRATE
-  IMAGE_CAMERA = _Topic.IMAGE_CAMERA
-  POINTCLOUD_CAMERA = _Topic.POINTCLOUD_CAMERA
-  SYS_CHILDSCENE_STATUS = _Topic.SYS_CHILDSCENE_STATUS
-  ANALYTICS_CLUSTERS = _Topic.ANALYTICS_CLUSTERS
-  DATA_CHILD_TRIPWIRES = _Topic.DATA_CHILD_TRIPWIRES
-  DATA_CHILD_ROIS = _Topic.DATA_CHILD_ROIS
-  DATA_CHILD_SENSORS = _Topic.DATA_CHILD_SENSORS
-  CMD_CAMERA_CONFIG = _Topic.CMD_CAMERA_CONFIG
-  POSITIONING_POSE = _Topic.POSITIONING_POSE
-  POSITIONING_STATUS = _Topic.POSITIONING_STATUS
+  pass
 
-assert {k.name for k in _Topic} <= set(vars(_PubSubTopicBase)), \
-  "_PubSubTopicBase is missing a _Topic member"
+for key in _Topic:
+  setattr(_PubSubTopicBase, key.name, key)
 
 class PubSub(_PubSubTopicBase):
   _TopicTemplates = {
