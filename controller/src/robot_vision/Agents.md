@@ -63,9 +63,9 @@ helper), not in the MOT / UKF core.
 
 ```
 include/rv/tracking/   — MOT, UKF, motion models, fusion, TrackedObject
-                           (CameraUtils is an isolated camera helper here)
-include/rv/            — shared non-tracking utils
-src/rv/tracking/       — C++ implementations
+include/rv/            — shared utils + isolated modality helpers (CameraUtils)
+src/rv/tracking/       — tracking implementations
+src/rv/                — non-tracking implementations (CameraUtils, apollo/)
 python/…/extensions/   — pybind11 bindings
 test/                  — GoogleTest suite (+ support helpers)
 benchmarks/            — performance benches

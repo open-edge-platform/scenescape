@@ -55,7 +55,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/MultipleObjectTracker.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/MetadataFusion.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/TrackTracker.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/CameraUtils.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/CameraUtils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/apollo/connected_component_analysis.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/apollo/multi_hm_bipartite_graph_matcher.cpp
 )

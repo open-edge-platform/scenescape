@@ -14,7 +14,7 @@
 #include <rv/tracking/Classification.hpp>
 #include <rv/tracking/PositionGate.hpp>
 #include <rv/Utils.hpp>
-#include <rv/tracking/CameraUtils.hpp>
+#include <rv/CameraUtils.hpp>
 #include <chrono>
 #include <limits>
 #include <vector>

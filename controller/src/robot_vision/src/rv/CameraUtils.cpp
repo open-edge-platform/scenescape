@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "rv/tracking/CameraUtils.hpp"
+#include "rv/CameraUtils.hpp"
 
 namespace rv {
 
