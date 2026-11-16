@@ -14,12 +14,24 @@ namespace {
 
 using rv::tracking::TrackedObject;
 using rv::tracking::ensureValidMeasurementNoiseCov;
-using rv::tracking::isValidMeasurementNoiseCov;
 using rv::tracking::validatedMeasurementNoiseCov;
 
 TrackedObject::MeasurementMatrix diagonalNoise(double variance = 0.2)
 {
   return TrackedObject::MeasurementMatrix::eye() * variance;
+}
+
+bool isValidMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise)
+{
+  try
+  {
+    (void)validatedMeasurementNoiseCov(noise);
+    return true;
+  }
+  catch (const std::invalid_argument &)
+  {
+    return false;
+  }
 }
 
 } // namespace
