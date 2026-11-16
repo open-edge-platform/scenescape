@@ -132,6 +132,8 @@ uv run --no-project --python 3.11 \
   python -m pytest manager/tests/mcp_server -q
 ```
 
-The suite mocks token lookups and ORM queries. For deployment verification,
-rebuild Manager and exercise initialization, discovery, and tool calls through
-your deployment's HTTPS endpoint.
+The isolated suite mocks token lookups and ORM queries. The
+[Django integration suite](../../tests/sscape_tests/mcp_server/test_mcp_django.py)
+also exercises `/mcp` with real models, migrations, tokens, and a SQLite test
+database. For deployment verification, rebuild Manager and exercise initialization,
+discovery, and tool calls through your deployment's HTTPS endpoint.
