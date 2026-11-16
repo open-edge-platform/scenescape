@@ -8,9 +8,10 @@
 #
 # It joins the Scenescape network, so pipelines reach rtsp://mediaserver:8554,
 # ntpserv and broker.scenescape.intel.com, and Manager reaches it as
-# http://dlsps.scenescape.intel.com:8080. ViPPET's shared models folder is
-# mounted at the same path as in ViPPET (/models) so the model paths embedded
-# in ViPPET pipeline strings resolve here too.
+# http://dlsps.scenescape.intel.com:8080. One of the models override files mounts
+# ViPPET's /models source read-only at the same path. The REST API is internal-only;
+# publishing it would be unnecessary and could conflict with ViPPET's optional
+# host-networked DLSPS deployment.
 
 name: scenescape
 
@@ -33,10 +34,6 @@ services:
     privileged: false
     tty: true
     entrypoint: ["./run.sh"]
-    ports:
-      # Loopback only: DLSPS has no authentication and runs any submitted pipeline. Manager
-      # reaches it over the Docker network; this port is for local debugging.
-      - "127.0.0.1:${DLSPS2_REST_SERVER_PORT:-8080}:8080"
     networks:
       scenescape:
         aliases:
@@ -56,7 +53,6 @@ services:
       - ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
-      - ${VIPPET_SHARED_DIR:?set VIPPET_SHARED_DIR to ViPPET's shared directory}/models:/models:ro
       - "/run/udev:/run/udev:ro"
       - "/dev:/dev"
     secrets:

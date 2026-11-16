@@ -183,3 +183,77 @@ def test_mlops_demo_broker_is_only_published_on_loopback(tmp_path, port, expecte
   assert {(entry.get('host_ip'), entry['published'], entry['target']) for entry in ports} == {
     ('127.0.0.1', expected, 1883)
   }
+
+
+@pytest.mark.parametrize("mount_type", ["volume", "bind"])
+def test_mlops_dlsps_mounts_vippet_models_read_only(tmp_path, mount_type):
+  root = Path(__file__).resolve().parents[2]
+  secret_dir = tmp_path / "secrets"
+  (secret_dir / "certs").mkdir(parents=True)
+  (secret_dir / "certs" / "scenescape-ca.pem").touch()
+  env = {
+    **os.environ,
+    "SECRETSDIR": str(secret_dir),
+  }
+  overlay = f"compose.dlsps2.models-{mount_type}.yml"
+  if mount_type == "volume":
+    env["VIPPET_MODELS_VOLUME"] = "vippet-models-test"
+    expected_source = "vippet-models"
+  else:
+    models_dir = tmp_path / "models"
+    models_dir.mkdir()
+    env["VIPPET_MODELS_DIR"] = str(models_dir)
+    expected_source = str(models_dir)
+  result = subprocess.run(
+    ["docker", "compose", "--env-file", "/dev/null",
+     "-f", "sample_data/mlops_flow/compose.dlsps2.yml",
+     "-f", f"sample_data/mlops_flow/{overlay}", "config", "--format", "json"],
+    cwd=root, env=env, capture_output=True, text=True, check=False,
+  )
+  assert result.returncode == 0, result.stderr
+  config = json.loads(result.stdout)
+  service = config["services"]["dlstreamer-pipeline-server"]
+  model_mount = next(volume for volume in service["volumes"] if volume["target"] == "/models")
+  assert model_mount["type"] == mount_type
+  assert model_mount["source"] == expected_source
+  assert model_mount["read_only"] is True
+  assert service.get("ports", []) == []
+  if mount_type == "volume":
+    assert config["volumes"]["vippet-models"]["external"] is True
+    assert config["volumes"]["vippet-models"]["name"] == "vippet-models-test"
+  else:
+    assert "volumes" not in config
+
+
+@pytest.mark.parametrize("existing", ["", "localhost,mediamtx,.example.test"])
+def test_mlops_vippet_proxy_override_preserves_exclusions(tmp_path, existing):
+  root = Path(__file__).resolve().parents[2]
+  base = tmp_path / "compose.yml"
+  base.write_text("""
+services:
+  vippet:
+    image: busybox
+    environment:
+      http_proxy: http://proxy.example.test:8080
+      KEEP_SETTING: unchanged
+  dlstreamer-pipeline-server:
+    image: busybox
+    environment:
+      http_proxy: http://proxy.example.test:8080
+""")
+  result = subprocess.run(
+    ["docker", "compose", "--env-file", "/dev/null", "-f", str(base),
+     "-f", str(root / "sample_data/mlops_flow/compose.vippet-proxy-override.yml"),
+     "config", "--format", "json"],
+    env={**os.environ, "VIPPET_NO_PROXY": existing, "VIPPET_DLSPS_NO_PROXY": "localhost"},
+    capture_output=True, text=True, check=False,
+  )
+  assert result.returncode == 0, result.stderr
+  services = json.loads(result.stdout)["services"]
+  for service, previous in [("vippet", existing), ("dlstreamer-pipeline-server", "localhost")]:
+    environment = services[service]["environment"]
+    expected = f"{previous},mediaserver" if previous else "mediaserver"
+    assert environment["no_proxy"] == expected
+    assert environment["NO_PROXY"] == expected
+    assert environment["http_proxy"] == "http://proxy.example.test:8080"
+  assert services["vippet"]["environment"]["KEEP_SETTING"] == "unchanged"

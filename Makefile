@@ -76,26 +76,23 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # MLOps Flow demo: ViPPET (its own make run) runs externally on VIPPET_NETWORK; the demo starts DLSPS 2.0
 MLOPS_FLOW_DIR := sample_data/mlops_flow
 VIPPET_NETWORK ?= visual-pipeline-and-platform-evaluation-tool_default
-# ViPPET's host "shared" directory; the demo DLSPS mounts its models/ at the path
-# ViPPET pipeline strings use. Detected from the running "vippet" container when not set.
-VIPPET_SHARED_DIR ?= $(patsubst %/models,%,$(shell docker inspect vippet \
-	--format '{{range .Mounts}}{{if eq .Destination "/models"}}{{.Source}}{{end}}{{end}}' 2>/dev/null))
+# ViPPET's /models bind directory or named volume, shared read-only with demo DLSPS.
+# VIPPET_MODELS_DIR can override or provide a bind source when ViPPET is unavailable.
+VIPPET_MODELS_DIR ?= $(shell docker inspect vippet \
+	--format '{{range .Mounts}}{{if and (eq .Destination "/models") (eq .Type "bind")}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
+VIPPET_MODELS_VOLUME ?= $(shell docker inspect vippet \
+	--format '{{range .Mounts}}{{if and (eq .Destination "/models") (eq .Type "volume")}}{{.Name}}{{end}}{{end}}' 2>/dev/null)
+MLOPS_FLOW_DLSPS_MODELS_COMPOSE = $(if $(strip $(VIPPET_MODELS_DIR)),$(MLOPS_FLOW_DIR)/compose.dlsps2.models-bind.yml,$(MLOPS_FLOW_DIR)/compose.dlsps2.models-volume.yml)
 MLOPS_FLOW_COMPOSE_ARGS = -f docker-compose.yml -f $(MLOPS_FLOW_DIR)/compose.scenescape-override.yml
-# Host IP the virtual ONVIF cameras advertise: the source address of WS-Discovery multicast,
-# i.e. the interface sensor-manager probes from
-MLOPS_FLOW_HOST_IP ?= $(shell ip route get 239.255.255.250 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
-# Queuing camera streams, their virtual ONVIF cameras, and the DLSPS 2.0 that runs the camera pipelines
+# Queuing camera streams and the DLSPS 2.0 that runs the camera pipelines
 MLOPS_FLOW_SERVICES_COMPOSE = SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape VIPPET_NETWORK=$(VIPPET_NETWORK) \
-	VIDEOSOURCE_PORT=$(MLOPS_FLOW_RTSP_PORT) VIPPET_SHARED_DIR=$(or $(VIPPET_SHARED_DIR),/vippet-shared-dir-not-found) \
-	ONVIF_HOST_IP=$(or $(MLOPS_FLOW_HOST_IP),127.0.0.1) ONVIF_RTSP_PORT=$(MLOPS_FLOW_RTSP_PORT) \
-	ONVIF_SCHEMAS_DIR=$(MLOPS_FLOW_ONVIF_SCHEMAS_DIR) \
+	VIDEOSOURCE_PORT=$(MLOPS_FLOW_RTSP_PORT) VIPPET_MODELS_DIR="$(VIPPET_MODELS_DIR)" \
+	VIPPET_MODELS_VOLUME=$(VIPPET_MODELS_VOLUME) \
 	docker compose --project-directory . -f $(QUEUING_VIDEO_COMPOSE_FILE) -f $(MLOPS_FLOW_DIR)/compose.queuing-cams-override.yml \
-	-f $(MLOPS_FLOW_DIR)/compose.dlsps2.yml -f $(MLOPS_FLOW_DIR)/compose.onvif-cams.yml
+	-f $(MLOPS_FLOW_DIR)/compose.dlsps2.yml -f $(MLOPS_FLOW_DLSPS_MODELS_COMPOSE)
 # Host port of the demo RTSP server; ViPPET's own mediamtx already publishes 8554
 MLOPS_FLOW_RTSP_PORT ?= 18554
 MLOPS_FLOW_SCENES_DIR := $(BUILD_DIR)/mlops_flow_scenes
-# Unmodified ONVIF WSDL/XSD files served to the virtual ONVIF cameras
-MLOPS_FLOW_ONVIF_SCHEMAS_DIR := $(BUILD_DIR)/onvif-schemas
 # Run in the web container before shutdown so camera pipelines don't keep running in DLSPS
 MLOPS_FLOW_STOP_INSTANCES = from manager.pipeline_runtime import stop_all_camera_instances; stop_all_camera_instances()
 # Content of .scenescape-demo for this demo, so demo-close knows to stop its extra services
@@ -165,7 +162,7 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
-	@echo "  demo-mlops-flow             Start Scenescape + DLSPS 2.0 + the Queuing camera streams (also as virtual ONVIF cameras),"
+	@echo "  demo-mlops-flow             Start Scenescape + DLSPS 2.0 + the Queuing camera streams,"
 	@echo "                              connected to a running ViPPET"
 	@echo "  demo-mlops-flow-close       Stop the MLOps Flow demo and remove its volumes (ViPPET keeps running)"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
@@ -914,39 +911,66 @@ check-mlops-flow:
 		echo "Warning: container 'vippet' is not running on network '$(VIPPET_NETWORK)';"; \
 		echo "         Sync with ViPPET works once it runs." ;; \
 	esac; \
-	if [ ! -d "$(VIPPET_SHARED_DIR)/models" ]; then \
-		echo "Error: ViPPET's shared models directory not found (VIPPET_SHARED_DIR='$(VIPPET_SHARED_DIR)')."; \
-		echo "Start ViPPET, or set VIPPET_SHARED_DIR to <ViPPET directory>/shared."; \
+	if [ -n "$(VIPPET_MODELS_DIR)" ]; then \
+		case "$(VIPPET_MODELS_DIR)" in /*) ;; *) \
+			echo "Error: VIPPET_MODELS_DIR must be an absolute host directory."; exit 1 ;; \
+		esac; \
+		if [ ! -d "$(VIPPET_MODELS_DIR)" ]; then \
+			echo "Error: ViPPET models directory '$(VIPPET_MODELS_DIR)' does not exist."; \
+			exit 1; \
+		fi; \
+	elif [ -n "$(VIPPET_MODELS_VOLUME)" ]; then \
+		if ! docker volume inspect "$(VIPPET_MODELS_VOLUME)" >/dev/null 2>&1; then \
+			echo "Error: ViPPET models volume '$(VIPPET_MODELS_VOLUME)' does not exist."; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Error: could not detect ViPPET's /models bind directory or named volume."; \
+		echo "Start ViPPET or set VIPPET_MODELS_DIR or VIPPET_MODELS_VOLUME."; \
 		exit 1; \
-	fi; \
-	if [ -z "$(MLOPS_FLOW_HOST_IP)" ]; then \
-		echo "Error: could not detect the host IP for the virtual ONVIF cameras (no route to 239.255.255.250)."; \
-		echo "Set MLOPS_FLOW_HOST_IP to the IP of the interface ViPPET's sensor-manager discovers cameras on."; \
-		exit 1; \
-	fi; \
-	if [ -z "$$(docker ps -q --filter name=^sensor-manager$$)" ]; then \
-		echo "Warning: ViPPET's sensor-manager is not running; the virtual ONVIF cameras are discovered once it runs."; \
 	fi
 
+.PHONY: configure-mlops-vippet
+configure-mlops-vippet: check-mlops-flow
+	@set -e -o pipefail; \
+	DIR=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' vippet); \
+	PROJECT=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' vippet); \
+	FILES=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' vippet); \
+	if [ ! -d "$$DIR" ] || [ -z "$$PROJECT" ] || [ -z "$$FILES" ]; then \
+		echo "Error: cannot locate ViPPET's existing Docker Compose project."; \
+		exit 1; \
+	fi; \
+	VIPPET_NO_PROXY=$$(docker exec vippet sh -c 'printf "%s,%s" "$${no_proxy:-}" "$${NO_PROXY:-}"' \
+		| tr ',' '\n' | sed '/^mediaserver$$/d; /^$$/d' | sort -u | paste -sd,); \
+	VIPPET_DLSPS_NO_PROXY=$$(docker exec dlstreamer-pipeline-server sh -c 'printf "%s,%s" "$${no_proxy:-}" "$${NO_PROXY:-}"' \
+		| tr ',' '\n' | sed '/^mediaserver$$/d; /^$$/d' | sort -u | paste -sd,); \
+	OVERRIDE="$(CURDIR)/$(MLOPS_FLOW_DIR)/compose.vippet-proxy-override.yml"; \
+	IFS=, read -ra COMPOSE_FILES <<< "$$FILES"; \
+	ARGS=(); \
+	for FILE in "$${COMPOSE_FILES[@]}"; do \
+		if [ "$$FILE" != "$$OVERRIDE" ]; then ARGS+=(-f "$$FILE"); fi; \
+	done; \
+	echo "Configuring ViPPET and its DLSPS to bypass the proxy for the demo RTSP server..."; \
+	cd "$$DIR"; \
+	VIPPET_NO_PROXY="$$VIPPET_NO_PROXY" VIPPET_DLSPS_NO_PROXY="$$VIPPET_DLSPS_NO_PROXY" \
+		docker compose -p "$$PROJECT" "$${ARGS[@]}" -f "$$OVERRIDE" \
+		up -d --no-deps --wait --wait-timeout 120 vippet dlstreamer-pipeline-server
+
 .PHONY: demo-mlops-flow
-demo-mlops-flow: check-mlops-flow $(DEMO_BUILD:build=build-core)
+demo-mlops-flow: configure-mlops-vippet $(DEMO_BUILD:build=build-core)
 	@$(MAKE) deploy DEPLOY_PROFILES=controller DEPLOY_COMPOSE_ARGS="$(MLOPS_FLOW_COMPOSE_ARGS)" DEPLOY_FROM_DEMO=true \
 		VIPPET_NETWORK=$(VIPPET_NETWORK)
 	@echo $(MLOPS_FLOW_DEMO_MARKER) > .scenescape-demo
 	@$(MAKE) convert-dls-videos
-	@$(MLOPS_FLOW_DIR)/fetch-onvif-schemas.sh $(MLOPS_FLOW_ONVIF_SCHEMAS_DIR)
 	$(MLOPS_FLOW_SERVICES_COMPOSE) up -d
-	@# Re-bind the schema cache, which may have been recreated since the container started
-	$(MLOPS_FLOW_SERVICES_COMPOSE) up -d --force-recreate --no-deps onvif-cams
 	@rm -rf $(MLOPS_FLOW_SCENES_DIR) && mkdir -p $(MLOPS_FLOW_SCENES_DIR)/Queuing
 	@cp $(VIDEO_SOURCE_DIR)/Queuing/Queuing.zip $(MLOPS_FLOW_SCENES_DIR)/Queuing/
 	@$(MAKE) demo-scenes DEMO_SCENES_DIR=$(MLOPS_FLOW_SCENES_DIR)
 	@echo ""
 	@echo "Scenescape is connected to ViPPET (http://vippet:7860) and runs camera pipelines on DLSPS 2.0"
-	@echo "  (container dlsps2-pipeline-server, http://dlsps.scenescape.intel.com:8080; models from $(VIPPET_SHARED_DIR))."
+	@echo "  (container dlsps2-pipeline-server, http://dlsps.scenescape.intel.com:8080; models from $(if $(VIPPET_MODELS_DIR),directory $(VIPPET_MODELS_DIR),Docker volume $(VIPPET_MODELS_VOLUME)))."
 	@echo "Queuing camera streams: rtsp://mediaserver:8554/queuing-cam1 and rtsp://mediaserver:8554/queuing-cam2"
 	@echo "  (from the host: rtsp://localhost:$(MLOPS_FLOW_RTSP_PORT)/queuing-cam1)"
-	@echo "Virtual ONVIF cameras (any credentials): $(MLOPS_FLOW_HOST_IP):18081 = queuing-cam1, $(MLOPS_FLOW_HOST_IP):18082 = queuing-cam2"
 	@echo "Next steps: sample_data/mlops_flow/README.md"
 	@echo "To stop the demo, run: make demo-mlops-flow-close"
 
