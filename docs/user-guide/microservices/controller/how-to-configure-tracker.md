@@ -305,7 +305,7 @@ trackers; the Tracker service reads it at startup.
 
 A `gate_probability` outside (0, 1], or a negative or non-finite (`nan`, `inf`) `max_radius_m` or
 `birth_cluster_radius_m`, fails Tracker service startup; the Controller logs an error and uses the
-default (for `birth_cluster_radius_m`: the behaviour without it).
+default (for `birth_cluster_radius_m`: 2 m, not the `tracking_radius` gate).
 
 An invalid `method` fails Tracker service startup. The Scene Controller logs an error and uses
 the default `association` block, ignoring the block's other fields, as it does for a block that

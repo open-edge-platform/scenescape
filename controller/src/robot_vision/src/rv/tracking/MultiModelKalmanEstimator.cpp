@@ -27,9 +27,14 @@ predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat 
 }
 
 /// The detection's R for the UKF update; empty (default R) when the detection carries none.
+/// Invalid R is rejected (same contract as the Python setter / track() ingestion).
 cv::Mat measurementNoise(const TrackedObject &measurement)
 {
-  return measurement.measurementNoiseCov ? cv::Mat(*measurement.measurementNoiseCov) : cv::Mat();
+  if (!measurement.measurementNoiseCov)
+  {
+    return cv::Mat();
+  }
+  return cv::Mat(validatedMeasurementNoiseCov(*measurement.measurementNoiseCov));
 }
 
 /// H P H^T of the filter's last predict, from its sigma points as the update with a detection's R uses it. Not S - r I:
@@ -146,6 +151,7 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   // Seed measured pose/size uncertainty from the birth detection's R (incl. x/y/z cross terms).
   if (track.measurementNoiseCov)
   {
+    const TrackedObject::MeasurementMatrix birthNoise = validatedMeasurementNoiseCov(*track.measurementNoiseCov);
     const int measuredPairs[][2] = {{MeasurementIndex::X, StateIndex::X},
                                     {MeasurementIndex::Y, StateIndex::Y},
                                     {MeasurementIndex::Z, StateIndex::Z},
@@ -156,7 +162,7 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
     {
       for (const auto &col : measuredPairs)
       {
-        errorCovInit.at<double>(row[1], col[1]) = (*track.measurementNoiseCov)(row[0], col[0]);
+        errorCovInit.at<double>(row[1], col[1]) = birthNoise(row[0], col[0]);
       }
     }
   }

@@ -150,14 +150,15 @@ def normalize_association_config(association_config=None):
   config["max_radius_m"] = max_radius_m
 
   # Absent: each service keeps its own birth-clustering radius (see IntelLabsTracking._birth_cluster_radius).
+  # Invalid: keep the key and use robot_vision's default, so euclidean without max_radius_m does not fall
+  # through to the objects' tracking_radius.
   if "birth_cluster_radius_m" in config:
     birth_cluster_radius_m = _parse_number(config["birth_cluster_radius_m"], lambda number: number >= 0.0)
     if birth_cluster_radius_m is None:
+      birth_cluster_radius_m = rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M
       log.error(f"Invalid association birth_cluster_radius_m {config['birth_cluster_radius_m']!r}: "
-                "expected a finite number >= 0; using the default birth clustering")
-      del config["birth_cluster_radius_m"]
-    else:
-      config["birth_cluster_radius_m"] = birth_cluster_radius_m
+                f"expected a finite number >= 0; using {birth_cluster_radius_m}")
+    config["birth_cluster_radius_m"] = birth_cluster_radius_m
   return config
 
 

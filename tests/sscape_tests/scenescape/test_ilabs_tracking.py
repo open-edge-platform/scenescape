@@ -823,12 +823,13 @@ def test_normalize_association_config_keeps_valid_birth_cluster_radius(radius, e
 
 @pytest.mark.parametrize('radius', [-1.0, math.nan, math.inf, pytest.param(10**400, id='int_overflowing_float'), True,
                                     '2', [], {}])
-def test_normalize_association_config_invalid_birth_cluster_radius_is_dropped(monkeypatch, radius):
+def test_normalize_association_config_invalid_birth_cluster_radius_uses_default(monkeypatch, radius):
   errors = []
   monkeypatch.setattr('controller.ilabs_tracking.log.error', lambda *args: errors.append(args))
   config = normalize_association_config({'method': 'euclidean', 'birth_cluster_radius_m': radius})
-  assert 'birth_cluster_radius_m' not in config
+  assert config['birth_cluster_radius_m'] == rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M
   assert len(errors) == 1
+  assert str(rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M) in errors[0][0]
 
 
 class _SpyTracker:
@@ -965,6 +966,15 @@ def test_explicit_birth_cluster_radius_leaves_the_euclidean_gate_on_tracking_rad
   assert call['max_radius_m'] == pytest.approx(6.0)
   assert call['distance_threshold'] == pytest.approx(6.0)
   assert call['birth_cluster_radius_m'] == pytest.approx(3.5)
+
+
+def test_invalid_birth_cluster_radius_does_not_fall_back_to_tracking_radius(monkeypatch):
+  # euclidean without max_radius_m would birth-cluster on tracking_radius (6 m here) if the invalid key
+  # were dropped; keep the 2 m default instead.
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  harness = _BirthRadiusTracker({'method': 'euclidean', 'birth_cluster_radius_m': -1.0})
+  harness.tracker.update_tracks_batched([[harness.person], [harness.car]], 1.0)
+  assert harness.calls[-1]['birth_cluster_radius_m'] == pytest.approx(rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M)
 
 
 def test_explicit_birth_cluster_radius_applies_to_a_live_tracker():
