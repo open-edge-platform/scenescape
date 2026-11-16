@@ -1011,10 +1011,10 @@ TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
       single.track({second}, atMs(100));
       EXPECT_EQ(single.getTracks().size(), expectedTracks);
 
-      rv::tracking::MultipleObjectTracker perCamera(productionConfig(), distanceType, threshold, maxRadiusM);
-      perCamera.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{first}}, atMs(0));
-      perCamera.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{second}}, atMs(100));
-      EXPECT_EQ(perCamera.getTracks().size(), expectedTracks);
+      rv::tracking::MultipleObjectTracker perSource(productionConfig(), distanceType, threshold, maxRadiusM);
+      perSource.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{first}}, atMs(0));
+      perSource.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{second}}, atMs(100));
+      EXPECT_EQ(perSource.getTracks().size(), expectedTracks);
     }
   }
 }

@@ -265,7 +265,7 @@ TEST(MetadataFusionTest, MergesDisjointFields)
   EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"female"})");
 }
 
-TEST(MetadataFusionTest, LatestCameraWinsWithoutConfidence)
+TEST(MetadataFusionTest, LatestSourceWinsWithoutConfidence)
 {
   auto tracker = makeTracker();
   auto earlier = makeObject(0.0, {{"metadata.age", R"({"label":"adult"})"}});
@@ -281,7 +281,7 @@ TEST(MetadataFusionTest, LatestCameraWinsWithoutConfidence)
   EXPECT_EQ(tracks[0].attributes.at("metadata.age"), R"({"label":"senior"})");
 }
 
-TEST(MetadataFusionTest, CurrentSingleCameraMeasurementPreservesPreviousFusion)
+TEST(MetadataFusionTest, CurrentSingleSourceMeasurementPreservesPreviousFusion)
 {
   auto tracker = makeTracker();
   auto plate = makeObject(
@@ -415,7 +415,7 @@ TEST(MetadataFusionTest, MetadataFieldsAccumulateAcrossFrames)
   EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"female","confidence":0.9})");
 }
 
-TEST(MetadataFusionTest, StoredMaximumBeatsCurrentMultiCameraFusion)
+TEST(MetadataFusionTest, StoredMaximumBeatsCurrentMultiSourceFusion)
 {
   auto tracker = makeTracker();
   auto stored = makeObject(
@@ -471,7 +471,7 @@ TEST(MetadataFusionTest, MetadataStateDoesNotSurviveTrackExpiration)
   EXPECT_EQ(tracks[0].attributes.at("metadata.gender"), R"({"label":"female","confidence":0.9})");
 }
 
-TEST(MetadataFusionTest, MetadataDoesNotBypassSingleCameraCorrection)
+TEST(MetadataFusionTest, MetadataDoesNotBypassSingleSourceCorrection)
 {
   auto tracker = makeTracker();
   auto initial = makeObject(0.0, {{"metadata.gender", R"({"label":"female"})"}});
