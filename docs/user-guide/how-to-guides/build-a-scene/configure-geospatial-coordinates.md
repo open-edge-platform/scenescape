@@ -89,7 +89,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 For scenes that use a 3D model (GLB file) as the map:
 
-### Prerequisites
+### 3D Model Prerequisites
 
 - The scene's **Map Type** is **Geospatial Map**. The 3D model section and the REST endpoints reject other map types.
 - The scene has a saved map centre (latitude and longitude). Until the scene is saved with a map centre, the file picker is disabled and the preview request returns `400`. Select a location on the map as described in [Steps to Leverage Built-In Geospatial Map Creation](#steps-to-leverage-built-in-geospatial-map-creation) and click **Save Scene**.
