@@ -481,6 +481,11 @@ class PipelineEngine:
       if 'metrics' in config:
         evaluator.configure_metrics(config['metrics'])
 
+      if 'space' in config:
+        if not hasattr(evaluator, 'set_space'):
+          raise ValueError(f"Evaluator {evaluator_key} does not support 'space'")
+        evaluator.set_space(config['space'])
+
       if camera_fps is not None:
         evaluator.set_base_fps(camera_fps)
 

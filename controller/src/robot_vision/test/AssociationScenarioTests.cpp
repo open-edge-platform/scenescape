@@ -226,6 +226,13 @@ TEST(TrackerRunTest, CountsATrackRestartedAfterDropAsIdentityError)
   EXPECT_EQ(run.identityErrors({1}), 1);
 }
 
+TEST(TrackerRunTest, PositionMahalanobisUsesTheServiceGate)
+{
+  // The Controller and the Tracker Service gate the 3x3 position with chi2(p, 3), not chi2(p, 2) (9.21 at 0.99).
+  EXPECT_NEAR(positionMahalanobisAssociation().threshold, 11.3449, 1e-3);
+  EXPECT_NEAR(positionMahalanobisAssociation(0.95).threshold, 7.8147, 1e-3);
+}
+
 // Regression
 
 TEST(AssociationScenarioTest, PersonWalkingKeepsOneTrack)

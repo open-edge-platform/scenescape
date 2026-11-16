@@ -81,9 +81,11 @@ public:
     /**
      * @brief Batch-transform detections from pixel space to world-space TrackedObjects.
      *
-     * For each detection, undistorts two opposite bbox corners and derives the
+     * For each bbox detection, undistorts two opposite bbox corners and derives the
      * normalized foot, BL, BR, TL before batched world projection. Computes
-     * world position (from foot point) and world size (from corner distances).
+     * world position (from foot point, z = 0) and world size (from corner distances).
+     * Detections with a sensor-frame translation and size are pose-transformed
+     * directly, keeping their measured z.
      *
      * Returns exactly one TrackedObject per input detection, in input order.
      * Rays at or above the horizon are projected to the horizon distance
@@ -91,11 +93,12 @@ public:
      * When present, rotation must be a finite sensor-frame [x, y, z, w]
      * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
-     * @param detections Span of pixel-space detections (bounding boxes)
+     * @param detections Span of detections (pixel bbox, or sensor-frame translation and size)
      * @param sightings Optional chunk-local context for tagging ReID observations
      * @throws std::invalid_argument if the context does not reference the exact detection span.
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity is zero.
+     *         z_measured is true for translation detections, false for ground-plane projections.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
      *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
      *         attributes["confidence"] is set from Detection::confidence when present.

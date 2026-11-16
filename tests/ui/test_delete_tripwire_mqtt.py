@@ -81,7 +81,6 @@ def getTripwireUid(rest, tw_name):
   return res["results"][0]['uid']
 
 @pytest.mark.test_name("NEX-T10431")
-@pytest.mark.fresh_stack
 def test_create_and_delete_tripwire_mqtt(demo_scene, params, record_xml_attribute):
   """! This function creates Trip wire horizontally and the data is published
   such that the object (category ["custom_person"]) moves vertically across the
