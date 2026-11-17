@@ -19,6 +19,11 @@ from mcp_server.tools import tool_registry
 
 logger = logging.getLogger(__name__)
 
+RESPONSE_OUTCOMES = {
+  JsonRpcErrorResponse: OUTCOME_PROTOCOL_ERROR,
+  JsonRpcResultResponse: OUTCOME_SUCCESS,
+}
+
 MCP_SERVER = McpServer(
   name='scenescape', version='0.1.0',
   protocol_versions=('2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28'),
@@ -38,13 +43,11 @@ def dispatch_request(user: AbstractBaseUser, payload: McpRequest) -> McpHttpResu
   outcome = OUTCOME_EXCEPTION
   try:
     result = MCP_SERVER.dispatch_request(user, payload)
-    match result.body:
-      case JsonRpcErrorResponse():
-        outcome = OUTCOME_PROTOCOL_ERROR
-      case JsonRpcResultResponse(result=ToolResult(is_error=True)):
+    outcome = RESPONSE_OUTCOMES.get(type(result.body), OUTCOME_SUCCESS)
+    if isinstance(result.body, JsonRpcResultResponse):
+      tool_result = result.body.result
+      if isinstance(tool_result, ToolResult) and tool_result.is_error:
         outcome = OUTCOME_TOOL_ERROR
-      case _:
-        outcome = OUTCOME_SUCCESS
     return result
   finally:
     duration_ms = (perf_counter() - started) * 1000
