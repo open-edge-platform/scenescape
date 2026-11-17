@@ -790,9 +790,10 @@ class TestFindMatches:
     assert result is None
     db.sendQuery.assert_not_called()
 
+  @pytest.mark.parametrize("neighbors", [None, 1, 2])
   @patch('controller.vdms_adapter.vdms.vdms')
-  def test_find_matches_returns_matched_entities(self, mock_vdms_class):
-    """Verify findMatches returns matched entities from VDMS."""
+  def test_find_matches_returns_matched_entities(self, mock_vdms_class, neighbors):
+    """Verify matches respect both the default and explicit neighbor limits."""
     mock_vdms_instance = MagicMock()
     mock_vdms_class.return_value = mock_vdms_instance
 
@@ -809,11 +810,15 @@ class TestFindMatches:
     }], []))
 
     test_vectors = [np.random.randn(256).astype(np.float32)]
-    result = db.findMatches("Person", test_vectors)
+    options = {} if neighbors is None else {"k_neighbors": neighbors}
+    result = db.findMatches("Person", test_vectors, **options)
+    expected_neighbors = K_NEIGHBORS if neighbors is None else neighbors
 
     assert result is not None, "findMatches should return results when matches found"
     assert len(result) == 1
-    assert result[0] == expected_entities
+    assert result[0] == expected_entities[:expected_neighbors]
+    db.sendQuery.assert_called_once()
+    assert db.sendQuery.call_args.args[0][0]["FindDescriptor"]["k_neighbors"] == expected_neighbors
 
   @patch('controller.vdms_adapter.vdms.vdms')
   def test_find_matches_filters_invalid_ip_similarity_scores(self, mock_vdms_class):
@@ -1909,6 +1914,7 @@ class TestGetPersistedAttributes:
     assert 'persist' in results_list
     assert 'persist_timestamp' in results_list
 
+@pytest.mark.usefixtures("shutdown_uuid_managers")
 class TestUpdateActiveDictPersistMerge:
   """Test persist attribute merging in updateActiveDict on REID match."""
 

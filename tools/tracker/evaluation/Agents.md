@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - Phase 1 constraints:
   - only batch mode is supported (read/process/write all data at once), although class interfaces and I/O utilities may use streaming API underneath
-  - the only supported dataset is Unity dataset
+  - supported datasets: Unity (default) and Wildtrack
 
 ## Quick Links
 
@@ -37,7 +37,9 @@ SPDX-License-Identifier: Apache-2.0
   - `evaluators/tests/` - component-specific unit tests
 - `pipeline_configs/` – sample YAML pipelines used by `pipeline_engine.py` for smoke and regression tests.
 - `tests/` – pytest suites covering pipeline engine plus per-component integration tests.
-- `utils/` – reusable helpers (format converters, stream loaders) shared across component groups.
+- `utils/` – reusable helpers (format converters, stream loaders, timeline, track matching) shared across component groups.
+- `visualization/` – plots and videos of robot-vision scenario recordings and evaluation pipeline runs; see `visualization/README.md`
+  - `visualization/tests/` - unit tests, recorded fixture and a copy of the 3D camera-data schema
 
 ## Datasets
 
@@ -48,6 +50,9 @@ SPDX-License-Identifier: Apache-2.0
     - scene configuration in non-canonical format (however accepted by SceneControllerHarness implementation)
     - JSONL files with camera detections for 1, 10 and 30 FPS in canonical format
     - input camera videos (currently unused)
+- **WildtrackDataset**: `datasets/wildtrack_dataset.py`
+  - dataset location in the repository: `../../../tests/system/metric/wildtrack_dataset/` (preprocessed with `datasets/wildtrack/preprocess.py`)
+  - single scene, seven cameras (`cam0`–`cam6`), 2 FPS, 400 annotated frames, explicit camera calibration in the scene configuration
 
 Check `datasets/README.md` for more details
 
@@ -131,11 +136,13 @@ Check `evaluators/README.md` for more details
   - Dataset: [base/tracking_dataset.py](base/tracking_dataset.py)
   - Harness: [base/tracker_harness.py](base/tracker_harness.py)
   - Evaluator: [base/tracker_evaluator.py](base/tracker_evaluator.py)
-- **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py), [utils/format_converters/](./utils/format_converters.py).
+- **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py) (also a CLI for a `tracks.jsonl` + `groundtruth.jsonl` directory, e.g. a robot-vision recording: `python evaluators/trackeval_evaluator.py <dir>`), [utils/format_converters/](./utils/format_converters.py).
 - **Jitter adapter**: [evaluators/jitter_evaluator.py](evaluators/jitter_evaluator.py).
 - **Diagnostic adapter**: [evaluators/diagnostic_evaluator.py](evaluators/diagnostic_evaluator.py).
 - **Camera projection harness**: [harnesses/camera_projection_harness/camera_projection_harness.py](harnesses/camera_projection_harness/camera_projection_harness.py), container script: [harnesses/camera_projection_harness/run_projection.py](harnesses/camera_projection_harness/run_projection.py).
 - **Camera accuracy evaluator**: [evaluators/camera_accuracy_evaluator.py](evaluators/camera_accuracy_evaluator.py).
+- **Track matching**: [utils/tracks.py](utils/tracks.py) (`match_tracks()`, used by the diagnostic evaluator and the visualization tools).
+- **Scenario visualization**: [visualization/plot_scenario.py](visualization/plot_scenario.py) (PNG plots) and [visualization/render_video.py](visualization/render_video.py) (MP4/GIF videos), both on a scenario directory or pipeline run directory loaded by [visualization/scenario_data.py](visualization/scenario_data.py); workflow in [visualization/README.md](visualization/README.md).
 
 ## Guidelines for Adding New Component or Updating Existing One
 
@@ -165,6 +172,7 @@ Check `evaluators/README.md` for more details
 - `datasets/tests/` - component-specific unit tests
 - `harnesses/tests/` - component-specific unit tests
 - `evaluators/tests/` - component-specific unit tests
+- `visualization/tests/` - visualization unit tests
 - `tests/` – pytest suites covering format converters, pipeline engine plus per-component integration tests.
 
 ### Running tests

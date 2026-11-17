@@ -3,6 +3,7 @@
 
 import collections
 import concurrent.futures
+import itertools
 import threading
 import math
 
@@ -47,14 +48,21 @@ DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
+# Upper bound for shutdown() to wait for similarity queries still running
+SHUTDOWN_QUERY_WAIT_SECS = DEFAULT_MAX_QUERY_TIME
 DEFAULT_SIMILARITY_METRIC = DEFAULT_CONFIG_SIMILARITY_METRIC
 SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
 
 # One purge worker per process: category trackers each construct a UUIDManager,
 # but they share one ReID store and must not each schedule DeleteExpired /
-# filter-deletes against it.
-_PURGE_OWNER_LOCK = threading.Lock()
+# filter-deletes against it. Reentrant because shutdown() can run from __del__
+# on a thread that already holds the lock.
+_PURGE_OWNER_LOCK = threading.RLock()
 _PURGE_OWNER = None
+
+# Orders UUIDManagers by creation so TrackedObjectRegistry can tell a retired
+# tracker from the one that replaced it under the same scene id.
+_REGISTRY_GENERATIONS = itertools.count(1)
 
 
 class UUIDManager:
@@ -124,8 +132,15 @@ class UUIDManager:
     self.purge_timer = None
     self.purge_interval_secs = None
     self._owns_purge_timer = False
+    # Set by connectDatabase(); only connected managers may take over purging.
+    self._database_connected = False
     self.scene_id = None
     self._shutdown_complete = False
+    self.registry_generation = next(_REGISTRY_GENERATIONS)
+    # Similarity queries running in the pool; shutdown() waits for them before
+    # its final flush because they stage features for enrollment.
+    self._pending_queries = set()
+    self._pending_queries_lock = threading.Lock()
 
     self.unique_id_count_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
@@ -250,10 +265,14 @@ class UUIDManager:
 
   def __del__(self):
     """Clean up resources when the UUIDManager is destroyed"""
-    self.shutdown()
+    self.shutdown(flush_pending=False)
 
-  def shutdown(self):
-    """Explicitly stop the stale feature timer and clean up resources"""
+  def shutdown(self, flush_pending=True):
+    """Explicitly stop the stale feature timer and clean up resources
+
+    @param  flush_pending  Write features not yet flushed to the database before
+                           the pool stops. Skipped when called from __del__.
+    """
     # shutdown() can be called both explicitly and via __del__. Make it
     # idempotent to avoid duplicate cleanup side effects.
     if getattr(self, '_shutdown_complete', False):
@@ -264,6 +283,12 @@ class UUIDManager:
       self.stale_feature_timer.cancel()
       self.stale_feature_timer = None
     self._releasePurgeOwnership()
+    if flush_pending:
+      self._waitForPendingQueries()
+      try:
+        self._flushStaleFeatures(force=True)
+      except Exception as err:
+        log.warning(f"shutdown: Failed to flush pending ReID features: {err}")
     if hasattr(self, 'match_latency_tracker') and self.match_latency_tracker is not None:
       self.match_latency_tracker.shutdown()
     if hasattr(self, 'pool') and self.pool is not None:
@@ -271,29 +296,53 @@ class UUIDManager:
     # Stop contributing this category to the scene-wide tracked-object
     # total immediately, rather than lingering at its last-reported count.
     if getattr(self, '_category', None) is not None:
-      TrackedObjectRegistry.getInstance().removeCategory(self.scene_id, self._category)
+      TrackedObjectRegistry.getInstance().removeCategory(
+        self.scene_id, self._category, generation=self.registry_generation)
+
+  def _waitForPendingQueries(self):
+    """Wait, bounded, for running similarity queries so the final flush sees the
+    features they stage. The pool stays open for the writes that follow."""
+    with self._pending_queries_lock:
+      pending = list(self._pending_queries)
+    if not pending:
+      return
+    _, not_done = concurrent.futures.wait(pending, timeout=SHUTDOWN_QUERY_WAIT_SECS)
+    if not_done:
+      log.warning(
+        f"shutdown: {len(not_done)} similarity query(ies) still running after "
+        f"{SHUTDOWN_QUERY_WAIT_SECS}s; their features may not be persisted")
 
   def _startStaleFeatureTimer(self):
     """Start a background timer to periodically check for and flush stale features"""
     def check_stale_features():
       """Timer callback: check for features older than timeout and flush them"""
+      if self._shutdown_complete:
+        return
       self._flushStaleFeatures()
+      # The owner may have shut down since the last tick
+      if self._database_connected:
+        self._tryStartPurge()
       # Reschedule the timer
-      self._scheduleTimer(check_stale_features)
+      timer = self._scheduleTimer(check_stale_features)
+      if self._shutdown_complete:
+        # shutdown() ran while this callback was executing
+        timer.cancel()
 
     self._scheduleTimer(check_stale_features)
 
   def _scheduleTimer(self, callback):
     """Create and start a daemon timer with the configured check interval"""
-    self.stale_feature_timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
-    self.stale_feature_timer.daemon = True
-    self.stale_feature_timer.start()
+    timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
+    timer.daemon = True
+    self.stale_feature_timer = timer
+    timer.start()
+    return timer
 
   def _tryAcquirePurgeOwnership(self):
     """Return True if this manager became the process-wide purge owner."""
     global _PURGE_OWNER
     with _PURGE_OWNER_LOCK:
-      if _PURGE_OWNER is None:
+      if _PURGE_OWNER is None and not self._shutdown_complete:
         _PURGE_OWNER = self
         self._owns_purge_timer = True
         return True
@@ -305,12 +354,21 @@ class UUIDManager:
     if self.purge_timer is not None:
       self.purge_timer.cancel()
       self.purge_timer = None
-    if not self._owns_purge_timer:
-      return
+    # Always take the lock: a concurrent takeover must either finish first
+    # (and be released here) or see _shutdown_complete and not acquire.
     with _PURGE_OWNER_LOCK:
       if _PURGE_OWNER is self:
         _PURGE_OWNER = None
       self._owns_purge_timer = False
+    return
+
+  def _tryStartPurge(self):
+    """Start the purge timer if retention is on and no other manager owns it."""
+    if self._owns_purge_timer:
+      return
+    if (getattr(self.reid_database, 'retentionEnabled', lambda: False)()
+        and self._tryAcquirePurgeOwnership()):
+      self._startPurgeTimer()
     return
 
   def _startPurgeTimer(self):
@@ -348,8 +406,11 @@ class UUIDManager:
       log.warning(f"_purgeExpiredDescriptors: purgeExpired failed: {e}")
     return
 
-  def _flushStaleFeatures(self):
-    """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
+  def _flushStaleFeatures(self, force=False):
+    """Flush features older than the configured timeout (from reid-config.json) to the database
+
+    @param  force  Flush every pending feature regardless of age
+    """
     if not self.features_for_database_timestamps:
       return
 
@@ -358,7 +419,7 @@ class UUIDManager:
 
     for track_id, timestamp in list(self.features_for_database_timestamps.items()):
       age = current_time - timestamp
-      if age > self.stale_feature_timeout_secs:
+      if force or age > self.stale_feature_timeout_secs:
         stale_track_ids.append(track_id)
 
     if stale_track_ids:
@@ -368,12 +429,11 @@ class UUIDManager:
 
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
+    self._database_connected = True
     # Start the process-wide reclaim timer only after a manager intends to use
     # the store. Category trackers call this from run(); the idle root manager
-    # does not.
-    if (getattr(self.reid_database, 'retentionEnabled', lambda: False)()
-        and self._tryAcquirePurgeOwnership()):
-      self._startPurgeTimer()
+    # does not. Managers that lose the race retry from their stale-feature tick.
+    self._tryStartPurge()
     return
 
   def _ensureReIDDimensions(self, embedding):
@@ -507,7 +567,8 @@ class UUIDManager:
     # always reflects the latest count from all of them, not just this one.
     if self._category is not None:
       TrackedObjectRegistry.getInstance().updateCategoryCount(
-        self.scene_id, self._category, category_count)
+        self.scene_id, self._category, category_count,
+        generation=self.registry_generation)
       metrics.record_reid_total_tracked_object_count(
         TrackedObjectRegistry.getInstance().getTotalCount(self.scene_id))
 
@@ -1361,6 +1422,8 @@ class UUIDManager:
   def _onQuerySimilarityComplete(self, future):
     """Log unhandled exceptions from querySimilarity so a background failure
     doesn't silently leave a track stuck in PENDING_COLLECTION forever."""
+    with self._pending_queries_lock:
+      self._pending_queries.discard(future)
     if future.cancelled():
       return
 
@@ -1413,10 +1476,12 @@ class UUIDManager:
         f"{len(self.quality_features.get(sscape_object.rv_id, []))}")
 
       # Submit query once we have enough features
-      if sufficient_features:
+      if sufficient_features and not self._shutdown_complete:
         log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
         self.active_query[sscape_object.rv_id] = True
         future = self.pool.submit(self.querySimilarity, sscape_object)
+        with self._pending_queries_lock:
+          self._pending_queries.add(future)
         future.add_done_callback(self._onQuerySimilarityComplete)
     # Always pick best ID for the current frame
     self.pickBestID(sscape_object)

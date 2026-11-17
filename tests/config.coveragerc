@@ -9,6 +9,7 @@ source =
     analytics/src/analytics
     reid/src/reid
     cluster_analytics/src
+    positioning/src
 omit =
     */.venv/*
     */site-packages/*

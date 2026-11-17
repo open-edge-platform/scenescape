@@ -224,9 +224,10 @@ class SceneImportTest(UserInterfaceTest):
 
       if self.expected == SCENE_EXISTS:
         # Ensure the scene exists before testing the duplicate-import error.
-        # A prior test's DB restore may have wiped it.
+        # A prior test may have removed it.
         self.importScene()
         time.sleep(self.waitTime)
+        assert self.navigateDirectlyToPage("/")
 
       self.importScene()
       time.sleep(self.waitTime)
@@ -314,7 +315,13 @@ class SceneImportTest(UserInterfaceTest):
 )
 def test_scene_import(scenescape_env, request, record_xml_attribute, zipFile, expected, waitTime):
   test = SceneImportTest(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
-  test.checkForMalfunctions()
+  try:
+    test.checkForMalfunctions()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
+
   assert test.exitCode == 0
   return
 

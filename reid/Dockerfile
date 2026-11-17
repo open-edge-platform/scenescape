@@ -20,7 +20,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN apt-get update \
+RUN apt update && apt upgrade -y \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -g ${GROUP_ID} $WSUSER \

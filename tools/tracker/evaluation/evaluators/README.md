@@ -42,49 +42,6 @@ For full metric list, refer to the TrackEval documentation: https://pypi.org/pro
 - **UUID Mapping**: Consistent UUID-to-integer ID mapping for track identity preservation
 - **Timestamp Handling**: Frame synchronization via FPS-based timestamp-to-frame conversion
 
-**Usage Example**:
-
-```python
-import sys
-from pathlib import Path
-
-# Add parent directories to path
-sys.path.insert(0, str(Path(__file__).parent))
-
-from evaluators.trackeval_evaluator import TrackEvalEvaluator
-from datasets.unity_dataset import UnityDataset
-from harnesses.scene_controller_harness import SceneControllerHarness
-
-# Initialize dataset
-dataset = UnityDataset("path/to/dataset")
-dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
-
-# Initialize and run harness
-harness = SceneControllerHarness(container_image='intel/scenescape-controller:latest')
-harness.set_scene_config(dataset.get_scene_config())
-harness.set_custom_config({'tracker_config_path': '/path/to/tracker-config.json'})
-tracker_outputs = harness.process_inputs(dataset.get_inputs())
-
-# Initialize evaluator
-evaluator = TrackEvalEvaluator()
-
-# Configure metrics
-evaluator.configure_metrics(['HOTA', 'MOTA', 'IDF1'])
-evaluator.set_output_folder(Path('/path/to/results'))
-
-# Process and evaluate
-evaluator.process_tracker_outputs(
-    tracker_outputs=tracker_outputs,
-    ground_truth=dataset.get_ground_truth()
-)
-
-# Get metrics
-metrics = evaluator.evaluate_metrics()
-print(f"HOTA: {metrics['HOTA']:.3f}")
-print(f"MOTA: {metrics['MOTA']:.3f}")
-print(f"IDF1: {metrics['IDF1']:.3f}")
-```
-
 **Current Limitations**:
 
 - Fixed class name ("pedestrian") for all objects
@@ -92,9 +49,31 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 - No parallel processing support
 - Limited configuration options for TrackEval parameters
 
+**Command Line**:
+
+Computes the metrics for a directory with `tracks.jsonl` (tracker output) and `groundtruth.jsonl` (ground truth) in
+the canonical formats, as robot-vision test recordings have. From `tools/tracker/evaluation`, with its `.venv` activated:
+
+1. Generate a recording as described in [Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings), e.g.
+   `/tmp/rv-scenarios/MotionScenarioTest.TracksMotionCases/turn`.
+2. Run the evaluator on it:
+
+   ```bash
+   python evaluators/trackeval_evaluator.py /tmp/rv-scenarios/MotionScenarioTest.TracksMotionCases/turn
+   ```
+
+3. Read the summary printed to stdout, in the same format as `pipeline_engine`; TrackEval result files are in
+   `<input>/metrics/`.
+
+| Option          | Description                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `--metrics A,B` | Comma-separated metrics, default `HOTA,MOTA,IDF1`                                                                         |
+| `--output DIR`  | Output directory, default `<input>/metrics`                                                                               |
+| `--fps N`       | Frame rate for matching timestamps, default the median ground-truth rate; set it to the dataset's `camera_fps` when known |
+
 **Implementation**: [trackeval_evaluator.py](trackeval_evaluator.py)
 
-**Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for comprehensive test suite with 16 test cases covering configuration, processing, evaluation, and integration workflows.
+**Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for the test suite covering configuration, processing, evaluation, integration workflows and the command line.
 
 ### DiagnosticEvaluator
 
@@ -110,7 +89,7 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Key Features**:
 
-- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`).
+- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`). Implemented by `match_tracks()` in [`utils/tracks.py`](../utils/tracks.py).
 - **Missing Frame Handling**: Frames where only one side (output or GT) has data produce `NaN` in CSV output, preserving full temporal context.
 - **CSV Output**: Per-metric CSV files with headers:
   - LOC_T_X / LOC_T_Y: `[frame_id, track_id, gt_id, value_track, value_gt]`

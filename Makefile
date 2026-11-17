@@ -8,7 +8,7 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
 
 # Image variables
@@ -77,8 +77,8 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics positioning
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics positioning)
 DEPLOYMENT_TEST ?= 0
 
 # First-party application trees; this list is the complexity scope of record.
@@ -126,7 +126,7 @@ help:
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, positioning, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
@@ -184,6 +184,10 @@ help:
 	@echo ""
 	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
 	@echo ""
+	@echo "  check-manager-contract          Check manager behavior vs. its committed OpenAPI spec"
+	@echo "  check-autocalibration-contract  Check autocalibration behavior vs. its committed OpenAPI spec"
+	@echo "  check-mapping-contract          Check mapping behavior vs. its committed OpenAPI spec"
+	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
 	@echo "  lint-python-pylint          Lint python files using pylint"
@@ -199,6 +203,8 @@ help:
 	@echo "  prettier-write              Format code using prettier"
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
+	@echo ""
+	@echo "  generate-positioning-proto  Regenerate Positioning protobuf/gRPC Python stubs"
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
@@ -236,7 +242,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid positioning: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -480,6 +486,25 @@ ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_z
 .PHONY: check-zephyr-ids
 check-zephyr-ids:
 	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
+
+# ============================== OpenAPI schema drift checks ==============================
+# Contract checks fail on drift, the Manager PR review reminder is advisory.
+# None of these targets rewrites a spec file.
+
+.PHONY: check-manager-contract
+check-manager-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/manager_api/ $(PYTEST_FLAGS) || \
+		(echo "Manager OpenAPI contract check failed" && exit 1)
+		
+.PHONY: check-autocalibration-contract
+check-autocalibration-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/autocalibration_api/ $(PYTEST_FLAGS) || \
+		(echo "Autocalibration OpenAPI contract check failed" && exit 1)
+
+.PHONY: check-mapping-contract
+check-mapping-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/mapping_api/ $(PYTEST_FLAGS) || \
+		(echo "Mapping OpenAPI contract check failed" && exit 1)
 
 .PHONY: run_tests
 run_tests: setup-tests
@@ -768,6 +793,14 @@ prettier-write: prettier-dependency
 .PHONY: add-licensing
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
+
+# ===================== Code Generation =============================
+
+.PHONY: generate-positioning-proto
+generate-positioning-proto:
+	@echo "==> Generating Positioning protobuf stubs..."
+	@docs/user-guide/api-docs/positioning/v1/generate.sh || (echo "Positioning protobuf generation failed" && exit 1)
+	@echo "DONE ==> Generating Positioning protobuf stubs"
 
 # ===================== Docker Compose Demo ==========================
 

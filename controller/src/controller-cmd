@@ -11,7 +11,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from controller.scene_controller import SceneController
 from controller.observability import metrics, tracing
 from controller.pose_adjustment import POSE_ADJUSTMENT_ENV_VAR
+from controller.ptz.config import add_ptz_arguments, ptz_settings_from_args
 from scene_common import log
+from scene_common.positioning_config import PositioningConfigError
 
 _ANALYTICS_ONLY_REMOVED = (
   "Controller analytics-only mode was removed. Region, tripwire, sensor, and "
@@ -111,6 +113,7 @@ def build_argparser():
                       action=argparse.BooleanOptionalAction,
                       default=_pose_adjustment_default_enabled(),
                       help="Enable pose-based person bounding box adjustment before world projection.")
+  add_ptz_arguments(parser, os.path.dirname(script_path))
   return parser
 
 def main():
@@ -119,6 +122,11 @@ def main():
     return 2
 
   args = build_argparser().parse_args()
+  try:
+    ptz_settings = ptz_settings_from_args(args)
+  except PositioningConfigError as error:
+    log.error(f"Invalid PTZ configuration: {error}")
+    return 2
   os.environ[POSE_ADJUSTMENT_ENV_VAR] = (
     "true" if args.pose_adjustment else "false"
   )
@@ -134,7 +142,8 @@ def main():
                               args.restauth, args.cert,
                               args.rootcert, args.ntp, args.tracker_config_file, args.schema_file,
                               args.visibility_topic, args.data_source,
-                              args.reid_config_file, args.pose_adjustment_config_file)
+                              args.reid_config_file, args.pose_adjustment_config_file,
+                              ptz_settings=ptz_settings)
 
   # Start health check server if port is specified
   if args.healthcheck_port > 0:

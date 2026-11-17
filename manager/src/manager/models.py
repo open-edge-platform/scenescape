@@ -7,6 +7,7 @@ import socket
 import traceback
 import uuid
 import zipfile
+from functools import partial
 import requests
 
 import numpy as np
@@ -16,6 +17,9 @@ from PIL import Image
 from django.core.files.base import ContentFile
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models import Q
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
@@ -31,14 +35,15 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla
+from manager.validators import (
+  SCENE_NAME_DB_PATTERN, validate_map_file, validate_glb, validate_map_corners_lla, validate_scene_name)
 from manager.fields import ListField
 
 from scene_common import log
 
 # FIXME - when entire app has transitioned to using APIs
 # move this definition to views.py
-def sendUpdateCommand(scene_id=None, camera_data=None):
+def sendUpdateCommand(scene_id=None, camera_data=None, camera_config_update=None):
   broker = os.environ.get("BROKER")
   auth = os.environ.get("BROKERAUTH")
   rootcert = os.environ.get("BROKERROOTCERT")
@@ -46,37 +51,53 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
-  if broker is not None:
-    try:
-      client = PubSub(auth, cert, rootcert, broker)
-      client.connect()
-    except (socket.gaierror, ConnectionRefusedError) as e:
-      log.error("Unable to connect: %s", e)
-    else:
-      if scene_id:
-        client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
-        url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
-        headers = {
-          "Content-Type": "application/json"
-        }
-        try:
-          response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
-          log.info("Status code: %s", response.status_code)
-          try:
-            log.info("Response: %s", response.json())
-          except ValueError:
-            log.info("Non-JSON response: %s", response.text)
-        except requests.exceptions.RequestException as e:
-          log.warning("Failed to send update command to autocalibration service: %s", e)
+  if broker is None:
+    return
+  try:
+    client = PubSub(auth, cert, rootcert, broker)
+    client.connect()
+  except (socket.gaierror, ConnectionRefusedError) as e:
+    log.error("Unable to connect: %s", e)
+    return
 
-      if camera_data:
-        client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
-      msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
-      if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
-        client.loopStart()
-        msg.wait_for_publish()
-        client.loopStop()
+  if scene_id:
+    client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
+    url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
+    headers = {
+      "Content-Type": "application/json"
+    }
+    try:
+      response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
+      log.info("Status code: %s", response.status_code)
+      try:
+        log.info("Response: %s", response.json())
+      except ValueError:
+        log.info("Non-JSON response: %s", response.text)
+    except requests.exceptions.RequestException as e:
+      log.warning("Failed to send update command to autocalibration service: %s", e)
+
+  if camera_data:
+    client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
+  if camera_config_update:
+    publishCameraConfigUpdate(client, camera_config_update)
+  msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
+  if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
+    client.loopStart()
+    msg.wait_for_publish()
+    client.loopStop()
   return
+
+def publishCameraConfigUpdate(client, camera_config_update):
+  """Publish calibration invalidation only for a topic-safe camera identity."""
+  try:
+    topic = PubSub.formatTopic(
+      PubSub.CMD_CAMERA_CONFIG, camera_id=camera_config_update['camera_id'])
+  except (TypeError, ValueError) as e:
+    log.warning(f"Skipping camera configuration invalidation: {e}")
+  else:
+    client.publish(topic, json.dumps({
+      'calibration_version': camera_config_update['calibration_version']
+    }), qos=1)
 
 def invalidate_scene_cache(current_scene, old_scene=None):
   """Invalidate SceneLoader cache for given scenes."""
@@ -116,13 +137,19 @@ class Scene(models.Model):
   DEFAULT_MESH_ROTATION = 90.0
 
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
-  name = models.CharField(max_length=200, unique=True)
+  name = models.CharField(max_length=200, unique=True, validators=[validate_scene_name])
   map_type = models.CharField("Map Type", max_length=20, choices=MAP_TYPE_CHOICES, default='map_upload', null=True)
   thumbnail = models.ImageField(default=None, null=True, editable=False)
   map = models.FileField("Scene map as .glb or .ply or image or .zip or video", default=None, null=True, blank=True,
                             validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply","mp4",
                             "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
+  map_contributor = models.CharField(
+    "Scene map last contributor", max_length=200, default="", blank=True)
+  # Which recorded source Scene.map mirrors; null for maps without a recorded source.
+  default_source_map = models.ForeignKey(
+    "SceneSourceMap", null=True, blank=True, on_delete=models.SET_NULL,
+    related_name="+", editable=False)
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
@@ -211,12 +238,24 @@ class Scene(models.Model):
   external_update_rate = models.FloatField("Max External Update Rate (Hz)", default=30, blank=True, validators=[MinValueValidator(0.001)])
   inlier_threshold = models.FloatField("Feature Match Confidence Threshold", default=0.5, blank=True, validators=[MinValueValidator(0.0)])
 
+  class Meta:
+    constraints = [
+      models.CheckConstraint(
+        check=(
+          models.Q(name__regex=SCENE_NAME_DB_PATTERN)
+          & ~models.Q(name__startswith='.')
+          & ~models.Q(name__contains='..')
+        ),
+        name="%(app_label)s_%(class)s_valid_name",
+      ),
+    ]
+
   def __str__(self):
     return self.name
 
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self._original_map = self.map
+    self._original_map = self.map.name
     self._original_scale = self.scale
     self._original_rotation_x = self.rotation_x
     self._original_rotation_y = self.rotation_y
@@ -224,6 +263,7 @@ class Scene(models.Model):
     self._original_translation_x = self.translation_x
     self._original_translation_y = self.translation_y
     self._original_translation_z = self.translation_z
+    self._original_mesh_scale = (self.scale_x, self.scale_y, self.scale_z)
     self._original_calibration_mode = self.camera_calibration
     self._original_polycam_data = self.polycam_data
     self._original_matcher = self.matcher
@@ -250,6 +290,7 @@ class Scene(models.Model):
 
   def regenerateThumbnail(self):
     return self.map != self._original_map or \
+           self._original_mesh_scale != (self.scale_x, self.scale_y, self.scale_z) or \
            self._original_rotation_x != self.rotation_x or \
            self._original_rotation_y != self.rotation_y or \
            self._original_rotation_z != self.rotation_z or \
@@ -264,7 +305,7 @@ class Scene(models.Model):
       already aligned by the mapping service).
     """
     # Skip alignment if mesh is from generateMesh flow (already aligned by mapping service)
-    if getattr(self, '_from_generate_mesh', False):
+    if getattr(self, '_from_generate_mesh', False) or getattr(self, '_explicit_mesh_transform', False):
       return
 
     if self.map and os.path.splitext(self.map.path)[1].lower() == ".glb":
@@ -299,6 +340,22 @@ class Scene(models.Model):
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
     return
 
+  def _invalidateMapState(self, glb_from_zip):
+    # FieldFile equality is name-based; detect same-name uploads before storage saves them.
+    map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
+    map_changed = self._original_map != self.map or map_reuploaded or bool(glb_from_zip)
+    if map_changed:
+      self.default_source_map_id = None
+    if self.changedCalibrationParams() or map_changed:
+      self.map_processed = None
+
+  def _storeMapArchiveReference(self, glb_from_zip, map_zip_upload):
+    if not map_zip_upload:
+      return glb_from_zip
+    self.polycam_data = self.map.name
+    type(self).objects.filter(pk=self.pk).update(polycam_data=self.map.name)
+    return self.polycam_data
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     send_update_command = kwargs.pop("send_update_command", True)
@@ -306,24 +363,21 @@ class Scene(models.Model):
     self.output_dir = f"{os.getcwd()}/datasets/{self.name}/output_dir"
     try:
       glb_from_zip = None
+      map_zip_upload = False
       # use glb from zip uploaded in map and copy zip to polycam data
       if (self._original_map != self.map) and \
                       os.path.splitext(self.map.name)[1].lower() == ".zip":
-        glb_from_zip = self.map
-        self.polycam_data = self.map
+        self.polycam_data = self.map.name
+        glb_from_zip = self.polycam_data
+        map_zip_upload = True
         self.camera_calibration = MARKERLESS
       # use glb from zip uploaded in polycam data
       if (self._original_polycam_data != self.polycam_data):
         glb_from_zip = self.polycam_data
 
-      # Clear processed state when calibration inputs or the map file change so
-      # AprilTag / markerless registration re-runs (stale markers otherwise stay).
-      # FieldFile equality is name-based, so a same-name re-upload is only visible as uncommitted.
-      map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
-      if self.changedCalibrationParams() or (self._original_map != self.map) or map_reuploaded:
-        self.map_processed = None
-
+      self._invalidateMapState(glb_from_zip)
       super().save(*args, **kwargs)
+      glb_from_zip = self._storeMapArchiveReference(glb_from_zip, map_zip_upload)
 
       if glb_from_zip:
         try:
@@ -373,9 +427,6 @@ class Scene(models.Model):
   def delete(self, *args, **kwargs):
     super(Scene, self).delete(*args, **kwargs)
     transaction.on_commit(sendUpdateCommand)
-    if self.map:
-      storage, path = self.map.storage, self.map.path
-      storage.delete(path)
     return
 
   def roiJSON(self):
@@ -422,6 +473,34 @@ class Scene(models.Model):
         traceback.print_exc()
     return mScene
 
+  @staticmethod
+  def _cameraRuntimeInfo(cam, mScene):
+    """Build runtime camera payload for ScenescapeCamera construction."""
+    sInfo = cam.transformation
+    sInfo['pose_locked'] = cam.pose_locked
+    sInfo['pose_provenance'] = cam.poseProvenance
+
+    if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
+       and cam.intrinsics_cx != None and cam.intrinsics_cy != None:
+      sInfo['intrinsics'] = [cam.intrinsics_fx, cam.intrinsics_fy,
+                             cam.intrinsics_cx, cam.intrinsics_cy]
+    elif cam.intrinsics_fx != None:
+      sInfo['intrinsics'] = [cam.intrinsics_fx]
+      if cam.intrinsics_fy != None:
+        sInfo['intrinsics'].append(cam.intrinsics_fy)
+
+    if cam.distortion_k1 != None and cam.distortion_k2 != None \
+       and cam.distortion_p1 != None and cam.distortion_p2 != None \
+       and cam.distortion_k3 != None:
+      sInfo['distortion'] = [cam.distortion_k1, cam.distortion_k2,
+                             cam.distortion_p1, cam.distortion_p2, cam.distortion_k3]
+
+    # Propagate scene map scale for the RANSAC map-ppm heuristic (see
+    # scaled_reprojection_threshold_px); not camera-resolution scaling.
+    if getattr(mScene, 'scale', None) is not None and 'pixels per meter' not in sInfo:
+      sInfo['pixels per meter'] = mScene.scale
+    return sInfo
+
   def scenescapeSceneUpdateSensors(self, mScene, force=False):
     # print("Updating sensors")
     for sensor in self.sensor_set.all():
@@ -431,28 +510,7 @@ class Scene(models.Model):
         if cam.transforms is None:
           continue
 
-        sInfo = cam.transformation
-
-        if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
-           and cam.intrinsics_cx != None and cam.intrinsics_cy != None:
-          sInfo['intrinsics'] = [cam.intrinsics_fx, cam.intrinsics_fy,
-                                 cam.intrinsics_cx, cam.intrinsics_cy]
-        elif cam.intrinsics_fx != None:
-          sInfo['intrinsics'] = [cam.intrinsics_fx]
-          if cam.intrinsics_fy != None:
-            sInfo['intrinsics'].append(cam.intrinsics_fy)
-
-        if cam.distortion_k1 != None and cam.distortion_k2 != None \
-           and cam.distortion_p1 != None and cam.distortion_p2 != None \
-           and cam.distortion_k3 != None:
-          sInfo['distortion'] = [cam.distortion_k1, cam.distortion_k2,
-                                 cam.distortion_p1, cam.distortion_p2, cam.distortion_k3]
-
-        # Propagate scene map scale for the RANSAC map-ppm heuristic (see
-        # scaled_reprojection_threshold_px); not camera-resolution scaling.
-        if getattr(mScene, 'scale', None) is not None and 'pixels per meter' not in sInfo:
-          sInfo['pixels per meter'] = mScene.scale
-
+        sInfo = self._cameraRuntimeInfo(cam, mScene)
         mScene.cameras[sensor.sensor_id] = ScenescapeCamera(
             sensor.sensor_id, sInfo, resolution=(cam.width, cam.height))
     return
@@ -536,6 +594,88 @@ class Scene(models.Model):
   def wssConnection(self):
     log.info("Getting wss connection string.")
     return "wss://localhost/mqtt"
+
+def source_map_upload_to(instance, filename):
+  return f"source-maps/{instance.scene_id}/{instance.id}.glb"
+
+def source_map_thumbnail_upload_to(instance, filename):
+  return f"source-maps/{instance.scene_id}/{instance.id}_2d.png"
+
+def mapping_artifact_upload_to(instance, filename):
+  return f"mapping-artifacts/{instance.scene_id}/{instance.id}.zip"
+
+class SceneSourceMap(models.Model):
+  """The current mesh from one method; a new upload from that method replaces it."""
+
+  USER_METHOD = "user"
+
+  id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+  scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="source_maps")
+  method = models.CharField(max_length=32, default=USER_METHOD)
+  file = models.FileField(upload_to=source_map_upload_to, blank=True)
+  thumbnail = models.ImageField(upload_to=source_map_thumbnail_upload_to, null=True, blank=True)
+  sha256 = models.CharField(max_length=64)
+  contributor = models.CharField(max_length=200, default="", blank=True)
+  created = models.DateTimeField(auto_now_add=True)
+  transform = models.JSONField(default=dict)
+
+  class Meta:
+    constraints = [
+      models.UniqueConstraint(
+        fields=["scene", "method"], name="unique_source_map_per_method"),
+    ]
+
+class SceneMappingArtifact(models.Model):
+  """One method's current resume zip; a new upload replaces it."""
+
+  id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+  scene = models.ForeignKey(
+    Scene, on_delete=models.CASCADE, related_name="mapping_artifacts")
+  method = models.CharField(max_length=32)
+  bundle = models.FileField(upload_to=mapping_artifact_upload_to)
+  sha256 = models.CharField(max_length=64)
+  size = models.PositiveBigIntegerField()
+  fiducials = models.JSONField(default=list)
+  manifest = models.JSONField(default=dict, blank=True)
+  created = models.DateTimeField(auto_now_add=True)
+  contributor = models.CharField(max_length=200, default="", blank=True)
+
+  class Meta:
+    constraints = [
+      models.UniqueConstraint(
+        fields=["scene", "method"], name="unique_mapping_artifact_per_method"),
+    ]
+
+
+def _delete_unreferenced_mapping_file(storage, name, using):
+  if Scene.objects.using(using).filter(Q(map=name) | Q(thumbnail=name)).exists():
+    return
+  if SceneSourceMap.objects.using(using).filter(Q(file=name) | Q(thumbnail=name)).exists():
+    return
+  if SceneMappingArtifact.objects.using(using).filter(bundle=name).exists():
+    return
+  if storage.exists(name):
+    storage.delete(name)
+
+
+@receiver(post_delete, sender=Scene)
+@receiver(post_delete, sender=SceneSourceMap)
+@receiver(post_delete, sender=SceneMappingArtifact)
+def delete_mapping_files_after_commit(sender, instance, using, **kwargs):
+  """Cascade deletions must not remove shared files or survive a rollback."""
+  fields = {
+    Scene: ("map", "thumbnail"),
+    SceneSourceMap: ("file", "thumbnail"),
+    SceneMappingArtifact: ("bundle",),
+  }
+  for field in fields[sender]:
+    stored_file = getattr(instance, field)
+    if stored_file:
+      transaction.on_commit(
+        partial(_delete_unreferenced_mapping_file, stored_file.storage, stored_file.name, using),
+        using=using,
+      )
+
 
 class ChildScene(models.Model):
   child = models.OneToOneField(Scene, default=None, null=True, blank=True,
@@ -706,6 +846,11 @@ class Cam(Sensor):
   undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
+  pose_locked = models.BooleanField(default=False, verbose_name="Pose locked")
+  # ADR 18: durable calibration writer identity for runtime pose_provenance.origin.
+  calibration_origin = models.CharField(
+    max_length=64, default='manager.rest', blank=True,
+    verbose_name="Calibration origin")
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
                                     default=POINT_CORRESPONDENCE)
   width = models.IntegerField(default=640, null=False, blank=False)
@@ -756,6 +901,7 @@ class Cam(Sensor):
                                             help_text="Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.")
   camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
                                      help_text="The camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once 'Use Camera Pipeline' is enabled and 'Save Camera' button is clicked. Please review and/or adjust it before applying.")
+  ptz_calibration = models.JSONField(default=None, null=True, blank=True)
   detection_labels = models.TextField(max_length=2000, null=True, blank=True,
                                    verbose_name="Detection Labels",
                                    help_text="Detection labels to use, one per line")
@@ -763,6 +909,11 @@ class Cam(Sensor):
   @property
   def transformation(self):
     return ScenescapeCameraPose.arrayToDictionary(self.transforms, self.transform_type)
+
+  @property
+  def poseProvenance(self):
+    origin = self.calibration_origin or POSE_ORIGIN_MANAGER_REST
+    return {'class': POSE_CLASS_CALIBRATION, 'origin': origin}
 
   def logData(self, sensor_type, jdata):
     timestamp = get_epoch_time(jdata['timestamp'])
@@ -793,6 +944,8 @@ class Cam(Sensor):
       'sensor_id': self.sensor_id,
       'name': self.name,
       'scene': scene_name,
+      'pose_locked': self.pose_locked,
+      'scene_uid': str(self.scene_id) if self.scene_id else None,
       'command': self.command,
       'camerachain': self.camerachain,
       'threshold': self.threshold,
@@ -845,6 +998,49 @@ class Cam(Sensor):
     }
     return camera_data
 
+  def _defaultPrincipalPoint(self, size, key):
+    return float(size) / 2.0 if size else self.DEFAULT_INTRINSICS[key]
+
+  def _reset_pose_if_scene_changed(self, update_fields):
+    """Clears the scene-relative pose when an existing camera moves to another scene.
+
+    Returns (scene_changed, original_scene).
+    """
+    if self.pk is None:
+      return False, None
+    if update_fields is not None and not {"scene", "scene_id"} & set(update_fields):
+      return False, None
+    try:
+      original = Cam.objects.get(pk=self.pk)
+    except Cam.DoesNotExist:
+      return False, None
+    scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
+    if original.scene_id == scene_id:
+      return False, None
+    # Keep the pose if this save explicitly supplies a new one (e.g. scene
+    # import re-linking a camera); otherwise drop the previous scene's pose.
+    if not getattr(self, "_pose_supplied", False):
+      self.transforms = []
+    self.scene_x = None
+    self.scene_y = None
+    self.scene_z = None
+    return True, original.scene
+
+  def _applyDefaultIntrinsics(self):
+    """Prefer a principal point centered on the registered sensor frame."""
+    # Create with resolution 1280x720 (and no explicit cx/cy) stores 640,360
+    # instead of the 640x480-era defaults 320,240.
+    if self.intrinsics_cx is None:
+      self.intrinsics_cx = self._defaultPrincipalPoint(self.width, 'cx')
+    if self.intrinsics_cy is None:
+      self.intrinsics_cy = self._defaultPrincipalPoint(self.height, 'cy')
+    if self.intrinsics_fx is None:
+      self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
+    if self.intrinsics_fy is None:
+      self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+    if self.cv_subsystem is None:
+      self.cv_subsystem = 'AUTO'
+
   def save(self, *args, **kwargs):
     # Normalize positional save() args so update_fields is only read and modified via kwargs
     for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
@@ -852,38 +1048,9 @@ class Cam(Sensor):
     args = ()
 
     # Reset camera pose when reassigned to a different scene
-    original_scene = None
-    scene_changed = False
     update_fields = kwargs.get("update_fields")
-    scene_update_requested = update_fields is None or bool(
-      {"scene", "scene_id"} & set(update_fields)
-    )
-    if self.pk is not None and scene_update_requested:
-      # This is an update, check if scene has changed
-      try:
-        original = Cam.objects.get(pk=self.pk)
-        scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
-        if original.scene_id != scene_id:
-          original_scene = original.scene
-          # Scene has changed, clear pose-related fields
-          self.transforms = []
-          self.scene_x = None
-          self.scene_y = None
-          self.scene_z = None
-          scene_changed = True
-      except Cam.DoesNotExist:
-        pass
-
-    if self.intrinsics_cx is None:
-      self.intrinsics_cx = self.DEFAULT_INTRINSICS['cx']
-    if self.intrinsics_cy is None:
-      self.intrinsics_cy = self.DEFAULT_INTRINSICS['cy']
-    if self.intrinsics_fx is None:
-      self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
-    if self.intrinsics_fy is None:
-      self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
-    if self.cv_subsystem is None:
-      self.cv_subsystem = 'AUTO'
+    scene_changed, original_scene = self._reset_pose_if_scene_changed(update_fields)
+    self._applyDefaultIntrinsics()
 
     if scene_changed and update_fields is not None:
       kwargs["update_fields"] = set(update_fields) | {
@@ -897,7 +1064,13 @@ class Cam(Sensor):
 
     # Clear cache again after transaction commits to prevent concurrent requests from
     # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
-    transaction.on_commit(lambda: sendUpdateCommand(camera_data=self.cameraData('save')))
+    calibration = self.ptz_calibration or {}
+    camera_config_update = {
+      'camera_id': self.sensor_id,
+      'calibration_version': calibration.get('calibration_version'),
+    }
+    transaction.on_commit(lambda: sendUpdateCommand(
+      camera_data=self.cameraData('save'), camera_config_update=camera_config_update))
     transaction.on_commit(lambda: invalidate_scene_cache(self.scene, original_scene if scene_changed else None))
     return
 

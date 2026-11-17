@@ -4,6 +4,8 @@ These articles will teach you how to build a scene in Scenescape.
 
 - [Create and Configure a New Scene](./create-new-scene.md): Step-by-step guide on how to create a live scene in Scenescape.
 
+- [Manage Scenes with Handheld Devices](./manage-scenes-from-handheld-devices.md): Set up and manage scenes mapped by handheld applications.
+
 - [Generate a Scene Map](./generate-scene-map.md): Step-by-step guide to generating a map for your scene.
 
 - [Use Sensor Types](./use-sensor-types.md): Step-by-step guide to getting started with sensor types.
@@ -26,6 +28,7 @@ These articles will teach you how to build a scene in Scenescape.
 :hidden:
 
 Create a New Scene <./create-new-scene.md>
+Manage Scenes with Handheld Devices <./manage-scenes-from-handheld-devices.md>
 Generate a Scene Map <./generate-scene-map.md>
 Use Different Sensor Types <./use-sensor-types.md>
 Visualize ROIs and Regions <./visualize-regions.md>

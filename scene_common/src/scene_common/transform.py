@@ -28,6 +28,38 @@ RANSAC_THRESHOLD_MAX_PX = 50.0
 MIN_POINTS_FOR_RANSAC = 4
 
 
+def validate_camera_extrinsics(extrinsics):
+  """Validate per-message rigid Cam pose without changing configured calibration.
+
+  Used for any perceptual modality registered as a Manager Cam (RGB, LiDAR
+  detectors, and similar) as well as shared CameraPose builders. Extrinsics are
+  translation and rotation only. Identity scale is attached so the shared
+  CameraPose TRS builder can consume the result; any caller-supplied scale is
+  ignored.
+  """
+  if not isinstance(extrinsics, dict):
+    raise ValueError("extrinsics must be an object")
+  result = {}
+  for key, lengths in (('translation', (3,)), ('rotation', (3, 4))):
+    result[key] = _extrinsics_vector(extrinsics.get(key), key, lengths)
+  if len(result['rotation']) == 4:
+    norm = math.hypot(*result['rotation'])
+    if not math.isfinite(norm) or norm == 0:
+      raise ValueError("extrinsics quaternion must have finite nonzero norm")
+    result['rotation'] = [v / norm for v in result['rotation']]
+  result['scale'] = [1.0, 1.0, 1.0]
+  return result
+
+
+def _extrinsics_vector(values, key, lengths):
+  if not isinstance(values, (list, tuple)) or len(values) not in lengths:
+    raise ValueError(f"extrinsics {key} has an invalid length")
+  if any(isinstance(v, bool) or not isinstance(v, (int, float))
+         or not math.isfinite(v) for v in values):
+    raise ValueError(f"extrinsics {key} must contain finite numbers")
+  return [float(v) for v in values]
+
+
 def scaled_reprojection_threshold_px(pixels_per_meter=None):
   """Return a camera-image RANSAC gate scaled by scene map resolution.
 
