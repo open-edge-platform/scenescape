@@ -18,7 +18,6 @@ _SCENE_UPDATE_TEMPLATE = (
 FRAME_APPLIED = "#2e7d32"
 FRAME_UNAPPLIED = "#c62828"
 _NO_SAVED = {"status": 200, "body": {"exists": False}}
-_CONTENT = {"cameras": 2, "regions": 1, "sensors": 0}
 
 SCENE_FIELDS_APPLIED = {
   "scale": 2.5,
@@ -79,7 +78,7 @@ def _saved_model_get(**overrides):
   }
 
 
-def _preview_resp(token, existing_content=None):
+def _preview_resp(token):
   """Successful GLB preview response for a staged token."""
   return {
     "status": 200,
@@ -88,7 +87,6 @@ def _preview_resp(token, existing_content=None):
       "preview_url": "/img.png",
       "footprint_m": {"width": 100, "height": 60},
       "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
-      "existing_content": existing_content or {},
     },
   }
 
@@ -178,52 +176,15 @@ class TestGlbAlignment:
     for response in (_saved_model_get(), _NO_SAVED):
       assert _align([response], [])["statusList"] is None
 
-  def test_toggle_apply_confirms_existing_content_and_proceeds(self):
-    """Applying over cameras and regions lists them in a confirm; accepting sends the apply."""
+  def test_toggle_apply_sends_put_without_confirm(self):
+    """Applying a saved model goes straight to the PUT with no confirm dialog."""
     responses = [
-      _saved_model_get(existing_content=_CONTENT),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png"}},
-    ]
-    res = _align(responses, [["toggleUse", True]])
-    (msg,) = res["confirms"]
-    assert "2 cameras" in msg and "1 region" in msg and "sensor" not in msg
-    assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
-
-  def test_toggle_apply_declined_sends_nothing_and_reverts_checkbox(self):
-    """Declining the apply confirm sends no request and unticks the checkbox."""
-    res = _align([_saved_model_get(existing_content=_CONTENT)], [["toggleUse", True]], confirm=False)
-    assert len(res["confirms"]) == 1
-    assert [f["method"] for f in res["fetches"]] == ["GET"]
-    assert res["useChecked"] is False
-
-  @pytest.mark.parametrize("content", [{}, {"cameras": 0, "regions": 0, "sensors": 0}])
-  def test_toggle_apply_without_existing_content_skips_confirm(self, content):
-    """There is nothing to warn about when the scene has no cameras, regions or sensors."""
-    responses = [
-      _saved_model_get(existing_content=content),
+      _saved_model_get(),
       {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png"}},
     ]
     res = _align(responses, [["toggleUse", True]], confirm=False)
     assert res["confirms"] == []
     assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
-
-  def test_toggle_unapply_does_not_confirm(self):
-    """Unapplying is not an overwrite, so it never asks."""
-    responses = [
-      _saved_model_get(use_glb_map=True, existing_content=_CONTENT),
-      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png"}},
-    ]
-    res = _align(responses, [["toggleUse", False]], confirm=False)
-    assert res["confirms"] == []
-    assert [f["method"] for f in res["fetches"]] == ["GET", "PUT"]
-
-  def test_save_scene_over_applied_model_declined_is_prevented(self):
-    """Save Scene Updates with a staged replacement of an applied model is blocked when declined."""
-    responses = [_saved_model_get(use_glb_map=True), _preview_resp("tok1", _CONTENT)]
-    res = _align(responses, [["upload"], ["submit"]], confirm=False)
-    (submit,) = res["submits"]
-    assert submit["prevented"] is True
-    assert res["formInputs"] == []
 
   def test_save_scene_with_staged_model_posts_token_and_anchor(self):
     """A staged model is saved only by Save Scene Updates, which carries its token and anchor."""

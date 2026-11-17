@@ -81,7 +81,6 @@ class TestGeospatialGlbPreview(TestCase):
     self.assertIn("footprint_m", result)
     self.assertIn("anchor", result)
     self.assertIn("px_per_m", result)
-    self.assertIn("existing_content", result)
     self.assertIn(f"{result['token']}.png", result["preview_url"])
     self.assertGreater(result["footprint_m"]["width"], 0)
     self.assertGreater(result["footprint_m"]["height"], 0)
@@ -163,19 +162,6 @@ class TestGeospatialGlbPreview(TestCase):
     self.assertEqual(response.status_code, 400)
     self.assertIn("(.glb)", json.loads(response.content)["error"])
     self.assertEqual(len(os.listdir(self.staging_dir)), 0)
-
-  def test_existing_content_counts_regions_and_sensors(self):
-    """existing_content reflects the scene's regions and sensors."""
-    region = Region.objects.create(scene=self.scene, name="test", roi_type="test")
-    for seq, (x, y) in enumerate([(0, 0), (1, 0), (1, 1)]):
-      RegionPoint.objects.create(region=region, x=x, y=y, sequence=seq)
-    SingletonSensor.objects.create(scene=self.scene, name="sensor", sensor_id="s1")
-    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
-    response = self._upload_glb(self.scene.id)
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(
-      json.loads(response.content)["existing_content"], {"cameras": 0, "regions": 1, "sensors": 1}
-    )
 
   def test_oversized_file_returns_413(self):
     """GLB exceeding MAX_GLB_BYTES returns 413 Payload Too Large."""
@@ -435,18 +421,6 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     )
     self.assertEqual(resp.status_code, 200)
     self.assertFalse(json.loads(resp.content)['exists'])
-    self.assertNotIn('existing_content', json.loads(resp.content))
-
-  def test_get_with_saved_glb_reports_existing_content(self):
-    """GET of a stored GLB lists the scene content that keeps its local positions on apply."""
-    SingletonSensor.objects.create(scene=self.scene, name='s1', sensor_id='s1')
-    token = self._stage_glb()
-    with self.captureOnCommitCallbacks(execute=True):
-      resp = self._post_commit(token=token, anchor={'lat': 37.39, 'lng': -121.97, 'heading_deg': 0})
-    self.assertEqual(resp.status_code, 200)
-    resp = self.client.get(reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}))
-    self.assertEqual(
-      json.loads(resp.content)['existing_content'], {'cameras': 0, 'regions': 0, 'sensors': 1})
 
   def test_commit_with_sensor_and_region_stores_without_map_change(self):
     """POST succeeds with existing sensors/regions and does not change the applied map."""

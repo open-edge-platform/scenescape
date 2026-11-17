@@ -76,20 +76,6 @@ function formatMegabytes(bytes) {
   return `${Number((bytes / BYTES_PER_MB).toFixed(1))} MB`;
 }
 
-// Describes the scene content that keeps its local positions when a GLB map is applied.
-function describeExistingContent(content) {
-  const parts = [];
-  for (const [key, singular] of [
-    ["cameras", "camera"],
-    ["regions", "region"],
-    ["sensors", "sensor"],
-  ]) {
-    const n = Number(content?.[key]) || 0;
-    if (n > 0) parts.push(`${n} ${singular}${n === 1 ? "" : "s"}`);
-  }
-  return parts.join(", ");
-}
-
 const byId = (id) => document.getElementById(id);
 const on = (el, type, fn, cap) => el.addEventListener(type, fn, cap === true);
 
@@ -100,7 +86,6 @@ class GlbAlignment {
 
     this.sceneId = row.dataset.sceneId;
     this.maxUploadBytes = Number(row.dataset.maxUploadBytes) || 0;
-    this.existingContent = {};
     this.staged = null;
     this.saved = null;
     this.anchor = null;
@@ -245,7 +230,6 @@ class GlbAlignment {
       );
       if (data.exists) {
         this.saved = data;
-        this.existingContent = data.existing_content || {};
         this.anchor = { ...data.anchor };
         this._renderSavedBlock();
         this._drawSavedOverlay();
@@ -255,15 +239,6 @@ class GlbAlignment {
       console.error("Failed to load the saved 3D model:", e);
       this._showError(`Could not load the saved 3D model: ${e.message}`);
     }
-  }
-
-  // Applying replaces the scene map; existing cameras, regions and sensors keep their local positions.
-  _confirmApplyOverwrite(content) {
-    const summary = describeExistingContent(content);
-    if (!summary) return true;
-    return window.confirm(
-      `Applying the 3D model replaces the scene map. The scene's ${summary} keep their local positions and may no longer match the new map. Continue?`,
-    );
   }
 
   _isFarFromCenter(anchor) {
@@ -373,7 +348,6 @@ class GlbAlignment {
         imageUrl: data.preview_url,
         footprint: data.footprint_m,
         anchor: { ...startAnchor },
-        existingContent: data.existing_content || {},
       };
 
       this.anchor = { ...startAnchor };
@@ -592,14 +566,6 @@ class GlbAlignment {
         "Wait for the 3D model change to finish, then save.";
       return;
     }
-    if (
-      this.staged &&
-      this.saved?.use_glb_map &&
-      !this._confirmApplyOverwrite(this.staged.existingContent)
-    ) {
-      event.preventDefault();
-      return;
-    }
     form.querySelector('input[name="glb_token"]')?.remove();
     form.querySelector('input[name="glb_anchor"]')?.remove();
     if (!this.anchor || this.ui.mapType.value !== "geospatial_map") return;
@@ -625,13 +591,6 @@ class GlbAlignment {
 
   async _toggleUse() {
     if (!this.saved || !this.ui.useCheckbox) return;
-    if (
-      this.ui.useCheckbox.checked &&
-      !this._confirmApplyOverwrite(this.existingContent)
-    ) {
-      this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
-      return;
-    }
 
     this.ui.status.textContent = "";
     this.saving = true;

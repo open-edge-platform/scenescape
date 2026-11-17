@@ -1292,7 +1292,6 @@ class GeospatialGlbPreview(APIView):
         'footprint_m': footprint,
         'anchor': {'lat': scene.map_center_lat, 'lng': scene.map_center_lng, 'heading_deg': 0.0},
         'px_per_m': px_per_m,
-        'existing_content': glb_state.existing_content(scene),
       })
     except glb_staging.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
@@ -1318,10 +1317,7 @@ class GeospatialGlb(APIView):
   def get(self, request, scene_uid):
     try:
       scene = glb_state.get_geospatial_scene(scene_uid)
-      alignment = glb_state.saved_alignment(scene)
-      if alignment['exists']:
-        alignment['existing_content'] = glb_state.existing_content(scene)
-      return JsonResponse(alignment)
+      return JsonResponse(glb_state.saved_alignment(scene))
     except glb_staging.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:

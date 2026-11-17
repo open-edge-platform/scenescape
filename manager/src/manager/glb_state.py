@@ -29,7 +29,7 @@ from .glb_staging import (
   purge_stale_files, remove_staged_files, staged_glb_path
 )
 from .models import (
-  Cam, Scene, SingletonSensor, _delete_unreferenced_mapping_file, glb_preview_name, remove_stored_file
+  Scene, _delete_unreferenced_mapping_file, glb_preview_name, remove_stored_file
 )
 
 # Scene-edit form fields written by apply, unapply and move.
@@ -44,15 +44,6 @@ STATE_TOKEN_FIELDS = SCENE_FORM_GLB_FIELDS + ('use_glb_map', 'glb_anchor')
 # Keep equal to FAR_ANCHOR_KM in static/js/geospatial/glb-alignment.js.
 MAX_ANCHOR_DISTANCE_KM = 50.0
 EARTH_RADIUS_KM = 6371.0
-
-
-def existing_content(scene):
-  """Counts of cameras, regions and sensors that keep their local positions when a GLB map is applied."""
-  return {
-    'cameras': Cam.objects.filter(scene=scene).count(),
-    'regions': scene.regions.count(),
-    'sensors': SingletonSensor.objects.filter(scene=scene).count(),
-  }
 
 
 def lock_scene_row(scene):

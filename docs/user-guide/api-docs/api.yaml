@@ -1369,18 +1369,6 @@ paths:
                   px_per_m:
                     type: number
                     description: Pixels per meter in the preview image
-                  existing_content:
-                    type: object
-                    properties:
-                      cameras:
-                        type: integer
-                        description: Count of cameras in the scene
-                      regions:
-                        type: integer
-                        description: Count of regions in the scene
-                      sensors:
-                        type: integer
-                        description: Count of sensors in the scene
         "400":
           description: Scene is not a geospatial_map, map centre not set, no file in request, file does not end with .glb, or invalid GLB file
         "401":
