@@ -23,7 +23,8 @@ class SceneUpdateTestCase(TestCase):
 
   def test_scene_update_page_exposes_generated_mesh_rotation(self):
     response = self.client.get(reverse('scene_update', args=[self.test_scene_id]))
-    self.assertContains(response, f'id="generatedMeshRotationX" value="{Scene.DEFAULT_MESH_ROTATION}"')
+    html = ' '.join(response.content.decode().split())
+    self.assertIn(f'id="generatedMeshRotationX" value="{Scene.DEFAULT_MESH_ROTATION}"', html)
 
   def test_scene_update_transform_inputs_disable_autocomplete(self):
     response = self.client.get(reverse('scene_update', args=[self.test_scene_id]))

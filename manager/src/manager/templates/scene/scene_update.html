@@ -647,7 +647,11 @@ SPDX-License-Identifier: Apache-2.0
   <input type="hidden" id="broker" value="{{ scene.wssConnection }}" />
   <input type="hidden" id="sceneUID" value="{{ scene.id }}" />
   <input type="hidden" id="sceneName" value="{{ scene.name }}" />
-  <input type="hidden" id="generatedMeshRotationX" value="{{ default_mesh_rotation|unlocalize }}" />
+  <input
+    type="hidden"
+    id="generatedMeshRotationX"
+    value="{{ default_mesh_rotation|unlocalize }}"
+  />
   <input type="hidden" id="childrenCount" value="{{ scene.children.count }}" />
   <input type="hidden" id="auth-token" value="{{ user.auth_token }}" />
 {% endblock %}
