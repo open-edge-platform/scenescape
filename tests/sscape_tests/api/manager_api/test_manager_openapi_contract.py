@@ -96,7 +96,11 @@ def _resolver_operations():
       path = _route_to_spec_path(route)
       if path in UNDOCUMENTED_ROUTES:
         continue
-      view_class = entry.callback.view_class
+      view_class = getattr(entry.callback, "view_class", None)
+      if view_class is None:
+        # Function-based views expose no method table; only GET downloads exist.
+        operations.add((path, "GET"))
+        continue
       allowed = entry.callback.view_initkwargs.get(
         "http_method_names", view_class.http_method_names)
       for method in allowed:
