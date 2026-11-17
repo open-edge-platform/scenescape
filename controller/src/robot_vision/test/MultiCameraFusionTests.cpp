@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -619,6 +620,26 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithoutMeasurementNoiseLeavesRU
   const auto &fused = measurements.begin()->second;
   EXPECT_FALSE(fused.measurementNoiseCov);
   EXPECT_NEAR(fused.x, 1.1, 1e-12);
+}
+
+TEST(MultipleObjectTrackerTest, TrackRejectsInvalidDetectionMeasurementNoise)
+{
+  // track() validates per-detection R at ingestion (same contract as the Python setter).
+  auto tracker = makeFusionTracker();
+  auto detection = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::zeros();
+  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(10)), std::invalid_argument);
+
+  detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::eye() * -0.2;
+  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(20)), std::invalid_argument);
+
+  auto asymmetric = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+  asymmetric(0, 1) = 5.0;
+  asymmetric(1, 0) = 0.0;
+  // Strong asymmetry that is indefinite after symmetrization is rejected
+  // (0.5*(5+0)=2.5 off-diagonal with 0.2 diagonals).
+  detection.measurementNoiseCov = asymmetric;
+  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(30)), std::invalid_argument);
 }
 
 // The fused R after two frames of an orienting detection (x variance 1, z variance 0.3, yaw variance 1,
