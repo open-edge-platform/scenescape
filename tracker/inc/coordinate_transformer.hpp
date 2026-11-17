@@ -5,6 +5,8 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <numbers>
 #include <optional>
 #include <span>
@@ -16,19 +18,37 @@
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "object_class.hpp"
-#include "reid_sighting.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
 namespace tracker {
 
 /**
- * @brief Transformer from image or sensor-frame detections to world-space TrackedObjects.
+ * @brief World-space geometry for the detections of one camera frame, in input order.
+ *
+ * objects[i] is the geometry of detection i when has_geometry[i] is non-zero; otherwise the
+ * detection has no measurement and is not tracked. Objects are stored in place, without
+ * std::optional, so that compacting them into tracker inputs moves nothing in the common case.
+ */
+struct ProjectedDetections {
+    std::vector<rv::tracking::TrackedObject> objects;
+    std::vector<uint8_t> has_geometry; ///< uint8_t, not bool: written from parallel loops
+
+    /// True when both vectors have one entry per detection.
+    [[nodiscard]] bool covers(size_t detection_count) const {
+        return objects.size() == detection_count && has_geometry.size() == detection_count;
+    }
+};
+
+/**
+ * @brief Transformer from image or sensor-frame detections to world-space geometry.
  *
  * Converts 2D pixel bounding boxes into 3D world positions and sizes using
  * camera intrinsics/extrinsics. Two opposite bbox corners are undistorted to
  * define a normalized rectangle. Its bottom-center determines world position;
  * the bottom-left, bottom-right, and top-left determine world-space dimensions.
+ * The detection's own data (id, metadata, confidence, ReID) is not set here; see
+ * toTrackerInputs() in detection_projector.hpp.
  *
  * Designed for high-throughput (1000+ detections per batch):
  * - Single cv::undistortPoints call for all pixels in the batch
@@ -79,7 +99,7 @@ public:
     [[nodiscard]] const std::optional<double>& footprintHalf() const { return footprint_half_; }
 
     /**
-     * @brief Batch-transform detections from pixel space to world-space TrackedObjects.
+     * @brief Batch-transform detections from pixel space or the sensor frame to world geometry.
      *
      * For each bbox detection, undistorts two opposite bbox corners and derives the
      * normalized foot, BL, BR, TL before batched world projection. Computes
@@ -87,23 +107,17 @@ public:
      * Detections with a sensor-frame translation and size are pose-transformed
      * directly, keeping their measured z.
      *
-     * Detections where any projection fails are silently skipped.
      * When present, rotation must be a finite sensor-frame [x, y, z, w]
      * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of detections (pixel bbox, or sensor-frame translation and size)
-     * @param sightings Optional chunk-local context for tagging ReID observations
-     * @throws std::invalid_argument if the context does not reference the exact detection span.
-     * @return TrackedObjects with world-space position and size fields populated.
-     *         id, x, y, z, length, width, height are set. Velocity is zero.
+     * @return Geometry with one entry per detection; has_geometry is 0 where the projection
+     *         failed. x, y, z, length, width, height are set. Velocity is zero.
      *         z_measured is true for translation detections, false for ground-plane projections.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
-     *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
-     *         attributes["confidence"] is set from Detection::confidence when present.
+     *         id stays InvalidObjectId and no other attributes are set.
      */
-    std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections,
-                        std::optional<ReidSightingContext> sightings = std::nullopt) const;
+    ProjectedDetections transformDetections(std::span<const Detection> detections) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].
