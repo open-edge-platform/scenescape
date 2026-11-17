@@ -290,9 +290,11 @@ def _wait_for_job(client, response_body):
   while state == "processing" and time.monotonic() < deadline:
     time.sleep(POLL_INTERVAL_S)
     try:
-      _, reply = client.request("GET", f"/reconstruction/status/{request_id}")
+      poll_status, reply = client.request("GET", f"/reconstruction/status/{request_id}")
     except (OSError, http.client.HTTPException):
       return "status-unreachable"
+    if poll_status != 200:
+      return f"status-http-{poll_status}"
     state = _parse_json(reply).get("state", "unknown")
   return state
 
@@ -304,6 +306,8 @@ def _classify(case, status, job_state):
     return f"expected status in {sorted(case.expect)}, got {status}"
   if job_state == "complete":
     return "job built from invalid media completed successfully"
+  if status == 200 and job_state != "failed":
+    return f"could not confirm rejection of invalid media: {job_state}"
   return None
 
 
