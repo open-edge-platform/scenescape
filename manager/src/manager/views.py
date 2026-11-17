@@ -477,6 +477,7 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     context = super().get_context_data(**kwargs)
     context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
     context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    context['default_mesh_rotation'] = Scene.DEFAULT_MESH_ROTATION
     return context
 
   def form_valid(self, form):

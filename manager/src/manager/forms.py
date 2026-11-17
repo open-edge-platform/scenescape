@@ -144,6 +144,12 @@ class SceneUpdateForm(ModelForm):
     model = Scene
     fields = ('__all__')
 
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    # Stops browsers restoring stale transform values after a reload.
+    for name in ('rotation_x', 'rotation_y', 'rotation_z', 'translation_x', 'translation_y', 'translation_z'):
+      self.fields[name].widget.attrs['autocomplete'] = 'off'
+
   def updatePolycamHash(self, zip_file):
     # Re-uploading a zip (even one identical to the current data) must always be allowed to save.
     file_hash = hashlib.sha256(zip_file.read()).hexdigest()

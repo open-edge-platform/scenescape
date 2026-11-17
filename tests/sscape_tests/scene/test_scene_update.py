@@ -20,3 +20,13 @@ class SceneUpdateTestCase(TestCase):
     response = self.client.get(reverse('scene_update', args=[self.test_scene_id]), data = {'name': 'test_scene_updated'})
     self.assertEqual(response.status_code, 200)
     self.assertTemplateUsed(response, 'scene/scene_update.html')
+
+  def test_scene_update_page_exposes_generated_mesh_rotation(self):
+    response = self.client.get(reverse('scene_update', args=[self.test_scene_id]))
+    self.assertContains(response, f'id="generatedMeshRotationX" value="{Scene.DEFAULT_MESH_ROTATION}"')
+
+  def test_scene_update_transform_inputs_disable_autocomplete(self):
+    response = self.client.get(reverse('scene_update', args=[self.test_scene_id]))
+    form = response.context['form']
+    for name in ('rotation_x', 'rotation_y', 'rotation_z', 'translation_x', 'translation_y', 'translation_z'):
+      self.assertEqual(form.fields[name].widget.attrs['autocomplete'], 'off')

@@ -65,14 +65,28 @@ def test_generated_map_is_horizontal():
   _assert_horizontal_map(scene)
 
 
+def _put_map(client, scene, glb_bytes, **fields):
+  upload = io.BytesIO(glb_bytes)
+  upload.name = "generated_mesh.glb"
+  resp = client.put(f"/api/v1/scene/{scene.pk}", {"name": scene.name, "map": upload, **fields}, format="multipart")
+  assert resp.status_code == 200, resp.content
+  return resp.json()
+
+
+def _y_up_glb(offset):
+  box = trimesh.creation.box(extents=FLOOR_EXTENTS)
+  box.apply_translation(offset)
+  box.apply_transform(trimesh.transformations.rotation_matrix(-np.radians(Scene.DEFAULT_MESH_ROTATION), [1, 0, 0]))
+  return box.export(file_type="glb")
+
+
 def test_reuploading_generated_map_through_api_keeps_it_horizontal(client):
   _, glb_bytes = _generate_map()
   other = Scene.objects.create(name="reuploaded")
 
-  upload = io.BytesIO(glb_bytes)
-  upload.name = "generated_mesh.glb"
-  resp = client.put(f"/api/v1/scene/{other.pk}", {"name": other.name, "map": upload}, format="multipart")
-  assert resp.status_code == 200, resp.content
+  put_body = _put_map(client, other, glb_bytes)
+  assert put_body["mesh_rotation"] == [90, 0, 0]
+  assert put_body["mesh_translation"] == pytest.approx([0, 0, 0], abs=1e-4)
 
   body = client.get(f"/api/v1/scene/{other.pk}").json()
   assert body["mesh_rotation"] == [90, 0, 0]
@@ -80,3 +94,30 @@ def test_reuploading_generated_map_through_api_keeps_it_horizontal(client):
 
   other.refresh_from_db()
   _assert_horizontal_map(other)
+
+
+def test_reuploading_map_not_centred_on_its_origin_compensates_translation(client):
+  other = Scene.objects.create(name="offset")
+
+  _put_map(client, other, _y_up_glb(offset=(10.0, 2.0, -5.0)))
+
+  other.refresh_from_db()
+  assert [other.rotation_x, other.rotation_y, other.rotation_z] == [90, 0, 0]
+  translation = np.array([other.translation_x, other.translation_y, other.translation_z])
+  assert np.abs(translation).max() > 1
+  mesh, _ = extractMeshFromGLB(other.map.path, rotation=np.array([90, 0, 0]))
+  assert getMeshSize(mesh) == pytest.approx(FLOOR_EXTENTS, abs=1e-4)
+  assert mesh.get_axis_aligned_bounding_box().min_bound.numpy() + translation == pytest.approx((0, 0, 0), abs=1e-4)
+
+
+def test_reuploading_map_with_explicit_transform_keeps_it(client):
+  _, glb_bytes = _generate_map()
+  other = Scene.objects.create(name="explicit")
+
+  body = _put_map(client, other, glb_bytes, mesh_rotation="[0, 0, 30]", mesh_translation="[1, 2, 3]")
+
+  assert body["mesh_rotation"] == [0, 0, 30]
+  assert body["mesh_translation"] == [1, 2, 3]
+  other.refresh_from_db()
+  assert [other.rotation_x, other.rotation_y, other.rotation_z] == [0, 0, 30]
+  assert [other.translation_x, other.translation_y, other.translation_z] == [1, 2, 3]
