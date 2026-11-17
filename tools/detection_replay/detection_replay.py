@@ -19,7 +19,7 @@ the GVA elements and gst-python.
 
 import argparse
 import os
-import shlex
+import re
 import signal
 import sys
 
@@ -56,9 +56,16 @@ def parse_args(argv=None):
   return parser.parse_args(argv)
 
 
+def gst_quote(value):
+  """Quote a property value for Gst.parse_launch (not a shell)."""
+  if re.fullmatch(r"[\w./:,+@-]+", value):
+    return value
+  return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def camera_branch(camera_id, video, metadata, args):
   """gst-launch description of one camera's branch."""
-  quote = shlex.quote
+  quote = gst_quote
   publisher = [
     "sscape_post_inference_data_publish",
     f"cameraid={quote(camera_id)}",

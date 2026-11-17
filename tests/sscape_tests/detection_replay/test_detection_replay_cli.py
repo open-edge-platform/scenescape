@@ -45,9 +45,21 @@ def test_empty_ntp_server_uses_system_clock():
   assert "ntp-server" not in describe("--ntp-server", "")
 
 
-def test_paths_are_quoted():
+@pytest.mark.parametrize("value, expected", [
+  ("/media/a.mp4", "/media/a.mp4"),
+  ("/media/my video.mp4", '"/media/my video.mp4"'),
+  ("/media/it's.mp4", '"/media/it\'s.mp4"'),
+  ('/media/a"b\\c.mp4', '"/media/a\\"b\\\\c.mp4"'),
+  ("a ! b", '"a ! b"'),
+  ("", '""'),
+])
+def test_gst_quote(value, expected):
+  assert detection_replay.gst_quote(value) == expected
+
+
+def test_paths_with_spaces_are_quoted():
   args = detection_replay.parse_args(["--camera", "cam", "/media/my video.mp4", "/meta/a.json"])
-  assert "location='/media/my video.mp4'" in detection_replay.pipeline_description(args)
+  assert 'location="/media/my video.mp4"' in detection_replay.pipeline_description(args)
 
 
 def test_duplicate_camera_ids_are_rejected():
