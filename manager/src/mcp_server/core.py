@@ -4,9 +4,7 @@
 """Delegate MCP protocol behavior to thin-mcp."""
 
 import logging
-from functools import wraps
 from time import perf_counter
-from typing import Callable
 
 from django.contrib.auth.base_user import AbstractBaseUser
 from pydantic import ValidationError
@@ -33,39 +31,28 @@ MCP_SERVER = McpServer(
 )
 
 
-def log_tool_call(dispatch: Callable[[AbstractBaseUser, McpRequest], McpHttpResult]
-                  ) -> Callable[[AbstractBaseUser, McpRequest], McpHttpResult]:
-  """Log tool calls without recording arguments or results."""
-  @wraps(dispatch)
-  def wrapped(user: AbstractBaseUser, payload: McpRequest) -> McpHttpResult:
-    if payload.method != 'tools/call':
-      return dispatch(user, payload)
-
-    name = payload.params.get('name')
-    # Never log arbitrary client input or malformed params.
-    tool = name if isinstance(name, str) and tool_registry.get(name) else '<unknown>'
-    started = perf_counter()
-    outcome = OUTCOME_EXCEPTION
-    try:
-      result = dispatch(user, payload)
-      outcome = RESPONSE_OUTCOMES.get(type(result.body), OUTCOME_SUCCESS)
-      if isinstance(result.body, JsonRpcResultResponse):
-        tool_result = result.body.result
-        if isinstance(tool_result, ToolResult) and tool_result.is_error:
-          outcome = OUTCOME_TOOL_ERROR
-      return result
-    finally:
-      duration_ms = (perf_counter() - started) * 1000
-      logger.info(f'MCP tool call: tool={tool} user_id={user.pk} '
-                  f'outcome={outcome} duration_ms={duration_ms:.1f}')
-
-  return wrapped
-
-
-@log_tool_call
 def dispatch_request(user: AbstractBaseUser, payload: McpRequest) -> McpHttpResult:
-  """Delegate MCP dispatch to thin-mcp."""
-  return MCP_SERVER.dispatch_request(user, payload)
+  """Log tool calls without recording arguments or results."""
+  if payload.method != 'tools/call':
+    return MCP_SERVER.dispatch_request(user, payload)
+
+  name = payload.params.get('name')
+  # Never log arbitrary client input or malformed params.
+  tool = name if isinstance(name, str) and tool_registry.get(name) else '<unknown>'
+  started = perf_counter()
+  outcome = OUTCOME_EXCEPTION
+  try:
+    result = MCP_SERVER.dispatch_request(user, payload)
+    outcome = RESPONSE_OUTCOMES.get(type(result.body), OUTCOME_SUCCESS)
+    if isinstance(result.body, JsonRpcResultResponse):
+      tool_result = result.body.result
+      if isinstance(tool_result, ToolResult) and tool_result.is_error:
+        outcome = OUTCOME_TOOL_ERROR
+    return result
+  finally:
+    duration_ms = (perf_counter() - started) * 1000
+    logger.info(f'MCP tool call: tool={tool} user_id={user.pk} '
+                f'outcome={outcome} duration_ms={duration_ms:.1f}')
 
 
 def process_request(user: AbstractBaseUser, body: bytes,
