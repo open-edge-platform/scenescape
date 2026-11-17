@@ -282,3 +282,30 @@ TEST(TrackedObjectTest, ValidMeasurementNoiseAgreesWithTheEigenvalueCheck)
   EXPECT_GT(accepted, kCases / 4);
   EXPECT_LT(accepted, 3 * kCases / 4);
 }
+
+TEST(TrackedObjectTest, ClearInvalidMeasurementNoiseKeepsValidRAndClearsInvalidRWithoutThrowing)
+{
+  using rv::tracking::clearInvalidMeasurementNoiseCov;
+
+  TrackedObject unset;
+  clearInvalidMeasurementNoiseCov(unset);
+  EXPECT_FALSE(unset.measurementNoiseCov);
+
+  TrackedObject object;
+  auto noise = diagonalNoise(0.2);
+  noise(0, 1) = 0.04;
+  noise(1, 0) = 0.0;
+  object.measurementNoiseCov = noise;
+  clearInvalidMeasurementNoiseCov(object);
+  ASSERT_TRUE(object.measurementNoiseCov);
+  EXPECT_EQ((*object.measurementNoiseCov)(0, 1), 0.02);
+  EXPECT_EQ((*object.measurementNoiseCov)(1, 0), 0.02);
+
+  for (const auto &invalid : {TrackedObject::MeasurementMatrix::zeros(), diagonalNoise(-0.2)})
+  {
+    object.measurementNoiseCov = invalid;
+    clearInvalidMeasurementNoiseCov(object);
+    EXPECT_FALSE(object.measurementNoiseCov);
+  }
+  static_assert(noexcept(clearInvalidMeasurementNoiseCov(object)));
+}

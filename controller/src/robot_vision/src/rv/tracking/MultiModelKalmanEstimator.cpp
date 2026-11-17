@@ -27,7 +27,8 @@ predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat 
 }
 
 /// The detection's R for the UKF update; empty (default R) when the detection carries none. Used as is: track() drops
-/// detections with an invalid R and keeps the others symmetrized, and a fused R is symmetrized where it is built.
+/// detections with an invalid R and keeps the others symmetrized; a fused R is symmetrized, or cleared when it is not
+/// positive definite, where it is built.
 cv::Mat measurementNoise(const TrackedObject &measurement)
 {
   return measurement.measurementNoiseCov ? cv::Mat(*measurement.measurementNoiseCov) : cv::Mat();

@@ -149,6 +149,10 @@ validMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise) noexcept
 /// validMeasurementNoiseCov, or std::invalid_argument naming the reason (the Python setter).
 TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise);
 
+/// Keeps the symmetrized measurementNoiseCov when validMeasurementNoiseCov accepts it, and clears it (the tracker
+/// default R) otherwise. Does not throw; for a fused R, which must not stop the Kalman update.
+void clearInvalidMeasurementNoiseCov(TrackedObject &object) noexcept;
+
 static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");
 static_assert(TrackedObject::MeasurementSize == MeasurementIndex::YAW + 1,
               "MeasurementSize must match the MeasurementIndex layout");

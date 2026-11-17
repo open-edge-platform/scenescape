@@ -235,17 +235,6 @@ void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
   }
 }
 
-/// Makes the fused R exactly symmetric for the Kalman update: the inverse of the summed information is symmetric only
-/// up to rounding.
-void symmetrizeMeasurementNoise(TrackedObject &fusedObject)
-{
-  if (fusedObject.measurementNoiseCov)
-  {
-    auto &noise = *fusedObject.measurementNoiseCov;
-    noise = 0.5 * (noise + noise.t());
-  }
-}
-
 /// Drops the detections whose R validMeasurementNoiseCov rejects and keeps the symmetrized R of the others, so
 /// association, fusion, birth and the update use R as is. Returns the number dropped.
 std::size_t dropDetectionsWithInvalidMeasurementNoise(std::vector<TrackedObject> &objects)
@@ -463,7 +452,8 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
     fuseGeometry(matches, objectsPerCamera, fusedObject, defaultMeasurementNoise);
     applyOrientingYaw(matches, objectsPerCamera, fusedObject, defaultMeasurementNoise);
-    symmetrizeMeasurementNoise(fusedObject);
+    // The inverse of the summed information is symmetric only up to rounding, and positive definite only up to it.
+    clearInvalidMeasurementNoiseCov(fusedObject);
     // The update measured z if any matched camera did, whichever camera seeds the fused object.
     fusedObject.z_measured = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
       return objectsPerCamera[match.first][match.second].z_measured;
@@ -605,7 +595,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
       auto &fusedObject = newObjects[newObjectIndex];
       fuseGeometry(members, objectsPerCamera, fusedObject, defaultMeasurementNoise);
       applyOrientingYaw(members, objectsPerCamera, fusedObject, defaultMeasurementNoise);
-      symmetrizeMeasurementNoise(fusedObject);
+      clearInvalidMeasurementNoiseCov(fusedObject);
       // Same sticky rule as track↔detection fusion: any measured-z camera marks the birth seed.
       fusedObject.z_measured = std::any_of(members.begin(), members.end(), [&](const auto &match) {
         return objectsPerCamera[match.first][match.second].z_measured;

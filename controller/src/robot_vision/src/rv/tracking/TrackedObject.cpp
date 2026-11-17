@@ -192,5 +192,13 @@ TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObjec
   return *valid;
 }
 
+void clearInvalidMeasurementNoiseCov(TrackedObject &object) noexcept
+{
+  if (object.measurementNoiseCov)
+  {
+    object.measurementNoiseCov = validMeasurementNoiseCov(*object.measurementNoiseCov);
+  }
+}
+
 } // namespace tracking
 } // namespace rv
