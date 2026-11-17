@@ -4,6 +4,7 @@
 """Exercise actual HTTP, authentication, and thin-mcp dispatch boundaries."""
 
 import logging
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
@@ -57,6 +58,25 @@ def test_invalid_token_rejected(client):
 def test_inactive_user_rejected(client, user):
   user.is_active = False
   assert rpc(client).status_code == 401
+
+
+@pytest.mark.parametrize('tool', ['list_scenes', 'get_scene'])
+@pytest.mark.parametrize('credential', ['missing', 'invalid', 'inactive'])
+def test_drf_rejects_tool_calls_before_dispatch(client, user, tool, credential):
+  """DRF is the authentication boundary for every exposed tool."""
+  user.is_active = credential != 'inactive'
+  headers = {} if credential == 'missing' else {'HTTP_AUTHORIZATION': 'Bearer ephemeral-test-token'}
+  with patch.object(Token.objects, 'get') as lookup, \
+       patch('mcp_server.api.process_request') as dispatch:
+    lookup.return_value = SimpleNamespace(user=user)
+    if credential == 'invalid':
+      lookup.side_effect = Token.DoesNotExist
+    response = client.post('/', {
+      'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
+      'params': {'name': tool, 'arguments': {}},
+    }, format='json', **headers)
+  assert response.status_code == 401
+  dispatch.assert_not_called()
 
 
 def test_initialize_and_notification(client):

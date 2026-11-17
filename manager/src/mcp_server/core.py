@@ -11,6 +11,10 @@ from pydantic import ValidationError
 from thin_mcp import JsonRpcErrorCode, McpHttpResult, McpRequest, McpRequestHeaders, McpServer
 from thin_mcp.schemas import JsonRpcErrorResponse, JsonRpcResultResponse, ToolResult
 
+from mcp_server.consts import (
+  OUTCOME_EXCEPTION, OUTCOME_PROTOCOL_ERROR, OUTCOME_SUCCESS, OUTCOME_TOOL_ERROR,
+  PYDANTIC_JSON_INVALID,
+)
 from mcp_server.tools import tool_registry
 
 logger = logging.getLogger(__name__)
@@ -31,16 +35,16 @@ def dispatch_request(user: AbstractBaseUser, payload: McpRequest) -> McpHttpResu
   # Only log registered names, never arbitrary client input or malformed params.
   tool = name if isinstance(name, str) and tool_registry.get(name) else '<unknown>'
   started = perf_counter()
-  outcome = 'exception'
+  outcome = OUTCOME_EXCEPTION
   try:
     result = MCP_SERVER.dispatch_request(user, payload)
     match result.body:
       case JsonRpcErrorResponse():
-        outcome = 'protocol_error'
+        outcome = OUTCOME_PROTOCOL_ERROR
       case JsonRpcResultResponse(result=ToolResult(is_error=True)):
-        outcome = 'tool_error'
+        outcome = OUTCOME_TOOL_ERROR
       case _:
-        outcome = 'success'
+        outcome = OUTCOME_SUCCESS
     return result
   finally:
     duration_ms = (perf_counter() - started) * 1000
@@ -54,7 +58,7 @@ def process_request(user: AbstractBaseUser, body: bytes,
   try:
     payload = McpRequest.model_validate_json(body)
   except ValidationError as exc:
-    if any(error['type'] == 'json_invalid' for error in exc.errors()):
+    if any(error['type'] == PYDANTIC_JSON_INVALID for error in exc.errors()):
       return McpHttpResult.error(None, JsonRpcErrorCode.PARSE_ERROR, 'Invalid JSON.', status=400)
     return McpHttpResult.error(None, JsonRpcErrorCode.INVALID_REQUEST, 'Invalid MCP request.', status=400)
 

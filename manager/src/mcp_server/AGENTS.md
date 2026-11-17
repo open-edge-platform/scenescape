@@ -16,8 +16,8 @@ SceneScape owns authentication, permissions, and configuration queries.
    Derive inputs from `Arguments`; reuse UUID and pagination validation.
 2. Add a bounded ORM read in `queries.py`, with stable ordering and valid
    continuation offsets. Exclude credentials, stream URLs, and raw model dumps.
-3. Follow `tools/scenes.py`: register a typed adapter with argument/result models,
-   `READ_PERMISSIONS`, and `READ_ANNOTATIONS`. Import new domain modules in
+3. Follow `tools/scenes.py`: register a typed adapter with argument/result models
+   and `READ_ANNOTATIONS`. Import new domain modules in
    `tools/__init__.py`; the shared registry lives in `tools_registry.py`.
 4. Add positive and negative cases in `manager/tests/mcp_server/`, including
    permissions, invalid input, missing objects, field selection, and boundaries.
@@ -28,7 +28,10 @@ SceneScape owns authentication, permissions, and configuration queries.
 
 `api.py` wires DRF hooks from `transport.py`; `core.py` validates the MCP request
 with Pydantic and delegates dispatch to thin-mcp.
-Annotations describe tools; permission checks enforce access. Current tools read
+DRF token authentication and `IsAuthenticated` enforce access before dispatch;
+the core and tool registry are internal and assume an authenticated caller.
+Any additional transport must enforce authentication before invoking them.
+Annotations describe tools, not access permissions. Current tools read
 persisted configuration. Writes and live tracking require a separate design.
 For transport or deployment changes, rebuild Manager and verify through HTTPS
 with a real MCP client as described in the MCP guide.
