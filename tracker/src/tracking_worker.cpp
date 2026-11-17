@@ -269,7 +269,21 @@ void TrackingWorker::run() {
             break;
         }
 
-        process_chunk(std::move(chunk));
+        // One chunk that fails must not end the worker: an exception leaving the thread function
+        // calls std::terminate and stops every scope. An exception thrown inside robot_vision's
+        // OpenMP loops still terminates; this covers the serial parts of the processor, track()
+        // and the publish callback.
+        const size_t msg_count = chunk.camera_batches.size();
+        try {
+            process_chunk(std::move(chunk));
+        } catch (const std::exception& error) {
+            dropped_count_.fetch_add(1);
+            Metrics::inc_dropped_n(msg_count, {{kAttrScene, scope_.scene_id},
+                                               {kAttrCategory, scope_.category},
+                                               {kAttrReason, kReasonDroppedProcessingError}});
+            LOG_ERROR("Dropped chunk for scope {}/{}: processing failed (messages={}): {}",
+                      scope_.scene_id, scope_.category, msg_count, error.what());
+        }
     }
 
     LOG_INFO("TrackingWorker stopped for scope {}/{} (processed={}, dropped={})", scope_.scene_id,
