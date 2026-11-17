@@ -59,7 +59,7 @@ each object's `category`, `confidence` and `bounding_box_px` are used:
 - `time` (default): the first record whose time since the first record is at or after the
   frame's stream time. Use it when the video was resampled to a constant frame rate from a
   variable-rate recording, which drops or repeats source frames.
-- `frame`: the record at the frame's index. Use it when the file has exactly one record per frame.
+- `frame`: the record at the frame's position in the file. Decoded frames are counted, restarting on each loop, whatever their timestamps. Use it when the file has exactly one record per frame.
 
 Frames after the last record are published without detections.
 

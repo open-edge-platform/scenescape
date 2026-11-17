@@ -101,9 +101,9 @@ class DetectionTimeline:
     """Detections of the record at position `frame`, or None past the end."""
     return self.detections[frame] if 0 <= frame < len(self.detections) else None
 
-  def lookup(self, mode: str, seconds: float, fps: float):
+  def lookup(self, mode: str, seconds: float, frame: int):
     if mode == "time":
       return self.at_time(seconds)
     if mode == "frame":
-      return self.at_frame(round(seconds * fps))
+      return self.at_frame(frame)
     raise ValueError(f"Unknown sync mode '{mode}'. Valid: {SYNC_MODES}")

@@ -12,7 +12,10 @@ tests so the replay element can be unit tested without GStreamer.
 import sys
 from pathlib import Path
 
-from tests.sscape_tests.dlstreamer_gst_plugins.conftest import _install_fake_gi
+from tests.sscape_tests.dlstreamer_gst_plugins.conftest import (
+  FakeBaseTransform,
+  _install_fake_gi,
+)
 
 _repo = Path(__file__).resolve().parents[3]
 for _path in (
@@ -24,3 +27,6 @@ for _path in (
     sys.path.insert(0, str(_path))
 
 _install_fake_gi()
+
+# The shared stand-in has no sink event handling; the element chains up to it.
+FakeBaseTransform.do_sink_event = lambda self, event: True

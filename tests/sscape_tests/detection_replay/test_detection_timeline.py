@@ -73,18 +73,18 @@ def test_at_frame_out_of_range_is_none(timeline):
   assert timeline.at_frame(-1) is None
 
 
-@pytest.mark.parametrize("mode, seconds, expected", [
-  ("time", 1 / 15, [2, 3]),
-  ("frame", 1 / 15, [1]),
-  ("frame", 2 / 15, [2, 3]),
+@pytest.mark.parametrize("mode, seconds, frame, expected", [
+  ("time", 1 / 15, 0, [2, 3]),
+  ("frame", 1 / 15, 1, [1]),
+  ("frame", 2 / 15, 2, [2, 3]),
 ])
-def test_lookup_modes(timeline, mode, seconds, expected):
-  assert xs(timeline.lookup(mode, seconds, 15.0)) == expected
+def test_lookup_modes(timeline, mode, seconds, frame, expected):
+  assert xs(timeline.lookup(mode, seconds, frame)) == expected
 
 
 def test_lookup_unknown_mode_raises(timeline):
   with pytest.raises(ValueError):
-    timeline.lookup("nearest", 0.0, 15.0)
+    timeline.lookup("nearest", 0.0, 0)
 
 
 def test_skips_blank_lines(tmp_path):

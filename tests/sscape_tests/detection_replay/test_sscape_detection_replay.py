@@ -15,6 +15,8 @@ CLOCK_TIME_NONE = 2**64 - 1
 # computes with. Plain assignment: monkeypatch would delete them on undo.
 replaymod.Gst.SECOND = SECOND
 replaymod.Gst.CLOCK_TIME_NONE = CLOCK_TIME_NONE
+replaymod.Gst.EventType.SEGMENT = "segment"
+replaymod.Gst.EventType.CAPS = "caps"
 
 
 def make_prop(name):
@@ -98,15 +100,30 @@ def test_time_mode_adds_regions_of_next_record(element):
   assert regions_at(element, 0.5) == []
 
 
-def test_frame_mode_uses_frame_index(element):
+def test_frame_mode_counts_buffers_not_time(element):
   element.do_set_property(make_prop("sync-mode"), "frame")
-  assert element.do_set_caps(caps(10), None)
-  assert regions_at(element, 0.1) == [(2, 5, 6, 7, "person", 1.0)]
+  assert element.do_set_caps(caps(found=False), None)
+  # Variable-rate frames at 0, 40 and 120 ms still take records 0, 1, 2.
+  assert regions_at(element, 0.0) == [(1, 5, 6, 7, "person", 1.0)]
+  assert regions_at(element, 0.04) == [(2, 5, 6, 7, "person", 1.0)]
+  assert regions_at(element, 0.12) == []
 
 
-def test_frame_mode_needs_frame_rate(element):
+def test_frame_mode_restarts_on_new_segment(element):
   element.do_set_property(make_prop("sync-mode"), "frame")
-  assert element.do_set_caps(caps(found=False), None) is False
+  element.do_set_caps(caps(), None)
+  regions_at(element, 0.0)
+  regions_at(element, 0.04)
+  element.do_sink_event(SimpleNamespace(type=replaymod.Gst.EventType.SEGMENT))
+  assert regions_at(element, 0.0) == [(1, 5, 6, 7, "person", 1.0)]
+
+
+def test_other_events_do_not_restart_frame_count(element):
+  element.do_set_property(make_prop("sync-mode"), "frame")
+  element.do_set_caps(caps(), None)
+  regions_at(element, 0.0)
+  element.do_sink_event(SimpleNamespace(type=replaymod.Gst.EventType.CAPS))
+  assert regions_at(element, 0.04) == [(2, 5, 6, 7, "person", 1.0)]
 
 
 def test_buffer_without_timestamp_passes_through(element):

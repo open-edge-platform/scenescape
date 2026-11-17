@@ -65,7 +65,8 @@ class SscapeDetectionReplay(GstBase.BaseTransform):
       str,
       "Sync mode",
       "How video frames select records: 'time' (first record at or after "
-      "the frame's stream time) or 'frame' (record at the frame's index).",
+      "the frame's stream time) or 'frame' (record at the frame's position "
+      "in the file, counted from the start of each loop).",
       "time",
       GObject.ParamFlags.READWRITE,
     ),
@@ -80,7 +81,7 @@ class SscapeDetectionReplay(GstBase.BaseTransform):
     self._sync_mode = "time"
     self._timeline = None
     self._caps = None
-    self._fps = 0.0
+    self._frame = 0
 
   def do_get_property(self, prop):  # pylint: disable=arguments-differ
     if prop.name == "metadata":
@@ -109,24 +110,28 @@ class SscapeDetectionReplay(GstBase.BaseTransform):
       self._log.error(f"Cannot load detection metadata: {error}")
       return False
     self._log.info(f"Loaded {len(self._timeline)} records from {self._metadata}")
+    self._frame = 0
     return True
 
   def do_set_caps(self, incaps, _outcaps):  # pylint: disable=arguments-differ
     self._caps = incaps
-    found, numerator, denominator = incaps.get_structure(0).get_fraction("framerate")
-    self._fps = numerator / denominator if found and denominator else 0.0
-    if self._sync_mode == "frame" and self._fps <= 0:
-      self._log.error("sync-mode=frame needs a video frame rate in the caps")
-      return False
     return True
 
+  def do_sink_event(self, event):  # pylint: disable=arguments-differ
+    # A new segment starts the file again (initially and on each loop).
+    if event.type == Gst.EventType.SEGMENT:
+      self._frame = 0
+    return GstBase.BaseTransform.do_sink_event(self, event)
+
   def do_transform_ip(self, buffer):  # pylint: disable=arguments-differ
+    frame_index = self._frame
+    self._frame += 1
     # Stream time restarts at 0 on every loop of the file.
     stream_time = self.segment.to_stream_time(Gst.Format.TIME, buffer.pts)
     if stream_time == Gst.CLOCK_TIME_NONE:
       return Gst.FlowReturn.OK
     seconds = stream_time / Gst.SECOND
-    detections = self._timeline.lookup(self._sync_mode, seconds, self._fps)
+    detections = self._timeline.lookup(self._sync_mode, seconds, frame_index)
     if not detections:
       return Gst.FlowReturn.OK
     frame = VideoFrame(buffer, caps=self._caps)
