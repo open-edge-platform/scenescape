@@ -349,6 +349,7 @@ The `reason` attribute on `tracker.mqtt.messages` and `tracker.mqtt.dropped` use
 | `rejected_invalid_category` | buffer    | Unknown object category             |
 | `dropped_queue_full`        | scheduler | Worker queue saturated              |
 | `dropped_max_workers`       | scheduler | Maximum worker limit reached        |
+| `dropped_processing_error`  | worker    | Chunk processing threw an exception |
 
 #### Distributed Tracing
 

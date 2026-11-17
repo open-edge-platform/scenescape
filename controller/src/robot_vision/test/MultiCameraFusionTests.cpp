@@ -3,7 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
-#include <stdexcept>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -365,7 +365,8 @@ TEST(MultipleObjectTrackerTest, BirthClusteringDoesNotFuseStackedFloors)
 TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
 {
   // A planar track matched in one chunk by a measured-z camera and, last, by a planar camera: the fused update counts
-  // as measured, whatever the camera order.
+  // as measured, whatever the camera order. Without per-detection R the planar ground z must not pull the measured
+  // box centre (same rule as informationWithoutZ on the R path).
   rv::tracking::TrackedObject planar = makeDetection(5.0, 5.0, 0.0, 0.5, 0.5, 1.8);
   rv::tracking::TrackedObject measured = planar;
   measured.z = 0.3;
@@ -384,6 +385,10 @@ TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
     tracker.track(cameras, atMs(100), rv::tracking::DistanceType::Euclidean, kFusionGate);
     ASSERT_EQ(tracker.getTracks().size(), 1U);
     EXPECT_TRUE(tracker.getTracks()[0].z_measured);
+    const auto &measurements = tracker.mTrackManager.mMeasurementMap;
+    ASSERT_EQ(measurements.size(), 1U);
+    EXPECT_NEAR(measurements.begin()->second.z, 0.3, 1e-12)
+      << "equal-weight fusion must take z from measured detections only";
   }
 }
 
@@ -419,6 +424,8 @@ TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
   auto tracks = objectTracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U) << "planar + measured-Z at same XY should birth-cluster via XY distance";
   EXPECT_TRUE(tracks[0].z_measured) << "birth fusion must OR z_measured like track updates";
+  EXPECT_NEAR(tracks[0].z, 1.5, 1e-12)
+    << "equal-weight birth fusion must not average planar ground z into measured height";
 }
 
 TEST(MultipleObjectTrackerTest, MultiCameraBirthFusionWeightsByMeasurementNoise)
@@ -622,24 +629,185 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithoutMeasurementNoiseLeavesRU
   EXPECT_NEAR(fused.x, 1.1, 1e-12);
 }
 
-TEST(MultipleObjectTrackerTest, TrackRejectsInvalidDetectionMeasurementNoise)
+struct InvalidNoiseCase
 {
-  // track() validates per-detection R at ingestion (same contract as the Python setter).
-  auto tracker = makeFusionTracker();
-  auto detection = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
-  detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::zeros();
-  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(10)), std::invalid_argument);
+  const char *name;
+  TrackedObject::MeasurementMatrix noise;
+};
 
-  detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::eye() * -0.2;
-  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(20)), std::invalid_argument);
-
+std::vector<InvalidNoiseCase> invalidMeasurementNoises()
+{
   auto asymmetric = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+  // Off-diagonal 0.5 * (5 + 0) = 2.5 against 0.2 variances: indefinite after symmetrization.
   asymmetric(0, 1) = 5.0;
   asymmetric(1, 0) = 0.0;
-  // Strong asymmetry that is indefinite after symmetrization is rejected
-  // (0.5*(5+0)=2.5 off-diagonal with 0.2 diagonals).
-  detection.measurementNoiseCov = asymmetric;
-  EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(30)), std::invalid_argument);
+  auto nonFinite = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+  nonFinite(0, 0) = std::numeric_limits<double>::quiet_NaN();
+  return {{"zero", TrackedObject::MeasurementMatrix::zeros()},
+          {"negative definite", TrackedObject::MeasurementMatrix::eye() * -0.2},
+          {"indefinite after symmetrization", asymmetric},
+          {"non-finite", nonFinite}};
+}
+
+TEST(MultipleObjectTrackerTest, BatchedTrackDropsOnlyDetectionsWithInvalidMeasurementNoise)
+{
+  for (const auto &testCase : invalidMeasurementNoises())
+  {
+    SCOPED_TRACE(testCase.name);
+    auto tracker = makeFusionTracker();
+    auto valid = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+    valid.measurementNoiseCov = diagonalMeasurementNoise(0.1, 0.1, 0.1);
+    // Far from the valid one, so it would start a track of its own if it were kept.
+    auto invalid = makeDetection(10.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+    invalid.measurementNoiseCov = testCase.noise;
+
+    ASSERT_NO_THROW(tracker.track(DetectionsPerCamera{{valid}, {invalid}}, atMs(10)));
+    EXPECT_EQ(tracker.getRejectedDetectionCount(), 1U);
+    const auto tracks = tracker.getTracks();
+    ASSERT_EQ(tracks.size(), 1U);
+    EXPECT_NEAR(tracks[0].x, 1.0, 1e-9);
+
+    // The count is per call.
+    tracker.track(DetectionsPerCamera{{valid}}, atMs(110));
+    EXPECT_EQ(tracker.getRejectedDetectionCount(), 0U);
+  }
+}
+
+TEST(MultipleObjectTrackerTest, SingleCameraTrackDropsOnlyDetectionsWithInvalidMeasurementNoise)
+{
+  for (const auto &testCase : invalidMeasurementNoises())
+  {
+    SCOPED_TRACE(testCase.name);
+    auto tracker = makeFusionTracker();
+    auto valid = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+    valid.measurementNoiseCov = diagonalMeasurementNoise(0.1, 0.1, 0.1);
+    auto invalid = makeDetection(10.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+    invalid.measurementNoiseCov = testCase.noise;
+
+    ASSERT_NO_THROW(
+      tracker.track(Detections{valid, invalid}, atMs(10), rv::tracking::DistanceType::Euclidean, kFusionGate));
+    EXPECT_EQ(tracker.getRejectedDetectionCount(), 1U);
+    const auto tracks = tracker.getTracks();
+    ASSERT_EQ(tracks.size(), 1U);
+    EXPECT_NEAR(tracks[0].x, 1.0, 1e-9);
+  }
+}
+
+TEST(MultipleObjectTrackerTest, DroppedDetectionLeavesTheTrackAsAMissedFrame)
+{
+  // A detection with an invalid R inside the track's gate is the same as no detection: the track only predicts.
+  for (const bool batched : {true, false})
+  {
+    SCOPED_TRACE(batched ? "batched" : "single camera");
+    auto tracker = makeFusionTracker();
+    auto twin = makeFusionTracker();
+    const auto birth = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+    tracker.track(DetectionsPerCamera{{birth}}, atMs(10));
+    twin.track(DetectionsPerCamera{{birth}}, atMs(10));
+
+    auto invalid = makeDetection(1.5, 0.0, 0.0, 0.5, 0.5, 0.5);
+    invalid.measurementNoiseCov = TrackedObject::MeasurementMatrix::zeros();
+    if (batched)
+    {
+      tracker.track(DetectionsPerCamera{{invalid}}, atMs(110));
+      twin.track(DetectionsPerCamera{{}}, atMs(110));
+    }
+    else
+    {
+      tracker.track(Detections{invalid}, atMs(110), rv::tracking::DistanceType::Euclidean, kFusionGate);
+      twin.track(Detections{}, atMs(110), rv::tracking::DistanceType::Euclidean, kFusionGate);
+    }
+    EXPECT_EQ(tracker.getRejectedDetectionCount(), 1U);
+    expectSameSingleTrack(tracker, twin);
+  }
+}
+
+TEST(MultipleObjectTrackerTest, DroppedDetectionCannotWinThePositionMahalanobisAssignment)
+{
+  // A detection next to the track with an invalid R, and a valid one farther away: the track is updated by the valid
+  // one, as if the invalid one were not there. Its R is invalid in the position block (the per-pair gate) or only in
+  // the size block, which the gate does not see but the Kalman update would.
+  auto positionIndefinite = diagonalMeasurementNoise(0.1, 0.1, 0.1);
+  positionIndefinite(0, 1) = positionIndefinite(1, 0) = 0.5;
+  auto sizeIndefinite = diagonalMeasurementNoise(0.1, 0.1, 0.1);
+  sizeIndefinite(MeasurementIndex::LENGTH, MeasurementIndex::WIDTH)
+    = sizeIndefinite(MeasurementIndex::WIDTH, MeasurementIndex::LENGTH) = 0.5;
+  const double gate = rv::chi2Threshold(0.99, 3);
+  constexpr auto kDistance = rv::tracking::DistanceType::PositionMahalanobis;
+
+  for (const auto &[name, invalidNoise] : {std::pair{"position block", positionIndefinite},
+                                           std::pair{"size block", sizeIndefinite}})
+  {
+    SCOPED_TRACE(name);
+    auto tracker = makeFusionTracker();
+    auto twin = makeFusionTracker();
+    const auto birth = makeDetection(0.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+    tracker.track(DetectionsPerCamera{{birth}}, atMs(10), kDistance, gate, 0.5, 10.0);
+    twin.track(DetectionsPerCamera{{birth}}, atMs(10), kDistance, gate, 0.5, 10.0);
+
+    auto invalid = makeDetection(0.1, 0.0, 0.0, 0.5, 0.5, 0.5);
+    invalid.measurementNoiseCov = invalidNoise;
+    auto valid = makeDetection(0.6, 0.0, 0.0, 0.5, 0.5, 0.5);
+    valid.measurementNoiseCov = diagonalMeasurementNoise(0.1, 0.1, 0.1);
+    tracker.track(DetectionsPerCamera{{invalid, valid}}, atMs(110), kDistance, gate, 0.5, 10.0);
+    twin.track(DetectionsPerCamera{{valid}}, atMs(110), kDistance, gate, 0.5, 10.0);
+
+    EXPECT_EQ(tracker.getRejectedDetectionCount(), 1U);
+    expectSameSingleTrack(tracker, twin);
+    EXPECT_GT(tracker.getTracks()[0].x, 0.1);
+  }
+}
+
+TEST(MultipleObjectTrackerTest, TrackStoresTheSymmetrizedDetectionMeasurementNoise)
+{
+  auto tracker = makeFusionTracker();
+  auto detection = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  auto noise = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+  noise(0, 1) = 0.04;
+  noise(1, 0) = 0.0;
+  detection.measurementNoiseCov = noise;
+  for (int frame = 0; frame < 2; ++frame)
+  {
+    tracker.track(DetectionsPerCamera{{detection}}, atMs(10 + 100 * frame));
+  }
+
+  const auto &measurements = tracker.mTrackManager.mMeasurementMap;
+  ASSERT_EQ(measurements.size(), 1U);
+  const auto &fused = measurements.begin()->second;
+  ASSERT_TRUE(fused.measurementNoiseCov);
+  EXPECT_NEAR((*fused.measurementNoiseCov)(0, 1), 0.02, 1e-15);
+  EXPECT_EQ((*fused.measurementNoiseCov)(0, 1), (*fused.measurementNoiseCov)(1, 0));
+}
+
+TEST(MultipleObjectTrackerTest, FusedMeasurementNoiseIsExactlySymmetric)
+{
+  // The fused R is the inverse of the summed information; the Kalman update gets it exactly symmetric.
+  auto tracker = makeFusionTracker();
+  Detections cameras;
+  const double offsets[] = {0.0, 0.1, -0.1};
+  for (int camera = 0; camera < 3; ++camera)
+  {
+    auto detection = makeDetection(1.0 + offsets[camera], 0.0, 0.0, 0.5, 0.5, 0.5);
+    detection.z_measured = true;
+    auto noise = diagonalMeasurementNoise(0.11 + 0.07 * camera, 0.23 - 0.05 * camera, 0.37 + 0.03 * camera);
+    noise(0, 1) = noise(1, 0) = 0.031 * (camera + 1);
+    noise(0, 2) = noise(2, 0) = -0.017 * (camera + 1);
+    noise(1, 2) = noise(2, 1) = 0.013 / (camera + 1);
+    noise(3, 4) = noise(4, 3) = 0.007 * (camera + 1);
+    detection.measurementNoiseCov = noise;
+    cameras.push_back(detection);
+  }
+  for (int frame = 0; frame < 2; ++frame)
+  {
+    tracker.track(DetectionsPerCamera{{cameras[0]}, {cameras[1]}, {cameras[2]}}, atMs(10 + 100 * frame));
+  }
+
+  const auto &measurements = tracker.mTrackManager.mMeasurementMap;
+  ASSERT_EQ(measurements.size(), 1U);
+  const auto &fused = measurements.begin()->second;
+  ASSERT_TRUE(fused.measurementNoiseCov);
+  const auto &R = *fused.measurementNoiseCov;
+  EXPECT_EQ(cv::norm(R, R.t(), cv::NORM_INF), 0.0);
 }
 
 // The fused R after two frames of an orienting detection (x variance 1, z variance 0.3, yaw variance 1,

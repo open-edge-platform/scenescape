@@ -1973,6 +1973,83 @@ TEST_F(TrackingWorkerTest, InjectedProcessor_MismatchedResultsAreSkipped) {
     EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
 }
 
+TEST_F(TrackingWorkerTest, InjectedProcessor_InvalidMeasurementNoiseDropsOnlyThatDetection) {
+    // Adapted from 26f24812f: track() drops a detection with an invalid R and tracks the others of
+    // the chunk, and the worker keeps processing chunks.
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    int call = 0;
+    auto processor =
+        std::make_unique<CallbackProcessor>([&call](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProcessedObservations>> processed;
+            for ([[maybe_unused]] const auto& batch : batches) {
+                rv::tracking::TrackedObject bad;
+                bad.x = 5.0;
+                bad.y = 6.0;
+                bad.length = bad.width = 0.5;
+                bad.height = 1.7;
+                rv::tracking::TrackedObject ok = bad;
+                ok.x = 9.0;
+                if (call == 0) {
+                    bad.measurementNoiseCov =
+                        rv::tracking::TrackedObject::MeasurementMatrix::zeros();
+                }
+                processed.emplace_back(ProcessedObservations{{bad, ok}, {1, 1}});
+            }
+            ++call;
+            return processed;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(processor), false, ZReference::FootprintBase);
+
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"bad-r", "ok"})})));
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"bad-r", "ok"})})));
+
+    const auto frames = published.wait_for(2);
+    ASSERT_EQ(frames.size(), 2u);
+    ASSERT_EQ(frames[0].size(), 1u) << "only the detection with an invalid R is dropped";
+    EXPECT_NEAR(frames[0][0].translation[0], 9.0, 1e-6);
+    EXPECT_NE(frames[0][0].metadata_json.find("\"ok\""), std::string::npos);
+    EXPECT_EQ(frames[1].size(), 2u) << "the next chunk tracks both detections";
+    EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
+}
+
+TEST_F(TrackingWorkerTest, InjectedProcessor_ExceptionDropsTheChunkAndKeepsTheWorker) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    int call = 0;
+    auto processor =
+        std::make_unique<CallbackProcessor>([&call](std::span<const DetectionBatch> batches) {
+            if (call++ == 0) {
+                throw std::runtime_error("processor failed");
+            }
+            std::vector<std::optional<ProcessedObservations>> processed;
+            for ([[maybe_unused]] const auto& batch : batches) {
+                rv::tracking::TrackedObject geometry;
+                geometry.x = 5.0;
+                geometry.y = 6.0;
+                geometry.length = geometry.width = 0.5;
+                geometry.height = 1.7;
+                processed.emplace_back(ProcessedObservations{{geometry}, {1}});
+            }
+            return processed;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(processor), false, ZReference::FootprintBase);
+
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"a"})})));
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"a"})})));
+
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
+    const auto frames = published.wait_for(1);
+    ASSERT_EQ(frames.size(), 1u) << "the failed chunk is not published";
+    ASSERT_EQ(frames[0].size(), 1u);
+    EXPECT_NEAR(frames[0][0].translation[0], 5.0, 1e-6);
+    EXPECT_EQ(worker.dropped_count(), 1);
+}
+
 TEST_F(TrackingWorkerTest, InjectedProcessor_NullIsRejected) {
     PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
                                   const std::string&, const std::vector<Track>&) {};
