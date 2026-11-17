@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <numbers>
 #include <optional>
 #include <random>
@@ -14,6 +15,8 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include <opencv2/core.hpp>
 
 #include <rv/tracking/MultiModelKalmanEstimator.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
@@ -304,6 +307,77 @@ inline double rms(const std::vector<double> &values)
   return std::sqrt(sumSquares / static_cast<double>(values.size()));
 }
 
+// The true covariance of a sensor's position error, and the per-detection R the sensor reports with it.
+struct PositionCovariance
+{
+  // Covariance of the position error [m^2] in world axes for a detection of `sample`. Built from the truth sample: a
+  // production producer computes R from the noisy detection, which differs noticeably only close to the sensor.
+  std::function<cv::Matx33d(const TruthSample &)> covariance;
+  // Reported position covariance = reportedScale * covariance; the drawn error does not change. 1: calibrated; below 1
+  // the sensor claims to be more precise than it is (0.25 reports half the true sigma), above 1 less precise.
+  double reportedScale = 1.0;
+  bool reported = true;    // false: the same noise, but detections carry no R, so the tracker uses its default R
+  bool z_measured = false; // sets TrackedObject::z_measured, e.g. for a sensor that measures depth
+  // Reported variance of every axis the sensor does not model (zero variance); keep it the tracker's
+  // mDefaultMeasurementNoise, which also applies to detections without R.
+  double defaultNoise = kProductionMeasurementNoise;
+};
+
+// The same covariance for every detection, e.g. anisotropic or correlated noise for filter-level tests.
+inline PositionCovariance fixedCovariance(const cv::Matx33d &covariance)
+{
+  return {.covariance = [covariance](const TruthSample &) { return covariance; }};
+}
+
+// A camera at `position` (x, y and its height) that projects the object's ground point onto the ground plane, like the
+// pixel-to-world Jacobian of the Tracker Service: an angular error of `angularSigma` [rad] gives
+// angularSigma * (h^2 + d^2) / h along the ground range d and angularSigma * sqrt(h^2 + d^2) across it, h being the
+// camera height above the object. Planar detections: z is exact.
+inline PositionCovariance groundPlaneCamera(const cv::Vec3d &position, double angularSigma)
+{
+  return {.covariance = [position, angularSigma](const TruthSample &sample) {
+    const double height = position[2] - sample.z;
+    if (!(height > 0.0))
+    {
+      throw std::invalid_argument("groundPlaneCamera must be above the object");
+    }
+    const double dx = sample.x - position[0];
+    const double dy = sample.y - position[1];
+    const double range = std::hypot(dx, dy);
+    const double slantSquared = height * height + range * range;
+    const double alongSigma = angularSigma * slantSquared / height;
+    const double acrossSigma = angularSigma * std::sqrt(slantSquared);
+    // Below the camera both sigmas are equal, so any bearing will do.
+    const cv::Vec2d bearing = range > 0.0 ? cv::Vec2d(dx / range, dy / range) : cv::Vec2d(1.0, 0.0);
+    const cv::Matx22d along = bearing * bearing.t();
+    const cv::Matx22d horizontal
+      = alongSigma * alongSigma * along + acrossSigma * acrossSigma * (cv::Matx22d::eye() - along);
+    return cv::Matx33d(horizontal(0, 0), horizontal(0, 1), 0.0, horizontal(1, 0), horizontal(1, 1), 0.0, 0.0, 0.0, 0.0);
+  }};
+}
+
+// A camera at `position` that also estimates depth, like the frustum covariance of the Controller's observation
+// pipeline: angularSigma * range across the viewing ray in both directions and depthFraction * range along it.
+// Detections have measured z.
+inline PositionCovariance depthCamera(const cv::Vec3d &position, double angularSigma, double depthFraction)
+{
+  return {.covariance =
+            [position, angularSigma, depthFraction](const TruthSample &sample) {
+              const cv::Vec3d ray = cv::Vec3d(sample.x, sample.y, sample.z) - position;
+              const double range = cv::norm(ray);
+              if (!(range > 0.0))
+              {
+                throw std::invalid_argument("depthCamera must not be at the object");
+              }
+              const cv::Vec3d direction = ray / range;
+              const cv::Matx33d along = direction * direction.t();
+              const double alongSigma = depthFraction * range;
+              const double acrossSigma = angularSigma * range;
+              return alongSigma * alongSigma * along + acrossSigma * acrossSigma * (cv::Matx33d::eye() - along);
+            },
+          .z_measured = true};
+}
+
 struct Sensor
 {
   std::string id = "camera";  // sensor id of its observations, e.g. "lidar"
@@ -314,6 +388,9 @@ struct Sensor
   std::mt19937 rng{1};
   double zNoise = 0.0;  // standard deviation of z [m]; 0 keeps z exact
   std::mt19937 zRng{2}; // own generator so z noise never changes the x/y/size/yaw noise
+  // Position noise drawn from a covariance, reported as the detection's R; replaces positionNoise and zNoise.
+  std::optional<PositionCovariance> positionCovariance;
+  std::mt19937 covarianceRng{3}; // own generator: the size and yaw noise match a sensor without positionCovariance
   // When false (and zNoise == 0), detections stay planar: association uses XY only; UKF still
   // corrects z until a track gains sticky measured height, then later planar updates omit z.
   // zNoise > 0 implies a ranging sensor and sets detection.z_measured even if this stays false.
@@ -325,6 +402,7 @@ inline Sensor seeded(Sensor sensor, unsigned seed)
 {
   sensor.rng.seed(seed);
   sensor.zRng.seed(seed + 1);
+  sensor.covarianceRng.seed(seed + 2);
   return sensor;
 }
 
@@ -334,17 +412,113 @@ struct Observation
   TrackedObject detection;
   std::string sensorId;
   int objectId = 1; // ground-truth object the detection comes from
+  // Covariance the position error was drawn from (Sensor::positionCovariance); the R the tracker sees, which may
+  // differ from it, is detection.measurementNoiseCov.
+  std::optional<cv::Matx33d> trueCovariance = std::nullopt;
 };
+
+// Position error with the given covariance from three standard normal draws.
+inline cv::Vec3d correlatedNoise(const cv::Matx33d &covariance, std::mt19937 &rng)
+{
+  if (!cv::checkRange(covariance))
+  {
+    throw std::invalid_argument("position covariance must be finite");
+  }
+  cv::Mat eigenvalues;
+  cv::Mat eigenvectors;
+  cv::eigen(0.5 * (covariance + covariance.t()), eigenvalues, eigenvectors);
+  double minEigenvalue = 0.0;
+  double maxEigenvalue = 0.0;
+  cv::minMaxLoc(eigenvalues, &minEigenvalue, &maxEigenvalue);
+  if (minEigenvalue < -1e-12 * std::max(maxEigenvalue, 1.0))
+  {
+    throw std::invalid_argument("position covariance must be positive semi-definite");
+  }
+  std::normal_distribution<double> normal(0.0, 1.0);
+  cv::Vec3d error;
+  for (int i = 0; i < 3; ++i)
+  {
+    const double draw = normal(rng);
+    const double sigma = std::sqrt(std::max(eigenvalues.at<double>(i), 0.0));
+    for (int axis = 0; axis < 3; ++axis)
+    {
+      error[axis] += sigma * draw * eigenvectors.at<double>(i, axis);
+    }
+  }
+  return error;
+}
+
+// The R a sensor reports for a detection: its scaled position covariance, sizeNoise^2 and, from orienting sensors,
+// yawNoise^2. Every axis without variance gets the default noise, so R stays positive definite.
+inline TrackedObject::MeasurementMatrix
+reportedMeasurementNoise(const Sensor &sensor, const PositionCovariance &model, const cv::Matx33d &covariance)
+{
+  TrackedObject::MeasurementMatrix noise;
+  for (int row = 0; row < 3; ++row)
+  {
+    for (int col = 0; col < 3; ++col)
+    {
+      noise(MeasurementIndex::X + row, MeasurementIndex::X + col) = model.reportedScale * covariance(row, col);
+    }
+  }
+  const double sizeVariance = sensor.sizeNoise * sensor.sizeNoise;
+  for (const int index : {MeasurementIndex::LENGTH, MeasurementIndex::WIDTH, MeasurementIndex::HEIGHT})
+  {
+    noise(index, index) = sizeVariance;
+  }
+  noise(MeasurementIndex::YAW, MeasurementIndex::YAW) = sensor.orienting ? sensor.yawNoise * sensor.yawNoise : 0.0;
+
+  for (int index = 0; index < TrackedObject::MeasurementSize; ++index)
+  {
+    if (noise(index, index) <= 0.0)
+    {
+      for (int other = 0; other < TrackedObject::MeasurementSize; ++other)
+      {
+        noise(index, other) = 0.0;
+        noise(other, index) = 0.0;
+      }
+      noise(index, index) = model.defaultNoise;
+    }
+  }
+  if (!(minEigenvalue(cv::Mat(noise)) > 0.0))
+  {
+    throw std::invalid_argument("reported measurement noise must be positive definite");
+  }
+  return noise;
+}
 
 inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, Sensor &sensor, int objectId = 1)
 {
+  if (sensor.positionCovariance)
+  {
+    const auto &model = *sensor.positionCovariance;
+    if (sensor.positionNoise > 0.0 || sensor.zNoise > 0.0)
+    {
+      throw std::invalid_argument("positionCovariance replaces positionNoise and zNoise");
+    }
+    if (!model.covariance || !(model.reportedScale > 0.0) || !(model.defaultNoise > 0.0))
+    {
+      throw std::invalid_argument(
+        "positionCovariance needs a covariance and a positive reportedScale and defaultNoise");
+    }
+  }
   std::normal_distribution<double> noise(0.0, 1.0);
   std::normal_distribution<double> zNoiseDistribution(0.0, 1.0);
   std::vector<Observation> observations;
   for (const auto &sample : truth)
   {
     auto detection = makeDetection(sample);
-    const bool z_measured = sensor.z_measured || sensor.zNoise > 0.0;
+    std::optional<cv::Matx33d> trueCovariance;
+    bool z_measured = sensor.z_measured || sensor.zNoise > 0.0;
+    if (sensor.positionCovariance)
+    {
+      trueCovariance = sensor.positionCovariance->covariance(sample);
+      const cv::Vec3d error = correlatedNoise(*trueCovariance, sensor.covarianceRng);
+      detection.x += error[0];
+      detection.y += error[1];
+      detection.z += error[2];
+      z_measured = z_measured || sensor.positionCovariance->z_measured;
+    }
     detection.z_measured = z_measured;
     if (sensor.positionNoise > 0.0)
     {
@@ -367,7 +541,11 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
       detection.yaw = std::remainder(sample.heading + yawError, 2.0 * std::numbers::pi);
       orientation::setHasOrientation(detection, true);
     }
-    observations.push_back({sample.t, std::move(detection), sensor.id, objectId});
+    if (sensor.positionCovariance && sensor.positionCovariance->reported)
+    {
+      detection.measurementNoiseCov = reportedMeasurementNoise(sensor, *sensor.positionCovariance, *trueCovariance);
+    }
+    observations.push_back({sample.t, std::move(detection), sensor.id, objectId, trueCovariance});
   }
   return observations;
 }

@@ -165,13 +165,22 @@ against the same tracker outputs independently.
 production container types in a single timestamped session. Two config sets are
 available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
 and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
-`--dataset wildtrack`). Both sets share the same three config filenames:
+`--dataset wildtrack`).
 
-| Config                                | Container               | Description                                                   |
-| ------------------------------------- | ----------------------- | ------------------------------------------------------------- |
-| `black_box_controller_immediate.yaml` | `scenescape-controller` | Controller in immediate mode (`time_chunking_enabled: false`) |
-| `black_box_controller_tc.yaml`        | `scenescape-controller` | Controller with time-chunking enabled                         |
-| `black_box_tracker_service.yaml`      | `scenescape-tracker`    | Standalone Tracker Service                                    |
+**Association.** The default suite uses the euclidean meter gate (legacy baseline). Pass
+`--association mahalanobis` to run the companion jobs that use `position_mahalanobis`
+(HPHt + filter `base_measurement_noise` as R). `--association both` runs euclidean then
+mahalanobis. Camera MQTT does not yet carry per-detection R; the mahalanobis jobs still
+exercise the production covariance gate.
+
+| Config                                            | Container               | Description                                     |
+| ------------------------------------------------- | ----------------------- | ----------------------------------------------- |
+| `black_box_controller_immediate.yaml`             | `scenescape-controller` | Controller immediate mode, euclidean            |
+| `black_box_controller_tc.yaml`                    | `scenescape-controller` | Controller time-chunking, euclidean             |
+| `black_box_tracker_service.yaml`                  | `scenescape-tracker`    | Tracker Service, euclidean                      |
+| `black_box_controller_immediate_mahalanobis.yaml` | `scenescape-controller` | Same as immediate, `position_mahalanobis`       |
+| `black_box_controller_tc_mahalanobis.yaml`        | `scenescape-controller` | Same as time-chunking, `position_mahalanobis`   |
+| `black_box_tracker_service_mahalanobis.yaml`      | `scenescape-tracker`    | Same as Tracker Service, `position_mahalanobis` |
 
 **Prerequisites** (in addition to the general prerequisites above):
 
@@ -198,6 +207,8 @@ Use `--output` to override, and `--dataset` to choose the config set (default `u
 ```bash
 python -m run_black_box_evaluation --output /custom/output/path
 python -m run_black_box_evaluation --dataset wildtrack
+python -m run_black_box_evaluation --association mahalanobis
+python -m run_black_box_evaluation --association both
 ```
 
 **Output structure**:
