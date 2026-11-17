@@ -154,6 +154,7 @@ RUN : \
 # Copy application code
 RUN mkdir -p $SCENESCAPE_HOME/manager
 COPY ./manager/src/manager $SCENESCAPE_HOME/manager
+COPY ./manager/src/mcp_server $SCENESCAPE_HOME/mcp_server
 COPY ./manager/src/manage.py $SCENESCAPE_HOME/manage.py
 COPY ./version.txt $SCENESCAPE_HOME/manager/
 COPY --from=scenescape-manager-builder /usr/local/lib/python3.11/site-packages/fast_geometry /usr/local/lib/python3.11/site-packages/fast_geometry

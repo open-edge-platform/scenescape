@@ -46,7 +46,10 @@ if str(_repo_root) not in sys.path:
 # ``manager`` (the Dockerfile copies it to $SCENESCAPE_HOME/manager/).
 # On the host we create a sys.modules alias so ``from manager.settings``
 # works without a container.
-_manager_django_src = _repo_root / "manager" / "src" / "manager"
+_manager_src = _repo_root / "manager" / "src"
+if str(_manager_src) not in sys.path:
+  sys.path.insert(0, str(_manager_src))
+_manager_django_src = _manager_src / "manager"
 if "manager" not in sys.modules and _manager_django_src.is_dir():
   spec = importlib.util.spec_from_file_location(
     "manager",
