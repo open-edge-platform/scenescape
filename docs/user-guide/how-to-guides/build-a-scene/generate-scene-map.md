@@ -149,6 +149,8 @@ The mesh generation process will:
 
 > **Note**: Mesh generation typically takes 2-5 minutes depending on scene complexity and the number of cameras.
 
+> **Note**: If a 3D model (GLB) is currently applied as the scene map, clicking **Generate Mesh** asks for confirmation first. Declining leaves the scene unchanged. Confirming starts generation, and the applied model is replaced by the generated mesh when generation completes. The 3D model stays saved on the scene but is no longer applied. If generation fails, the applied model stays in place. You can apply the saved model again later from the **3D model (GLB)** section, which replaces the mesh render. See [Using a 3D Model as Scene Map](./configure-geospatial-coordinates.md#using-a-3d-model-as-scene-map).
+
 ---
 
 ## Step 6: Save Settings

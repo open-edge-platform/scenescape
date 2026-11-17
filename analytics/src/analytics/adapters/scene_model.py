@@ -1,14 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional
-
-import numpy as np
-
 from scene_common import log
-from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point, Region, Tripwire
-from scene_common.mesh_util import createObjectMesh, createRegionMesh, getMeshAxisAlignedProjectionToXY
+from scene_common.mesh_util import createObjectMesh, createRegionMesh
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_iso_time
 from scene_common.transform import CameraPose
@@ -45,8 +40,6 @@ class AnalyticsScene(SceneModel):
     self.analytics_state = AnalyticsStateStore()
     self.regulated_rate = 30
     self.external_update_rate = 30
-    self._trs_xyz_to_lla = None
-    self._trs_xyz_to_lla_failed = False
     return
 
   def _hydrateFromSceneData(self, scene_data):
@@ -65,48 +58,18 @@ class AnalyticsScene(SceneModel):
     self._updateTripwires(scene_data.get('tripwires', []))
     self._updateRegions(self.sensors, scene_data.get('sensors', []))
     self.name = scene_data['name']
+    self.reloadMapIfChanged(scene_data.get('map', self.map_file), scene_data.get('scale', self.scale))
     if 'scale' in scene_data:
       self.scale = scene_data['scale']
     if 'regulated_rate' in scene_data:
       self.regulated_rate = scene_data['regulated_rate']
     if 'external_update_rate' in scene_data:
       self.external_update_rate = scene_data['external_update_rate']
-    self._invalidate_trs_xyz_to_lla()
-    # Access the property to trigger initialization
-    _ = self.trs_xyz_to_lla
+    self._hydrateMeshPose(scene_data)
     return
 
   def updateScene(self, scene_data):
     self._hydrateFromSceneData(scene_data)
-    return
-
-  @property
-  def trs_xyz_to_lla(self) -> Optional[np.ndarray]:
-    """
-    Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
-
-    The matrix is calculated lazily on first access and cached for subsequent calls.
-    Returns None when the geospatial inputs are incomplete or invalid. A computation
-    failure is logged once and remembered until the cache is invalidated.
-    """
-    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
-        and self.output_lla and self.map_corners_lla is not None):
-      try:
-        mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
-      except (TypeError, ValueError, IndexError) as exc:
-        self._trs_xyz_to_lla_failed = True
-        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
-                  self.map_file, "error:", exc)
-    return self._trs_xyz_to_lla
-
-  def _invalidate_trs_xyz_to_lla(self):
-    """
-    Invalidate the cached transformation matrix from TRS to LLA coordinates.
-    This method should be called when the scene geospatial mapping parameters change.
-    """
-    self._trs_xyz_to_lla = None
-    self._trs_xyz_to_lla_failed = False
     return
 
   def _updateChildren(self, newChildren):
@@ -283,7 +246,5 @@ class AnalyticsScene(SceneModel):
   def deserialize(cls, data):
     scene = cls(data['name'], data.get('map', None), data.get('scale', None))
     scene.uid = data['uid']
-    scene.mesh_translation = data.get('mesh_translation', None)
-    scene.mesh_rotation = data.get('mesh_rotation', None)
     scene._hydrateFromSceneData(data)
     return scene

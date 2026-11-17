@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -48,13 +48,42 @@ class MapInterface {
     throw new Error("Method 'getZoom' must be implemented");
   }
 
+  pointToLatLng(x, y) {
+    throw new Error("Method 'pointToLatLng' must be implemented");
+  }
+
+  setOverlay(imageUrl, corners, opacity) {
+    throw new Error("Method 'setOverlay' must be implemented");
+  }
+
+  updateOverlay(corners) {
+    throw new Error("Method 'updateOverlay' must be implemented");
+  }
+
+  setOverlayOpacity(opacity) {
+    throw new Error("Method 'setOverlayOpacity' must be implemented");
+  }
+
+  // A dashed outline of the given colour around the overlay; null removes it.
+  setOverlayFrameColor(color) {
+    throw new Error("Method 'setOverlayFrameColor' must be implemented");
+  }
+
+  removeOverlay() {
+    throw new Error("Method 'removeOverlay' must be implemented");
+  }
+
   // Common utility methods
-  calculateScale(lat, zoom) {
+  // Pixels per metre of a map image at latitude `lat` and `zoom`.
+  // `tileSize` is the provider's world size in px at zoom 0: 256 for Google
+  // Maps (default), 512 for Mapbox GL (Mapbox zoom is one level lower for the
+  // same view).
+  calculateScale(lat, zoom, tileSize = 256) {
     // Earth's circumference at equator in meters
     const EARTH_CIRCUMFERENCE = 40075016.686;
 
-    // At zoom level 0, the entire world (360 degrees) fits in 256 pixels
-    const pixelsPerDegree = (256 * Math.pow(2, zoom)) / 360;
+    // At zoom level 0, the entire world (360 degrees) fits in tileSize pixels
+    const pixelsPerDegree = (tileSize * Math.pow(2, zoom)) / 360;
 
     // Convert longitude degrees to meters at the given latitude
     const metersPerDegreeLng =

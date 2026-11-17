@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+/* global getCsrfToken, requestJson */
+
 "use strict";
 
 // Google Maps Plugin Implementation
@@ -12,6 +14,7 @@ class GoogleMapsPlugin extends MapInterface {
     this.apiKey = this.getGoogleMapsApiKey();
     // Note: Don't show modal in constructor - wait for initialize()
     this.ORTHO_ZOOM_THRESHOLD = 18;
+    this.overlay = null;
   }
 
   getGoogleMapsApiKey() {
@@ -95,6 +98,7 @@ class GoogleMapsPlugin extends MapInterface {
       }
     });
 
+    window.dispatchEvent(new Event("geomap-ready"));
     document.body.className = "google-maps-active";
   }
 
@@ -319,12 +323,147 @@ class GoogleMapsPlugin extends MapInterface {
     return this.map.getZoom();
   }
 
+  pointToLatLng(x, y) {
+    const proj = this.overlay && this.overlay.getProjection();
+    if (!proj) {
+      throw new Error("Map overlay is not ready");
+    }
+    const ll = proj.fromContainerPixelToLatLng(new google.maps.Point(x, y));
+    return { lat: ll.lat(), lng: ll.lng() };
+  }
+
+  _createOverlayView() {
+    const self = this;
+    if (typeof google === "undefined" || !google.maps) {
+      throw new Error("Google Maps API not loaded");
+    }
+
+    class GroundOverlay extends google.maps.OverlayView {
+      constructor() {
+        super();
+        this.img = null;
+        this.imageUrl = "";
+        this.corners = [];
+        this.opacity = 1.0;
+        this.frameColor = null;
+      }
+
+      setFrameColor(color) {
+        this.frameColor = color;
+        if (this.img) {
+          this.img.style.outline = color ? `3px dashed ${color}` : "";
+        }
+      }
+
+      setImageUrl(url) {
+        this.imageUrl = url;
+      }
+
+      setCorners(corners) {
+        this.corners = corners;
+      }
+
+      setOpacity(opacity) {
+        this.opacity = opacity;
+        if (this.img) {
+          this.img.style.opacity = opacity;
+        }
+      }
+
+      onAdd() {
+        const panes = this.getPanes();
+        if (!this.img) {
+          this.img = document.createElement("img");
+          this.img.src = this.imageUrl;
+          this.img.style.position = "absolute";
+          this.img.style.transformOrigin = "0 0";
+          this.img.style.pointerEvents = "none";
+          this.img.style.opacity = this.opacity;
+        }
+        this.setFrameColor(this.frameColor);
+        panes.overlayLayer.appendChild(this.img);
+      }
+
+      draw() {
+        if (!this.img || this.corners.length === 0) {
+          return;
+        }
+
+        const proj = this.getProjection();
+        const nwPixel = proj.fromLatLngToDivPixel(
+          new google.maps.LatLng(this.corners[3].lat, this.corners[3].lng),
+        );
+        const nePixel = proj.fromLatLngToDivPixel(
+          new google.maps.LatLng(this.corners[2].lat, this.corners[2].lng),
+        );
+        const swPixel = proj.fromLatLngToDivPixel(
+          new google.maps.LatLng(this.corners[0].lat, this.corners[0].lng),
+        );
+
+        const m = GeoOverlayMath.overlayCssMatrix(nwPixel, nePixel, swPixel);
+
+        this.img.style.width = m.width + "px";
+        this.img.style.height = m.height + "px";
+        this.img.style.transform = "matrix(" + m.matrix.join(",") + ")";
+      }
+
+      onRemove() {
+        if (this.img && this.img.parentNode) {
+          this.img.parentNode.removeChild(this.img);
+        }
+        this.img = null;
+      }
+    }
+
+    return new GroundOverlay();
+  }
+
+  setOverlay(imageUrl, corners, opacity, frameColor = null) {
+    this.removeOverlay();
+    try {
+      this.overlay = this._createOverlayView();
+      this.overlay.setImageUrl(imageUrl);
+      this.overlay.setCorners(corners);
+      this.overlay.setOpacity(opacity);
+      this.overlay.setFrameColor(frameColor);
+      this.overlay.setMap(this.map);
+    } catch (error) {
+      console.error("Error creating overlay:", error);
+    }
+  }
+
+  updateOverlay(corners) {
+    if (this.overlay) {
+      this.overlay.setCorners(corners);
+      this.overlay.draw();
+    }
+  }
+
+  setOverlayOpacity(opacity) {
+    if (this.overlay) {
+      this.overlay.setOpacity(opacity);
+    }
+  }
+
+  setOverlayFrameColor(color) {
+    if (this.overlay) {
+      this.overlay.setFrameColor(color);
+    }
+  }
+
+  removeOverlay() {
+    if (this.overlay) {
+      this.overlay.setMap(null);
+      this.overlay = null;
+    }
+  }
+
   async saveSnapshotToServer(imageData) {
     try {
       console.log("Saving snapshot to server...");
 
       // Get CSRF token
-      const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
+      const csrfToken = getCsrfToken();
 
       if (!csrfToken) {
         console.error("CSRF token not found");
@@ -336,77 +475,59 @@ class GoogleMapsPlugin extends MapInterface {
 
       const formData = new FormData();
       formData.append("image_data", imageData);
-      formData.append("csrfmiddlewaretoken", csrfToken.value);
+      formData.append("csrfmiddlewaretoken", csrfToken);
 
-      const response = await fetch("/api/v1/save-geospatial-snapshot/", {
+      const result = await requestJson("/api/v1/save-geospatial-snapshot/", {
         method: "POST",
-        headers: {
-          "X-CSRFToken": csrfToken.value,
-        },
         body: formData,
+        csrfToken,
       });
+      console.log("Server response:", result);
 
-      console.log("Response status:", response.status);
+      if (result.success) {
+        // Update the map field with the generated filename
+        const mapField = document.getElementById("id_map");
+        if (mapField) {
+          // Hide the file input and show the generated filename instead
+          mapField.style.display = "none";
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Server response:", result);
+          // Create a display element to show the generated file
+          let fileDisplay = document.getElementById("generated-map-display");
+          if (!fileDisplay) {
+            fileDisplay = document.createElement("div");
+            fileDisplay.id = "generated-map-display";
+            fileDisplay.className = "alert alert-success";
+            mapField.parentNode.appendChild(fileDisplay);
+          }
+          fileDisplay.innerHTML = `Generated map: ${result.filename}`;
+          fileDisplay.style.display = "block";
 
-        if (result.success) {
-          // Update the map field with the generated filename
-          const mapField = document.getElementById("id_map");
-          if (mapField) {
-            // Hide the file input and show the generated filename instead
-            mapField.style.display = "none";
+          // Add a hidden input with the filename for form submission
+          let hiddenInput = document.getElementById("generated-map-filename");
+          if (!hiddenInput) {
+            hiddenInput = document.createElement("input");
+            hiddenInput.type = "hidden";
+            hiddenInput.id = "generated-map-filename";
+            hiddenInput.name = "generated_map_filename";
+            mapField.parentNode.appendChild(hiddenInput);
+          }
+          hiddenInput.value = result.filename;
 
-            // Create a display element to show the generated file
-            let fileDisplay = document.getElementById("generated-map-display");
-            if (!fileDisplay) {
-              fileDisplay = document.createElement("div");
-              fileDisplay.id = "generated-map-display";
-              fileDisplay.className = "alert alert-success";
-              mapField.parentNode.appendChild(fileDisplay);
-            }
-            fileDisplay.innerHTML = `Generated map: ${result.filename}`;
-            fileDisplay.style.display = "block";
-
-            // Add a hidden input with the filename for form submission
-            let hiddenInput = document.getElementById("generated-map-filename");
-            if (!hiddenInput) {
-              hiddenInput = document.createElement("input");
-              hiddenInput.type = "hidden";
-              hiddenInput.id = "generated-map-filename";
-              hiddenInput.name = "generated_map_filename";
-              mapField.parentNode.appendChild(hiddenInput);
-            }
-            hiddenInput.value = result.filename;
-
-            // Set map_type to geospatial_map when generating a geospatial map
-            const mapTypeField = document.getElementById("id_map_type");
-            if (mapTypeField) {
-              mapTypeField.value = "geospatial_map";
-            }
-
-            // Save current map settings to form fields
-            if (window.saveCurrentMapSettings) {
-              window.saveCurrentMapSettings();
-            }
+          // Set map_type to geospatial_map when generating a geospatial map
+          const mapTypeField = document.getElementById("id_map_type");
+          if (mapTypeField) {
+            mapTypeField.value = "geospatial_map";
           }
 
-          console.log(
-            "Geospatial snapshot saved successfully:",
-            result.filename,
-          );
-        } else {
-          console.error("Failed to save snapshot:", result.error);
+          // Save current map settings to form fields
+          if (window.saveCurrentMapSettings) {
+            window.saveCurrentMapSettings();
+          }
         }
+
+        console.log("Geospatial snapshot saved successfully:", result.filename);
       } else {
-        const errorText = await response.text();
-        console.error(
-          "Server error saving snapshot:",
-          response.status,
-          errorText,
-        );
+        console.error("Failed to save snapshot:", result.error);
       }
     } catch (error) {
       console.error("Error saving snapshot to server:", error);

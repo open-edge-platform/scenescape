@@ -57,10 +57,15 @@ SPDX-License-Identifier: Apache-2.0
     <div id="map">
       {% if scene.thumbnail %}
         <img src="{{ scene.thumbnail.url }}" alt="{{ scene.name }}" />
-      {% elif scene.map %}
+      {% elif scene.map and scene.map.name|lower|slice:"-4:" != ".glb" %}
         <img src="{{ scene.map.url }}" alt="{{ scene.name }}" />
       {% endif %}
       <input type="hidden" name="scale" id="scale" value="{{ scene.scale }}" />
+      <input
+        type="hidden"
+        id="map-origin"
+        value="{{ scene.mapOrigin|join:',' }}"
+      />
       <input type="hidden" name="scene" id="scene" value="{{ scene.id }}" />
     </div>
     <svg

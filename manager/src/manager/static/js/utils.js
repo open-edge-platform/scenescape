@@ -13,15 +13,22 @@ import {
   EULER,
 } from "/static/js/constants.js";
 
+// Local (x, y) in meters of the map image's bottom-left corner, set by the page that shows the map
+let mapOrigin = [0, 0];
+
+function setMapOrigin(origin) {
+  mapOrigin = origin;
+}
+
 // Convert a point from pixels to meters
 function pixelsToMeters(pixels, scale, scene_y_max) {
   var meters = [];
 
   // Scale-only in x
-  meters[0] = parseFloat(pixels[0] / scale);
+  meters[0] = parseFloat(pixels[0] / scale) + mapOrigin[0];
 
   // Move y axis to bottom and also scale
-  meters[1] = parseFloat((scene_y_max - pixels[1]) / scale);
+  meters[1] = parseFloat((scene_y_max - pixels[1]) / scale) + mapOrigin[1];
 
   if (pixels.length == 3) {
     // Leave z alone
@@ -36,10 +43,10 @@ function metersToPixels(meters, scale, scene_y_max) {
   var pixels = [];
 
   // Scale-only in x
-  pixels[0] = Math.round(meters[0] * scale);
+  pixels[0] = Math.round((meters[0] - mapOrigin[0]) * scale);
 
   // Move y axis to top and also scale
-  pixels[1] = Math.round(scene_y_max - meters[1] * scale);
+  pixels[1] = Math.round(scene_y_max - (meters[1] - mapOrigin[1]) * scale);
 
   // z, if provided, remains unchanged since it should be in meters already
   if (meters.length == 3) {
@@ -180,6 +187,7 @@ function updateElements(elements, action, condition) {
 export {
   pixelsToMeters,
   metersToPixels,
+  setMapOrigin,
   compareIntrinsics,
   normalizeDistortion,
   waitUntil,
