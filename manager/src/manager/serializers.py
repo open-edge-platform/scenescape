@@ -1314,7 +1314,7 @@ class Asset3DSerializer(NonNullSerializer):
 class ChildSceneSerializer(NonNullSerializer):
   name = serializers.SerializerMethodField('getChildName')
   uid = serializers.CharField(source='pk', read_only=True)
-  transform = TransformSerializerField(source="cameraPose", required=False, allow_null=True)
+  transform = TransformSerializerField(source="cameraPose", read_only=True)
 
   def getChildName(self, obj):
     return obj.child.name if obj.child else obj.child_name
@@ -1335,11 +1335,12 @@ class ChildSceneSerializer(NonNullSerializer):
     child = data.get('child', None)
     remote_child_id = data.get('remote_child_id', None)
 
-    required = []
     if child_type == 'remote':
       required = ['remote_child_id', 'child_name', 'host_name', 'mqtt_username', 'mqtt_password']
     elif child_type == 'local':
       required = ['child']
+    else:
+      raise serializers.ValidationError({'child_type': 'Invalid or missing child_type'})
 
     missing = [field for field in required if not data.get(field)]
     if missing:
