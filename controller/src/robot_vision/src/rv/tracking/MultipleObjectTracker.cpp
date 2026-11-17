@@ -68,7 +68,7 @@ bool anyMatchMeasuredZ(const std::vector<std::pair<size_t, size_t>> &matches,
 cv::Matx<double, kGeometrySize, kGeometrySize>
 fusionInformation(const TrackedObject &object, bool anyZMeasured, double defaultMeasurementNoise)
 {
-  // track() has already rejected invalid R; unset means the tracker default.
+  // track() has dropped detections with an invalid R; unset means the tracker default.
   const auto noise
     = object.measurementNoiseCov.value_or(TrackedObject::MeasurementMatrix::eye() * defaultMeasurementNoise)
         .get_minor<kGeometrySize, kGeometrySize>(0, 0);
@@ -235,6 +235,45 @@ void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
   }
 }
 
+/// Makes the fused R exactly symmetric for the Kalman update: the inverse of the summed information is symmetric only
+/// up to rounding.
+void symmetrizeMeasurementNoise(TrackedObject &fusedObject)
+{
+  if (fusedObject.measurementNoiseCov)
+  {
+    auto &noise = *fusedObject.measurementNoiseCov;
+    noise = 0.5 * (noise + noise.t());
+  }
+}
+
+/// Drops the detections whose R validMeasurementNoiseCov rejects and keeps the symmetrized R of the others, so
+/// association, fusion, birth and the update use R as is. Returns the number dropped.
+std::size_t dropDetectionsWithInvalidMeasurementNoise(std::vector<TrackedObject> &objects)
+{
+  std::size_t kept = 0;
+  for (std::size_t index = 0; index < objects.size(); ++index)
+  {
+    auto &object = objects[index];
+    if (object.measurementNoiseCov)
+    {
+      const auto valid = validMeasurementNoiseCov(*object.measurementNoiseCov);
+      if (!valid)
+      {
+        continue;
+      }
+      object.measurementNoiseCov = *valid;
+    }
+    if (kept != index)
+    {
+      objects[kept] = std::move(object);
+    }
+    ++kept;
+  }
+  const std::size_t dropped = objects.size() - kept;
+  objects.erase(objects.begin() + static_cast<std::ptrdiff_t>(kept), objects.end());
+  return dropped;
+}
+
 } // namespace
 
 template <class ElementType>
@@ -308,6 +347,7 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
                                   double scoreThreshold,
                                   double maxRadiusM)
 {
+  mRejectedDetectionCount = dropDetectionsWithInvalidMeasurementNoise(objects);
   if (objects.empty())
   {
     mTrackManager.predict(timestamp);
@@ -423,6 +463,7 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
     fuseGeometry(matches, objectsPerCamera, fusedObject, defaultMeasurementNoise);
     applyOrientingYaw(matches, objectsPerCamera, fusedObject, defaultMeasurementNoise);
+    symmetrizeMeasurementNoise(fusedObject);
     // The update measured z if any matched camera did, whichever camera seeds the fused object.
     fusedObject.z_measured = std::any_of(matches.begin(), matches.end(), [&](const auto &match) {
       return objectsPerCamera[match.first][match.second].z_measured;
@@ -471,6 +512,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
                                   double maxRadiusM,
                                   double birthClusterRadiusM)
 {
+  mRejectedDetectionCount = 0;
   if (objectsPerCamera.empty())
   {
     mTrackManager.predict(timestamp);
@@ -479,13 +521,10 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
     return;
   }
 
-  // Reject invalid per-detection R before association, fusion, birth, or the Kalman update.
+  // Before association, fusion, birth and the Kalman update; a camera left without detections stays in the batch.
   for (auto &cameraObjects : objectsPerCamera)
   {
-    for (auto &object : cameraObjects)
-    {
-      ensureValidMeasurementNoiseCov(object);
-    }
+    mRejectedDetectionCount += dropDetectionsWithInvalidMeasurementNoise(cameraObjects);
   }
 
   std::vector<std::vector<tracking::TrackedObject>> lowScoreObjectsPerCamera;
@@ -566,6 +605,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
       auto &fusedObject = newObjects[newObjectIndex];
       fuseGeometry(members, objectsPerCamera, fusedObject, defaultMeasurementNoise);
       applyOrientingYaw(members, objectsPerCamera, fusedObject, defaultMeasurementNoise);
+      symmetrizeMeasurementNoise(fusedObject);
       // Same sticky rule as track↔detection fusion: any measured-z camera marks the birth seed.
       fusedObject.z_measured = std::any_of(members.begin(), members.end(), [&](const auto &match) {
         return objectsPerCamera[match.first][match.second].z_measured;

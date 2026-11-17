@@ -430,6 +430,11 @@ std::vector<Track> TrackingWorker::match_and_convert(
         tracker_.track(std::move(objects_per_camera), timestamp, association_config_.distanceType(),
                        association_config_.costThreshold(), 0.5, association_config_.max_radius_m,
                        association_config_.birth_cluster_radius_m);
+        if (const auto rejected = tracker_.getRejectedDetectionCount(); rejected > 0) {
+            LOG_WARN(
+                "Dropped {} detection(s) with an invalid measurement noise covariance for {}/{}",
+                rejected, scope_.scene_id, scope_.category);
+        }
 
         // Get reliable tracks and map RobotVision int IDs to UUID strings
         rv_tracks = tracker_.getReliableTracks();

@@ -58,9 +58,10 @@ turn the process noise off.
 
 **Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values. A
 detection that carries its own R (`measurementNoiseCov`) uses it instead, in the update and in the association gate.
-R must be finite and positive definite (it is symmetrized on accept); `track()` and the Python setter reject invalid
-matrices. A detection without a usable orientation does not observe yaw: its update leaves the yaw row out, also of
-its own R.
+R must be finite and positive definite; it is symmetrized on accept. `track()` drops a detection whose R is not, and
+tracks the others of the call; `getRejectedDetectionCount()` returns how many the last call dropped. The Python setter
+raises `ValueError` instead. A detection without a usable orientation does not observe yaw: its update leaves the yaw
+row out, also of its own R.
 
 **Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, `p` for vx, vy
 and vz, and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. A birth

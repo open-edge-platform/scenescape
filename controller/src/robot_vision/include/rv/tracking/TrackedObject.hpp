@@ -107,8 +107,8 @@ public:
 
   /// Per-detection measurement noise R. Unset means the tracker default R. When set, it drives
   /// information-weighted multi-camera fusion, the association gate (S = H P H^T + R) and the Kalman update.
-  /// Callers must store a matrix accepted by validatedMeasurementNoiseCov (finite, symmetric, PD); track()
-  /// re-validates detections at ingestion.
+  /// track() drops a detection whose R validMeasurementNoiseCov rejects and keeps the symmetrized R of the others.
+  /// Callers that bypass track() (TrackManager, MultiModelKalmanEstimator, match()) must pass a valid, symmetric R.
   std::optional<MeasurementMatrix> measurementNoiseCov;
 
   Classification classification;
@@ -141,12 +141,13 @@ public:
   MeasurementVector measurementVector() const;
 };
 
-/// Symmetrized R when every entry is finite and the result is positive definite.
-/// Throws std::invalid_argument otherwise (same contract as the Python setter).
-TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise);
+/// The symmetric part of noise when it is finite and positive definite (every LDL^T pivot > 0, no absolute floor, so
+/// independent of units); std::nullopt otherwise. Does not throw.
+std::optional<TrackedObject::MeasurementMatrix>
+validMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise) noexcept;
 
-/// If measurementNoiseCov is set, replace it with validatedMeasurementNoiseCov(*it).
-void ensureValidMeasurementNoiseCov(TrackedObject &object);
+/// validMeasurementNoiseCov, or std::invalid_argument naming the reason (the Python setter).
+TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise);
 
 static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");
 static_assert(TrackedObject::MeasurementSize == MeasurementIndex::YAW + 1,
