@@ -5,12 +5,14 @@
 
 Usage (from tools/tracker/evaluation):
   python visualization/plot_scenario.py <dir> [<dir> ...] [--output DIR] [--plots NAME,...]
-                                        [--fps FPS]
+                                        [--fps FPS] [--xy-only | --z-only]
 
 Writes one PNG per plot to <dir>/plots/ by default, with one colour per track.
 Plots whose data is missing are skipped, e.g. the estimator plots for real
 tracker output. Tracks are paired with ground-truth objects by
-utils.tracks.match_tracks. The trackeval plot runs TrackEval, writing its files
+utils.tracks.match_tracks. The pairing, the total position error and TrackEval use
+x, y and z; --xy-only restricts them to the ground plane, --z-only to the height.
+The trackeval plot runs TrackEval, writing its files
 to <dir>/metrics/; with several directories their TrackEval results are also
 compared in <common parent>/plots/trackeval_comparison.png; directories without
 scenario files are then skipped.
@@ -39,6 +41,7 @@ from evaluators.trackeval_evaluator import (  # noqa: E402
   ground_truth_fps,
 )
 from utils.format_converters import stream_jsonl  # noqa: E402
+from utils.tracks import add_space_arguments, space_axes  # noqa: E402
 from visualization.scenario_data import (  # noqa: E402
   GROUND_TRUTH_FILE,
   TRACKS_FILE,
@@ -73,25 +76,33 @@ def track_color(pairs: Pairs, track_id: str) -> str:
   return cycle[index % len(cycle)]
 
 
-def pair_tracks(scenario: Scenario, fps: Optional[float] = None) -> Pairs:
+def pair_tracks(scenario: Scenario, fps: Optional[float] = None, space: str = "xyz") -> Pairs:
   """Every track id, in sorted order, with its matched ground-truth object id or None."""
   pairs: Pairs = {track_id: None for track_id in scenario.track_ids}
-  pairs.update(dict(match_tracks_to_truth(scenario, fps)))
+  pairs.update(dict(match_tracks_to_truth(scenario, fps, space)))
   return pairs
 
 
-def position_errors(aligned: pd.DataFrame) -> pd.DataFrame:
+def position_errors(aligned: pd.DataFrame, space: str = "xyz") -> pd.DataFrame:
   """Position error of a track against the ground truth, total and in the truth's frame.
 
   Args:
     aligned: Output of align_track_to_truth. The direction of motion comes from
       the truth velocity, or from truth positions when the velocity is missing.
+    space: Axes of the total: "xyz" (default; planar where z is missing), "xy" or "z".
 
   Returns:
-    Columns t, total, along, cross; along and cross are NaN below SPEED_FOR_DIRECTION.
+    Columns t, total, along, cross, vertical; along and cross, in the plane, are NaN below
+    SPEED_FOR_DIRECTION; vertical is the signed z error.
   """
+  space_axes(space)
   ex = (aligned["x"] - aligned["x_gt"]).to_numpy()
   ey = (aligned["y"] - aligned["y_gt"]).to_numpy()
+  has_z = {"z", "z_gt"} <= set(aligned.columns)
+  ez = (aligned["z"] - aligned["z_gt"]).to_numpy() if has_z else np.full(len(aligned), np.nan)
+  planar = ex ** 2 + ey ** 2
+  total = {"xyz": np.sqrt(planar + np.nan_to_num(ez ** 2)), "xy": np.sqrt(planar),
+           "z": np.abs(ez)}[space]
   vx = np.array(aligned["vx_gt"], dtype=float)
   vy = np.array(aligned["vy_gt"], dtype=float)
   missing = np.isnan(vx) | np.isnan(vy)
@@ -112,9 +123,10 @@ def position_errors(aligned: pd.DataFrame) -> pd.DataFrame:
     uy = np.where(speed > SPEED_FOR_DIRECTION, vy / speed, np.nan)
   return pd.DataFrame({
     "t": aligned["t"].to_numpy(),
-    "total": np.hypot(ex, ey),
+    "total": total,
     "along": ex * ux + ey * uy,
     "cross": -ex * uy + ey * ux,
+    "vertical": ez,
     "ux": ux,
     "uy": uy,
   })
@@ -142,31 +154,43 @@ def plot_trajectory(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   return fig
 
 
-def plot_position_error(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
-  """Position error against the matched truth, with a ±2σ band from the estimator covariance."""
+def plot_position_error(scenario: Scenario, pairs: Pairs,
+                        space: str = "xyz") -> Optional[plt.Figure]:
+  """Position error against the matched truth, with a ±2σ band from the estimator covariance.
+
+  Panels: the total error over the axes of `space`; the along- and cross-track error in the
+  plane (not for "z"); the vertical error (not for "xy", and for "xyz" only with vertical motion).
+  """
   matched = {track_id: object_id for track_id, object_id in pairs.items() if object_id}
   if not matched:
     return None
+  panels = [("total", "total [m]")]
+  if space != "z":
+    panels += [("along", "along-track [m]"), ("cross", "cross-track [m]")]
+  if space == "z" or (space == "xyz" and scenario.has_vertical_motion):
+    panels.append(("vertical", "vertical [m]"))
   tolerance = 0.5 / (ground_truth_frame_rate(scenario) or 1.0)
-  fig, axes = plt.subplots(3, 1, figsize=(10, 9), sharex=True)
+  fig, axes = plt.subplots(len(panels), 1, figsize=(10, 3 * len(panels)), sharex=True)
+  axes = dict(zip((column for column, _ in panels), np.atleast_1d(axes)))
   for track_id, object_id in matched.items():
     color = track_color(pairs, track_id)
-    errors = position_errors(align_track_to_truth(scenario, track_id, object_id, tolerance))
+    errors = position_errors(align_track_to_truth(scenario, track_id, object_id, tolerance), space)
     name = f"track {label(track_id)}"
-    axes[0].plot(errors["t"], errors["total"], color=color, label=name)
-    axes[1].plot(errors["t"], errors["along"], color=color, label=name)
-    axes[2].plot(errors["t"], errors["cross"], color=color, label=name)
+    for column, ax in axes.items():
+      ax.plot(errors["t"], errors[column], color=color, label=name)
     sigma = _position_sigma(scenario, track_id, errors, tolerance)
     if sigma is not None:
-      for ax, column in ((axes[1], "along"), (axes[2], "cross")):
-        ax.fill_between(errors["t"], -2 * sigma[column], 2 * sigma[column], color=color, alpha=0.15,
-                        linewidth=0, label=f"±2σ {label(track_id)}")
-  for ax, ylabel in zip(axes, ("total [m]", "along-track [m]", "cross-track [m]")):
+      for column, ax in axes.items():
+        if column != "total" and sigma[column].notna().any():
+          ax.fill_between(errors["t"], -2 * sigma[column], 2 * sigma[column], color=color,
+                          alpha=0.15, linewidth=0, label=f"±2σ {label(track_id)}")
+  for (column, ylabel), ax in zip(panels, axes.values()):
     _finish(ax, None, ylabel)
-  axes[1].axhline(0.0, color="black", linewidth=0.5)
-  axes[2].axhline(0.0, color="black", linewidth=0.5)
-  axes[-1].set_xlabel("t [s]")
-  axes[0].set_title(_title(scenario, "Position error (estimate - truth)"))
+    if column != "total":
+      ax.axhline(0.0, color="black", linewidth=0.5)
+  list(axes.values())[-1].set_xlabel("t [s]")
+  scope = "" if space == "xyz" else f", {space} only"
+  list(axes.values())[0].set_title(_title(scenario, f"Position error (estimate - truth{scope})"))
   return fig
 
 
@@ -206,6 +230,40 @@ def plot_speed_yaw(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   axes[-1].set_xlabel("t [s]")
   axes[0].set_title(_title(scenario, "Speed and yaw"))
   return fig
+
+
+def plot_altitude(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
+  """z and vz of truth, detections and estimate; only for recordings with vertical motion."""
+  if not scenario.has_vertical_motion:
+    return None
+  fig, axes = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+  for track_id, track in _tracks(scenario, pairs):
+    _plot_altitude_track(scenario, track_id, track, pairs, axes)
+  for ax, ylabel in zip(axes, ("z [m]", "vz [m/s]")):
+    _finish(ax, None, ylabel)
+  axes[-1].set_xlabel("t [s]")
+  axes[0].set_title(_title(scenario, "Altitude"))
+  return fig
+
+
+def _plot_altitude_track(scenario: Scenario, track_id: str, track: pd.DataFrame,
+                         pairs: Pairs, axes: np.ndarray) -> None:
+  """Plot z and vz for one track: estimate (solid), truth (dashed), detections (dots on z)."""
+  color = track_color(pairs, track_id)
+  name = label(track_id)
+  # z panel
+  axes[0].plot(track["t"], track["z"], color=color, label=f"track {name}")
+  truth = _truth(scenario, pairs.get(track_id))
+  if truth is not None and truth["z"].notna().any():
+    axes[0].plot(truth["t"], truth["z"], color=color, label=f"truth {name}", **TRUTH_STYLE)
+  detections = _detections(scenario, pairs.get(track_id))
+  if detections["z"].notna().any():
+    axes[0].plot(detections["t"], detections["z"], color=color, label=f"detections {name}",
+                 **DETECTION_STYLE)
+  # vz panel
+  axes[1].plot(track["t"], track["vz"], color=color, label=f"track {name}")
+  if truth is not None and truth["vz"].notna().any():
+    axes[1].plot(truth["t"], truth["vz"], color=color, label=f"truth {name}", **TRUTH_STYLE)
 
 
 def plot_size(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
@@ -252,8 +310,8 @@ def plot_model_probability(scenario: Scenario, pairs: Pairs) -> Optional[plt.Fig
 
 
 STD_DEV_GROUPS = (
-  ("position [m]", ("x", "y")),
-  ("velocity [m/s]", ("vx", "vy")),
+  ("position [m]", ("x", "y", "z")),
+  ("velocity [m/s]", ("vx", "vy", "vz")),
   ("yaw [rad]", ("yaw",)),
   ("yaw rate [rad/s]", ("yaw_rate",)),
   ("size [m]", ("length", "width", "height")),
@@ -270,6 +328,8 @@ def plot_std_dev(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
     color = track_color(pairs, track_id)
     for ax, (_, states) in zip(axes, STD_DEV_GROUPS):
       for style, state in zip(styles, states):
+        if not trace.has_state(state):
+          continue
         index = trace.state_index(state)
         ax.plot(trace.t, np.sqrt(np.clip(trace.covariance[:, index, index], 0.0, None)), style,
                 color=color, label=f"{state} {label(track_id)}")
@@ -281,11 +341,13 @@ def plot_std_dev(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   return fig
 
 
-def run_trackeval(scenario: Scenario, fps: Optional[float] = None) -> Optional[pd.Series]:
+def run_trackeval(scenario: Scenario, fps: Optional[float] = None,
+                  space: str = "xyz") -> Optional[pd.Series]:
   """TrackEval results of a scenario: the COMBINED row of TrackEval's detailed CSV.
 
   TrackEval's files are written to <directory>/metrics. The frame rate defaults to the
-  one of the TrackEval command line. Returns None without tracks or ground truth;
+  one of the TrackEval command line, `space` ("xyz", "xy" or "z") selects the axes of its
+  position distance. Returns None without tracks or ground truth;
   raises when TrackEval fails.
   """
   tracks, truth = scenario.files.get(TRACKS_FILE), scenario.files.get(GROUND_TRUTH_FILE)
@@ -293,6 +355,7 @@ def run_trackeval(scenario: Scenario, fps: Optional[float] = None) -> Optional[p
     return None
   fps = fps or ground_truth_fps(truth)
   evaluator = TrackEvalEvaluator().configure_metrics(list(TRACKEVAL_SCORES)[:3]).set_base_fps(fps)
+  evaluator.set_space(space)
   evaluator.set_output_folder(scenario.directory / "metrics")
   try:
     # TrackEval prints its configuration and progress.
@@ -315,7 +378,8 @@ def trackeval_curve(results: pd.Series, name: str) -> np.ndarray:
   return np.array([results[f"{name}___{alpha}"] for alpha in TRACKEVAL_ALPHAS], dtype=float)
 
 
-def plot_trackeval(scenario: Scenario, results: Optional[pd.Series]) -> Optional[plt.Figure]:
+def plot_trackeval(scenario: Scenario, results: Optional[pd.Series],
+                   space: str = "xyz") -> Optional[plt.Figure]:
   """TrackEval HOTA, DetA, AssA, LocA and TP/FN/FP counts against the accepted position error."""
   if results is None:
     return None
@@ -329,7 +393,8 @@ def plot_trackeval(scenario: Scenario, results: Optional[pd.Series]) -> Optional
   _finish(axes[0], None, "score")
   _finish(axes[1], "accepted position error d [m]", "detections")
   scores = ", ".join(f"{name} {results[column]:.3f}" for name, column in TRACKEVAL_SCORES.items())
-  axes[0].set_title(f"{_title(scenario, 'TrackEval')}\n{scores}")
+  scope = "" if space == "xyz" else f" ({space} only)"
+  axes[0].set_title(f"{_title(scenario, 'TrackEval' + scope)}\n{scores}")
   return fig
 
 
@@ -378,6 +443,7 @@ PLOTS: Dict[str, Callable[..., Optional[plt.Figure]]] = {
   "trajectory": plot_trajectory,
   "position_error": plot_position_error,
   "speed_yaw": plot_speed_yaw,
+  "altitude": plot_altitude,
   "size": plot_size,
   "model_probability": plot_model_probability,
   "std_dev": plot_std_dev,
@@ -386,7 +452,7 @@ PLOTS: Dict[str, Callable[..., Optional[plt.Figure]]] = {
 
 
 def plot_scenario(directory, output=None, plots: Optional[Sequence[str]] = None,
-                  fps: Optional[float] = None) -> Dict[str, Optional[Path]]:
+                  fps: Optional[float] = None, space: str = "xyz") -> Dict[str, Optional[Path]]:
   """Write the selected plots of a scenario directory.
 
   Args:
@@ -394,20 +460,23 @@ def plot_scenario(directory, output=None, plots: Optional[Sequence[str]] = None,
     output: Output directory, by default <directory>/plots.
     plots: Plot names from PLOTS, by default all.
     fps: Frame rate for pairing tracks with ground truth, by default the ground-truth rate.
+    space: Axes of the pairing, of the total position error and of TrackEval's distance:
+      "xyz" (default), "xy" or "z".
 
   Returns:
     Plot name -> written file, or None when the plot was skipped for missing data or a
     TrackEval failure, which is reported as a warning on stderr.
 
   Raises:
-    ValueError: for an unknown plot name.
+    ValueError: for an unknown plot name or space.
   """
-  return _plot_scenario(directory, output, plots, fps)[0]
+  return _plot_scenario(directory, output, plots, fps, space)[0]
 
 
-def _plot_scenario(directory, output, plots: Optional[Sequence[str]],
-                   fps: Optional[float]) -> Tuple[Dict[str, Optional[Path]], Optional[pd.Series]]:
+def _plot_scenario(directory, output, plots: Optional[Sequence[str]], fps: Optional[float],
+                   space: str = "xyz") -> Tuple[Dict[str, Optional[Path]], Optional[pd.Series]]:
   """plot_scenario(), also returning the TrackEval results."""
+  space_axes(space)
   names = list(plots) if plots else list(PLOTS)
   unknown = sorted(set(names) - set(PLOTS))
   if unknown:
@@ -415,11 +484,11 @@ def _plot_scenario(directory, output, plots: Optional[Sequence[str]],
   scenario = load_scenario(directory)
   output = Path(output) if output else scenario.directory / "plots"
   output.mkdir(parents=True, exist_ok=True)
-  pairs = pair_tracks(scenario, fps)
+  pairs = pair_tracks(scenario, fps, space)
   results = None
   if "trackeval" in names:
     try:
-      results = run_trackeval(scenario, fps)
+      results = run_trackeval(scenario, fps, space)
     except Exception as error:  # pylint: disable=broad-exception-caught
       # TrackEval must not stop the other plots.
       print(f"warning: TrackEval failed for {scenario.directory}: {error}", file=sys.stderr)
@@ -427,7 +496,9 @@ def _plot_scenario(directory, output, plots: Optional[Sequence[str]],
   written: Dict[str, Optional[Path]] = {}
   for name in names:
     if name == "trackeval":
-      figure = plot_trackeval(scenario, results)
+      figure = plot_trackeval(scenario, results, space)
+    elif name == "position_error":
+      figure = plot_position_error(scenario, pairs, space)
     else:
       figure = PLOTS[name](scenario, pairs)
     if figure is None:
@@ -453,6 +524,7 @@ def main(argv: Optional[List[str]] = None) -> int:
   parser.add_argument("--fps", type=float,
                       help="frame rate for pairing tracks with ground truth "
                       "(default: from ground truth)")
+  add_space_arguments(parser)
   args = parser.parse_intermixed_args(argv)
   unknown = sorted(set(args.plots or []) - set(PLOTS))
   if unknown:
@@ -464,7 +536,7 @@ def main(argv: Optional[List[str]] = None) -> int:
   results: Dict[str, pd.Series] = {}
   for directory in args.directories:
     try:
-      written, result = _plot_scenario(directory, args.output, args.plots, args.fps)
+      written, result = _plot_scenario(directory, args.output, args.plots, args.fps, args.space)
     except FileNotFoundError as error:
       if not several:
         parser.error(str(error))
@@ -530,16 +602,21 @@ def _near(t: pd.Series, angles: pd.Series, track: pd.DataFrame) -> np.ndarray:
 
 def _position_sigma(scenario: Scenario, track_id: str, errors: pd.DataFrame,
                     tolerance: float) -> Optional[pd.DataFrame]:
-  """Along- and cross-track standard deviation from the estimator covariance at each error time."""
+  """Along-, cross-track and vertical standard deviation from the covariance at each error time.
+
+  The vertical column is NaN without z in the estimator state.
+  """
   trace = scenario.estimator.get(track_id)
   if trace is None:
     return None
   ix, iy = trace.state_index("x"), trace.state_index("y")
+  iz = trace.state_index("z") if trace.has_state("z") else None
   covariance = pd.DataFrame({
     "t": trace.t,
     "pxx": trace.covariance[:, ix, ix],
     "pxy": trace.covariance[:, ix, iy],
     "pyy": trace.covariance[:, iy, iy],
+    "pzz": trace.covariance[:, iz, iz] if iz is not None else np.nan,
   }).sort_values("t")
   joined = pd.merge_asof(errors.sort_values("t"), covariance, on="t", direction="nearest",
                          tolerance=tolerance)
@@ -547,7 +624,8 @@ def _position_sigma(scenario: Scenario, track_id: str, errors: pd.DataFrame,
   along = ux * ux * joined["pxx"] + 2 * ux * uy * joined["pxy"] + uy * uy * joined["pyy"]
   cross = uy * uy * joined["pxx"] - 2 * ux * uy * joined["pxy"] + ux * ux * joined["pyy"]
   return pd.DataFrame({"along": np.sqrt(along.clip(lower=0.0)),
-                       "cross": np.sqrt(cross.clip(lower=0.0))})
+                       "cross": np.sqrt(cross.clip(lower=0.0)),
+                       "vertical": np.sqrt(joined["pzz"].clip(lower=0.0))})
 
 
 if __name__ == "__main__":

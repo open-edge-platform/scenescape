@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.timeline import (
   parse_timestamp,
   deduplicate_frames_by_timestamp,
+  ingest_frames,
   require_fps,
   timestamp_to_frame,
   reference_timestamp,
@@ -65,6 +66,19 @@ class TestTimestampToFrame:
   def test_rounds_to_nearest_frame(self):
     ref = parse_timestamp(_ts(0))
     assert timestamp_to_frame(parse_timestamp(_ts(3)), ref, 10.0) == 4
+
+
+class TestIngestFrames:
+  def test_keeps_x_y_and_z(self):
+    frames = [
+      {"timestamp": _ts(0), "objects": [{"id": 7, "translation": [1.0, 2.0, 3.0]}]},
+      {"timestamp": _ts(1), "objects": [{"id": 7, "translation": [1.5, 2.5, 3.5]}]},
+    ]
+    tracks = {}
+
+    ingest_frames(frames, tracks, parse_timestamp(_ts(0)), 10.0)
+
+    assert tracks == {"7": {1: (1.0, 2.0, 3.0), 2: (1.5, 2.5, 3.5)}}
 
 
 class TestReferenceTimestamp:
