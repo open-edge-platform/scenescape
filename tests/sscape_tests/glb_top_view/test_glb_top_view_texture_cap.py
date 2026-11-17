@@ -41,20 +41,24 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
     rendered_mesh = renderer.scene.add_geometry.call_args.args[1]
     extents = rendered_mesh.get_axis_aligned_bounding_box().get_extent().numpy()
     np.testing.assert_allclose(extents, [4 * scale[1], 2 * scale[0], 6 * scale[2]])
+    # The scene translation is ignored: the image always starts at the mesh min corner
     np.testing.assert_allclose(
-      rendered_mesh.get_axis_aligned_bounding_box().get_center().numpy(), [-10, -20, z])
-    assert ppm == pytest.approx(min(1024 / extents[0], 768 / extents[1]))
+      rendered_mesh.get_axis_aligned_bounding_box().min_bound.numpy(), [0, 0, 0], atol=1e-6)
+    res_x, res_y = renderer_class.call_args.args
+    assert res_x / res_y == pytest.approx(extents[0] / extents[1], rel=1e-2)
+    # The resolution is rounded to whole pixels
+    assert ppm == pytest.approx(min(1024 / extents[0], 768 / extents[1]), rel=1e-2)
     target, eye, up = renderer.scene.camera.look_at.call_args.args
     bounds = rendered_mesh.get_axis_aligned_bounding_box()
     min_z, max_z = bounds.min_bound[2].item(), bounds.max_bound[2].item()
-    assert target == pytest.approx([-10, -20, min_z])
+    assert target == pytest.approx([extents[0] / 2, extents[1] / 2, min_z])
     assert eye[2] > max_z
     assert up == [0, 1, 0]
     _, left, right, bottom, top, near, far = renderer.scene.camera.set_projection.call_args.args
     assert left == pytest.approx(-right)
     assert bottom == pytest.approx(-top)
-    assert right == pytest.approx(512 / ppm)
-    assert top == pytest.approx(384 / ppm)
+    assert right == pytest.approx(res_x / 2 / ppm)
+    assert top == pytest.approx(res_y / 2 / ppm)
     center = bounds.get_center().numpy()
     half_width = (right - left) / 2
     half_height = (top - bottom) / 2
@@ -84,7 +88,7 @@ def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, 
     renderer_class.return_value = renderer
     scene.save(send_update_command=False)
     scene.refresh_from_db()
-    assert scene.scale == pytest.approx(1024 / 12)
+    assert scene.scale == pytest.approx(1024 / 12, rel=1e-2)
     assert scene.thumbnail.storage.exists(scene.thumbnail.name)
     source = SceneSourceMap.objects.create(
       scene=scene, method="scaled", file=scene.map.name,
