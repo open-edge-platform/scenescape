@@ -2,22 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "coordinate_transformer.hpp"
-#include "json_utils.hpp"
-#include "reid_sighting.hpp"
 
 #include <algorithm>
 #include <cassert>
-#include <charconv>
 #include <cmath>
-#include <stdexcept>
-#include <string_view>
-#include <unordered_map>
 #include <vector>
 
 #include <omp.h>
 #include <opencv2/calib3d.hpp>
-#include <rapidjson/document.h>
-#include <rv/tracking/MetadataFusion.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
 
 namespace tracker {
@@ -25,37 +17,6 @@ namespace tracker {
 namespace {
 
 constexpr int kMinIterationsForOpenMpParallelism = 32;
-
-void addMetadataAttributes(const Detection& detection,
-                           std::unordered_map<std::string, std::string>& attributes) {
-    rapidjson::Document metadata;
-    if (detection.metadata_json.find('\0') != std::string::npos ||
-        metadata.Parse(detection.metadata_json.data(), detection.metadata_json.size())
-            .HasParseError() ||
-        !metadata.IsObject()) {
-        return;
-    }
-
-    for (auto member = metadata.MemberBegin(); member != metadata.MemberEnd(); ++member) {
-        const std::string field(member->name.GetString(), member->name.GetStringLength());
-        attributes[std::string(rv::tracking::metadata_fusion::ValuePrefix) + field] =
-            detail::to_json_string(member->value);
-
-        if (!member->value.IsObject() || !member->value.HasMember("confidence") ||
-            !member->value["confidence"].IsNumber()) {
-            continue;
-        }
-
-        char confidence_buffer[32];
-        const auto confidence = member->value["confidence"].GetDouble();
-        auto [ptr, ec] = std::to_chars(confidence_buffer,
-                                       confidence_buffer + sizeof(confidence_buffer), confidence);
-        if (ec == std::errc{}) {
-            attributes[std::string(rv::tracking::metadata_fusion::ConfidencePrefix) + field] =
-                std::string(confidence_buffer, ptr);
-        }
-    }
-}
 
 cv::Matx33d quaternionToRotationMatrix(const std::array<double, 4>& quaternion) {
     const double norm = std::hypot(std::hypot(quaternion[0], quaternion[1]),
@@ -87,19 +48,6 @@ void applyDetectionRotation(const Detection& detection, const cv::Matx33d& camer
         cameraRotation * quaternionToRotationMatrix(*detection.rotation);
     object.yaw = std::atan2(worldRotation(1, 0), worldRotation(0, 0));
     rv::tracking::orientation::setHasOrientation(object, true);
-}
-
-void addDetectionAttributes(const Detection& detection, rv::tracking::TrackedObject& object) {
-    if (!detection.metadata_json.empty()) {
-        addMetadataAttributes(detection, object.attributes);
-    }
-    if (detection.confidence.has_value()) {
-        char buffer[32];
-        auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), *detection.confidence);
-        if (ec == std::errc{}) {
-            object.attributes["confidence"] = std::string(buffer, ptr);
-        }
-    }
 }
 
 } // namespace
@@ -207,14 +155,9 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
     }
 }
 
-std::vector<rv::tracking::TrackedObject>
-CoordinateTransformer::transformDetections(std::span<const Detection> detections,
-                                           std::optional<ReidSightingContext> sightings) const {
+ProjectedDetections
+CoordinateTransformer::transformDetections(std::span<const Detection> detections) const {
     const auto n = detections.size();
-    if (sightings && (sightings->batch.detections.size() != n ||
-                      sightings->batch.detections.data() != detections.data())) {
-        throw std::invalid_argument("ReID sighting context must reference the detection span");
-    }
     if (n == 0)
         return {};
 
@@ -296,9 +239,10 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         }
     }
 
-    // Phase 4: Assemble TrackedObjects from world-projected points
-    std::vector<rv::tracking::TrackedObject> result(n);
-    std::vector<uint8_t> detection_valid(n);
+    // Phase 4: Assemble world geometry, one entry per detection. Objects are constructed here,
+    // outside the parallel loop: constructing them inside it doubles the time per batch.
+    ProjectedDetections result{std::vector<rv::tracking::TrackedObject>(n),
+                               std::vector<uint8_t>(n, 0)};
 
     const double cam_x = camera_origin_.x;
     const double cam_y = camera_origin_.y;
@@ -307,15 +251,14 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 #pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
     for (int i = 0; i < static_cast<int>(n); ++i) {
         const size_t detection_index = static_cast<size_t>(i);
-        const auto& detection = detections[static_cast<size_t>(i)];
-        auto& obj = result[static_cast<size_t>(i)];
+        const auto& detection = detections[detection_index];
 
         if (detection.translation) {
             const auto& translation = *detection.translation;
             const cv::Vec4d sensorPosition(translation[0], translation[1], translation[2], 1.0);
             const cv::Vec4d worldPosition = pose_matrix_ * sensorPosition;
 
-            obj.id = detection.id.value_or(rv::tracking::InvalidObjectId);
+            auto& obj = result.objects[detection_index];
             obj.x = worldPosition[0];
             obj.y = worldPosition[1];
             obj.z = worldPosition[2];
@@ -324,8 +267,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             obj.width = (*detection.size)[1];
             obj.height = (*detection.size)[2];
             applyDetectionRotation(detection, camera_rotation_, obj);
-            addDetectionAttributes(detection, obj);
-            detection_valid[static_cast<size_t>(i)] = 1;
+            result.has_geometry[detection_index] = 1;
             continue;
         }
 
@@ -364,33 +306,16 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             offset_y += (foot_dy / bearing_len) * half_size;
         }
 
-        obj.id = detection.id.value_or(rv::tracking::InvalidObjectId);
+        auto& obj = result.objects[detection_index];
         obj.x = offset_x;
         obj.y = offset_y;
         obj.z = 0.0;
         obj.length = width_m; // [width, width, height] convention
         obj.width = width_m;
         obj.height = height_m;
-        addDetectionAttributes(detection, obj);
-        if (sightings) {
-            sightings->tag(detection_index, obj.attributes);
-        }
         applyDetectionRotation(detection, camera_rotation_, obj);
-
-        detection_valid[i] = 1;
+        result.has_geometry[detection_index] = 1;
     }
-
-    // Compact: remove invalid detections (preserves ordering)
-    size_t write = 0;
-    for (size_t read = 0; read < n; ++read) {
-        if (detection_valid[read]) {
-            if (write != read) {
-                result[write] = std::move(result[read]);
-            }
-            ++write;
-        }
-    }
-    result.resize(write);
 
     return result;
 }
