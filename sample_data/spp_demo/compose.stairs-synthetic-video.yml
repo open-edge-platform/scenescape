@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Video source for the Stairs-synthetic scene of the SPP demo. The synthetic
+# person is not detected by a person detection model, so instead of DL
+# Streamer Pipeline Server pipelines, tools/detection_replay plays the videos
+# of cam1_front_left and cam2_back_right with their recorded detections and
+# publishes them over MQTT like detection-only pipelines (Live View frames
+# included). Started by `make demo-spp` next to compose.stairs-video.yml
+# (same COMPOSE_PROJECT_NAME, so the "scenescape" network is shared).
+
+name: scenescape
+
+networks:
+  scenescape:
+    external: true
+    name: ${SCENESCAPE_NETWORK:-scenescape_scenescape}
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+
+services:
+  stairs-synthetic-replay:
+    # The DL Streamer Pipeline Server image provides GStreamer, the GVA
+    # elements and gst-python; its pipeline server is not used.
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261027-weekly-ubuntu24
+    networks:
+      scenescape:
+    entrypoint: ["python3", "/home/detection_replay/detection_replay.py"]
+    command:
+      - --sync=time
+      - --detection-labels=person
+      - --camera
+      - cam1_front_left
+      - /workspace/video/cam1_front_left.mp4
+      - /workspace/metadata/cam1_front_left.json
+      - --camera
+      - cam2_back_right
+      - /workspace/video/cam2_back_right.mp4
+      - /workspace/metadata/cam2_back_right.json
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "detection_replay.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape:/home/detection_replay
+      - MQTT_HOST=broker.scenescape.intel.com
+      - MQTT_PORT=1883
+      - NO_PROXY=broker.scenescape.intel.com,ntpserv,${NO_PROXY}
+      - no_proxy=broker.scenescape.intel.com,ntpserv,${no_proxy}
+    volumes:
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
+      - ./tools/detection_replay/gstplugins:/home/detection_replay/python:ro
+      - ./tools/detection_replay/detection_replay.py:/home/detection_replay/detection_replay.py:ro
+      - ./sample_data/spp_demo/Stairs-synthetic/video:/workspace/video:ro
+      - ./sample_data/spp_demo/Stairs-synthetic/metadata:/workspace/metadata:ro
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: always
+    pids_limit: 1000
