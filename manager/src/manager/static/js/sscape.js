@@ -2133,6 +2133,20 @@ function setupGenerateMesh() {
 
       alert("Mesh generated successfully! The scene map has been updated.");
 
+      // Browsers can restore stale form values on reload; match the server-side generated-map transform.
+      const generatedTransform = {
+        rotation_x: 90,
+        rotation_y: 0,
+        rotation_z: 0,
+        translation_x: 0,
+        translation_y: 0,
+        translation_z: 0,
+      };
+      Object.entries(generatedTransform).forEach(([name, value]) => {
+        const field = document.getElementById("id_" + name);
+        if (field) field.value = value;
+      });
+
       window.location.reload();
     } catch (err) {
       console.error(err);
