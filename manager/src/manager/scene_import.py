@@ -20,9 +20,31 @@ from manager.scene_archive import (
 )
 from manager.serializers import SceneSerializer
 from scene_common.rest_client import RESTClient, RESTResult
-from scene_common.options import POINT_CORRESPONDENCE, EULER
+from scene_common.options import POINT_CORRESPONDENCE, EULER, POSE_ORIGIN_MANAGER_IMPORT
 from scene_common.cam_fields import CAM_COMMON_FIELDS
 from scene_common import log
+
+# Updating a scene with a GLB map re-renders its thumbnail synchronously, which
+# can take far longer than RESTClient's default timeout for large meshes.
+IMPORT_REST_TIMEOUT_ENV_VAR = "SCENE_IMPORT_REST_TIMEOUT_S"
+DEFAULT_IMPORT_REST_TIMEOUT_S = 300
+
+
+def get_import_rest_timeout() -> int:
+  """Read the import REST timeout in seconds, falling back to the default if unset or invalid."""
+  raw = os.environ.get(IMPORT_REST_TIMEOUT_ENV_VAR, "").strip()
+  if not raw:
+    return DEFAULT_IMPORT_REST_TIMEOUT_S
+  try:
+    value = int(raw)
+  except ValueError:
+    value = 0
+  if value <= 0:
+    log.warning(
+      f"Ignoring invalid {IMPORT_REST_TIMEOUT_ENV_VAR}={raw!r}; expected a positive integer. "
+      f"Using {DEFAULT_IMPORT_REST_TIMEOUT_S}.")
+    return DEFAULT_IMPORT_REST_TIMEOUT_S
+  return value
 
 
 class ImportScene:
@@ -37,7 +59,7 @@ class ImportScene:
     self.rootcert = '/run/secrets/certs/scenescape-ca.pem'
     self.baseUrl = os.getenv("WEBSERVER_URL", "https://web.scenescape.intel.com")
     self.restUrl = self.baseUrl + '/api/v1'
-    self.rest = RESTClient(self.restUrl, rootcert=self.rootcert)
+    self.rest = RESTClient(self.restUrl, rootcert=self.rootcert, timeout=get_import_rest_timeout())
     self.rest.token = token
     return
 
@@ -48,6 +70,7 @@ class ImportScene:
       cam_data = {
         "sensor_id": cam.get("uid"),
         **{field: cam.get(field) for field in CAM_COMMON_FIELDS if field in cam},
+        "calibration_origin": POSE_ORIGIN_MANAGER_IMPORT,
       }
       # Required by CamSerializer.validate() when use_camera_pipeline is true.
       if "camera_pipeline" in cam:
@@ -162,10 +185,15 @@ class ImportScene:
     return scene_id
 
   async def update_scene_settings(self, scene_id, data):
-    if data:
+    if not data:
+      return None
+    try:
       response = await asyncio.to_thread(self.rest.updateScene, scene_id, data)
-      return response.errors
-    return None
+    except requests.RequestException as error:
+      log.error(f"Scene settings update failed ({type(error).__name__}); "
+                f"raise {IMPORT_REST_TIMEOUT_ENV_VAR} if large maps time out")
+      return {"scene": [f"Scene settings update failed ({type(error).__name__})"]}
+    return response.errors
 
   async def loadScene(self, child=None, parent=None):
     import_summary = {

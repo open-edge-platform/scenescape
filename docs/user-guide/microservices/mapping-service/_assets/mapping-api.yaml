@@ -272,7 +272,7 @@ paths:
 
         Use this endpoint to:
         - Check if the service is running and the model is ready
-        - Drive Kubernetes liveness/readiness probes (returns 503 when model not loaded)
+        - Drive Kubernetes liveness/readiness probes (returns 202 while loading and 503 if initialization fails)
       operationId: healthCheck
       responses:
         "200":
@@ -282,9 +282,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
               example:
-                success: true
                 status: "healthy"
                 ready: true
+                component: "mapping"
+                timestamp: "2026-10-27T13:00:00+00:00"
+                version: "1.0"
+                details:
+                  models:
+                    loaded: true
+                    active: "mapanything"
+                  runtime:
+                    device: "cpu"
                 model: "mapanything"
                 model_loaded: true
                 device: "cpu"
@@ -294,6 +302,19 @@ paths:
                   progress: 100.0
                   message: "model loaded"
                   error: null
+                  updated_at: 1793106000.0
+        "202":
+          description: Service is starting and the model is not yet loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Model initialization failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
 
   /models:
     get:
@@ -314,11 +335,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthResponse"
+                $ref: "#/components/schemas/ModelsResponse"
               example:
-                success: false
-                status: "unhealthy"
-                model_loaded: false
+                model: "mapanything"
+                model_info:
+                  name: "mapanything"
+                  description: "MapAnything - Apache 2.0 licensed model for metric 3D reconstruction"
+                  device: "cpu"
+                  loaded: true
+                  native_output: "mesh"
+                  supported_outputs: ["mesh", "pointcloud"]
+                camera_pose_format:
+                  rotation: "quaternion [x, y, z, w]"
+                  translation: "vector [x, y, z]"
+                  coordinate_system: "OpenCV (camera-to-world transformation, standard CV coordinates)"
 
 components:
   schemas:
@@ -508,25 +538,49 @@ components:
     HealthResponse:
       type: object
       required:
-        - success
         - status
+        - ready
         - model_loaded
       properties:
-        success:
-          type: boolean
-          description: True if service is healthy; false if model is not loaded
-          example: true
         status:
           type: string
-          enum: [healthy, unhealthy]
+          enum: [healthy, degraded, unhealthy]
           description: Overall health status
           example: "healthy"
         ready:
           type: boolean
           description: True when the mapping model is loaded and ready for requests
           example: true
+        component:
+          type: string
+          example: "mapping"
+        timestamp:
+          type: string
+          format: date-time
+          description: Time the health status was generated
+        version:
+          type: string
+          description: Health response version
+          example: "1.0"
+        details:
+          type: object
+          properties:
+            models:
+              type: object
+              properties:
+                loaded:
+                  type: boolean
+                active:
+                  type: string
+                  nullable: true
+            runtime:
+              type: object
+              properties:
+                device:
+                  type: string
         model:
           type: string
+          nullable: true
           description: The model available in this container
           example: "mapanything"
         model_loaded:
@@ -579,10 +633,13 @@ components:
       properties:
         model:
           type: string
+          nullable: true
           description: The model available in this container
           example: "mapanything"
         model_info:
-          $ref: "#/components/schemas/ModelInfo"
+          allOf:
+            - $ref: "#/components/schemas/ModelInfo"
+          nullable: true
           description: Information about the loaded model
         camera_pose_format:
           type: object
@@ -613,6 +670,10 @@ components:
           type: boolean
           description: Whether the model is currently loaded and available
           example: true
+        device:
+          type: string
+          description: Compute device being used
+          example: "cpu"
         native_output:
           type: string
           description: The preferred output format for this model

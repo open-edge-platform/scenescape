@@ -161,6 +161,7 @@ def test_out_of_box(params, record_xml_attribute):
   exit_code = 1
   frames_updating = False
   message_received = Condition()
+  browser = None
 
   try:
     client = PubSub(params['auth'], None, params['rootcert'], params['broker_url'],
@@ -222,6 +223,8 @@ def test_out_of_box(params, record_xml_attribute):
     exit_code = 0
 
   finally:
+    if browser is not None:
+      browser.quit()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

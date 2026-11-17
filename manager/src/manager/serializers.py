@@ -2,10 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+from collections.abc import Mapping
+import math
 import json
+import logging
+import math
 import os
+import tempfile
 from uuid import UUID
 
+import cv2
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
@@ -27,6 +33,13 @@ from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
 from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
+from scene_common import log
+
+
+logger = logging.getLogger(__name__)
+
+# Cam.width/height are IntegerFields, keep values within the database integer range.
+MAX_RESOLUTION = 2**31 - 1
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -65,6 +78,62 @@ def _validate_scene_exists(data):
     if scene_pk and not Scene.objects.filter(pk=scene_pk).exists():
       raise serializers.ValidationError({"scene": "Scene with given UUID does not exist."})
 
+def _is_number(value):
+  if isinstance(value, bool):
+    return False
+  try:
+    return math.isfinite(float(value))
+  except (TypeError, ValueError, OverflowError):
+    return False
+
+def _parse_number_string(value):
+  """Parse a numeric list written as text, including NumPy's default repr."""
+  text = value.strip()
+  if not text or len(text) > 100000:
+    return None
+  if text[0] in '[(' and text[-1] in '])':
+    try:
+      parsed = json.loads(text)
+    except (json.JSONDecodeError, RecursionError):
+      parsed = None
+    if isinstance(parsed, list):
+      return parsed
+    text = text[1:-1].strip()
+  if not text:
+    return None
+  return [part for part in text.replace(',', ' ').split() if part]
+
+def _coerce_number_sequence(value):
+  """Return list-like input, or None when value cannot be a number list."""
+  if isinstance(value, str):
+    return _parse_number_string(value)
+  if isinstance(value, (list, tuple)):
+    return value
+  if isinstance(value, Mapping) or isinstance(value, (bytes, bytearray)):
+    return None
+  if hasattr(value, 'tolist'):
+    converted = value.tolist()
+    return converted if isinstance(converted, list) else None
+  return None
+
+def _number_list(value, field, lengths=None):
+  """Return value as a list of floats or raise a ValidationError for field."""
+  sequence = _coerce_number_sequence(value)
+  if sequence is None or not all(_is_number(item) for item in sequence) \
+     or (lengths is not None and len(sequence) not in lengths):
+    count = " or ".join(str(n) for n in lengths) + " " if lengths else ""
+    raise serializers.ValidationError({field: f"must be a list of {count}numbers"})
+  return [float(item) for item in sequence]
+
+def _normalized_rotation(transform_type, rotation):
+  if transform_type != QUATERNION:
+    return rotation, transform_type
+  try:
+    euler = Rotation.from_quat(rotation).as_euler('XYZ', degrees=True).tolist()
+  except ValueError:
+    raise serializers.ValidationError({'rotation': "invalid quaternion"})
+  return euler, EULER
+
 class CenterSerializerField(serializers.DictField):
   def to_representation(self, obj):
     if hasattr(obj, 'map_x') and hasattr(obj, 'map_y') \
@@ -73,6 +142,8 @@ class CenterSerializerField(serializers.DictField):
     return None
 
   def to_internal_value(self, data):
+    if data is not None:
+      data = _number_list(data, 'center', (2,))
     return {'center': data}
 
 class PointsSerializerField(serializers.DictField):
@@ -86,9 +157,10 @@ class PointsSerializerField(serializers.DictField):
     if not isinstance(data, list):
       raise serializers.ValidationError("Points must be a list.")
     for i, point in enumerate(data):
-      if not isinstance(point, (list, tuple)) or len(point) != 2:
+      if not isinstance(point, (list, tuple)) or len(point) != 2 \
+         or not all(_is_number(coord) for coord in point):
         raise serializers.ValidationError(
-          f"Each point must be a list of 2 coordinates, got {point} at index {i}.")
+          f"Each point must be a list of 2 numbers, got {point} at index {i}.")
     return data
 
   @staticmethod
@@ -279,6 +351,8 @@ class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
   sensor_id = serializers.CharField(write_only=True, required=False, max_length=20)
   uid = serializers.CharField(source="sensor_id", read_only=True)
+  calibration_origin = serializers.CharField(required=False, allow_blank=True)
+  pose_provenance = serializers.SerializerMethodField('get_pose_provenance')
   intrinsics = serializers.SerializerMethodField('get_intrinsics')
   distortion = serializers.SerializerMethodField('get_distortion')
   translation = serializers.SerializerMethodField('get_translation')
@@ -316,6 +390,20 @@ class CamSerializer(NonNullSerializer):
     except PTZCalibrationError as error:
       raise serializers.ValidationError(f"{error.path}: {error.code}", code=error.code)
 
+  def to_internal_value(self, data):
+    if not isinstance(data, Mapping):
+      message = self.error_messages['invalid'].format(datatype=type(data).__name__)
+      raise serializers.ValidationError({'non_field_errors': [message]})
+    if hasattr(data, 'copy'):
+      data = data.copy()
+    else:
+      data = dict(data)
+    if 'pose_policy' in data:
+      raise serializers.ValidationError({
+        'pose_policy': ['This field is no longer supported; use pose_locked.']
+      })
+    return super().to_internal_value(data)
+
   def validate_name(self, value):
     if self.instance is None and 'sensor_id' not in self.initial_data:
       error = self.camera_id_topic_error(value.replace(" ", "_"))
@@ -346,23 +434,34 @@ class CamSerializer(NonNullSerializer):
     self.map_distortion_fields(validated_data)
     self.map_transform_fields(validated_data)
     self.map_resolution_fields(validated_data)
+    # REST / 3D save authors durable calibration unless a caller set origin
+    # (e.g. scene import uses manager.import).
+    if 'calibration_origin' not in validated_data and (
+        'transforms' in validated_data or 'transform_type' in validated_data
+        or not is_update):
+      validated_data['calibration_origin'] = POSE_ORIGIN_MANAGER_REST
 
-    if not is_update:
-      sensor_id = validated_data.get('sensor_id', None)
-      if sensor_id is None:
-        sensor_id = validated_data.get('name')
-        if sensor_id is not None:
-          sensor_id = sensor_id.replace(" ", "_")
-        validated_data['sensor_id'] = sensor_id
-      instance = super().create(validated_data)
-    else:
-      instance._pose_supplied = 'transforms' in validated_data
+    # Save and pose computation share a transaction so an unusable pose is not persisted.
+    with transaction.atomic():
+      if not is_update:
+        sensor_id = validated_data.get('sensor_id', None)
+        if sensor_id is None:
+          sensor_id = validated_data.get('name')
+          if sensor_id is not None:
+            sensor_id = sensor_id.replace(" ", "_")
+          validated_data['sensor_id'] = sensor_id
+        instance = super().create(validated_data)
+      else:
+        instance._pose_supplied = 'transforms' in validated_data
+        try:
+          super().update(instance, validated_data)
+        finally:
+          instance._pose_supplied = False
+
       try:
-        super().update(instance, validated_data)
-      finally:
-        instance._pose_supplied = False
-
-    self.create_camera_instance(instance)
+        self.create_camera_instance(instance)
+      except (ValueError, IndexError, cv2.error):
+        raise serializers.ValidationError({'transforms': f"Cannot compute camera pose."})
     return instance
 
   def create(self, validated_data):
@@ -374,6 +473,8 @@ class CamSerializer(NonNullSerializer):
   def map_resolution_fields(self, validated_data):
     resolution = self.initial_data.get('resolution', None)
     if not resolution:
+      if self.instance is None:
+        self.infer_initial_resolution(validated_data)
       return
     # Exports emit [width, height]; the UI form posts {"width": .., "height": ..}.
     if isinstance(resolution, (list, tuple)):
@@ -387,23 +488,43 @@ class CamSerializer(NonNullSerializer):
         {"resolution": "must be [width, height] or {width, height}"})
     if width is None or height is None:
       raise serializers.ValidationError({"resolution": "must provide both width and height"})
-    validated_data.update({'width': width, 'height': height})
+    if not all(_is_number(value) and 0 < float(value) <= MAX_RESOLUTION
+               for value in (width, height)):
+      raise serializers.ValidationError(
+        {"resolution": f"width and height must be numbers between 1 and {MAX_RESOLUTION}"})
+    validated_data.update({'width': int(float(width)), 'height': int(float(height))})
     return
+
+  def infer_initial_resolution(self, validated_data):
+    """Estimate a centered sensor frame only when registration omits its dimensions."""
+    center = [validated_data.get('intrinsics_cx'), validated_data.get('intrinsics_cy')]
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) and v >= 0.5
+               for v in center):
+      return
+    width, height = (round(v * 2) for v in center)
+    validated_data.update({'width': width, 'height': height})
+    log.warning("Camera registration omitted resolution; estimating %sx%s from intrinsics",
+                width, height)
 
   def map_intrinsics_fields(self, validated_data):
     intrinsics = self.initial_data.get('intrinsics', None)
     if not intrinsics:
       return
 
+    invalid = serializers.ValidationError({"intrinsics": "invalid intrinsics: \""
+                                           + str(intrinsics) + "\""})
+    if not isinstance(intrinsics, dict):
+      raise invalid
     try:
       array = CameraIntrinsics.intrinsicsDictToList(intrinsics)
     except ValueError:
-      raise serializers.ValidationError({"intrinsics": "invalid intrinsics: \""
-                                         + str(intrinsics) + "\""})
+      raise invalid
+    if not all(_is_number(val) for val in array):
+      raise invalid
 
     extended_data = {'intrinsics_' + key: None for key in CameraIntrinsics.INTRINSICS_KEYS}
     for key, val in zip(CameraIntrinsics.INTRINSICS_KEYS, array):
-      extended_data['intrinsics_' + key] = val
+      extended_data['intrinsics_' + key] = float(val)
     validated_data.update(extended_data)
 
     return
@@ -413,18 +534,20 @@ class CamSerializer(NonNullSerializer):
     if not distortion:
       return
 
-    try:
-      array = CameraIntrinsics.distortionDictToList(distortion)
-    except ValueError:
-      raise serializers.ValidationError({"distortion": "invalid distortion: \""
-                                         + str(distortion) + "\""})
+    invalid = serializers.ValidationError({"distortion": "invalid distortion: \""
+                                           + str(distortion) + "\""})
+    if not isinstance(distortion, dict):
+      raise invalid
+    array = CameraIntrinsics.distortionDictToList(distortion)
+    if not all(_is_number(val) for val in array):
+      raise invalid
 
     # Cam only stores k1,k2,p1,p2,k3; CameraIntrinsics.DISTORTION_KEYS has more
     # (k4-k6, s1-s4, taux, tauy) that aren't model fields and would crash create().
     model_keys = CameraIntrinsics.DISTORTION_KEYS[:5]
     extended_data = {'distortion_' + key: None for key in model_keys}
     for key, val in zip(model_keys, array):
-      extended_data['distortion_' + key] = val
+      extended_data['distortion_' + key] = float(val)
     validated_data.update(extended_data)
 
     return
@@ -435,20 +558,18 @@ class CamSerializer(NonNullSerializer):
 
     if transform_type in (EULER, QUATERNION) \
        and all(key in self.initial_data for key in ('translation', 'rotation', 'scale')):
-      # Convert quaternion to euler
-      if transform_type == QUATERNION:
-        self.initial_data['rotation'] = Rotation.from_quat(
-          self.initial_data['rotation']
-        ).as_euler('XYZ', degrees=True).tolist()
-        transform_type = EULER
-      extended_data['transforms'] = (
-        self.initial_data['translation'] +
-        self.initial_data['rotation'] +
-        self.initial_data['scale']
-      )
+      translation = _number_list(self.initial_data['translation'], 'translation', (3,))
+      rotation = _number_list(self.initial_data['rotation'], 'rotation',
+                              (4,) if transform_type == QUATERNION else (3,))
+      scale = _number_list(self.initial_data['scale'], 'scale', (3,))
+      rotation, transform_type = _normalized_rotation(transform_type, rotation)
+      extended_data['transforms'] = translation + rotation + scale
 
     elif transform_type == POINT_CORRESPONDENCE:
-      extended_data['transforms'] = self.initial_data.get('transforms', None)
+      transforms = self.initial_data.get('transforms', None)
+      if transforms is not None:
+        transforms = _number_list(transforms, 'transforms')
+      extended_data['transforms'] = transforms
 
     if extended_data:
       extended_data.update({
@@ -511,6 +632,10 @@ class CamSerializer(NonNullSerializer):
       return None
     return [cam.width, cam.height]
 
+  def get_pose_provenance(self, obj):
+    origin = getattr(obj.cam, 'calibration_origin', None) or POSE_ORIGIN_MANAGER_REST
+    return {'class': POSE_CLASS_CALIBRATION, 'origin': origin}
+
   def get_translation(self, obj):
     if not obj.scene:
       return None
@@ -528,8 +653,12 @@ class CamSerializer(NonNullSerializer):
     self.create_camera_instance(obj)
 
     camera = obj.scene.scenescapeScene.cameraWithID(obj.sensor_id)
-    return getattr(camera.pose, 'euler_rotation', None) \
+    rotation = getattr(camera.pose, 'euler_rotation', None) \
       if camera and hasattr(camera, 'pose') else None
+    if rotation is None:
+      return None
+    # Pose stores a NumPy vector; archives and REST must round-trip a JSON list.
+    return rotation.tolist() if hasattr(rotation, 'tolist') else list(rotation)
 
   def get_pose_matrix(self, obj):
     if not obj.scene:
@@ -559,8 +688,10 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
-    is_relink_only = self.partial and set(self.initial_data.keys()) <= {'scene'}
-    if not is_relink_only and 'name' not in data:
+    fields = set(self.initial_data)
+    is_metadata_only = self.partial and (
+      fields <= {'scene', 'pose_locked'} or fields <= {'intrinsics', 'distortion', 'resolution'})
+    if not is_metadata_only and 'name' not in data:
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
@@ -644,8 +775,8 @@ class SceneSerializer(NonNullSerializer):
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
-  regions = RegionSerializer(many=True, required=False)
-  tripwires = TripwireSerializer(many=True, required=False)
+  regions = RegionSerializer(many=True, read_only=True)
+  tripwires = TripwireSerializer(many=True, read_only=True)
   parent = serializers.CharField(source='parent.parent.pk', required=False, allow_null=True)
   transform = TransformSerializerField(source='parent.cameraPose', required=False, allow_null=True)
   mesh_translation = serializers.SerializerMethodField('get_translation')
@@ -654,6 +785,10 @@ class SceneSerializer(NonNullSerializer):
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
+  map_contributor = serializers.CharField(required=False, allow_blank=True, max_length=200)
+  source = serializers.CharField(required=False, allow_blank=True, write_only=True, max_length=32)
+  map_source = serializers.SerializerMethodField('get_map_source')
+  mapping_artifacts = serializers.SerializerMethodField('get_mapping_artifacts')
   calibration_markers = serializers.SerializerMethodField('get_calibration_markers')
 
   def get_calibration_markers(self, obj):
@@ -664,9 +799,7 @@ class SceneSerializer(NonNullSerializer):
     if not self.initial_data:
       raise serializers.ValidationError({'body': ['Request body is required.']})
 
-    name = attrs.get('name', None)
-    if (name is None and not self.partial) or (name is not None and not name.strip()):
-      raise serializers.ValidationError({'name': ['This field is required.']})
+    self._validate_request_name(attrs)
 
     allowed = set(self.fields.keys()) | {
         "mesh_translation",
@@ -679,12 +812,31 @@ class SceneSerializer(NonNullSerializer):
     if unknown:
       raise serializers.ValidationError({field: ["Unknown field."] for field in unknown})
 
-    read_only_fields = {'uid'}
+    read_only_fields = {'uid', 'map_source', 'mapping_artifacts'}
     attempted = set(self.initial_data.keys()) & read_only_fields
 
     if attempted:
       raise serializers.ValidationError({field: ["This field is read-only."] for field in attempted})
 
+    self._validate_trs_matrix()
+    self._validate_output_lla(attrs)
+
+    return super().validate(attrs)
+
+  def _validate_request_name(self, attrs):
+    name = attrs.get('name', None)
+    if (name is None and not self.partial) or (name is not None and not name.strip()):
+      raise serializers.ValidationError({'name': ['This field is required.']})
+
+  def _validate_trs_matrix(self):
+    trs_matrix = self.initial_data.get('trs_matrix', None)
+    if trs_matrix is not None and (
+        not isinstance(trs_matrix, list) or len(trs_matrix) != 4
+        or not all(isinstance(row, list) and len(row) == 4 and all(_is_number(v) for v in row)
+                   for row in trs_matrix)):
+      raise serializers.ValidationError({'trs_matrix': ['Must be a 4x4 matrix of numbers.']})
+
+  def _validate_output_lla(self, attrs):
     if attrs.get('output_lla') is True:
       incoming_map_corners = attrs.get('map_corners_lla', None)
       existing_map_corners = getattr(self.instance, 'map_corners_lla', None)
@@ -693,8 +845,6 @@ class SceneSerializer(NonNullSerializer):
         raise serializers.ValidationError({
           'map_corners_lla': ['This field must be set when enabling output_lla.']
         })
-
-    return super().validate(attrs)
 
   def validate_name(self, value):
     try:
@@ -711,10 +861,41 @@ class SceneSerializer(NonNullSerializer):
       raise serializers.ValidationError(f"A scene with the name '{value}' already exists.")
     return value
 
+  def validate_parent(self, value):
+    if value is None:
+      return value
+    try:
+      parent_pk = Scene._meta.pk.to_python(value)
+    except DjangoValidationError:
+      raise serializers.ValidationError("Must be a valid scene UUID.")
+    if not Scene.objects.filter(pk=parent_pk).exists():
+      raise serializers.ValidationError("Scene with given UUID does not exist.")
+    return value
+
   def get_trs_matrix(self, obj):
     if obj.trs_matrix:
       return obj.trs_matrix
     return None
+
+  def get_map_source(self, obj):
+    source_map = obj.default_source_map
+    return source_map.method if source_map else None
+
+  def get_mapping_artifacts(self, obj):
+    from manager.mapping_store import isoformat_z
+    rows = obj.mapping_artifacts.order_by("method")
+    artifacts = []
+    for row in rows:
+      artifacts.append({
+        "id": str(row.id),
+        "method": row.method,
+        "created": isoformat_z(row.created),
+        "contributor": row.contributor,
+        "sha256": row.sha256,
+        "fiducials": row.fiducials or [],
+        "manifest": row.manifest or {},
+      })
+    return artifacts
 
   def to_representation(self, instance):
     ret = super().to_representation(instance)
@@ -815,6 +996,14 @@ class SceneSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
+    map_source = validated_data.pop('source', None)
+    if map_source:
+      from django.core.exceptions import ValidationError as DjangoValidationError
+      from manager.mapping_store import validate_slug
+      try:
+        validate_slug(str(map_source))
+      except DjangoValidationError as exc:
+        raise serializers.ValidationError({"source": exc.messages})
 
     parent_uid = None
     transform = None
@@ -834,18 +1023,12 @@ class SceneSerializer(NonNullSerializer):
         transform = child_data['cameraPose']
 
     if not is_update:
-      instance = Scene(**validated_data)
+      instance = Scene(**{key: value for key, value in validated_data.items() if key != 'map'})
       with transaction.atomic():
         Scene.objects.bulk_create([instance])
         instance.refresh_from_db()
 
-    if output_lla:
-      instance.scenescapeScene.output_lla = output_lla
     map_corners_lla = validated_data.get('map_corners_lla', None)
-    if map_corners_lla:
-      instance.scenescapeScene.map_corners_lla = map_corners_lla
-    if use_tracker:
-      instance.scenescapeScene.use_tracker = use_tracker
 
     if trs_matrix is not None:
       Scene.objects.filter(pk=instance.pk).update(trs_matrix=trs_matrix)
@@ -853,81 +1036,105 @@ class SceneSerializer(NonNullSerializer):
 
     glb_map_handled = False
     if map_path:
-      uploaded_map = map_path
-      map_path = '/media/' + map_path.name
-      ext = os.path.splitext(map_path)[1].lower()
-
-      if ext == ".ply":
-        glb_file = instance.map.path.replace(".ply", ".glb")
-        if os.path.exists(glb_file):
-          with open(glb_file, 'rb') as f:
-            instance.map.save(os.path.basename(glb_file), File(f), save=False)
-          ext = os.path.splitext(glb_file)[1].lower()
-        else:
-          raise serializers.ValidationError(f"Error processing .ply file")
-
+      validated_data.pop('map', None)
+      ext = self._save_map_upload(instance, map_path)
+      explicit_mesh_transform = any(
+        key in request_keys for key in ('mesh_rotation', 'mesh_translation', 'mesh_scale'))
       if ext == ".glb":
-        # Create snapshots _original_map from the upload, so inequality never
-        # fires. On update, assign the new file before align/thumbnail.
-        # Skip auto-align when the caller supplied explicit mesh transforms.
-        explicit_mesh_transform = any(
-            key in validated_data for key in (
-                'rotation_x', 'rotation_y', 'rotation_z',
-                'translation_x', 'translation_y', 'translation_z',
-            )
-        )
-        if is_update:
-          map_changed = (
-              instance._original_map != uploaded_map
-              or getattr(uploaded_map, '_committed', True) is False
-          )
-          if map_changed:
-            instance.map = uploaded_map
-        else:
-          map_changed = True
-
-        if explicit_mesh_transform:
-          for key in (
-              'rotation_x', 'rotation_y', 'rotation_z',
-              'translation_x', 'translation_y', 'translation_z',
-          ):
-            if key in validated_data:
-              setattr(instance, key, validated_data[key])
-        elif map_changed:
-          instance.autoAlignSceneMap()
-
-        instance.saveThumbnail()
-        # Persist align + thumbnail fields. Create uses bulk_create and never
-        # calls instance.save(), so filter().update must write them or the UI
-        # keeps rotation/translation at 0 while AprilTag localize assumes Rx=90.
-        Scene.objects.filter(pk=instance.pk).update(
-            thumbnail=instance.thumbnail,
-            scale=instance.scale,
-            rotation_x=instance.rotation_x,
-            rotation_y=instance.rotation_y,
-            rotation_z=instance.rotation_z,
-            translation_x=instance.translation_x,
-            translation_y=instance.translation_y,
-            translation_z=instance.translation_z,
-        )
-        glb_map_handled = map_changed
+        self._prepare_glb_upload(instance, validated_data, explicit_mesh_transform)
+        glb_map_handled = True
+      else:
+        instance._explicit_mesh_transform = explicit_mesh_transform
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
     if transform and hasattr(instance, 'parent') and instance.parent:
       self.update_child_transform(instance.parent, transform)
 
+    # Avoid model.save() re-running autoAlign after explicit GLB placement.
+    if glb_map_handled:
+      instance._original_map = instance.map.name
     if is_update:
       for key, value in validated_data.items():
         setattr(instance, key, value)
-      # Avoid model.save() re-running autoAlign after we already aligned or
-      # applied explicit mesh transforms for this map replacement.
-      if glb_map_handled:
-        instance._original_map = instance.map
       instance.save(send_update_command=send_update_command)
     else:
+      if map_path:
+        instance.save(send_update_command=False)
       instance.notifyDbUpdate()
+    if output_lla:
+      instance.scenescapeScene.output_lla = output_lla
+    if map_corners_lla:
+      instance.scenescapeScene.map_corners_lla = map_corners_lla
+    if use_tracker:
+      instance.scenescapeScene.use_tracker = use_tracker
+    self._record_source_map(instance, map_path, map_source)
     return instance
+
+  @staticmethod
+  def _save_map_upload(instance, upload):
+    upload.seek(0)
+    filename = os.path.basename(upload.name)
+    ext = os.path.splitext(filename)[1].lower()
+    if ext == ".ply":
+      from scene_common.mesh_util import extractMeshFromPointCloud
+      with tempfile.TemporaryDirectory() as temp_dir:
+        ply_path = os.path.join(temp_dir, filename)
+        with open(ply_path, 'wb') as handle:
+          for chunk in upload.chunks():
+            handle.write(chunk)
+        glb_file = extractMeshFromPointCloud(ply_path)
+        if not glb_file or not os.path.exists(glb_file):
+          raise serializers.ValidationError("Error processing .ply file")
+        with open(glb_file, 'rb') as handle:
+          instance.map.save(os.path.basename(glb_file), File(handle), save=False)
+      return ".glb"
+    instance.map.save(filename, upload, save=False)
+    return ext
+
+  @staticmethod
+  def _prepare_glb_upload(instance, validated_data, explicit_mesh_transform):
+    if explicit_mesh_transform:
+      for key in (
+          'rotation_x', 'rotation_y', 'rotation_z',
+          'translation_x', 'translation_y', 'translation_z',
+          'scale_x', 'scale_y', 'scale_z',
+      ):
+        if key in validated_data:
+          setattr(instance, key, validated_data[key])
+    else:
+      instance.autoAlignSceneMap()
+    instance.map_processed = None
+    instance.saveThumbnail()
+    Scene.objects.filter(pk=instance.pk).update(
+      thumbnail=instance.thumbnail, scale=instance.scale,
+      rotation_x=instance.rotation_x, rotation_y=instance.rotation_y, rotation_z=instance.rotation_z,
+      translation_x=instance.translation_x, translation_y=instance.translation_y,
+      translation_z=instance.translation_z,
+    )
+
+  def _record_source_map(self, instance, map_path, map_source):
+    from manager.mapping_store import (
+      MappingStoreError, clear_default_source_map, record_glb_source_map, update_active_source_map,
+    )
+    if not map_path:
+      if instance.map:
+        update_active_source_map(instance)
+      return
+    if not instance.map:
+      return
+    Scene.objects.filter(pk=instance.pk).update(map=instance.map.name)
+    try:
+      ext = os.path.splitext(instance.map.name)[1].lower()
+      if ext == ".glb":
+        record_glb_source_map(instance, map_source, instance.map_contributor)
+      else:
+        clear_default_source_map(instance)
+    except MappingStoreError as exc:
+      logger.exception("Failed to record source map for scene id=%s", instance.pk, exc_info=exc)
+      raise serializers.ValidationError({
+        "source": ["Unable to process source map metadata."]
+      })
 
   def create(self, validated_data):
     return self.create_update(validated_data)
@@ -936,37 +1143,44 @@ class SceneSerializer(NonNullSerializer):
     return self.create_update(validated_data, instance)
 
   def handleMeshTransform(self, data, validated_data):
-    axes = {'x': 0, 'y': 1, 'z': 2}
-    transform_types = ['translation', 'rotation', 'scale']
-
-    for trans_type in transform_types:
+    for trans_type in ('translation', 'rotation', 'scale'):
       key = f'mesh_{trans_type}'
-      popped_data = data.pop(key, None)
-
-      # Skip if not provided
-      if popped_data is None:
+      if key not in data:
         continue
-
-      # Must be a list or tuple of exactly 3 elements
-      if not isinstance(popped_data, (list, tuple)) or len(popped_data) != 3:
-        raise serializers.ValidationError({
-          key: 'Must be a list of exactly 3 numeric values [x, y, z].'
-        })
-      if len(popped_data) != 3:
-        raise serializers.ValidationError({
-          key: f'Must have exactly 3 values, got {len(popped_data)}.'
-        })
-
-      for axis, index in axes.items():
-        value = popped_data[index]
-
-        # Must be int or float
-        if not isinstance(value, (int, float)):
-          raise serializers.ValidationError({
-            key: f'Axis "{axis}" must be a number, got {type(value).__name__}.'
-          })
+      values = self._meshTransformValues(data[key], key)
+      for axis, value in zip(('x', 'y', 'z'), values):
+        self._validateMeshTransformAxis(trans_type, key, axis, value)
         validated_data[f'{trans_type}_{axis}'] = float(value)
     return
+
+  @staticmethod
+  def _validateMeshTransformAxis(trans_type, key, axis, value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+      raise serializers.ValidationError({
+        key: f'Axis "{axis}" must be a finite number.'
+      })
+    if trans_type == 'scale' and value == 0:
+      raise serializers.ValidationError({
+        key: f'Axis "{axis}" must be non-zero.'
+      })
+
+  @staticmethod
+  def _meshTransformValues(value, key):
+    # Accept legacy wrapped form strings as well as JSON vectors.
+    if isinstance(value, (list, tuple)) and len(value) == 1 and isinstance(value[0], str):
+      value = value[0]
+    if isinstance(value, str):
+      try:
+        value = json.loads(value)
+      except json.JSONDecodeError as exc:
+        raise serializers.ValidationError({
+          key: 'Must be a list of exactly 3 numeric values [x, y, z].'
+        }) from exc
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+      raise serializers.ValidationError({
+        key: 'Must be a list of exactly 3 numeric values [x, y, z].'
+      })
+    return value
 
   class Meta:
     model = Scene
@@ -976,7 +1190,8 @@ class SceneSerializer(NonNullSerializer):
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
-              'map_center_lat', 'map_center_lng', 'map_bearing', 'calibration_markers']
+              'map_center_lat', 'map_center_lng', 'map_bearing', 'map_contributor',
+              'source', 'map_source', 'mapping_artifacts', 'calibration_markers']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:
@@ -1061,6 +1276,18 @@ class Asset3DSerializer(NonNullSerializer):
       raise serializers.ValidationError(f"An object library with the name '{value}' already exists.")
     return value
 
+  # On SQLite these ListFields map to unvalidated JSON fields, so check them here.
+  def _validate_number_list(self, value):
+    if value is None:
+      return value
+    if not isinstance(value, (list, tuple)) or not all(_is_number(item) for item in value):
+      raise serializers.ValidationError("Must be a list of numbers.")
+    return [float(item) for item in value]
+
+  validate_geometric_center = _validate_number_list
+  validate_center_of_mass = _validate_number_list
+  validate_friction_coefficients = _validate_number_list
+
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
     if not is_update:
@@ -1091,6 +1318,16 @@ class ChildSceneSerializer(NonNullSerializer):
 
   def getChildName(self, obj):
     return obj.child.name if obj.child else obj.child_name
+
+  @staticmethod
+  def _validate_cache(value):
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+      raise serializers.ValidationError("Must be a list of objects.")
+    return value
+
+  validate_cached_rois = _validate_cache
+  validate_cached_tripwires = _validate_cache
+  validate_cached_sensors = _validate_cache
 
   def validate(self, data):
     child_type = data.get('child_type')

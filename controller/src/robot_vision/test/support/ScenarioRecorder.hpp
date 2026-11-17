@@ -28,6 +28,7 @@
 #include <rv/tracking/CVModel.hpp>
 
 #include "Scenario.hpp"
+#include "TrackerRun.hpp"
 
 namespace rv::tracking::test {
 
@@ -271,13 +272,14 @@ inline std::array<double, 4> yawQuaternion(double yaw)
 
 // Writes one scenario as JSONL files for tools/tracker/evaluation/visualization:
 //   groundtruth.jsonl  canonical ground truth with size, rotation, velocity and a "truth" object
-//   detections.jsonl   canonical camera-data frames with the 3D detections fed to FilterRun, one frame per sensor id
-//   tracks.jsonl       canonical tracker output with the estimate after every FilterRun step
-//   estimator.jsonl    one "config" line per track, then one "step" line per FilterRun step
+//   detections.jsonl   canonical camera-data frames with the 3D detections fed to the run, one frame per sensor id
+//   tracks.jsonl       canonical tracker output: the FilterRun estimate after every step, or the reliable
+//                      TrackerRun tracks after every frame
+//   estimator.jsonl    one "config" line per track, then one "step" line per step of that track
 // Records only when RV_SCENARIO_DIR is set. Files go to $RV_SCENARIO_DIR/<Suite>.<Test>/<caseName>/ and are written
-// on destruction. Detection ids are the FilterRun track id. Reads private estimator members (tests build with
-// -fno-access-control).
-class ScenarioRecorder : public FilterRunObserver
+// on destruction. Detection ids are the ground-truth object ids. Reads private estimator and tracker members (tests
+// build with -fno-access-control).
+class ScenarioRecorder : public FilterRunObserver, public TrackerRunObserver
 {
 public:
   static constexpr const char *kEnvironmentVariable = "RV_SCENARIO_DIR";
@@ -365,10 +367,37 @@ public:
     const bool initStep = !mEstimatorConfigs.contains(run.trackId());
     if (initStep)
     {
-      mEstimatorConfigs[run.trackId()] = configLine(run);
+      mEstimatorConfigs[run.trackId()] = configLine(estimator, run.config(), run.trackId(), nullptr);
     }
     mTracks[{time, run.trackId()}] = estimator.currentState();
-    mEstimatorSteps.push_back(stepLine(run, time, initStep));
+    mEstimatorSteps.push_back(stepLine(estimator, run.trackId(), time, initStep));
+    mDirty = true;
+  }
+
+  // Records the frame's detections and the reliable tracks, the tracker's published output.
+  void trackerStep(const TrackerRun &run, double t, const std::vector<Observation> &observations) override
+  {
+    if (!enabled())
+    {
+      return;
+    }
+    for (const auto &observation : observations)
+    {
+      recordDetection(observation, observation.objectId);
+    }
+    const auto time = toMicroseconds(t);
+    for (const Id trackId : run.reliableTrackIds())
+    {
+      const auto &estimator = run.estimator(trackId);
+      const auto state = estimator.currentState();
+      mTrackCategories[trackId] = category(TrackerRun::objectIdOf(state));
+      if (!mEstimatorConfigs.contains(trackId))
+      {
+        mEstimatorConfigs[trackId] = configLine(estimator, run.config(), trackId, &run.association());
+      }
+      mTracks[{time, trackId}] = state;
+      mEstimatorSteps.push_back(stepLine(estimator, trackId, time, false));
+    }
     mDirty = true;
   }
 
@@ -478,14 +507,23 @@ private:
     return found != mCategories.end() && !found->second.empty() ? found->second : "unknown";
   }
 
-  static std::string configLine(const FilterRun &run)
+  // FilterRun track ids are object ids; TrackerRun tracks take the category of the object that last updated them.
+  std::string trackCategory(int trackId) const
   {
-    const auto &estimator = run.estimator;
-    const auto &config = run.config();
+    const auto found = mTrackCategories.find(trackId);
+    return found != mTrackCategories.end() ? found->second : category(trackId);
+  }
+
+  // `association` is set for TrackerRun tracks, the gate the tracker matched them with.
+  static std::string configLine(const MultiModelKalmanEstimator &estimator,
+                                const TrackManagerConfig &config,
+                                int trackId,
+                                const Association *association)
+  {
     JsonWriter json;
     json.beginObject();
     json.key("type").value("config");
-    json.key("track_id").value(std::to_string(run.trackId()));
+    json.key("track_id").value(std::to_string(trackId));
     json.key("motion_models").beginArray();
     for (const auto &model : estimator.mSystemModels)
     {
@@ -515,18 +553,28 @@ private:
       json.value(name);
     }
     json.endArray();
+    if (association != nullptr)
+    {
+      json.key("association").beginObject();
+      json.key("method").value(association->method);
+      if (association->distanceType == DistanceType::PositionMahalanobis)
+      {
+        json.key("gate_probability").value(association->gateProbability);
+      }
+      json.key("max_radius_m").value(association->maxRadiusM);
+      json.endObject();
+    }
     json.endObject();
     return json.str();
   }
 
-  static std::string stepLine(const FilterRun &run, std::int64_t time, bool initStep)
+  static std::string stepLine(const MultiModelKalmanEstimator &estimator, int trackId, std::int64_t time, bool initStep)
   {
-    const auto &estimator = run.estimator;
     const auto &state = estimator.currentState();
     JsonWriter json;
     json.beginObject();
     json.key("type").value("step");
-    json.key("track_id").value(std::to_string(run.trackId()));
+    json.key("track_id").value(std::to_string(trackId));
     json.key("timestamp").value(isoTimestamp(time));
     json.key("mu").value(estimator.getModelProbability());
     json.key("x").value(state.stateVector());
@@ -618,7 +666,7 @@ private:
         const auto &state = frame->second;
         json.beginObject();
         json.key("id").value(std::to_string(trackId));
-        json.key("category").value(category(trackId));
+        json.key("category").value(trackCategory(trackId));
         json.key("translation").value(std::array{state.x, state.y, state.z});
         json.key("velocity").value(std::array{state.vx, state.vy, 0.0});
         json.key("size").value(std::array{state.length, state.width, state.height});
@@ -651,6 +699,7 @@ private:
   std::string mSceneName;
   bool mDirty = false;
   std::map<int, std::string> mCategories;
+  std::map<int, std::string> mTrackCategories;
   std::map<std::int64_t, std::vector<std::string>> mTruth;
   std::map<std::pair<std::int64_t, std::string>, std::vector<DetectionEntry>> mDetections;
   std::map<std::pair<std::int64_t, int>, TrackedObject> mTracks;

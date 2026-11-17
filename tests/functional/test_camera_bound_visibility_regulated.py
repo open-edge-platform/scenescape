@@ -46,11 +46,9 @@ class CameraBoundVisibilityRegulated(CameraBounds):
 
 @pytest.mark.test_name("NEX-T10582")
 def test_camera_bound_visibility(
-        params, pytestconfig, record_xml_attribute, test_name):
-  record_xml_attribute("name", test_name)
-
+        params, pytestconfig, result_recorder):
   visibility_topic = pytestconfig.getoption("visibility_topic")
   test = CameraBoundVisibilityRegulated()
-  exit_code = test.run(params, visibility_topic, test_name)
+  test.run(params, visibility_topic)
 
-  assert exit_code == 0
+  result_recorder.success()

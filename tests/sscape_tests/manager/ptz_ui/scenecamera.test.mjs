@@ -64,6 +64,9 @@ function makeCamera({ ptz = true, transformType = POINTS } = {}) {
     mqttClient: null,
     isVARunning: false,
     mesh: { visible: true },
+    resolution: { w: 1920, h: 1080 },
+    hasAuthoritativeResolution: true,
+    cameraMatrix: { data64F: [1000, 0, 960, 0, 1000, 540, 0, 0, 1] },
     toast: { showToast: spy() },
     updateExistingCamera: spy(async () => undefined),
     updateCameras: spy(),
@@ -278,7 +281,7 @@ function captureFrame(camera, seconds) {
   camera.projectCameraCapture("data:", { timestamp: isoAt(seconds) }, false);
   return () =>
     pendingTextures.forEach((onLoad) =>
-      onLoad({ image: { width: 1920, height: 1080 } }),
+      onLoad({ image: { width: 1920, height: 1080 }, dispose() {} }),
     );
 }
 

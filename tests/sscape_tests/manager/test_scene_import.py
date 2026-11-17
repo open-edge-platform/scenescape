@@ -6,9 +6,13 @@
 import asyncio
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
-from manager.scene_import import ImportScene
+from manager import scene_import
+from manager.scene_import import (
+  DEFAULT_IMPORT_REST_TIMEOUT_S, IMPORT_REST_TIMEOUT_ENV_VAR, ImportScene, get_import_rest_timeout,
+)
 from scene_common.rest_client import RESTResult
 
 SCENE_ID = "scene-uid"
@@ -103,3 +107,62 @@ def test_relink_skips_camera_owned_by_another_scene():
   assert not relinked
   assert not errors
   importer.rest.updateCamera.assert_not_called()
+
+
+@pytest.mark.parametrize("raw, expected", [
+  (None, DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("", DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("900", 900),
+  (" 45 ", 45),
+  ("0", DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("-5", DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("soon", DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("1.5", DEFAULT_IMPORT_REST_TIMEOUT_S),
+])
+def test_get_import_rest_timeout(monkeypatch, raw, expected):
+  if raw is None:
+    monkeypatch.delenv(IMPORT_REST_TIMEOUT_ENV_VAR, raising=False)
+  else:
+    monkeypatch.setenv(IMPORT_REST_TIMEOUT_ENV_VAR, raw)
+
+  assert get_import_rest_timeout() == expected
+
+
+def test_import_rest_client_uses_import_timeout(monkeypatch):
+  """The internal REST client must outlast slow GLB processing, not use RESTClient's 10 s."""
+  rest_client = MagicMock()
+  monkeypatch.setattr(scene_import, "RESTClient", rest_client)
+  monkeypatch.setattr(ImportScene, "extractZip", lambda self: None)
+  monkeypatch.setenv(IMPORT_REST_TIMEOUT_ENV_VAR, "900")
+
+  ImportScene("/tmp/scene.zip", "token")
+
+  assert rest_client.call_args.kwargs["timeout"] == 900
+
+
+def test_scene_settings_timeout_is_reported_not_raised():
+  importer = make_importer()
+  importer.rest.updateScene.side_effect = requests.exceptions.ReadTimeout("read timed out")
+  summary = {}
+
+  asyncio.run(importer.populate_scene(
+    {"name": "Big", "mesh_translation": [1, 2, 3], "cameras": [{"uid": "cam1"}]},
+    SCENE_ID, summary))
+
+  assert summary["scene"] == {"scene": ["Scene settings update failed (ReadTimeout)"]}
+  importer.rest.createCamera.assert_not_called()
+
+
+def test_scene_settings_update_success_continues_import():
+  importer = make_importer()
+  importer.rest.updateScene.return_value = ok_result(uid=SCENE_ID)
+  importer.rest.getCameras.return_value = ok_result(results=[])
+  importer.rest.createCamera.return_value = ok_result(uid="cam1")
+  summary = {}
+
+  asyncio.run(importer.populate_scene(
+    {"name": "Big", "mesh_translation": [1, 2, 3], "cameras": [{"uid": "cam1", "name": "Cam 1"}]},
+    SCENE_ID, summary))
+
+  assert summary["scene"] is None
+  assert summary["cameras_created"] == [{"uid": "cam1"}]

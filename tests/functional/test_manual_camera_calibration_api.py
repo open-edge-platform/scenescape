@@ -18,7 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = 'NEX-T15280'
 
 @pytest.mark.test_name("NEX-T15280")
-def test_manual_camera_calibration_api(rest, result_recorder):
+def test_manual_camera_calibration_api(demo_scene, rest, result_recorder):
   """Checks that camera calibration points can be modified through API.
 
     Steps:
@@ -37,7 +37,12 @@ def test_manual_camera_calibration_api(rest, result_recorder):
   # CamSerializer requires name on every non-relink update (ITEP-94755).
   original_camera_data = {}  # uid -> (name, transforms)
   for camera in cameras["results"]:
+    if not camera.get("transforms"):
+      log.info(f"Skipping camera {camera['uid']} without calibration points")
+      continue
     original_camera_data[camera["uid"]] = (camera["name"], camera["transforms"])
+
+  assert original_camera_data, "No calibrated cameras available to test against"
   modified_camera_data = {
     uid: (name, [x * 1.05 for x in transforms])
     for uid, (name, transforms) in original_camera_data.items()

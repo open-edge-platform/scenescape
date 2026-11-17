@@ -37,6 +37,8 @@ jobs:
             scenescape-tracker,
             scenescape-mapping,
             scenescape-cluster-analytics,
+            scenescape-positioning,
+            scenescape-reid,
             scenescape-sources,
           ]
     steps:
@@ -79,6 +81,12 @@ jobs:
           elif [[ "${{ matrix.images }}" == "scenescape-cluster-analytics" ]]; then
             echo "Building ${{ matrix.images }}"
             make -C cluster_analytics
+          elif [[ "${{ matrix.images }}" == "scenescape-positioning" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C positioning
+          elif [[ "${{ matrix.images }}" == "scenescape-reid" ]]; then
+            echo "Building ${{ matrix.images }}"
+            make -C reid
           elif [[ "${{ matrix.images }}" == "scenescape-sources" ]]; then
             echo "Building ${{ matrix.images }}"
             make build-sources-image

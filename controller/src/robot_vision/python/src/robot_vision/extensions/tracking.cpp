@@ -12,8 +12,10 @@
 #include <rv/tracking/TrackTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/Utils.hpp>
 #include <rv/tracking/CameraUtils.hpp>
 #include <chrono>
+#include <limits>
 #include <vector>
 #include <Eigen/Dense>
 
@@ -176,16 +178,19 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
   tracking.attr("PRODUCTION_MEASUREMENT_NOISE") = rv::tracking::kProductionMeasurementNoise;
   tracking.attr("PRODUCTION_INIT_STATE_COVARIANCE") = rv::tracking::kProductionInitStateCovariance;
   tracking.attr("PRODUCTION_MOTION_MODELS") = py::tuple(py::cast(rv::tracking::kProductionMotionModels));
+  tracking.attr("DEFAULT_BIRTH_CLUSTER_RADIUS_M") = rv::tracking::kDefaultBirthClusterRadiusM;
 
   py::enum_<rv::tracking::DistanceType>(tracking, "DistanceType", "DistanceType enum class.")
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
-     "Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
+     "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
      "Standard euclidean distance that considers x and y coordinates.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
-     "Mahalanobis distance that considers the objects measurement vector.")
+     "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
-     "Combination of MultiClassEuclidean and Mahalanobis distances.")
+     "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
+    .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
+     "Squared Mahalanobis distance on the (x, y) position block using predicted measurement covariance.")
     .export_values();
 
   py::class_<rv::tracking::TrackManagerConfig>(tracking, "TrackManagerConfig", "Holds all the configuration parameters used by the TrackManager.")
@@ -300,39 +305,64 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def(py::init<const rv::tracking::TrackManagerConfig &>(),
       "Use the given config parameters for the track manager.",
       py::arg("track_manager_config"))
-    .def(py::init<const rv::tracking::TrackManagerConfig &, const rv::tracking::DistanceType &, double>(),
-     "Use the given config parameters for the track manager. Initialize with the given distance type and threshold.",
+    .def(py::init<const rv::tracking::TrackManagerConfig &, const rv::tracking::DistanceType &, double, double>(),
+     "Use the given config parameters for the track manager. Initialize with the given distance type, threshold and "
+     "max_radius_m (Euclidean ceiling, m), used by the track() overloads without them.",
       py::arg("track_manager_config"),
       py::arg("distance_type"),
-      py::arg("distance_threshold"))
+      py::arg("distance_threshold"),
+      py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<rv::tracking::TrackedObject>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp. Use the default distance type and threshold.",
+         "Trigger the track step for the next timestamp. Use the constructor's distance type, threshold and max_radius_m.",
          py::arg("objects"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
     .def("track",
-         py::overload_cast<std::vector<rv::tracking::TrackedObject>, const std::chrono::system_clock::time_point &, const rv::tracking::DistanceType &, double, double>(&rv::tracking::MultipleObjectTracker::track),
+         [](rv::tracking::MultipleObjectTracker &self,
+            std::vector<rv::tracking::TrackedObject> objects,
+            const std::chrono::system_clock::time_point &timestamp,
+            const rv::tracking::DistanceType &distance_type,
+            double distance_threshold,
+            double probability_threshold,
+            double max_radius_m) {
+           self.track(std::move(objects), timestamp, distance_type, distance_threshold, probability_threshold,
+                      max_radius_m);
+         },
          "Trigger the track step for the next timestamp. Run match() with the given distance type and threshold.",
          py::arg("objects"),
          py::arg("timestamp"),
          py::arg("distance_type"),
          py::arg("distance_threshold"),
-         py::arg("probability_threshold") = 0.5)
+         py::arg("probability_threshold") = 0.5,
+         py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp with objects per camera. Use the default distance type and threshold.",
+         "Trigger the track step for the next timestamp with objects per camera. Use the constructor's distance type, threshold and max_radius_m.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
     .def("track",
-         py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, const rv::tracking::DistanceType &, double, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold.",
+         [](rv::tracking::MultipleObjectTracker &self,
+            std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera,
+            const std::chrono::system_clock::time_point &timestamp,
+            const rv::tracking::DistanceType &distance_type,
+            double distance_threshold,
+            double probability_threshold,
+            double max_radius_m,
+            double birth_cluster_radius_m) {
+           self.track(std::move(objects_per_camera), timestamp, distance_type, distance_threshold,
+                      probability_threshold, max_radius_m, birth_cluster_radius_m);
+         },
+         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold; "
+         "unmatched detections of different cameras within birth_cluster_radius_m (Euclidean, m) start one track.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("distance_type"),
          py::arg("distance_threshold"),
-         py::arg("probability_threshold") = 0.5)
+         py::arg("probability_threshold") = 0.5,
+         py::arg("max_radius_m") = std::numeric_limits<double>::infinity(),
+         py::arg("birth_cluster_radius_m") = rv::tracking::kDefaultBirthClusterRadiusM)
     .def("timestamp", &rv::tracking::MultipleObjectTracker::getTimestamp, "Read current timestamp.")
     .def("get_tracks", &rv::tracking::MultipleObjectTracker::getTracks, "Returns a list of all active tracks")
     .def("get_reliable_tracks",
@@ -359,19 +389,29 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          &rv::tracking::TrackTracker::getReliableTracks,
          "Returns a list of all active reliable tracks.");
 
-     tracking.def("match", [](const std::vector<rv::tracking::TrackedObject> &measurements, const std::vector<rv::tracking::TrackedObject> &tracks, const rv::tracking::DistanceType &distanceType, double threshold) {
+     tracking.def("match",
+         [](const std::vector<rv::tracking::TrackedObject> &tracks,
+            const std::vector<rv::tracking::TrackedObject> &measurements,
+            const rv::tracking::DistanceType &distanceType, double threshold, double max_radius_m) {
           std::vector<std::pair<size_t, size_t>> assignments;
           std::vector<size_t> unassignedTracks;
           std::vector<size_t> unassignedObjects;
-          rv::tracking::match(measurements, tracks, assignments,  unassignedTracks, unassignedObjects, distanceType, threshold);
+          rv::tracking::match(tracks, measurements, assignments, unassignedTracks, unassignedObjects, distanceType,
+                              threshold, max_radius_m);
 
-          return std::tuple<std::vector<std::pair<size_t, size_t>>,std::vector<size_t>,  std::vector<size_t>> (assignments, unassignedTracks, unassignedObjects);
+          return std::tuple<std::vector<std::pair<size_t, size_t>>, std::vector<size_t>, std::vector<size_t>>(
+              assignments, unassignedTracks, unassignedObjects);
           },
           "Match measurements to tracks. Returns a tuple containing (track and object index, unassigned tracks, unassigned objects).",
           py::arg("tracks"),
           py::arg("measurements"),
           py::arg("distance_type") = rv::tracking::DistanceType::MultiClassEuclidean,
-          py::arg("threshold") = 1.0);
+          py::arg("threshold") = 1.0,
+          py::arg("max_radius_m") = std::numeric_limits<double>::infinity());
+
+     tracking.def("chi2_threshold", &rv::chi2Threshold,
+                  "Chi-squared gate threshold for 2D position innovation gating.",
+                  py::arg("gate_probability"), py::arg("degrees_of_freedom") = 2);
 
      tracking.def("angle_difference",
         &rv::angleDifference,
