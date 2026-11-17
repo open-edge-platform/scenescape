@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
@@ -17,6 +18,9 @@
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
 #include "object_class.hpp"
+#include "ptz_config.hpp"
+#include "ptz_consumer.hpp"
+#include "ptz_time.hpp"
 #include "scene_loader.hpp"
 #include "scene_registry.hpp"
 #include "telemetry.hpp"
@@ -43,6 +47,39 @@ std::shared_ptr<tracker::MqttClient> g_mqtt_client;
 
 void signal_handler(int /*signal*/) {
     g_shutdown_requested = ShutdownReason::SIGNAL;
+}
+
+/**
+ * @brief Build the PTZ consumer when either PTZ mode is on; null when off.
+ * @throws std::runtime_error when the assignment manifest or PTZ schemas are unusable
+ */
+std::shared_ptr<tracker::ptz::PtzConsumer>
+create_ptz_consumer(const tracker::ServiceConfig& config, const std::vector<tracker::Scene>& scenes,
+                    const tracker::ObjectClassMap& object_classes,
+                    const std::filesystem::path& schema_dir, tracker::NtpClock& ntp_clock) {
+    using namespace tracker::ptz;
+    const auto& ptz = config.ptz;
+    if (ptz.mode() == tracker::PtzMode::Off) {
+        return nullptr;
+    }
+    const double max_offset_s = ptz.max_clock_offset_s.value_or(0.0);
+    PtzClock clock = [&ntp_clock, max_offset_s]() {
+        return PtzClockReading{toNs(ntp_clock.now()),
+                               ntp_clock.synced() && std::abs(ntp_clock.offset()) <= max_offset_s};
+    };
+    auto registry = std::make_shared<PtzPoseRegistry>(
+        scenes, loadAssignments(ptz.assignments_path), dwellConfigFrom(ptz),
+        PtzMessageParser(schema_dir), std::move(clock));
+    std::unique_ptr<DecisionRecorder> recorder;
+    if (ptz.shadow.per_decision) {
+        recorder = std::make_unique<ShadowRecorder>(ptz.shadow.run_id, ptz.shadow.sample_every_n);
+    } else {
+        recorder = std::make_unique<SummaryRecorder>(ptz.shadow.sample_every_n);
+    }
+    LOG_INFO("PTZ pose consumption: {} mode ({} assigned sources, run_id={})", toString(ptz.mode()),
+             registry->poseSourceIds().size(), ptz.shadow.run_id);
+    return std::make_shared<PtzConsumer>(ptz.mode(), std::move(registry), std::move(recorder),
+                                         scenes, object_classes);
 }
 
 void update_readiness() {
@@ -151,6 +188,15 @@ int main(int argc, char* argv[]) {
             track_publisher->publish(scene_id, scene_name, category, timestamp, tracks);
         };
 
+    std::shared_ptr<tracker::ptz::PtzConsumer> ptz_consumer;
+    try {
+        ptz_consumer = create_ptz_consumer(config, scenes, object_classes,
+                                           cli_config.schema_path.parent_path(), ntp_clock);
+    } catch (const std::exception& e) {
+        LOG_ERROR("PTZ pose consumption configuration error: {}", e.what());
+        return 1;
+    }
+
     // Initialize time chunk scheduler with workers
     auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
         chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn,
@@ -160,7 +206,7 @@ int main(int argc, char* argv[]) {
     auto message_handler = std::make_unique<tracker::MessageHandler>(
         g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
         config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path(),
-        clock_fn);
+        clock_fn, ptz_consumer);
 
     // In dynamic mode (API source), enable database update notifications.
     // On receiving any database change (scene create/update/delete, camera change, etc.),

@@ -28,6 +28,19 @@ opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_unique_camer
 opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_non_empty_chunks_counter;
 opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_empty_chunks_counter;
 
+// PTZ PoseContext consumption counters
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> ptz_admitted_counter;
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> ptz_rejected_counter;
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> ptz_pose_rejected_counter;
+
+void add_one(opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>>& counter,
+             MetricAttributes attrs) {
+    if (counter) {
+        counter->Add(1, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
+                     opentelemetry::context::Context{});
+    }
+}
+
 // Per-stage latency histograms
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_parse_histogram;
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_buffer_histogram;
@@ -95,6 +108,16 @@ void Metrics::ensure_initialized() {
         tc_empty_chunks_counter = meter->CreateUInt64Counter(
             kMetricTimeChunkingEmptyChunks,
             "Time-chunking dispatch intervals with no buffered data", "{chunk}");
+
+        ptz_admitted_counter = meter->CreateUInt64Counter(
+            kMetricPtzDetectionsAdmitted, "PTZ detection messages admitted by the dwell contract",
+            "{message}");
+        ptz_rejected_counter = meter->CreateUInt64Counter(
+            kMetricPtzDetectionsRejected, "PTZ detection messages rejected by the dwell contract",
+            "{message}");
+        ptz_pose_rejected_counter = meter->CreateUInt64Counter(
+            kMetricPtzPoseMessagesRejected,
+            "PoseContext and resolver status payloads rejected before use", "{message}");
 
         active_tracks_gauge = meter->CreateInt64ObservableGauge(
             kMetricTracksActive, "Currently active tracks", "{track}");
@@ -226,6 +249,21 @@ void Metrics::inc_time_chunking_empty_chunks(MetricAttributes attrs) {
     }
 }
 
+void Metrics::inc_ptz_admitted(MetricAttributes attrs) {
+    ensure_initialized();
+    add_one(ptz_admitted_counter, attrs);
+}
+
+void Metrics::inc_ptz_rejected(MetricAttributes attrs) {
+    ensure_initialized();
+    add_one(ptz_rejected_counter, attrs);
+}
+
+void Metrics::inc_ptz_pose_rejected(MetricAttributes attrs) {
+    ensure_initialized();
+    add_one(ptz_pose_rejected_counter, attrs);
+}
+
 void Metrics::set_active_tracks(const std::string& scene_id, const std::string& category,
                                 int64_t count) {
     ensure_initialized();
@@ -248,6 +286,9 @@ void Metrics::reset() {
     tc_unique_cameras_counter = nullptr;
     tc_non_empty_chunks_counter = nullptr;
     tc_empty_chunks_counter = nullptr;
+    ptz_admitted_counter = nullptr;
+    ptz_rejected_counter = nullptr;
+    ptz_pose_rejected_counter = nullptr;
     stage_parse_histogram = nullptr;
     stage_buffer_histogram = nullptr;
     stage_queue_histogram = nullptr;

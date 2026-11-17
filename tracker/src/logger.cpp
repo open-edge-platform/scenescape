@@ -97,6 +97,12 @@ void Logger::init(std::string_view level, std::shared_ptr<quill::Sink> sink) {
         "%Y-%m-%dT%H:%M:%S.%QmsZ", // RFC3339/ISO8601 UTC timestamp
         quill::Timezone::GmtTime};
 
+    // Raw lines (e.g. PTZ shadow JSONL records) share the sink, so the single backend thread
+    // serializes them with the JSON log lines and never interleaves them mid-line.
+    inst.raw_logger_ = quill::Frontend::create_or_get_logger(
+        RAW_LOGGER_NAME, sink, quill::PatternFormatterOptions{"%(message)"});
+    inst.raw_logger_->set_log_level(quill::LogLevel::Info);
+
     inst.logger_ =
         quill::Frontend::create_or_get_logger(SERVICE_NAME, std::move(sink), formatter_options);
     inst.logger_->set_log_level(to_quill_level(level));
@@ -110,6 +116,11 @@ void Logger::shutdown() {
         quill::Frontend::remove_logger(inst.logger_);
         inst.logger_ = nullptr;
     }
+    if (inst.raw_logger_) {
+        inst.raw_logger_->flush_log();
+        quill::Frontend::remove_logger(inst.raw_logger_);
+        inst.raw_logger_ = nullptr;
+    }
     // Release backend handle (stops backend if last user)
     inst.backend_.reset();
     inst.initialized_ = false;
@@ -121,6 +132,12 @@ bool Logger::is_initialized() {
 
 quill::Logger* Logger::get() {
     return instance().logger_;
+}
+
+void Logger::raw_line(std::string_view line) {
+    if (auto* l = instance().raw_logger_) {
+        QUILL_LOG_INFO(l, "{}", line);
+    }
 }
 
 // Structured logging methods

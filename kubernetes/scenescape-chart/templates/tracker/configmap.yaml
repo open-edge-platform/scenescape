@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if and .Values.tracker.enabled (include "tracker.ptzActive" .) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-tracker-ptz
+data:
+  positioning-assignments.json: {{ .Values.positioning.assignments | default dict | toJson | quote }}
+{{- end }}

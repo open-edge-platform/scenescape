@@ -80,6 +80,16 @@ Run `make test-unit-coverage` to verify locally. New code MUST maintain these th
 
 **Publishes**: `scenescape/data/scene/<scene_id>` — Tracked object messages
 
+**PTZ (only when `ptz.enabled` or `ptz.shadow_mode` is on)**: subscribes to
+`scenescape/positioning/pose/{source_id}` for the assigned PTZ cameras of its scenes and to
+`scenescape/positioning/status/{resolver_id}` for their Resolvers. The dwell contract is a
+port of `scene_common.positioning_dwell` and must stay decision-identical with the
+Controller: both replay `tests/data/ptz/dwell_conformance.json` unmodified. Keep the PTZ hot
+path (`isPtzCamera` + `admit`) allocation-free (`ptz_allocation_test.cpp`) and keep
+`schema/pose-context.schema.json` and `schema/positioning-status.schema.json` verbatim
+copies of the Controller definitions (`ptz_schema_sync_test`). See
+[PTZ Pose Consumption](docs/ptz-pose-consumption.md).
+
 When `scenes.source=api`, the service also loads Manager `/api/v1/assets` for
 per-category projection (`shift_type`, footprint sizes) used by
 `CoordinateTransformer` and the `rotation_from_velocity` fallback used by

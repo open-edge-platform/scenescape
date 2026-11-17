@@ -50,7 +50,7 @@ TEST_F(TimeChunkBufferTest, Add_SingleBatch_CanBePopped) {
     EXPECT_TRUE(snapshot.contains(scope));
     EXPECT_EQ(snapshot[scope].size(), 1);
     EXPECT_TRUE(snapshot[scope].contains("cam-1"));
-    EXPECT_EQ(snapshot[scope]["cam-1"].detections.size(), 1);
+    EXPECT_EQ(snapshot[scope]["cam-1"].latest.detections.size(), 1);
 
     // Buffer should be empty after pop_all
     EXPECT_TRUE(buffer.empty());
@@ -82,7 +82,7 @@ TEST_F(TimeChunkBufferTest, Add_SameCameraScope_KeepsLatest) {
     EXPECT_EQ(snapshot[scope].size(), 1);
 
     // Should have the second batch (2 detections)
-    const auto& final_batch = snapshot[scope]["cam-1"];
+    const auto& final_batch = snapshot[scope]["cam-1"].latest;
     EXPECT_EQ(final_batch.detections.size(), 2);
     EXPECT_EQ(final_batch.timestamp_iso, "2026-01-27T12:00:01.000Z");
 }

@@ -1,0 +1,42 @@
+[
+  {
+    "uid": "ptz-test-scene",
+    "name": "PTZ Test Scene",
+    "cameras": [
+      {
+        "uid": "ptz-cam",
+        "name": "PTZ Camera",
+        "intrinsics": {
+          "fx": 500.0,
+          "fy": 500.0,
+          "cx": 320.0,
+          "cy": 240.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [0.0, 0.0, 3.0],
+          "rotation": [180.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "ptz_calibration": { "calibration_version": "svc-ptz-v1" }
+      },
+      {
+        "uid": "unassigned-ptz",
+        "name": "Unassigned PTZ Camera",
+        "intrinsics": {
+          "fx": 500.0,
+          "fy": 500.0,
+          "cx": 320.0,
+          "cy": 240.0,
+          "distortion": { "k1": 0.0, "k2": 0.0, "p1": 0.0, "p2": 0.0 }
+        },
+        "extrinsics": {
+          "translation": [10.0, 0.0, 3.0],
+          "rotation": [180.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "ptz_calibration": { "calibration_version": "svc-ptz-v1" }
+      }
+    ]
+  }
+]

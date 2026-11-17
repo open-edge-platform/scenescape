@@ -167,6 +167,13 @@ source resets that source's dwell. A PTZ camera without a Resolver in the assign
 manifest, a clock outside `max_clock_offset_s`, or a clock that has not synchronized
 yet fails closed (`no_sample` or `sample_stale`).
 
+The C++ Tracker ports the same rules line by line (`tracker/src/ptz_dwell.cpp`), with the
+same check order, resets, and integer-nanosecond comparisons. It also routes by topic and
+fails closed in the same cases; see
+[PTZ Pose Consumption in the Tracker](../../tracker/docs/ptz-pose-consumption.md). Its
+PoseContext and status schemas are verbatim copies of the definitions above, kept in
+`tracker/schema/` and guarded by a unit test.
+
 ## Configuration
 
 `scene_common.positioning_config.load_consumer_config` validates only the values that

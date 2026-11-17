@@ -98,7 +98,15 @@ struct std::hash<TrackingScope> {
     }
 };
 
-using CameraMap = std::unordered_map<std::string, DetectionBatch>;   // camera_id → batch
+// Static cameras keep only `latest`. PTZ batches (enforcing mode) with distinct
+// timestamps move the previous batch into `earlier` (at most 8 per camera and chunk);
+// a gated PTZ heartbeat never displaces a batch with detections.
+struct CameraSlot {
+    DetectionBatch latest;
+    std::vector<DetectionBatch> earlier;  // empty, no allocation, for static cameras
+};
+
+using CameraMap = std::unordered_map<std::string, CameraSlot>;       // camera_id → batches
 using BufferMap = std::unordered_map<TrackingScope, CameraMap>;      // scope → cameras
 
 struct TimeChunkBuffer {
@@ -269,10 +277,19 @@ struct DetectionBatch {
     std::string camera_id;
     std::chrono::steady_clock::time_point receive_time;
     std::string timestamp_iso;  // Original ISO 8601 timestamp from message
+    std::chrono::system_clock::time_point timestamp;  // Parsed acquisition time
     std::vector<Detection> detections;
     ObservabilityContext obs_ctx;
+    std::shared_ptr<const ptz::PoseSnapshot> ptz_pose;  // admitting PoseContext (PTZ only)
+    bool ptz_preserve = false;  // PTZ enforcing mode: multi-batch slot semantics
+    bool ptz_gated = false;     // rejected PTZ batch: detection-less heartbeat
 };
 ```
+
+`TrackingWorker` projects each batch with
+`transformDetections(batch.detections, pose)`, where `pose` is the batch's PoseContext
+view when `ptz_pose` is set and the transformer's static pose otherwise. The view is
+precomputed once per PoseContext. See [PTZ Pose Consumption](ptz-pose-consumption.md).
 
 ### Chunk
 

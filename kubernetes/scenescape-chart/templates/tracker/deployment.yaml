@@ -22,6 +22,10 @@ spec:
       labels:
         app: {{ .Release.Name }}-tracker
         {{ include "releaseLabels" . | indent 8 }}
+      {{- if include "tracker.ptzActive" . }}
+      annotations:
+        checksum/ptz-config: {{ dict "config" .Values.tracker.ptz.config "assignments" .Values.positioning.assignments | toJson | sha256sum }}
+      {{- end }}
     spec:
       enableServiceLinks: false
       securityContext:
@@ -66,6 +70,39 @@ spec:
           value: /run/secrets/certs/scenescape-ca.pem
         - name: TRACKER_SCENES_SOURCE
           value: api
+        {{- if include "tracker.ptzActive" . }}
+        {{- $ptz := .Values.tracker.ptz }}
+        {{- $shadow := $ptz.config.shadow | default dict }}
+        - name: TRACKER_PTZ_ENABLED
+          value: {{ $ptz.enabled | default false | quote }}
+        - name: TRACKER_PTZ_SHADOW_MODE
+          value: {{ $ptz.shadowMode | default false | quote }}
+        - name: TRACKER_PTZ_MAX_POSE_AGE_S
+          value: {{ $ptz.config.max_pose_age_s | quote }}
+        - name: TRACKER_PTZ_MAX_CLOCK_OFFSET_S
+          value: {{ $ptz.config.max_clock_offset_s | quote }}
+        - name: TRACKER_PTZ_MAX_DETECTION_PIPELINE_LATENCY_S
+          value: {{ $ptz.config.max_detection_pipeline_latency_s | quote }}
+        - name: TRACKER_PTZ_MAX_DETECTION_TIMESTAMP_UNCERTAINTY_S
+          value: {{ $ptz.config.max_detection_timestamp_uncertainty_s | quote }}
+        {{- if hasKey $shadow "run_id" }}
+        - name: TRACKER_PTZ_SHADOW_RUN_ID
+          value: {{ $shadow.run_id | quote }}
+        {{- end }}
+        {{- if hasKey $shadow "sample_every_n" }}
+        - name: TRACKER_PTZ_SHADOW_SAMPLE_EVERY_N
+          value: {{ $shadow.sample_every_n | quote }}
+        {{- end }}
+        {{- if hasKey $shadow "per_decision" }}
+        - name: TRACKER_PTZ_SHADOW_PER_DECISION
+          value: {{ $shadow.per_decision | quote }}
+        {{- end }}
+        - name: TRACKER_PTZ_ASSIGNMENTS_PATH
+          value: /scenescape/config/positioning-assignments.json
+        # PTZ admission requires a synchronized clock
+        - name: TRACKER_NTP_SERVER
+          value: ntpserv.{{ .Release.Namespace }}.svc.cluster.local
+        {{- end }}
         # Paho MQTT ignores no_proxy; tracker unsets these empty vars at startup (proxy_utils.cpp)
         - name: http_proxy
           value: ""
@@ -106,6 +143,12 @@ spec:
           name: controller-auth
           readOnly: true
           subPath: controller.auth
+        {{- if include "tracker.ptzActive" . }}
+        - mountPath: /scenescape/config/positioning-assignments.json
+          name: tracker-ptz
+          readOnly: true
+          subPath: positioning-assignments.json
+        {{- end }}
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -116,4 +159,9 @@ spec:
       - name: controller-auth
         secret:
           secretName: {{ .Release.Name }}-controller.auth
+      {{- if include "tracker.ptzActive" . }}
+      - name: tracker-ptz
+        configMap:
+          name: {{ .Release.Name }}-tracker-ptz
+      {{- end }}
 {{- end }}
