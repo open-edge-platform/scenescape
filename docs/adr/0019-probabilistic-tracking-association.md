@@ -23,7 +23,7 @@ That leaves association inconsistent with the filter: gates ignore motion and co
 Replace Euclidean association gated by per-object `tracking_radius` with **covariance-aware Mahalanobis gating**, rolled out in three independently shippable phases:
 
 1. **Track-side position Mahalanobis** — gate on UKF `S_pred` (xy) with a χ² threshold; optional Euclidean `max_radius_m` as a safety ceiling only. Addresses motion/coast-aware association. Does **not** model multi-camera pose disagreement.
-2. **Geometry-derived measurement covariance** — propagate bbox/pixel uncertainty through camera geometry to world-space `R_meas`; associate with `S_pred + R_meas`. Addresses multi-view / range-dependent localization disagreement.
+2. **Geometry-derived measurement covariance** — propagate bbox/pixel uncertainty through camera geometry (or an observation-processor producer) to world-space `R_meas`; associate with `H P Hᵀ + R_meas`. Addresses multi-view / range-dependent localization disagreement.
 3. **Per-measurement UKF update** — use the same `R` in filter correct as in association, completing the probabilistic pipeline. Detector confidence / richer multi-cam metadata fusion may land here or later.
 
 Additional decisions locked with this ADR:
@@ -33,9 +33,9 @@ Additional decisions locked with this ADR:
 - Deprecate `tracking_radius` as an association knob (retain in object library metadata during transition).
 - Keep controller and tracker service behaviorally aligned via shared config / shared `robot_vision`.
 - Publish each track's gate as `association_window` (circle or χ² ellipse) so the Manager 2D/3D views can show it; the views draw it at the corrected position, not the predicted one the gate uses.
-- Until Phase 2: equal-weight multi-cam geometry averaging and Euclidean ~2 m detection↔detection birth clustering are accepted stopgaps (raw detections lack track `S_pred`).
+- Until Phase 2: equal-weight multi-cam geometry averaging and Euclidean ~2 m detection↔detection birth clustering (`birth_cluster_radius_m` / `kDefaultBirthClusterRadiusM`) are accepted stopgaps (raw detections lack track `S_pred`).
 
-Phase 1 is accepted: `position_mahalanobis` is the default without an `association` block, while the shipped configs keep `euclidean` until its evaluation, with Mahalanobis alternative configs. Phases 2–3 remain proposed. Engineering detail lives in the [design document](../design/probabilistic-tracking-association.md); task tracking in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
+Phase 1 is accepted: `position_mahalanobis` is the default without an `association` block, while the shipped configs keep `euclidean` until its evaluation, with Mahalanobis alternative configs (including black-box eval companions). In `robot_vision`, Phases 2–3 consumer paths are implemented: a detection that carries a validated R is gated on `H P Hᵀ + R` and updates the filter with that R; whether the producer sets R is the opt-in. The observation-processor R producer (#2149) remains experimental; end-to-end eval with producer R is still open. Engineering detail lives in the [design document](../design/probabilistic-tracking-association.md); task tracking in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
 
 ## Alternatives Considered
 

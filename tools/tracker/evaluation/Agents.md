@@ -23,6 +23,7 @@ SPDX-License-Identifier: Apache-2.0
 - ADR context: [docs/adr/0009-tracking-evaluation.md](../../../docs/adr/0009-tracking-evaluation.md)
 - Example configurations:
   - Black-box suite (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
+  - Association variants: euclidean baseline YAMLs plus `*_mahalanobis.yaml` companions (`run_black_box_evaluation.py --association mahalanobis|both`) exercise HPHt + R
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
 
 ## Folders structure

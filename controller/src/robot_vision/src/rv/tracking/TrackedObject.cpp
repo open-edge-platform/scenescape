@@ -3,6 +3,8 @@
 
 #include "rv/tracking/TrackedObject.hpp"
 
+#include <stdexcept>
+
 namespace rv {
 namespace tracking {
 
@@ -125,8 +127,31 @@ TrackedObject::MeasurementVector TrackedObject::measurementVector() const
   return vector;
 }
 
+TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise)
+{
+  if (!cv::checkRange(noise))
+  {
+    throw std::invalid_argument("measurement_noise_covariance must be finite");
+  }
+  const TrackedObject::MeasurementMatrix symmetric = 0.5 * (noise + noise.t());
+  cv::Mat eigenvalues;
+  cv::eigen(symmetric, eigenvalues);
+  double minEigenvalue = 0.0;
+  cv::minMaxLoc(eigenvalues, &minEigenvalue);
+  if (!(minEigenvalue > 0.0))
+  {
+    throw std::invalid_argument("measurement_noise_covariance must be positive definite");
+  }
+  return symmetric;
+}
 
-
+void ensureValidMeasurementNoiseCov(TrackedObject &object)
+{
+  if (object.measurementNoiseCov)
+  {
+    object.measurementNoiseCov = validatedMeasurementNoiseCov(*object.measurementNoiseCov);
+  }
+}
 
 } // namespace tracking
 } // namespace rv

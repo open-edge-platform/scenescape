@@ -195,7 +195,6 @@ private:
   std::size_t mNumberOfModels{0u};
 
   double mProcessNoise{1e-4};
-  double mMeasurementNoise{1e-2};
 };
 } // namespace tracking
 } // namespace rv

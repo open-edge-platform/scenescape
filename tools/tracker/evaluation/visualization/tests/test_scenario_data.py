@@ -356,3 +356,25 @@ def test_trace_has_state():
   assert not trace_12.has_state("vz")
   assert trace_12.has_state("z")
 
+
+def test_loads_per_detection_noise_and_hpht(noisy_recording, detection_noise):
+  """A detection's measurement_noise_covariance and a step's HPHt are loaded; not at init."""
+  scenario = load_scenario(noisy_recording)
+
+  noise = scenario.detections["measurement_noise_cov"]
+  assert len(noise) == 11
+  for value in noise:
+    np.testing.assert_array_equal(value, np.asarray(detection_noise))
+  trace = scenario.estimator["1"]
+  assert trace.predicted_state_measurement_cov.shape == (11, 7, 7)
+  assert np.isnan(trace.predicted_state_measurement_cov[0]).all()
+  np.testing.assert_allclose(trace.predicted_state_measurement_cov[1],
+                             trace.predicted_measurement_cov[1] - 0.2 * np.eye(7))
+
+
+def test_recording_without_noise_has_no_hpht(recording):
+  """Without a per-detection R the column is None and HPHt is NaN."""
+  scenario = load_scenario(recording)
+
+  assert scenario.detections["measurement_noise_cov"].isna().all()
+  assert np.isnan(scenario.estimator["1"].predicted_state_measurement_cov).all()
