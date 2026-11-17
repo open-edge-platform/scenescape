@@ -22,6 +22,17 @@ For TYPE_2 objects, the tracker uses the projected bottom corners to calculate
 the base angle, then shifts the foot up within the normalized (undistorted)
 bounding box and projects that shifted point, matching Controller `camLoc`.
 
+Each `TrackingWorker` gets this geometry from a `DetectionProjector`
+([`detection_projector.hpp`](../inc/detection_projector.hpp)). The default
+`CameraModelProjector` projects every camera batch with that camera's
+`CoordinateTransformer` and skips batches from unknown cameras. A projector sets
+geometry only: position, size, `z_measured`, measurement noise when known, and
+world yaw from a supplied rotation. Its `ProjectedDetections` hold one object per
+detection plus a `has_geometry` flag, which is 0 for a detection without a
+measurement. `toTrackerInputs` then attaches the detection's own data (id,
+metadata, confidence, ReID sighting token) and drops detections without
+geometry, the same way for every projector.
+
 ---
 
 ## Time-Chunk Processing Pipeline
@@ -290,7 +301,7 @@ in RobotVision's `MetadataFusion.hpp` / `MetadataFusion.cpp` (C++17-compatible).
 At ingestion, `parse_detection_metadata` separates `Detection::reid_json` and
 its confidence from semantic `metadata_json`. `ReidSightingIndex` stores a vector
 of pointers to batches/detections owned by the current `Chunk`. Its optional
-`ReidSightingContext` lets coordinate transformation tag bbox detections with a
+`ReidSightingContext` lets `toTrackerInputs` tag bbox detections with a
 `<chunk>:<index>` token, without serializing embeddings or complete sightings.
 After fusion, the worker resolves only published winners and lazily writes the
 sighting directly to a JSON writer. Each index can be consumed once; it is
