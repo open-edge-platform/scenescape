@@ -1,9 +1,10 @@
 ---
 name: testing
 description: >-
-  Create Scenescape pytest cases (unit, functional, integration, UI, BAT) with
-  SCENESCAPE_SPEC, Zephyr IDs, and positive/negative coverage. Use when adding or
-  modifying tests under tests/, writing pytest, or choosing unit vs functional vs UI.
+  Create or modify Scenescape pytest cases (unit, functional, integration, UI, BAT)
+  with SCENESCAPE_SPEC, Zephyr IDs, and positive/negative coverage. Use when adding
+  or modifying tests under tests/, or choosing unit vs functional vs UI. Not for
+  running/diagnosing tests (test-verification-gate) or lint/format/license-only edits.
 ---
 
 <!--
@@ -42,16 +43,19 @@ Before adding imports or path setup in a new or modified test file:
 
 ## Category routing
 
-| Category    | Location                                        | When                                         | Infrastructure                       |
-| ----------- | ----------------------------------------------- | -------------------------------------------- | ------------------------------------ |
-| Unit        | `tests/sscape_tests/` or service `*/tests/`     | Isolated functions/classes; no live services | Mocks; host pytest                   |
-| Functional  | `tests/functional/`                             | Workflows with live REST/MQTT/DB             | `SCENESCAPE_SPEC` + `scenescape_env` |
-| Integration | `tests/functional/` or `tests/system/`          | Cross-service pipelines                      | Same as functional                   |
-| UI          | `tests/ui/`                                     | Browser/Selenium flows                       | `SCENESCAPE_SPEC` + `AUTH_BROWSER`   |
-| Non-functional | `tests/non_functional/`                      | Performance, build size/time, API contract   | `scenescape_env` + `result_recorder`  |
-| BAT         | functional/UI + `@pytest.mark.basic_acceptance` | Critical-path smoke                          | Same as parent category              |
+| Category | Location | When | Infrastructure | Read |
+| --- | --- | --- | --- | --- |
+| Unit | `tests/sscape_tests/` or service `*/tests/` | Isolated functions/classes; no live services | Mocks; host pytest | [unit-tests.md](references/unit-tests.md) |
+| Functional | `tests/functional/` | Workflows with live REST/MQTT/DB | `SCENESCAPE_SPEC` + `scenescape_env` | [functional-tests.md](references/functional-tests.md) |
+| Integration | `tests/functional/` or `tests/system/` | Cross-service pipelines | Same as functional | [functional-tests.md](references/functional-tests.md) |
+| UI | `tests/ui/` | Browser/Selenium flows | `SCENESCAPE_SPEC` + `AUTH_BROWSER` | [ui-and-bat-tests.md](references/ui-and-bat-tests.md) |
+| Non-functional | `tests/non_functional/` | Performance, build size/time, API contract | `scenescape_env` + `result_recorder` | [functional-tests.md](references/functional-tests.md) |
+| BAT | functional/UI + `@pytest.mark.basic_acceptance` | Critical-path smoke | Same as parent category | [ui-and-bat-tests.md](references/ui-and-bat-tests.md) |
 
-Read the matching reference under [Additional resources](#additional-resources) before writing a category.
+Read only the reference for your category; load the rest only if needed:
+[conftest-and-zephyr.md](references/conftest-and-zephyr.md) (fixtures, markers, Zephyr IDs),
+[running-tests.md](references/running-tests.md) (make targets, backends, log flags),
+[multi-controller hierarchy fixtures](references/functional-tests.md#multi-controller-hierarchy-fixtures).
 
 ## Hard requirements
 
@@ -95,14 +99,5 @@ Before marking a test-authoring task complete:
 - [ ] Independent setup/teardown; clear docstrings
 - [ ] Import-path policy followed (conftest checked; no stray `sys.path.insert`)
 - [ ] Runtime verification done per test-verification-gate (or blocker reported)
-
-## Additional resources
-
-- [Unit tests](references/unit-tests.md)
-- [Functional and integration tests](references/functional-tests.md)
-  (includes [multi-controller hierarchy fixtures](references/functional-tests.md#multi-controller-hierarchy-fixtures))
-- [UI and BAT tests](references/ui-and-bat-tests.md)
-- [Conftest and Zephyr](references/conftest-and-zephyr.md)
-- [Running tests](references/running-tests.md)
 
 Automated eval cases: [evals/evals.json](evals/evals.json).
