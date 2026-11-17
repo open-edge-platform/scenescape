@@ -67,6 +67,19 @@ constexpr const char* ASSOCIATION_GATE_PROBABILITY = "TRACKER_ASSOCIATION_GATE_P
 /// meters - Euclidean threshold or Mahalanobis ceiling
 constexpr const char* ASSOCIATION_MAX_RADIUS_M = "TRACKER_ASSOCIATION_MAX_RADIUS_M";
 
+/// meters, >= 0 - Euclidean radius that groups new detections of different cameras
+constexpr const char* ASSOCIATION_BIRTH_CLUSTER_RADIUS_M =
+    "TRACKER_ASSOCIATION_BIRTH_CLUSTER_RADIUS_M";
+
+/// > 0 - Kalman filter process noise scale q
+constexpr const char* FILTER_PROCESS_NOISE = "TRACKER_FILTER_PROCESS_NOISE";
+
+/// > 0 - Kalman filter measurement noise r (default R of detections without their own)
+constexpr const char* FILTER_BASE_MEASUREMENT_NOISE = "TRACKER_FILTER_BASE_MEASUREMENT_NOISE";
+
+/// > 0 - Kalman filter initial velocity variance P0
+constexpr const char* FILTER_INIT_STATE_COVARIANCE = "TRACKER_FILTER_INIT_STATE_COVARIANCE";
+
 // NTP overrides
 
 /// NTP server hostname or IP for clock offset correction (empty = disabled)

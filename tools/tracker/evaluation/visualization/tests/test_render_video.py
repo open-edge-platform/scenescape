@@ -4,21 +4,30 @@
 """Tests for rendering robot-vision scenario recordings as videos."""
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
 from matplotlib import animation
 from PIL import Image
+import matplotlib.pyplot as plt
 
+from visualization import render_video as render_video_module
+from visualization.scenario_data import load_scenario
 from visualization.render_video import (
   RenderError,
+  Series,
+  ZoomArtist,
   association_gate,
   box_corners,
   confidence_ellipse,
+  detection_gate,
   gate_label,
   main,
   render_video,
   sample_index,
+  side_box_corners,
+  side_extent,
   video_timing,
 )
 
@@ -30,6 +39,12 @@ def gif_frames(path):
   """Number of frames in a GIF file."""
   with Image.open(path) as image:
     return image.n_frames
+
+
+def gif_size(path):
+  """Width and height of a GIF file."""
+  with Image.open(path) as image:
+    return image.size
 
 
 @pytest.mark.parametrize("data_fps, speed, video_fps, frames", [
@@ -150,3 +165,160 @@ def test_command_line(recording, capsys):
     str(recording / "videos" / "overview.gif"),
     str(recording / "videos" / "zoom_1.gif"),
   ]
+
+
+def test_side_extent_follows_yaw():
+  """A box seen along x or y covers its footprint projected on that axis."""
+  assert side_extent("x", 0.0, 4.0, 2.0) == pytest.approx(4.0)
+  assert side_extent("y", 0.0, 4.0, 2.0) == pytest.approx(2.0)
+  assert side_extent("x", math.pi / 2, 4.0, 2.0) == pytest.approx(2.0)
+  assert side_extent("y", math.pi / 2, 4.0, 2.0) == pytest.approx(4.0)
+  assert side_extent("x", math.pi / 4, 4.0, 2.0) == pytest.approx(side_extent("y", math.pi / 4, 4.0, 2.0))
+
+
+def test_side_box_is_centred_on_z():
+  """The side view of a box spans its extent horizontally and its height around z."""
+  corners = side_box_corners(10.0, 2.0, 4.0, 1.5)
+
+  np.testing.assert_allclose(corners.min(axis=0), [8.0, 1.25])
+  np.testing.assert_allclose(corners.max(axis=0), [12.0, 2.75])
+
+
+def test_side_views_follow_vertical_motion(recording, climbing_recording, tmp_path):
+  """Auto adds the x-z and y-z views for vertical motion only; zoom videos stay top-down."""
+  planar = render_video(recording, output=tmp_path / "planar", gif=True)[0]
+  climbing = render_video(climbing_recording, output=tmp_path / "climbing", gif=True, zoom=["1"])
+
+  assert gif_size(planar) == (800, 800)
+  assert gif_size(climbing[0]) == (1000, 1000)
+  assert gif_size(climbing[1]) == (800, 800)
+  assert gif_frames(climbing[0]) == gif_frames(climbing[1])
+
+
+def test_side_views_can_be_forced_or_disabled(recording, climbing_recording, tmp_path):
+  """`always` also draws them for planar data (at z = 0), `never` omits them."""
+  forced = render_video(recording, output=tmp_path / "forced", gif=True, side_views="always")[0]
+  disabled = render_video(climbing_recording, output=tmp_path / "disabled", gif=True,
+                          side_views="never")[0]
+
+  assert gif_size(forced) == (1000, 1000)
+  assert gif_size(disabled) == (800, 800)
+
+
+def test_rejects_unknown_side_views_mode(recording, capsys):
+  """The mode is checked in the API and by the command line."""
+  with pytest.raises(RenderError, match="side_views"):
+    render_video(recording, gif=True, side_views="sideways")
+  with pytest.raises(SystemExit):
+    main([str(recording), "--gif", "--side-views", "sideways"])
+  assert "invalid choice" in capsys.readouterr().err
+
+
+def test_zoom_side_writes_x_z_and_y_z_follow_views(climbing_recording, tmp_path):
+  """--zoom-side adds one true-to-scale side view per axis next to the top-down zoom."""
+  written = render_video(climbing_recording, output=tmp_path / "out", gif=True, zoom=["1"],
+                         zoom_side=True)
+
+  assert [path.name for path in written] == ["overview.gif", "zoom_1.gif", "zoom_1_xz.gif",
+                                             "zoom_1_yz.gif"]
+  assert gif_size(written[2]) == gif_size(written[3]) == (800, 800)
+  assert gif_frames(written[2]) == gif_frames(written[3]) == gif_frames(written[0])
+
+
+def test_zoom_side_is_off_by_default(climbing_recording, tmp_path):
+  """Without the flag only the top-down zoom is written."""
+  written = render_video(climbing_recording, output=tmp_path / "out", gif=True, zoom=["1"])
+
+  assert [path.name for path in written] == ["overview.gif", "zoom_1.gif"]
+
+
+def test_zoom_side_command_line(climbing_recording, capsys):
+  """The CLI lists the side zoom videos."""
+  assert main([str(climbing_recording), "--gif", "--zoom", "1", "--zoom-side"]) == 0
+
+  assert [Path(line).name for line in capsys.readouterr().out.splitlines()] == [
+    "overview.gif", "zoom_1.gif", "zoom_1_xz.gif", "zoom_1_yz.gif"]
+
+
+def test_pairing_space_flags(recording, capsys):
+  """--xy-only and --z-only reach the pairing; the space is checked and the flags exclude each other."""
+  assert main([str(recording), "--gif", "--xy-only"]) == 0
+  assert main([str(recording), "--gif", "--z-only"]) == 0
+  assert capsys.readouterr().out.count("overview.gif") == 2
+  with pytest.raises(ValueError, match="space"):
+    render_video(recording, gif=True, space="xz")
+  with pytest.raises(SystemExit):
+    main([str(recording), "--gif", "--xy-only", "--z-only"])
+
+
+def test_side_views_without_size_or_z(tracker_output, tmp_path):
+  """Objects without a size are points; tracker output with z = 0 still renders."""
+  written = render_video(tracker_output, output=tmp_path / "out", gif=True, side_views="always")
+
+  assert gif_size(written[0]) == (1000, 1000)
+  assert gif_frames(written[0]) == 20
+
+
+def test_detection_gate_adds_the_detection_noise_to_hpht():
+  """A detection with its own R is gated on HPHt + R (x, y); a Euclidean circle ignores R."""
+  hpht = np.diag([1.0, 0.5, 0.3, 0.2, 0.2, 0.2, 0.2])
+  noise = np.full((7, 7), 0.01) + np.diag([2.0, 0.1, 0.2, 0.2, 0.2, 0.2, 0.2])
+  mahalanobis = {"method": "position_mahalanobis", "gate_probability": 0.95, "max_radius_m": 10.0}
+
+  assert detection_gate(mahalanobis, hpht, noise) == pytest.approx(
+    association_gate(mahalanobis, hpht[:2, :2] + noise[:2, :2]))
+  assert detection_gate(None, hpht, noise) == pytest.approx(
+    confidence_ellipse(hpht[:2, :2] + noise[:2, :2]))
+  assert detection_gate({"method": "euclidean", "max_radius_m": 2.0}, hpht, noise) is None
+
+
+def test_zoom_artist_draws_the_gate_of_each_detection_with_r(noisy_recording):
+  """At a step with HPHt, each detection with R of the followed object gets its gate."""
+  scenario = load_scenario(noisy_recording)
+  trace = scenario.estimator["1"]
+  detections = scenario.detections[scenario.detections["object_id"] == "1"]
+  track = Series.from_table(scenario.tracks[scenario.tracks["track_id"] == "1"])
+  fig, ax = plt.subplots()
+  artist = ZoomArtist(ax, "C0", trace, detections)
+
+  artist.update(track, trace.t[5], 0.05)
+
+  ellipse = artist.detection_ellipses["camera"]
+  assert ellipse.get_visible()
+  np.testing.assert_allclose(ellipse.get_center(), trace.predicted_measurement[5, :2])
+  noise = detections.iloc[5]["measurement_noise_cov"]
+  width, height, angle = detection_gate(None, trace.predicted_state_measurement_cov[5], noise)
+  assert (ellipse.get_width(), ellipse.get_height(), ellipse.get_angle()) == pytest.approx(
+    (width, height, angle))
+  assert ellipse.get_label() == "detection gate (HPHt + R)"
+
+  # The init step has no prediction and no HPHt.
+  artist.update(track, trace.t[0], 0.05)
+  assert not ellipse.get_visible()
+  plt.close(fig)
+
+
+def test_zoom_artist_without_detections_draws_no_detection_gate(recording):
+  scenario = load_scenario(recording)
+  fig, ax = plt.subplots()
+  artist = ZoomArtist(ax, "C0", scenario.estimator["1"])
+  assert not artist.detection_ellipses
+  plt.close(fig)
+
+
+@pytest.mark.parametrize("flag, expect_detections", [(False, False), (True, True)])
+def test_detection_gates_are_off_by_default(noisy_recording, monkeypatch, flag, expect_detections):
+  """Only --detection-gates hands the zoomed object's detections to the zoom view."""
+  received = []
+  real = render_video_module.ZoomArtist
+
+  def spy(ax, color, trace, detections=None):
+    received.append(detections)
+    return real(ax, color, trace, detections)
+
+  monkeypatch.setattr(render_video_module, "ZoomArtist", spy)
+  args = [str(noisy_recording), "--gif", "--zoom", "1"] + (["--detection-gates"] if flag else [])
+  assert main(args) == 0
+
+  assert len(received) == 1
+  assert (received[0] is not None and len(received[0]) == 11) == expect_detections

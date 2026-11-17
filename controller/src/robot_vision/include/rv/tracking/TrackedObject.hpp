@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <optional>
 
 #include "rv/tracking/Classification.hpp"
 
@@ -16,12 +17,44 @@ namespace tracking {
 using Id = int32_t;
 constexpr Id InvalidObjectId = -1;
 
+/// Indices into TrackedObject::stateVector() / UKF state.
+/// Layout: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
+struct StateIndex
+{
+  static constexpr int X = 0;
+  static constexpr int Y = 1;
+  static constexpr int VX = 2;
+  static constexpr int VY = 3;
+  static constexpr int AX = 4;
+  static constexpr int AY = 5;
+  static constexpr int Z = 6;
+  static constexpr int VZ = 7;
+  static constexpr int LENGTH = 8;
+  static constexpr int WIDTH = 9;
+  static constexpr int HEIGHT = 10;
+  static constexpr int YAW = 11;
+  static constexpr int YAW_RATE = 12;
+};
+
+/// Indices into TrackedObject::measurementVector() / UKF measurement.
+/// Layout: [x, y, z, length, width, height, yaw]
+struct MeasurementIndex
+{
+  static constexpr int X = 0;
+  static constexpr int Y = 1;
+  static constexpr int Z = 2;
+  static constexpr int LENGTH = 3;
+  static constexpr int WIDTH = 4;
+  static constexpr int HEIGHT = 5;
+  static constexpr int YAW = 6;
+};
+
 class TrackedObject
 {
 public:
   TrackedObject();
 
-  static constexpr int StateSize = 12;
+  static constexpr int StateSize = 13;
   static constexpr int MeasurementSize = 7;
 
   using MeasurementVector = cv::Matx<double, MeasurementSize, 1>;
@@ -38,6 +71,7 @@ public:
   // Linear Velocity
   double vx{0.};
   double vy{0.};
+  double vz{0.};
 
   // Linear Acceleration
   double ax{0.};
@@ -57,17 +91,32 @@ public:
 
   bool corrected{false};
 
+  /// True when Z came from a measured 3D pose (translation / 3D OD), not ground-plane projection.
+  /// Association and birth clustering gate z only when both sides have it.
+  /// On a track it is sticky: set by the first update with measured Z, kept through planar updates and coasts.
+  bool z_measured{false};
+
   std::string toString() const;
 
-  // tracked object parameters; fixed-size matrices, so copies never share them
+  // tracked object parameters (track outputs, written by the estimator on predict/correct);
+  // fixed-size matrices, so copies never share them
   MeasurementVector predictedMeasurementMean;
-  MeasurementMatrix predictedMeasurementCov;
-  StateMatrix errorCovariance;
+  MeasurementMatrix predictedMeasurementCov; ///< S = H P H^T + R_default (association / UI window)
+  MeasurementMatrix predictedStateMeasurementCov; ///< H P H^T: track uncertainty in measurement space, without R
+  StateMatrix errorCovariance;                    ///< P
+
+  /// Per-detection measurement noise R. Unset means the tracker default R. When set, it drives
+  /// information-weighted multi-camera fusion, the association gate (S = H P H^T + R) and the Kalman update.
+  /// Callers must store a matrix accepted by validatedMeasurementNoiseCov (finite, symmetric, PD); track()
+  /// re-validates detections at ingestion.
+  std::optional<MeasurementMatrix> measurementNoiseCov;
 
   Classification classification;
 
   std::unordered_map<std::string, std::string> attributes;
 
+  /// True when 3D speed squared exceeds 1 m²/s² (includes vertical motion).
+  /// Affects track deletion / suspend aging (dynamic vs static coast timeouts).
   bool isDynamic() const;
 
   Eigen::VectorXf getVectorXf() const;
@@ -92,7 +141,16 @@ public:
   MeasurementVector measurementVector() const;
 };
 
+/// Symmetrized R when every entry is finite and the result is positive definite.
+/// Throws std::invalid_argument otherwise (same contract as the Python setter).
+TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise);
 
+/// If measurementNoiseCov is set, replace it with validatedMeasurementNoiseCov(*it).
+void ensureValidMeasurementNoiseCov(TrackedObject &object);
+
+static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");
+static_assert(TrackedObject::MeasurementSize == MeasurementIndex::YAW + 1,
+              "MeasurementSize must match the MeasurementIndex layout");
 
 } // namespace tracking
 } // namespace rv
