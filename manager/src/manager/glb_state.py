@@ -28,7 +28,9 @@ from .glb_staging import (
   GlbAlignmentError, adopt_staged_preview, ensure_glb_preview, glb_preview_path,
   purge_stale_files, remove_staged_files, staged_glb_path
 )
-from .models import Cam, Scene, SingletonSensor, _delete_unreferenced_mapping_file, glb_preview_name
+from .models import (
+  Cam, Scene, SingletonSensor, _delete_unreferenced_mapping_file, glb_preview_name, remove_stored_file
+)
 
 # Scene-edit form fields written by apply, unapply and move.
 SCENE_FORM_GLB_FIELDS = (
@@ -202,14 +204,6 @@ def compute_glb_pose_and_corners(frame_corners_lla, anchor_lat, anchor_lng, anch
   map_corners_lla = np.array([convertECEFToLLA(corner) for corner in posed_ecef]).tolist()
 
   return rotation, translation, map_corners_lla
-
-
-def remove_stored_file(storage, name):
-  """Best-effort delete of a file from map storage; failures are ignored."""
-  try:
-    storage.delete(name)
-  except Exception:
-    pass
 
 
 def _delete_replaced_file_after_commit(scene, name):

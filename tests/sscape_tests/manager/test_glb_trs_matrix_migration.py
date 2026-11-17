@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for migration 0013 (clear cached trs_matrix of GLB scenes).
+"""Unit tests for the trs_matrix clearing step of migration 0012 (clear cached trs_matrix of GLB scenes).
 
 No DB needed: the Scene model is replaced by a mock that records the
 queryset calls.
@@ -10,7 +10,7 @@ queryset calls.
 import importlib
 from unittest.mock import MagicMock
 
-migration = importlib.import_module('manager.migrations.0013_clear_glb_trs_matrix')
+migration = importlib.import_module('manager.migrations.0012_geospatial_glb_fields')
 
 
 def _fake_scene_model():
@@ -62,5 +62,5 @@ def test_reverse_is_noop():
 
 
 def test_migration_depends_on_current_leaf():
-  assert ('manager', '0012_merge_geospatial_glb_fields_and_main') in (
+  assert ('manager', '0011_cam_pose_provenance') in (
     migration.Migration.dependencies)

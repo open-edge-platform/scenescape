@@ -463,9 +463,8 @@ class Scene(models.Model):
 
   def _dropGlbForNonGlbMap(self):
     # New non-GLB map uploaded while GLB is applied: swap out the GLB
-    from manager import glb_alignment
     if self.base_map and self.base_map.name:
-      glb_alignment.remove_stored_file(self.base_map.storage, self.base_map.name)
+      remove_stored_file(self.base_map.storage, self.base_map.name)
     self.use_glb_map = False
     self.base_map = None
     self.base_scale = None
@@ -756,6 +755,14 @@ class SceneMappingArtifact(models.Model):
 def glb_preview_name(glb_name):
   """Storage name of the cached top-view preview that sits next to a stored GLB."""
   return f"{os.path.splitext(glb_name)[0]}_preview.png"
+
+
+def remove_stored_file(storage, name):
+  """Best-effort delete of a file from map storage; failures are ignored."""
+  try:
+    storage.delete(name)
+  except Exception:
+    pass
 
 
 def _delete_unreferenced_mapping_file(storage, name, using):

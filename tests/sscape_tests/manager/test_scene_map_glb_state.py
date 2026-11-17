@@ -22,7 +22,7 @@ from django.urls import reverse
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from manager import glb_alignment, mapping_store
+from manager import glb_staging, mapping_store
 from manager.models import Scene, SceneSourceMap
 from scene_common.earth_lla import localFootprintCornersLLA
 
@@ -134,7 +134,7 @@ def test_activate_source_map_while_glb_applied(scene):
 
   try:
     mapping_store.activate_source_map(scene, source)
-  except (mapping_store.MappingStoreError, glb_alignment.GlbAlignmentError):
+  except (mapping_store.MappingStoreError, glb_staging.GlbAlignmentError):
     rejected = True
   else:
     rejected = False

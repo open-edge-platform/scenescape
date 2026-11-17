@@ -13,7 +13,7 @@ from manager.mesh_generator import MeshGenerator
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("use_glb_map", [True, False])
-@patch("manager.mesh_generator.glb_alignment")
+@patch("manager.mesh_generator.glb_state")
 def test_save_mesh_unapplies_glb_only_before_overwriting_map(mock_glb, use_glb_map):
   order = []
   mock_glb.unapply_glb_map.side_effect = lambda _scene: order.append("unapply")

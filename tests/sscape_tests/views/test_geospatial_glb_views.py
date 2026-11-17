@@ -21,7 +21,7 @@ from django.contrib.auth.models import User
 
 import numpy as np
 
-from manager import glb_alignment, glb_staging, glb_state
+from manager import glb_staging, glb_state
 from manager.forms import SceneUpdateForm
 from manager.models import Scene, Region, RegionPoint, SingletonSensor
 from scene_common.earth_lla import localFootprintCornersLLA
@@ -94,7 +94,7 @@ class TestGeospatialGlbPreview(TestCase):
     self.assertTrue(os.path.exists(glb_path))
     self.assertTrue(os.path.exists(png_path))
     rendered_scene = self.render_mock.call_args[0][0]
-    self.assertEqual(rendered_scene.rotation_x, glb_alignment.ALIGN_ROTATION_X)
+    self.assertEqual(rendered_scene.rotation_x, glb_staging.ALIGN_ROTATION_X)
 
   def test_uploaded_filename_is_server_token_not_client_name(self):
     """Uploaded file with malicious name saved as <uuid>.glb only."""
@@ -240,7 +240,7 @@ class TestStageGlbWriteFailure(TestCase):
     override = override_settings(MEDIA_ROOT=temp_dir.name)
     override.enable()
     self.addCleanup(override.disable)
-    os.makedirs(glb_alignment.staging_dir(), exist_ok=True)
+    os.makedirs(glb_staging.staging_dir(), exist_ok=True)
 
   def test_write_failure_removes_partial_file_and_reraises(self):
     """OSError mid-write re-raises and leaves no partial GLB in staging."""
@@ -253,8 +253,8 @@ class TestStageGlbWriteFailure(TestCase):
     upload.chunks.side_effect = failing_chunks
     with patch.object(glb_staging, "validate_glb"):
       with self.assertRaises(OSError):
-        glb_alignment.stage_glb(upload)
-    self.assertEqual(os.listdir(glb_alignment.staging_dir()), [])
+        glb_staging.stage_glb(upload)
+    self.assertEqual(os.listdir(glb_staging.staging_dir()), [])
 
 
 class CommitBaseSetup(TestCase):
@@ -270,7 +270,7 @@ class CommitBaseSetup(TestCase):
     self.temp_dir = tempfile.TemporaryDirectory()
     self.addCleanup(self.temp_dir.cleanup)
     self.media_root = self.temp_dir.name
-    self.staging_dir = os.path.join(self.media_root, glb_alignment.STAGING_SUBDIR)
+    self.staging_dir = os.path.join(self.media_root, glb_staging.STAGING_SUBDIR)
     os.makedirs(self.staging_dir, exist_ok=True)
     override = override_settings(MEDIA_ROOT=self.media_root)
     override.enable()
@@ -362,7 +362,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
 
     # Footprint follows the X/Y extents after the ALIGN_ROTATION_X axis conversion
-    mesh, _ = extractMeshFromGLB(self.scene.glb_map.path, rotation=[glb_alignment.ALIGN_ROTATION_X, 0.0, 0.0])
+    mesh, _ = extractMeshFromGLB(self.scene.glb_map.path, rotation=[glb_staging.ALIGN_ROTATION_X, 0.0, 0.0])
     extent_w, extent_h, _ = getMeshSize(mesh)
     self.assertAlmostEqual(result['footprint_m']['width'], extent_w, places=2)
     self.assertAlmostEqual(result['footprint_m']['height'], extent_h, places=2)
@@ -648,7 +648,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.scene.refresh_from_db()
     data = {
       'name': self.scene.name,
-      'glb_state_token': glb_alignment.scene_state_token(self.scene),
+      'glb_state_token': glb_state.scene_state_token(self.scene),
       'map_type': 'geospatial_map',
       'output_lla': 'True',
       'map_corners_lla': json.dumps(self.scene.map_corners_lla),
@@ -750,7 +750,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
 
     self.assertEqual(resp.status_code, 409)
     self.assertTrue(resp.context['stale_form_notice'])
-    self.assertEqual(resp.context['glb_state_token'], glb_alignment.scene_state_token(self.scene))
+    self.assertEqual(resp.context['glb_state_token'], glb_state.scene_state_token(self.scene))
     self.assertEqual(resp.context['form'].initial['rotation_z'], self.scene.rotation_z)
     retry = self._scene_form_data(name='geo_renamed', glb_state_token=resp.context['glb_state_token'])
     self.assertEqual(self.client.post(reverse('scene_update', args=[self.scene.id]), data=retry).status_code, 302)
@@ -789,14 +789,14 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
 
     resp = self.client.get(reverse('scene_update', args=[self.scene.id]))
 
-    token = glb_alignment.scene_state_token(self.scene)
+    token = glb_state.scene_state_token(self.scene)
     self.assertContains(resp, 'name="glb_state_token"')
     self.assertEqual(resp.context['glb_state_token'], token)
 
   def test_edit_page_repairs_a_missing_preview(self):
     """A saved GLB without a cached preview gets one when the edit page loads."""
     self._commit_glb()
-    preview = glb_alignment.glb_preview_path(self.scene.glb_map.path)
+    preview = glb_staging.glb_preview_path(self.scene.glb_map.path)
     if os.path.exists(preview):
       os.remove(preview)
     with patch.object(glb_staging, 'generateOrthoView',

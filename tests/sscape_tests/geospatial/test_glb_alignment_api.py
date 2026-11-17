@@ -33,7 +33,7 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_
 from django.urls import reverse
 from PIL import Image
 
-from manager import glb_alignment, glb_staging
+from manager import glb_staging, glb_state
 from manager.models import Scene
 from scene_common.earth_lla import localFootprintCornersLLA
 
@@ -190,7 +190,7 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.scene.refresh_from_db()
     self.assertTrue(self.scene.use_glb_map)
     fields = response.json()['scene_fields']
-    self.assertEqual(fields, glb_alignment.scene_form_fields(self.scene))
+    self.assertEqual(fields, glb_state.scene_form_fields(self.scene))
     self.assertEqual(fields['map_corners_lla'], self.scene.map_corners_lla)
     self.assertNotEqual(fields['map_corners_lla'], pre_apply_corners)
 
@@ -206,7 +206,7 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.scene.refresh_from_db()
     self.assertFalse(self.scene.use_glb_map)
     fields = response.json()['scene_fields']
-    self.assertEqual(fields, glb_alignment.scene_form_fields(self.scene))
+    self.assertEqual(fields, glb_state.scene_form_fields(self.scene))
     self.assertEqual(fields['map_corners_lla'], pre_apply_corners)
     for name in POSE_FIELDS:
       self.assertEqual(fields[name], 0.0, name)
@@ -222,7 +222,7 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.scene.refresh_from_db()
     self.assertTrue(self.scene.use_glb_map)
     fields = response.json()['scene_fields']
-    self.assertEqual(fields, glb_alignment.scene_form_fields(self.scene))
+    self.assertEqual(fields, glb_state.scene_form_fields(self.scene))
     self.assertEqual(fields['map_corners_lla'], self.scene.map_corners_lla)
     self.assertNotEqual(fields['map_corners_lla'], applied['map_corners_lla'])
 
@@ -302,7 +302,7 @@ class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
 
     self.assertEqual(response.status_code, 200)
     render.assert_called_once()
-    self.assertEqual(render.call_args.args[0].rotation_x, glb_alignment.ALIGN_ROTATION_X)
+    self.assertEqual(render.call_args.args[0].rotation_x, glb_staging.ALIGN_ROTATION_X)
     self.assertTrue(os.path.exists(self.preview_path))
     self.assertTrue(response.json()['preview_url'].endswith('stored_preview.png'))
 
@@ -336,7 +336,7 @@ class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
 
 
 class TestSceneFormFields(SimpleTestCase):
-  """Unit tests for glb_alignment.scene_form_fields."""
+  """Unit tests for glb_state.scene_form_fields."""
 
   def test_returns_only_glb_form_fields_with_scene_values(self):
     """The form payload carries the pose, scale and corners and nothing else."""
@@ -347,9 +347,9 @@ class TestSceneFormFields(SimpleTestCase):
       map_corners_lla=[[37.0, -122.0, 0.0]],
     )
 
-    fields = glb_alignment.scene_form_fields(scene)
+    fields = glb_state.scene_form_fields(scene)
 
-    self.assertEqual(set(fields), set(glb_alignment.SCENE_FORM_GLB_FIELDS))
+    self.assertEqual(set(fields), set(glb_state.SCENE_FORM_GLB_FIELDS))
     self.assertEqual(fields, {
       'scale': 2.5,
       'rotation_x': 90.0, 'rotation_y': 1.0, 'rotation_z': 2.0,
@@ -425,7 +425,7 @@ class TestGeospatialGlbApiDeleteEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.assertTrue(data['success'])
     self.scene.refresh_from_db()
     self.assertFalse(self.scene.use_glb_map)
-    self.assertEqual(data['scene_fields'], glb_alignment.scene_form_fields(self.scene))
+    self.assertEqual(data['scene_fields'], glb_state.scene_form_fields(self.scene))
     self.assertEqual(data['scene_fields']['map_corners_lla'], pre_apply_corners)
     for name in POSE_FIELDS:
       self.assertEqual(data['scene_fields'][name], 0.0, name)
@@ -435,7 +435,7 @@ class TestGeospatialGlbApiDeleteEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.scene.translation_x = 3.5
     self.scene.rotation_z = 45.0
     self.scene.save()
-    expected = glb_alignment.scene_form_fields(self.scene)
+    expected = glb_state.scene_form_fields(self.scene)
 
     with patch('manager.models.sendUpdateCommand'):
       response = self.client.delete(
@@ -445,7 +445,7 @@ class TestGeospatialGlbApiDeleteEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.assertEqual(response.status_code, 200)
     self.scene.refresh_from_db()
     self.assertEqual(response.json()['scene_fields'], expected)
-    self.assertEqual(response.json()['scene_fields'], glb_alignment.scene_form_fields(self.scene))
+    self.assertEqual(response.json()['scene_fields'], glb_state.scene_form_fields(self.scene))
     self.assertEqual(response.json()['scene_fields']['translation_x'], 3.5)
     self.assertEqual(response.json()['scene_fields']['rotation_z'], 45.0)
 

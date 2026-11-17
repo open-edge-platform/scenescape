@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from manager import glb_alignment, glb_staging, glb_state
+from manager import glb_staging, glb_state
 from manager.models import Scene
 from scene_common.earth_lla import (
   localFootprintCornersLLA, convertLLAToECEF, convertECEFToLLA,
@@ -211,7 +211,7 @@ def test_glb_pose_coordinate_system_invariance(mesh_type, align_rotation_x,
 
   # Monkeypatch ALIGN_ROTATION_X for this test
   with patch.object(glb_staging, 'ALIGN_ROTATION_X', align_rotation_x):
-    rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
+    rotation, translation, map_corners_lla = glb_state.compute_glb_pose_and_corners(
       frame_corners_lla, anchor_lat, anchor_lng, anchor_heading, glb_path=glb_path
     )
 
@@ -277,7 +277,7 @@ def test_glb_overlay_equality(frame_heading, anchor_heading, temp_glb_dir):
   frame_lat, frame_lng, _, _, _ = footprintAnchorFromCornersLLA(frame_corners_lla)
 
   with patch.object(glb_staging, 'ALIGN_ROTATION_X', 90.0):
-    rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
+    rotation, translation, map_corners_lla = glb_state.compute_glb_pose_and_corners(
       frame_corners_lla, frame_lat, frame_lng, anchor_heading, glb_path=glb_path
     )
 
@@ -331,7 +331,7 @@ def test_glb_pose_anchor_at_centre_and_z_min_zero(temp_glb_dir):
   anchor_lla = convertECEFToLLA(anchor_ecef)
 
   with patch.object(glb_staging, 'ALIGN_ROTATION_X', 90.0):
-    rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
+    rotation, translation, map_corners_lla = glb_state.compute_glb_pose_and_corners(
       frame_corners_lla, anchor_lla[0], anchor_lla[1], 0.0, glb_path=glb_path
     )
 
@@ -369,7 +369,7 @@ def test_non_rectangular_mesh_uses_real_vertices(rotation_angle, temp_glb_dir):
   frame_lat, frame_lng, _, _, _ = footprintAnchorFromCornersLLA(frame_corners_lla)
 
   with patch.object(glb_staging, 'ALIGN_ROTATION_X', 0.0):
-    rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
+    rotation, translation, map_corners_lla = glb_state.compute_glb_pose_and_corners(
       frame_corners_lla, frame_lat, frame_lng, rotation_angle, glb_path=glb_path
     )
 
@@ -421,8 +421,8 @@ def test_missing_glb_path_raises_error():
     center_lat=52.0, center_lng=21.0, heading_deg=0.0, width_m=120.0, height_m=80.0
   )
 
-  with pytest.raises(glb_alignment.GlbAlignmentError) as exc_info:
-    glb_alignment.compute_glb_pose_and_corners(
+  with pytest.raises(glb_staging.GlbAlignmentError) as exc_info:
+    glb_state.compute_glb_pose_and_corners(
       frame_corners_lla, 52.0, 21.0, 0.0, glb_path=None
     )
   assert exc_info.value.status == 400
@@ -430,12 +430,12 @@ def test_missing_glb_path_raises_error():
 
 def test_non_finite_anchor_raises_error():
   """Negative: non-finite anchor values handled by parse_anchor."""
-  with pytest.raises(glb_alignment.GlbAlignmentError) as exc_info:
-    glb_alignment.parse_anchor({'lat': float('nan'), 'lng': 21.0, 'heading_deg': 0.0})
+  with pytest.raises(glb_staging.GlbAlignmentError) as exc_info:
+    glb_state.parse_anchor({'lat': float('nan'), 'lng': 21.0, 'heading_deg': 0.0})
   assert exc_info.value.status == 400
 
-  with pytest.raises(glb_alignment.GlbAlignmentError) as exc_info:
-    glb_alignment.parse_anchor({'lat': 52.0, 'lng': float('inf'), 'heading_deg': 0.0})
+  with pytest.raises(glb_staging.GlbAlignmentError) as exc_info:
+    glb_state.parse_anchor({'lat': 52.0, 'lng': float('inf'), 'heading_deg': 0.0})
   assert exc_info.value.status == 400
 
 
@@ -450,7 +450,7 @@ def _applied_scene(glb_path, frame_heading, anchor_heading, anchor_offset):
   anchor_local = np.array([60.0 + anchor_offset[0], 40.0 + anchor_offset[1], 0.0])
   anchor_lla = convertECEFToLLA(frame_trs[:3, :3] @ anchor_local + frame_trs[:3, 3])
   with patch.object(glb_staging, 'ALIGN_ROTATION_X', 90.0):
-    rotation, translation, map_corners_lla = glb_alignment.compute_glb_pose_and_corners(
+    rotation, translation, map_corners_lla = glb_state.compute_glb_pose_and_corners(
       frame_corners_lla, anchor_lla[0], anchor_lla[1], anchor_heading, glb_path=glb_path
     )
   scene = SimpleNamespace(use_glb_map=True, base_map_corners_lla=frame_corners_lla.tolist(),
