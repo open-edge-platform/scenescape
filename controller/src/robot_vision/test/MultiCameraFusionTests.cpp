@@ -365,7 +365,8 @@ TEST(MultipleObjectTrackerTest, BirthClusteringDoesNotFuseStackedFloors)
 TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
 {
   // A planar track matched in one chunk by a measured-z camera and, last, by a planar camera: the fused update counts
-  // as measured, whatever the camera order.
+  // as measured, whatever the camera order. Without per-detection R the planar ground z must not pull the measured
+  // box centre (same rule as informationWithoutZ on the R path).
   rv::tracking::TrackedObject planar = makeDetection(5.0, 5.0, 0.0, 0.5, 0.5, 1.8);
   rv::tracking::TrackedObject measured = planar;
   measured.z = 0.3;
@@ -384,6 +385,10 @@ TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
     tracker.track(cameras, atMs(100), rv::tracking::DistanceType::Euclidean, kFusionGate);
     ASSERT_EQ(tracker.getTracks().size(), 1U);
     EXPECT_TRUE(tracker.getTracks()[0].z_measured);
+    const auto &measurements = tracker.mTrackManager.mMeasurementMap;
+    ASSERT_EQ(measurements.size(), 1U);
+    EXPECT_NEAR(measurements.begin()->second.z, 0.3, 1e-12)
+      << "equal-weight fusion must take z from measured detections only";
   }
 }
 
@@ -419,6 +424,8 @@ TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
   auto tracks = objectTracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U) << "planar + measured-Z at same XY should birth-cluster via XY distance";
   EXPECT_TRUE(tracks[0].z_measured) << "birth fusion must OR z_measured like track updates";
+  EXPECT_NEAR(tracks[0].z, 1.5, 1e-12)
+    << "equal-weight birth fusion must not average planar ground z into measured height";
 }
 
 TEST(MultipleObjectTrackerTest, MultiCameraBirthFusionWeightsByMeasurementNoise)

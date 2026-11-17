@@ -83,6 +83,8 @@ fusionInformation(const TrackedObject &object, bool anyZMeasured, double default
  * one match carries R, [x, y, z, length, width, height] are fused in information form
  * (R_f = (sum R_i^-1)^-1, z_f = R_f * sum R_i^-1 z_i), using the tracker default R for
  * matches without one, and R_f is attached to the fused measurement for the Kalman update.
+ * In both paths z comes from measured detections only when any match measured z (planar ground
+ * points must not pull a measured box centre), matching informationWithoutZ on the R path.
  * Yaw is not averaged: non-orienting detections carry no yaw, and its variance is kept from
  * the seed measurement here and replaced by the selected detection's in applyOrientingYaw, which
  * also fills the geometry-yaw covariance.
@@ -144,28 +146,35 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
     return;
   }
 
+  const bool anyZMeasured = anyMatchMeasuredZ(matches, objectsPerCamera);
   double sumX = 0.0;
   double sumY = 0.0;
   double sumZ = 0.0;
   double sumLength = 0.0;
   double sumWidth = 0.0;
   double sumHeight = 0.0;
+  size_t zCount = 0;
 
   for (const auto &[cameraIndex, objectIndex] : matches)
   {
     const auto &object = objectsPerCamera[cameraIndex][objectIndex];
     sumX += object.x;
     sumY += object.y;
-    sumZ += object.z;
     sumLength += object.length;
     sumWidth += object.width;
     sumHeight += object.height;
+    // Mirror informationWithoutZ: when any match measured z, planar ground points contribute none.
+    if (!anyZMeasured || object.z_measured)
+    {
+      sumZ += object.z;
+      ++zCount;
+    }
   }
 
   const double n = static_cast<double>(matches.size());
   measurement.x = sumX / n;
   measurement.y = sumY / n;
-  measurement.z = sumZ / n;
+  measurement.z = sumZ / static_cast<double>(zCount);
   measurement.length = sumLength / n;
   measurement.width = sumWidth / n;
   measurement.height = sumHeight / n;
