@@ -89,7 +89,14 @@ replace_block(
 grammar_path.write_text(text)
 PY
 fi
-
+if [[ "$service_name" == "mapping" ]]; then
+  # Status records exist for rejected jobs, so this ID reaches the 200 response path.
+  seed_request_id="$(python3 /workspace/mapping_upload_fuzzing.py seed --target-ip "$instance_ip")"
+  spec_example_id="a3f1c2d4e5b6a7f8c9d0e1f2a3b4c5d6"
+  grep -q "$spec_example_id" Compile/grammar.py \
+    || { echo "Mapping spec example request_id not found in grammar" >&2; exit 1; }
+  sed -i "s/$spec_example_id/$seed_request_id/" Compile/grammar.py
+fi
 set +e
 /RESTler/restler/Restler \
   --workingDirPath "$restler_work_dir" \
@@ -135,5 +142,19 @@ fi
 shopt -u dotglob nullglob
 rm -rf "$run_dir" "$restler_work_dir"
 
+upload_status=0
+if [[ "$service_name" == "mapping" ]]; then
+  # RESTler cannot generate multipart bodies, so uploads are fuzzed separately.
+  upload_args=()
+  if [[ "${MAPPING_UPLOAD_SKIP_LARGE:-0}" == "1" ]]; then
+    upload_args+=(--skip-large)
+  fi
+  python3 /workspace/mapping_upload_fuzzing.py fuzz --target-ip "$instance_ip" \
+    --output-dir "$result_dir/UploadFuzzing" "${upload_args[@]}" || upload_status=$?
+fi
+
 echo "RESTler ${service_name} fuzzing run completed"
-exit "$restler_status"
+if (( restler_status != 0 )); then
+  exit "$restler_status"
+fi
+exit "$upload_status"
