@@ -453,7 +453,8 @@ def _applied_scene(glb_path, frame_heading, anchor_heading, anchor_offset):
     rotation, translation, map_corners_lla = glb_state.compute_glb_pose_and_corners(
       frame_corners_lla, anchor_lla[0], anchor_lla[1], anchor_heading, glb_path=glb_path
     )
-  scene = SimpleNamespace(use_glb_map=True, base_map_corners_lla=frame_corners_lla.tolist(),
+  scene = SimpleNamespace(use_glb_map=True, base_map=None, base_scale=None,
+                          base_map_corners_lla=frame_corners_lla.tolist(),
                           map_corners_lla=map_corners_lla)
   return scene, rotation, translation
 
@@ -483,10 +484,22 @@ def test_map_origin_is_posed_footprint_corner_and_matches_thumbnail(
 
 
 @pytest.mark.parametrize("scene", [
-  SimpleNamespace(use_glb_map=False, base_map_corners_lla=[[1, 1, 0]] * 4, map_corners_lla=[[1, 1, 0]] * 4),
-  SimpleNamespace(use_glb_map=True, base_map_corners_lla=None, map_corners_lla=[[1, 1, 0]] * 4),
-  SimpleNamespace(use_glb_map=True, base_map_corners_lla=[[1, 1, 0]] * 4, map_corners_lla=None),
+  SimpleNamespace(use_glb_map=False, base_map=None, base_scale=None,
+                  base_map_corners_lla=[[1, 1, 0]] * 4, map_corners_lla=[[1, 1, 0]] * 4),
+  SimpleNamespace(use_glb_map=True, base_map=None, base_scale=None,
+                  base_map_corners_lla=None, map_corners_lla=[[1, 1, 0]] * 4),
+  SimpleNamespace(use_glb_map=True, base_map=None, base_scale=None,
+                  base_map_corners_lla=[[1, 1, 0]] * 4, map_corners_lla=None),
 ])
 def test_map_origin_is_zero_without_an_applied_glb(scene):
   """Negative: an unapplied scene or one without frame corners keeps the image origin."""
+  assert Scene.mapOrigin(scene) == [0.0, 0.0]
+
+
+def test_map_origin_is_zero_for_a_hybrid_scene():
+  """A hybrid scene's image is the base map, which starts at the frame origin."""
+  scene = SimpleNamespace(use_glb_map=True, base_map='base.png', base_scale=12.0,
+                          base_map_corners_lla=[[52.0, 21.0, 0], [52.0, 21.001, 0],
+                                                [52.001, 21.001, 0], [52.001, 21.0, 0]],
+                          map_corners_lla=[[52.0005, 21.0005, 0]] * 4)
   assert Scene.mapOrigin(scene) == [0.0, 0.0]

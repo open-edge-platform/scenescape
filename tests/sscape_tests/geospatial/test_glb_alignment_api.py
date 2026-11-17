@@ -228,6 +228,7 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
 
   def test_put_anchor_with_failed_apply_keeps_stored_anchor(self):
     """PUT anchor with use_glb_map=true leaves the stored anchor unchanged when the apply fails."""
+    self._set_snapshot_map()
     anchor_before = self.scene.glb_anchor
     Scene.objects.filter(pk=self.scene.pk).update(map_corners_lla=None, base_map_corners_lla=None)
 

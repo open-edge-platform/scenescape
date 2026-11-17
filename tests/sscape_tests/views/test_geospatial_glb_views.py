@@ -930,19 +930,16 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.assertEqual(self.scene.base_map_corners_lla, frame)
 
 
-class TestGlbApplyOverGlbMap(CommitBaseSetup):
-  """A GLB applied over a GLB-type map (e.g. a generated mesh) unapplies back to that map."""
+class TestGlbApplyOverFlatMap(CommitBaseSetup):
+  """A GLB applied over a flat map unapplies back to that map."""
 
   def setUp(self):
     super().setUp()
-    with open(TEST_GLB_FILE, 'rb') as src, open(os.path.join(self.media_root, 'mesh.glb'), 'wb') as dst:
-      dst.write(src.read())
-    Scene.objects.filter(pk=self.scene.pk).update(map='mesh.glb')
-    self.scene.refresh_from_db()
+    self._create_old_map()
     self._set_frame()
 
-  def test_unapply_restores_the_glb_map_it_replaced(self):
-    """Unapply after applying over a mesh brings the mesh back instead of leaving no map."""
+  def test_unapply_restores_the_flat_map_it_replaced(self):
+    """Unapply after applying over a flat map brings the flat map back instead of leaving no map."""
     token = self._stage_glb()
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}}
     with self.captureOnCommitCallbacks(execute=True):
@@ -963,7 +960,7 @@ class TestGlbApplyOverGlbMap(CommitBaseSetup):
     self.scene.refresh_from_db()
     self.assertFalse(self.scene.use_glb_map)
     self.assertTrue(self.scene.map)
-    self.assertTrue(self.scene.map.name.endswith('.glb'))
+    self.assertTrue(self.scene.map.name.endswith('.png'))
 
 
 class TestGenerateMeshGlbOverride(CommitBaseSetup):

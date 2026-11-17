@@ -611,7 +611,7 @@ class GlbAlignment {
       // The overlay is redrawn from the response so its frame always matches the applied state.
       this._drawSavedOverlay();
       this.ui.status.textContent = this.saved.use_glb_map
-        ? "3D model applied to scene map"
+        ? "3D model shown on scene map"
         : "3D model overlay only";
     } catch (error) {
       this.ui.useCheckbox.checked = this.saved.use_glb_map || false;

@@ -39,6 +39,7 @@ from scene_common.timestamp import get_epoch_time
 from manager.validators import (
   SCENE_NAME_DB_PATTERN, validate_map_file, validate_glb, validate_map_corners_lla, validate_scene_name)
 from manager.fields import ListField
+from manager.glb_composite import hybridThumbnail, isHybridView
 
 from scene_common import log
 
@@ -383,7 +384,11 @@ class Scene(models.Model):
     The image of an applied GLB starts at the model's own corner, which is offset from the
     frame origin because the model is placed inside the frame. Regions, cameras and sensors
     are stored in the frame, so the 2D views add this offset to image coordinates.
+    A hybrid scene's image is the base map with the GLB drawn in its grid, so it starts at
+    the frame origin.
     """
+    if isHybridView(self):
+      return [0.0, 0.0]
     if not (self.use_glb_map and self.base_map_corners_lla and self.map_corners_lla):
       return [0.0, 0.0]
     lat, lng = self.map_corners_lla[0][:2]
@@ -391,7 +396,10 @@ class Scene(models.Model):
 
   def saveThumbnail(self):
     previous_thumbnail = self.thumbnail.name if self.thumbnail else ''
-    img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
+    if isHybridView(self):
+      img_data, pixels_per_meter = hybridThumbnail(self)
+    else:
+      img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
     self.scale = pixels_per_meter
     img = Image.fromarray(np.uint8(img_data))
     with ContentFile(b'') as imgfile:

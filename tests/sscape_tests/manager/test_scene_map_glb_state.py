@@ -10,10 +10,13 @@ has not yet chosen:
 Remove the xfail marker once the policy is implemented.
 """
 
+import io
 import json
+import uuid
 
 import pytest
 import trimesh
+from PIL import Image
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -22,8 +25,9 @@ from django.urls import reverse
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from manager import glb_staging, mapping_store
+from manager import glb_staging, glb_state, mapping_store
 from manager.models import Scene, SceneSourceMap
+from manager.serializers import SceneSerializer
 from scene_common.earth_lla import localFootprintCornersLLA
 
 pytestmark = pytest.mark.django_db
@@ -195,3 +199,129 @@ def test_form_glb_upload_without_applied_glb_is_plain_map(web_client, scene):
   scene.refresh_from_db()
   assert scene.use_glb_map is False
   assert scene.map.name.endswith(".glb")
+
+
+def _png_bytes():
+  buf = io.BytesIO()
+  Image.new("RGB", (4, 4)).save(buf, format="PNG")
+  return buf.getvalue()
+
+
+def _store_glb(scene):
+  glb = _write(scene.glb_map, "stored.glb", 2.0)
+  Scene.objects.filter(pk=scene.pk).update(glb_map=glb, glb_anchor=ANCHOR)
+  scene.refresh_from_db()
+
+
+def _set_map(scene, name, content):
+  scene.map.save(name, ContentFile(content), save=False)
+  Scene.objects.filter(pk=scene.pk).update(map=scene.map.name)
+  scene.refresh_from_db()
+
+
+def _clear_base_map(scene):
+  Scene.objects.filter(pk=scene.pk).update(base_map=None, base_scale=None, base_map_corners_lla=None)
+  scene.refresh_from_db()
+
+
+def test_apply_rejects_scene_with_empty_map(scene):
+  _store_glb(scene)
+
+  with pytest.raises(glb_staging.GlbAlignmentError) as err:
+    glb_state.apply_glb_map(scene)
+
+  assert err.value.status == 400
+  assert "flat base map" in err.value.message
+  scene.refresh_from_db()
+  assert scene.use_glb_map is False
+
+
+def test_apply_rejects_generated_glb_as_base_map(scene):
+  _store_glb(scene)
+  _set_map(scene, "mesh.glb", _glb_bytes(1.0))
+
+  with pytest.raises(glb_staging.GlbAlignmentError) as err:
+    glb_state.apply_glb_map(scene)
+
+  assert err.value.status == 400
+  scene.refresh_from_db()
+  assert scene.use_glb_map is False
+
+
+def test_apply_succeeds_over_flat_map(scene):
+  _store_glb(scene)
+  _set_map(scene, "flat.png", _png_bytes())
+
+  glb_state.apply_glb_map(scene)
+
+  scene.refresh_from_db()
+  assert scene.use_glb_map is True
+  assert scene.base_map.name.endswith(".png")
+
+
+def test_commit_applied_scene_rejects_missing_base_map(scene):
+  _apply_glb_state(scene)
+  _clear_base_map(scene)
+
+  with pytest.raises(glb_staging.GlbAlignmentError) as err:
+    glb_state.commit_glb(scene, str(uuid.uuid4()), {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0})
+
+  assert err.value.status == 400
+  assert "flat base map" in err.value.message
+
+
+def test_commit_unapplied_scene_without_base_map_stores_glb(scene):
+  upload = SimpleUploadedFile("stored.glb", _glb_bytes(2.0), content_type="model/gltf-binary")
+  token = glb_staging.stage_glb(upload)
+
+  glb_state.commit_glb(scene, token, {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0})
+
+  scene.refresh_from_db()
+  assert scene.glb_map
+  assert scene.use_glb_map is False
+
+
+def test_move_and_remove_work_on_applied_scene_without_base_map(scene):
+  _apply_glb_state(scene)
+  _clear_base_map(scene)
+
+  glb_state.move_glb_anchor(scene, {"lat": 37.3895, "lng": -121.9705, "heading_deg": 30.0})
+  scene.refresh_from_db()
+  assert scene.glb_anchor["lat"] == 37.3895
+
+  glb_state.remove_glb_map(scene)
+  scene.refresh_from_db()
+  assert not scene.glb_map
+  assert scene.use_glb_map is False
+
+
+def test_scene_serializer_exposes_base_map_and_scale(scene):
+  _apply_glb_state(scene)
+  Scene.objects.filter(pk=scene.pk).update(base_scale=12.5)
+  scene.refresh_from_db()
+
+  data = SceneSerializer(scene).data
+
+  assert data["base_map"].endswith("base.glb")
+  assert data["base_scale"] == 12.5
+
+
+def test_scene_serializer_omits_empty_base_map(scene):
+  data = SceneSerializer(scene).data
+
+  assert "base_map" not in data
+  assert "base_scale" not in data
+
+
+def test_scene_serializer_ignores_base_map_on_write(scene):
+  _apply_glb_state(scene)
+  before = scene.base_map.name
+
+  serializer = SceneSerializer(
+    scene, data={"name": scene.name, "base_map": "evil.png", "base_scale": 99.0}, partial=True)
+
+  assert serializer.is_valid(), serializer.errors
+  assert "base_map" not in serializer.validated_data
+  assert "base_scale" not in serializer.validated_data
+  scene.refresh_from_db()
+  assert scene.base_map.name == before

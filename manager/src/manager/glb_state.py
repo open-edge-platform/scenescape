@@ -271,6 +271,17 @@ def reject_stale_form(stored, posted_token):
     raise GlbAlignmentError(409, 'Scene map or pose changed since the form was loaded; the form now shows the current values')
 
 
+def require_base_map(scene):
+  """Raise 400 unless the scene has a flat (non-GLB) base map to place the GLB over.
+
+  The base is base_map while a GLB is applied, otherwise the scene map itself.
+  A GLB-only map has no flat image for the hybrid view, so it is rejected.
+  """
+  base = scene.base_map if scene.use_glb_map else scene.map
+  if not base or os.path.splitext(base.name)[1].lower() == '.glb':
+    raise GlbAlignmentError(400, 'Scene needs a flat base map (image) before a GLB can be placed')
+
+
 def _apply_pose_and_map(scene, glb_path=None):
   """Internal helper: copy glb_map into scene.map and set pose/corners/thumbnail.
 
@@ -325,6 +336,7 @@ def apply_glb_map(scene):
     raise GlbAlignmentError(400, 'No stored GLB or anchor')
   if scene.use_glb_map:
     raise GlbAlignmentError(400, 'GLB is already applied')
+  require_base_map(scene)
 
   try:
     with locked_scene_write(scene):
@@ -505,6 +517,9 @@ def commit_glb(scene, token, anchor, save=True):
   save=False leaves the row unsaved for the caller to save in the same transaction.
   Returns saved_alignment dict.
   """
+  if scene.use_glb_map:
+    # Re-applying the new GLB needs the flat base map; storing alone does not place it
+    require_base_map(scene)
   path = staged_glb_path(token)
   token = str(uuid.UUID(token))
   lat, lng, heading = parse_anchor(anchor)

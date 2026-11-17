@@ -1556,7 +1556,7 @@ paths:
                     nullable: true
                     description: Relative URL to the top-down preview PNG
         "400":
-          description: Scene is not a geospatial_map, invalid token, or invalid anchor
+          description: Scene is not a geospatial_map, invalid token, invalid anchor, or the GLB is already applied and the scene has no flat base map
         "401":
           description: Unauthorized
         "403":
@@ -1608,7 +1608,7 @@ paths:
                       description: Heading in degrees (0 = north, 90 = east), clockwise rotation of GLB +Y from true north
                 use_glb_map:
                   type: boolean
-                  description: True to apply GLB as scene map; false for overlay only
+                  description: True to place GLB over the flat base map (hybrid view); false to restore the base map
         required: true
       security:
         - tokenAuth: []
@@ -1652,7 +1652,7 @@ paths:
                     type: string
                     description: Digest of the scene map, pose, corners, and GLB state after the change
         "400":
-          description: Scene is not a geospatial_map or invalid anchor provided
+          description: Scene is not a geospatial_map, invalid anchor provided, or use_glb_map is true and the scene has no flat base map
         "401":
           description: Unauthorized
         "403":
@@ -5458,6 +5458,17 @@ components:
           type: string
           nullable: true
           readOnly: true
+        base_map:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+          description: Flat map snapshot kept under an applied GLB; empty when no GLB is applied
+        base_scale:
+          type: number
+          readOnly: true
+          nullable: true
+          description: Pixels per metre of base_map
         name:
           type: string
           description: >

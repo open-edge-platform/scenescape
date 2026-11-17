@@ -99,7 +99,6 @@ scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenesForCam
 scene_common/src/scene_common/detections_builder.py	computeCameraBounds	22
 scene_common/src/scene_common/geometry.py	Region::isPointWithin	14
 scene_common/src/scene_common/geometry.py	Region::updatePoints	33
-scene_common/src/scene_common/glb_top_view.py	renderTopView	30
 scene_common/src/scene_common/ingestion.py	SceneDataIngestion::_build_one	14
 scene_common/src/scene_common/ingestion.py	SceneDataIngestion::ingest	13
 scene_common/src/scene_common/json_track_data.py	CamManager::nextFrame	19
