@@ -19,7 +19,7 @@ tested on the host.
 import bisect
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 SYNC_MODES = ("time", "frame")
 
@@ -34,8 +34,12 @@ class Detection:
   height: int
 
 
-def _parse_timestamp(value: str) -> float:
-  return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+def _parse_timestamp(value: str) -> int:
+  """Microseconds since the epoch; integers keep record spacing exact."""
+  moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+  if moment.tzinfo is None:
+    moment = moment.replace(tzinfo=timezone.utc)
+  return (moment - datetime(1970, 1, 1, tzinfo=timezone.utc)) // timedelta(microseconds=1)
 
 
 def _parse_detections(objects) -> tuple:
@@ -56,13 +60,13 @@ class DetectionTimeline:
   """Detections of one camera, indexed by time since the first record."""
 
   def __init__(self, records):
-    """`records` is a list of (timestamp_seconds, detections) in file order."""
+    """`records` is a list of (timestamp_microseconds, detections) in file order."""
     if not records:
       raise ValueError("Detection metadata has no records")
     times = [timestamp for timestamp, _ in records]
     if any(later < earlier for earlier, later in zip(times, times[1:])):
       raise ValueError("Detection metadata timestamps must not decrease")
-    self.times = [timestamp - times[0] for timestamp in times]
+    self.times = [(timestamp - times[0]) / 1_000_000 for timestamp in times]
     self.detections = [detections for _, detections in records]
 
   @classmethod

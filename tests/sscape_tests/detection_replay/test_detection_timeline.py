@@ -56,6 +56,14 @@ def test_at_time_uses_first_record_not_older_than_frame(timeline, seconds, expec
   assert xs(timeline.at_time(seconds)) == expected
 
 
+def test_at_time_exact_frame_boundary(tmp_path):
+  timeline = DetectionTimeline.from_jsonl(write_jsonl(tmp_path / "cam.json", [
+    record("2026-11-13T09:20:12.000Z", [0]),
+    record("2026-11-13T09:20:12.100Z", [1]),
+  ]))
+  assert xs(timeline.at_time(0.1)) == [1]
+
+
 def test_at_time_past_last_record_is_none(timeline):
   assert timeline.at_time(0.2) is None
 
