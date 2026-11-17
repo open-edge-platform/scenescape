@@ -92,6 +92,7 @@ double mahalanobisCostFromCache(const TrackedObject &measurement,
                                 const MahalanobisTrackCache &trackCache)
 {
   // S = H P H^T + R is per pair when the detection carries its own R, so the track's cached inverses do not apply.
+  // track() / the Python setter require R to be finite SPD; match() trusts that contract.
   std::optional<MahalanobisTrackCache> pairCache;
   if (measurement.measurementNoiseCov)
   {
@@ -138,7 +139,7 @@ cv::Matx33d positionCovariance(const TrackedObject &measurement, const TrackedOb
 
 /// Whether the leading size x size block of S is finite, symmetric positive definite and not nearly singular: every
 /// variance exceeds kMinPositionVariance and every LDL^T pivot d_k = minor_k / minor_(k-1) exceeds
-/// kMinRelativePositionPivot * S_kk.
+/// kMinRelativePositionPivot * S_kk. Asymmetry is rejected so a crafted off-diagonal cannot yield a negative d^2.
 bool isWellConditionedPositionBlock(const cv::Matx33d &S, int size)
 {
   for (int row = 0; row < size; ++row)
@@ -151,12 +152,28 @@ bool isWellConditionedPositionBlock(const cv::Matx33d &S, int size)
       }
     }
   }
+  for (int row = 0; row < size; ++row)
+  {
+    for (int col = row + 1; col < size; ++col)
+    {
+      const double scale = std::max({1.0, std::abs(S(row, col)), std::abs(S(col, row))});
+      if (!(std::abs(S(row, col) - S(col, row)) <= 1e-9 * scale))
+      {
+        return false;
+      }
+    }
+  }
+  // Use the symmetric part for the pivots so tiny float asymmetry that passed the check above does not matter.
+  const cv::Matx33d symmetric = 0.5 * (S + S.t());
   const std::array<double, 4> minors
-    = {1.0, S(0, 0), S(0, 0) * S(1, 1) - S(0, 1) * S(1, 0), size == 3 ? cv::determinant(S) : 0.0};
+    = {1.0, symmetric(0, 0),
+       symmetric(0, 0) * symmetric(1, 1) - symmetric(0, 1) * symmetric(1, 0),
+       size == 3 ? cv::determinant(symmetric) : 0.0};
   for (int k = 0; k < size; ++k)
   {
     const double pivot = minors[k + 1] / minors[k];
-    if (!(S(k, k) > kMinPositionVariance) || !(pivot > kMinRelativePositionPivot * S(k, k)))
+    if (!(symmetric(k, k) > kMinPositionVariance)
+        || !(pivot > kMinRelativePositionPivot * symmetric(k, k)))
     {
       return false;
     }

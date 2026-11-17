@@ -897,4 +897,15 @@ TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithNonSpdCovarianc
   EXPECT_EQ(assignments.front().second, 0U); // near detection
 }
 
+TEST(ObjectMatchingTest, PositionMahalanobisRejectsAsymmetricPositionCovariance)
+{
+  // Asymmetric S_xy used to pass the principal-minor checks and invert to a negative d^2.
+  auto track = makePositionTrack(1.0, 0.0, 1.0);
+  track.predictedMeasurementCov(0, 1) = 5.0;
+  track.predictedMeasurementCov(1, 0) = 0.0;
+  EXPECT_EQ(assignedCount(track, makePerson(0.0, 0.0), DistanceType::PositionMahalanobis,
+                          rv::chi2Threshold(0.99, 2)),
+            0U);
+}
+
 } // namespace

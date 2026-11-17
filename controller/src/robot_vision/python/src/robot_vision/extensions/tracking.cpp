@@ -134,21 +134,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
         {
           throw std::invalid_argument("measurement_noise_covariance must be a 7x7 float64 matrix or None");
         }
-        const rv::tracking::TrackedObject::MeasurementMatrix covariance(array.data());
-        if (!cv::checkRange(covariance))
-        {
-          throw std::invalid_argument("measurement_noise_covariance must be finite");
-        }
-        const rv::tracking::TrackedObject::MeasurementMatrix symmetric = 0.5 * (covariance + covariance.t());
-        cv::Mat eigenvalues;
-        cv::eigen(symmetric, eigenvalues);
-        double minEigenvalue = 0.0;
-        cv::minMaxLoc(eigenvalues, &minEigenvalue);
-        if (!(minEigenvalue > 0.0))
-        {
-          throw std::invalid_argument("measurement_noise_covariance must be positive definite");
-        }
-        self.measurementNoiseCov = symmetric;
+        self.measurementNoiseCov
+          = rv::tracking::validatedMeasurementNoiseCov(rv::tracking::TrackedObject::MeasurementMatrix(array.data()));
       },
       "Per-detection measurement noise R (7x7, [x, y, z, length, width, height, yaw]); None uses the "
       "tracker default R. Drives multi-camera fusion weights, the association gate (S = H P H^T + R) "
