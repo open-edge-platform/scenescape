@@ -406,7 +406,7 @@ scene and category. An unobservable depth is not counted. See [How to Enable Obs
 
 A remote measurement replaces the position and size of its detection; detector yaw is kept.
 
-`make demo-spp` deploys the Tracker service with the observation processor on a scene with stairs;
+`make demo-spp` deploys the Tracker service with the observation processor on two scenes with stairs, one recorded and one synthetic;
 see [`sample_data/spp_demo`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/spp_demo/README.md).
 
 ### Height Reference of Tracked Objects
