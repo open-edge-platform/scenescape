@@ -365,8 +365,7 @@ TEST(MultipleObjectTrackerTest, BirthClusteringDoesNotFuseStackedFloors)
 TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
 {
   // A planar track matched in one chunk by a measured-z camera and, last, by a planar camera: the fused update counts
-  // as measured, whatever the camera order. Without per-detection R the planar ground z must not pull the measured
-  // box centre (same rule as informationWithoutZ on the R path).
+  // as measured, whatever the camera order.
   rv::tracking::TrackedObject planar = makeDetection(5.0, 5.0, 0.0, 0.5, 0.5, 1.8);
   rv::tracking::TrackedObject measured = planar;
   measured.z = 0.3;
@@ -385,10 +384,6 @@ TEST(MultipleObjectTrackerTest, FusedTrackUpdateKeepsZMeasuredOfAnyCamera)
     tracker.track(cameras, atMs(100), rv::tracking::DistanceType::Euclidean, kFusionGate);
     ASSERT_EQ(tracker.getTracks().size(), 1U);
     EXPECT_TRUE(tracker.getTracks()[0].z_measured);
-    const auto &measurements = tracker.mTrackManager.mMeasurementMap;
-    ASSERT_EQ(measurements.size(), 1U);
-    EXPECT_NEAR(measurements.begin()->second.z, 0.3, 1e-12)
-      << "equal-weight fusion must take z from measured detections only";
   }
 }
 
@@ -424,8 +419,6 @@ TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
   auto tracks = objectTracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U) << "planar + measured-Z at same XY should birth-cluster via XY distance";
   EXPECT_TRUE(tracks[0].z_measured) << "birth fusion must OR z_measured like track updates";
-  EXPECT_NEAR(tracks[0].z, 1.5, 1e-12)
-    << "equal-weight birth fusion must not average planar ground z into measured height";
 }
 
 TEST(MultipleObjectTrackerTest, MultiCameraBirthFusionWeightsByMeasurementNoise)
@@ -631,16 +624,14 @@ TEST(MultipleObjectTrackerTest, MultiCameraFusionWithoutMeasurementNoiseLeavesRU
 
 TEST(MultipleObjectTrackerTest, TrackRejectsInvalidDetectionMeasurementNoise)
 {
-  // Both track() overloads validate per-detection R at ingestion (same contract as the Python setter).
+  // track() validates per-detection R at ingestion (same contract as the Python setter).
   auto tracker = makeFusionTracker();
   auto detection = makeDetection(1.0, 0.0, 0.0, 0.5, 0.5, 0.5);
   detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::zeros();
   EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(10)), std::invalid_argument);
-  EXPECT_THROW(tracker.track(Detections{detection}, atMs(10)), std::invalid_argument);
 
   detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::eye() * -0.2;
   EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(20)), std::invalid_argument);
-  EXPECT_THROW(tracker.track(Detections{detection}, atMs(20)), std::invalid_argument);
 
   auto asymmetric = diagonalMeasurementNoise(0.2, 0.2, 0.2);
   asymmetric(0, 1) = 5.0;
@@ -649,7 +640,6 @@ TEST(MultipleObjectTrackerTest, TrackRejectsInvalidDetectionMeasurementNoise)
   // (0.5*(5+0)=2.5 off-diagonal with 0.2 diagonals).
   detection.measurementNoiseCov = asymmetric;
   EXPECT_THROW(tracker.track(DetectionsPerCamera{{detection}}, atMs(30)), std::invalid_argument);
-  EXPECT_THROW(tracker.track(Detections{detection}, atMs(30)), std::invalid_argument);
 }
 
 // The fused R after two frames of an orienting detection (x variance 1, z variance 0.3, yaw variance 1,

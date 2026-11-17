@@ -115,8 +115,7 @@ public:
 
   std::unordered_map<std::string, std::string> attributes;
 
-  /// True when speed squared exceeds 1 m²/s². Horizontal always counts; vz counts only when
-  /// z_measured (sticky), so planar tracks are not aged on the short dynamic coast from filter vz.
+  /// True when 3D speed squared exceeds 1 m²/s² (includes vertical motion).
   /// Affects track deletion / suspend aging (dynamic vs static coast timeouts).
   bool isDynamic() const;
 
@@ -148,10 +147,6 @@ TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObjec
 
 /// If measurementNoiseCov is set, replace it with validatedMeasurementNoiseCov(*it).
 void ensureValidMeasurementNoiseCov(TrackedObject &object);
-
-/// Like ensureValidMeasurementNoiseCov, but clears measurementNoiseCov instead of throwing when R is
-/// invalid. Use for fused measurements that must not abort the Kalman update mid-frame.
-void clearInvalidMeasurementNoiseCov(TrackedObject &object);
 
 static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");
 static_assert(TrackedObject::MeasurementSize == MeasurementIndex::YAW + 1,

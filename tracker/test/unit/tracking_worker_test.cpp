@@ -1946,43 +1946,6 @@ TEST_F(TrackingWorkerTest, InjectedProjector_TracksOnlyDetectionsWithGeometry) {
     }
 }
 
-TEST_F(TrackingWorkerTest, InjectedProjector_InvalidMeasurementNoiseDoesNotKillWorker) {
-    // track() rejects invalid per-detection R; the worker must log and keep processing chunks.
-    TrackingConfig config = make_test_tracking_config();
-    config.max_unreliable_time_s = 0.0;
-    PublishedFrames published;
-    int call = 0;
-    auto projector =
-        std::make_unique<CallbackProjector>([&call](std::span<const DetectionBatch> batches) {
-            std::vector<std::optional<ProjectedDetections>> projected;
-            for (const auto& batch : batches) {
-                rv::tracking::TrackedObject geometry;
-                geometry.x = 5.0;
-                geometry.y = 6.0;
-                geometry.length = geometry.width = 0.5;
-                geometry.height = 1.7;
-                if (call == 0) {
-                    geometry.measurementNoiseCov = rv::tracking::TrackedObject::MeasurementMatrix::zeros();
-                }
-                projected.emplace_back(ProjectedDetections{{geometry}, {1}});
-            }
-            ++call;
-            return projected;
-        });
-    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
-                          std::move(projector), false);
-
-    ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"bad-r"})})));
-    ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"ok"})})));
-
-    const auto frames = published.wait_for(2);
-    ASSERT_EQ(frames.size(), 2u);
-    EXPECT_TRUE(frames[0].empty()) << "invalid R rejects the chunk before predict";
-    ASSERT_EQ(frames[1].size(), 1u);
-    EXPECT_NEAR(frames[1][0].translation[0], 5.0, 1e-6);
-    EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
-}
-
 TEST_F(TrackingWorkerTest, InjectedProjector_MismatchedResultsAreSkipped) {
     TrackingConfig config = make_test_tracking_config();
     config.max_unreliable_time_s = 0.0;

@@ -93,7 +93,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("corrected", &rv::tracking::TrackedObject::corrected, "Returns True if the TrackedObject was the result of a correction step.")
     .def_readwrite("id", &rv::tracking::TrackedObject::id, "Object's identification number.")
     .def("isDynamic", &rv::tracking::TrackedObject::isDynamic,
-         "True when speed squared exceeds 1 m^2/s^2 (vz only when z_measured; affects coast aging).")
+         "True when 3D speed squared exceeds 1 m^2/s^2 (includes vertical motion; affects coast aging).")
     .def_readwrite("classification", &rv::tracking::TrackedObject::classification, "Returns a numpy array with classification probabilities.")
     .def_readwrite("attributes", &rv::tracking::TrackedObject::attributes, "Dictionary of attributes. Note: only string types are supported.")
     .def_property("vector",

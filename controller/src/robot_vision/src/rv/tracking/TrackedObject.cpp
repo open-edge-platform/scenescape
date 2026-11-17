@@ -26,14 +26,8 @@ std::string TrackedObject::toString() const
 
 bool TrackedObject::isDynamic() const
 {
-  // Horizontal always counts. vz only when height was measured: otherwise process noise on an
-  // unobserved z can invent |vz| > 1 and cut coast lifetime on the dynamic timeout.
-  const double horizontal = vx * vx + vy * vy;
-  if (!z_measured)
-  {
-    return horizontal > 1.0;
-  }
-  return (horizontal + vz * vz) > 1.0;
+  // 3D speed: vertical motion counts toward dynamic coast / deletion aging.
+  return (vx * vx + vy * vy + vz * vz) > 1.0;
 }
 
 Eigen::VectorXf TrackedObject::getVectorXf() const
@@ -156,22 +150,6 @@ void ensureValidMeasurementNoiseCov(TrackedObject &object)
   if (object.measurementNoiseCov)
   {
     object.measurementNoiseCov = validatedMeasurementNoiseCov(*object.measurementNoiseCov);
-  }
-}
-
-void clearInvalidMeasurementNoiseCov(TrackedObject &object)
-{
-  if (!object.measurementNoiseCov)
-  {
-    return;
-  }
-  try
-  {
-    object.measurementNoiseCov = validatedMeasurementNoiseCov(*object.measurementNoiseCov);
-  }
-  catch (const std::invalid_argument &)
-  {
-    object.measurementNoiseCov.reset();
   }
 }
 
