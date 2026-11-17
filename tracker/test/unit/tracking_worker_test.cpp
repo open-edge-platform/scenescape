@@ -18,9 +18,13 @@
 #include <condition_variable>
 #include <cstdint>
 #include <format>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <numbers>
 #include <optional>
+#include <span>
+#include <stdexcept>
 #include <thread>
 #include <utility>
 
@@ -808,7 +812,7 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
 }
 
 // Test that confidence is preserved end-to-end through the tracker pipeline:
-// transformDetections() -> RobotVision tracker -> convert_tracks() -> Track::confidence.
+// toTrackerInputs() -> RobotVision tracker -> convert_tracks() -> Track::confidence.
 //
 // Uses max_unreliable_time_s = 0.0 so tracks become reliable on first observation.
 TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
@@ -1832,6 +1836,149 @@ TEST(BuildTrackerConfigTest, TakesTheConfiguredFilterValuesAndKeepsTheLifecycle)
     EXPECT_EQ(config.mMaxUnreliableTime, 2.0);
     EXPECT_EQ(config.mNonMeasurementTimeDynamic, 0.7);
     EXPECT_EQ(config.mNonMeasurementTimeStatic, 1.7);
+}
+
+// Projector whose geometry comes from a callback, standing in for any DetectionProjector.
+class CallbackProjector final : public DetectionProjector {
+public:
+    using ProjectFn = std::function<std::vector<std::optional<ProjectedDetections>>(
+        std::span<const DetectionBatch>)>;
+
+    explicit CallbackProjector(ProjectFn project_fn) : project_fn_(std::move(project_fn)) {}
+
+    std::vector<std::optional<ProjectedDetections>>
+    project(std::span<const DetectionBatch> batches) override {
+        return project_fn_(batches);
+    }
+
+private:
+    ProjectFn project_fn_;
+};
+
+// Publishes every chunk's tracks; waits until `count` chunks have been published.
+class PublishedFrames {
+public:
+    PublishCallback callback() {
+        return [this](const std::string&, const std::string&, const std::string&,
+                      const std::string&, const std::vector<Track>& tracks) {
+            std::lock_guard lock(mutex_);
+            frames_.push_back(tracks);
+            cv_.notify_one();
+        };
+    }
+
+    std::vector<std::vector<Track>> wait_for(size_t count) {
+        std::unique_lock lock(mutex_);
+        cv_.wait_for(lock, std::chrono::seconds(3), [&] { return frames_.size() >= count; });
+        return frames_;
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::vector<std::vector<Track>> frames_;
+};
+
+Chunk make_chunk(int index, std::vector<DetectionBatch> batches) {
+    Chunk chunk;
+    chunk.scene_id = "scene-1";
+    chunk.category = "person";
+    chunk.chunk_time = std::chrono::steady_clock::now();
+    for (auto& batch : batches) {
+        batch.timestamp_iso = std::format("2026-01-27T12:00:00.{:03d}Z", index * 67);
+        batch.timestamp =
+            std::chrono::system_clock::time_point(std::chrono::milliseconds(1000 + index * 67));
+    }
+    chunk.camera_batches = std::move(batches);
+    return chunk;
+}
+
+DetectionBatch make_batch(const std::string& camera_id, std::vector<std::string> names) {
+    DetectionBatch batch;
+    batch.camera_id = camera_id;
+    for (size_t i = 0; i < names.size(); ++i) {
+        Detection detection{.id = static_cast<int32_t>(i), .bounding_box_px = {10, 20, 50, 100}};
+        detection.metadata_json = R"({"name":")" + names[i] + R"("})";
+        batch.detections.push_back(std::move(detection));
+    }
+    return batch;
+}
+
+TEST_F(TrackingWorkerTest, InjectedProjector_TracksOnlyDetectionsWithGeometry) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    // cam-1: the first detection has no geometry; cam-2 cannot be projected at all.
+    auto projector =
+        std::make_unique<CallbackProjector>([](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProjectedDetections>> projected;
+            for (const auto& batch : batches) {
+                if (batch.camera_id != "cam-1") {
+                    projected.emplace_back();
+                    continue;
+                }
+                rv::tracking::TrackedObject geometry;
+                geometry.x = 5.0;
+                geometry.y = 6.0;
+                geometry.length = geometry.width = 0.5;
+                geometry.height = 1.7;
+                projected.emplace_back(
+                    ProjectedDetections{{rv::tracking::TrackedObject{}, geometry}, {0, 1}});
+            }
+            return projected;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(projector), false);
+
+    constexpr int kChunks = 3;
+    for (int i = 0; i < kChunks; ++i) {
+        ASSERT_TRUE(worker.try_enqueue(make_chunk(
+            i, {make_batch("cam-1", {"dropped", "kept"}), make_batch("cam-2", {"skipped"})})));
+    }
+
+    const auto frames = published.wait_for(kChunks);
+    ASSERT_EQ(frames.size(), static_cast<size_t>(kChunks));
+    for (const auto& tracks : frames) {
+        ASSERT_EQ(tracks.size(), 1u);
+        EXPECT_NEAR(tracks[0].translation[0], 5.0, 1e-6);
+        EXPECT_NEAR(tracks[0].translation[1], 6.0, 1e-6);
+        EXPECT_NE(tracks[0].metadata_json.find("kept"), std::string::npos);
+    }
+}
+
+TEST_F(TrackingWorkerTest, InjectedProjector_MismatchedResultsAreSkipped) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    int call = 0;
+    // First chunk: no result per batch; second chunk: no result per detection.
+    auto projector =
+        std::make_unique<CallbackProjector>([&call](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProjectedDetections>> projected;
+            if (call++ > 0) {
+                projected.resize(batches.size(), ProjectedDetections{});
+            }
+            return projected;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(projector), false);
+
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"a"})})));
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"a"})})));
+
+    const auto frames = published.wait_for(2);
+    ASSERT_EQ(frames.size(), 2u);
+    EXPECT_TRUE(frames[0].empty());
+    EXPECT_TRUE(frames[1].empty());
+    EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
+}
+
+TEST_F(TrackingWorkerTest, InjectedProjector_NullIsRejected) {
+    PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
+                                  const std::string&, const std::vector<Track>&) {};
+    EXPECT_THROW(TrackingWorker({"scene-1", "person"}, "Test Scene", 2, callback, tracking_config_,
+                                std::unique_ptr<DetectionProjector>{}, false),
+                 std::invalid_argument);
 }
 
 } // namespace
