@@ -144,3 +144,23 @@ class ServiceMqttTest:
           if 'id' in obj:
             ids.add(obj['id'])
     return ids
+
+  def get_object_sizes(self, camera_id=None):
+    """! Return the 'size' of every object seen across all received messages.
+
+    @param    camera_id    If given, only objects whose 'visibility' list
+                           contains this camera id are considered.
+    @return   list of size values (as received in the payload).
+    """
+    sizes = []
+    with self._lock:
+      for m in self._messages:
+        if not isinstance(m['data'], dict):
+          continue
+        for obj in m['data'].get('objects', []):
+          if not obj.get('size'):
+            continue
+          if camera_id is not None and camera_id not in obj.get('visibility', []):
+            continue
+          sizes.append(obj['size'])
+    return sizes
