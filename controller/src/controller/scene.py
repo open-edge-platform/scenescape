@@ -400,7 +400,9 @@ class Scene(SceneModel):
         return None
       info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
     point = Point(info['translation'])
-    info['translation'] = (pose.pose_mat @ np.hstack([point.asNumpyCartesian, [1]]))[:3]
+    # Materialize a length-3 list so callers do not share a numpy view of the
+    # homogeneous vector.
+    info['translation'] = (pose.pose_mat @ np.hstack([point.asNumpyCartesian, [1]]))[:3].tolist()
     if 'rotation' in info:
       rotation = Rotation.from_matrix(pose.pose_mat[:3, :3]) * Rotation.from_quat(info['rotation'])
       info['rotation'] = rotation.as_quat().tolist()
