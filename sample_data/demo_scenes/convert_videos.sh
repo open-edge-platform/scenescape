@@ -12,7 +12,7 @@ docker pull intel/intel-optimized-ffmpeg:avx3
 
 DIRNAME=${PWD}
 FFMPEG_DIR="/app/data"
-FFMPEG_IMAGE="intel/intel-optimized-ffmpeg:avx3"
+FFMPEG_IMAGE="linuxserver/ffmpeg:version-9.0-cli"
 EXTENSION=${1:-mp4}
 
 for mfile in "$DIRNAME"/sample_data/demo_scenes/*/video/*."${EXTENSION}" "$DIRNAME"/tools/pipeline_runner/video/*."${EXTENSION}"; do
