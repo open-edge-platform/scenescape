@@ -34,8 +34,11 @@ make deploy DEPLOY_PROFILES="controller observation-processor"
 The service listens on port `50052` inside the Compose network with TLS, using
 the network address `observation-processor.scenescape.intel.com`. `make
 init-secrets` generates the `scenescape-observation-processor` server
-certificate mounted by the Compose profile. The optional profile starts the
-gRPC service but does not currently route Scene Controller detections to it.
+certificate mounted by the Compose profile. Deploying the profile starts the
+service; the Scene Controller and Tracker service send detections to it only
+when the experimental observation processor flag is set and the service host and
+port are configured. See
+[Experimental Observation Processor](../../controller/how-to-configure-tracker.md#experimental-observation-processor).
 
 For deployment credentials, environment variables, and a sample request, see
 the [Observation Processor service README](../../../../../observation_processor/README.md).

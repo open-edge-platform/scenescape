@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Import paths for Observation Processor unit tests."""
+"""Import paths and fixtures for Observation Processor unit tests (service and Controller client)."""
 
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
 import open3d as o3d
@@ -104,3 +104,23 @@ def frame():
 def process_frame(projection_configuration):
   """Run the projection pipeline in-process without starting a gRPC server."""
   return lambda request: process_detections(request, projection_configuration.provider)
+
+
+def _alias_controller_stubs():
+  """Serve the Controller's `scenescape_api` stub imports from the service's committed stubs.
+
+  The Controller image generates `scenescape_api.observation_processor.v1.*` from the same proto.
+  Both would register the same protobuf symbols, which fails when loaded in one process.
+  """
+  from observation_processor.grpc_api import observation_processor_pb2, observation_processor_pb2_grpc
+  package = "scenescape_api.observation_processor.v1"
+  for name in ("scenescape_api", "scenescape_api.observation_processor", package):
+    module = sys.modules.setdefault(name, ModuleType(name))
+    module.__path__ = []
+  sys.modules[f"{package}.observation_processor_pb2"] = observation_processor_pb2
+  sys.modules[f"{package}.observation_processor_pb2_grpc"] = observation_processor_pb2_grpc
+  sys.modules[package].observation_processor_pb2 = observation_processor_pb2
+  sys.modules[package].observation_processor_pb2_grpc = observation_processor_pb2_grpc
+
+
+_alias_controller_stubs()
