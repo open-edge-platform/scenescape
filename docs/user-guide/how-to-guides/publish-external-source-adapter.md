@@ -239,6 +239,6 @@ The adapter and this guide do **not** cover:
 - [Scene Controller](../microservices/controller/controller.md)
 - [ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md)
 - [Integrate Cameras and Sensors](./integrate-cameras-and-sensors.md)
-- Example MAVLink adapter:
+- Example adapters:
   [`tools/external_source_adapters/`](https://github.com/open-edge-platform/scenescape/blob/main/tools/external_source_adapters/README.md)
-  (`mavlink_to_external_source.py`)
+  (`mavlink_to_external_source.py`, `remoteid_to_external_source.py`)
