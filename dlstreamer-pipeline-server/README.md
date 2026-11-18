@@ -116,7 +116,7 @@ To enable Scenescape pipelines to run on a specific GPU device of your choice (e
 By following these steps, only the selected GPU device will be available in the container. As a result, all DL Streamer Pipeline Server pipelines running in the container will use the GPU device of your choice.
 
 > [!NOTE]
-> This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
+> This setup cannot run two pipelines in the same container on different GPU devices. To work around that limitation, configure each pipeline as described in the [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html), but be aware that doing so disables cross-stream batching and may deliver lower throughput.
 
 ## Running on NPU
 
@@ -133,7 +133,7 @@ To facilitate NPU acceleration, sample configuration files are provided for the 
 
 - Inference offloaded to NPU
 
-NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
+NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/tools/npu-monitor-tool)
 
 ### Configuration
 
@@ -231,7 +231,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
    > `download_public_models.sh` no longer exists in the upstream DL Streamer repository; it was replaced by separate scripts under [`scripts/download_models/`](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models) with different CLI syntax. The link and the commands below are kept for historical reference.
 
    Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
-   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
+   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
 
    Download the YOLO pose model:
 
@@ -342,4 +342,4 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 For detailed instructions on further configuring DL Streamer pipelines, refer to:
 
 - [How to Configure DL Streamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DL Streamer video pipelines in Scenescape.
-- [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.
+- [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.
