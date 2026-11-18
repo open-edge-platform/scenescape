@@ -618,16 +618,30 @@ class SceneController:
         self._moving_object_queue.task_done()
     return
 
-  def _processMovingObjectMessage(self, client, userdata, message):
+  def _isOwnHierarchyEcho(self, topic, jdata):
+    if topic.get('_topic_id') != PubSub.DATA_EXTERNAL or 'source_id' in jdata:
+      return False
+    local = self.cache_manager.sceneWithID(topic['scene_id'])
+    return local is not None and not getattr(local, 'parent', None)
 
-    topic = PubSub.parseTopic(message.topic)
+  @staticmethod
+  def _parseJSONObject(message):
+    """Return the JSON object in an MQTT payload, or None (logged) if it is invalid."""
     try:
       jdata = orjson.loads(message.payload.decode('utf-8'))
     except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
       log.error(f"Invalid JSON payload on {message.topic}: {e}")
-      return
+      return None
     if not isinstance(jdata, dict):
       log.error(f"Malformed payload on {message.topic}: expected JSON object")
+      return None
+    return jdata
+
+  def _processMovingObjectMessage(self, client, userdata, message):
+
+    topic = PubSub.parseTopic(message.topic)
+    jdata = self._parseJSONObject(message)
+    if jdata is None:
       return
 
     # Own hierarchy echo: this instance published to external/{own_uid}/+
@@ -636,10 +650,8 @@ class SceneController:
     # schema validation, NTP sync, or child-object handling. Remote-child
     # payloads arrive on the parent via ChildSceneController; there
     # sceneWithID(child_uid) is None so this check does not fire.
-    if topic.get('_topic_id') == PubSub.DATA_EXTERNAL and 'source_id' not in jdata:
-      local = self.cache_manager.sceneWithID(topic['scene_id'])
-      if local is not None and not getattr(local, 'parent', None):
-        return
+    if self._isOwnHierarchyEcho(topic, jdata):
+      return
 
     metric_attributes = {
         "topic": message.topic,

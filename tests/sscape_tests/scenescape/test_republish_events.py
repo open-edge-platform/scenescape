@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import orjson
+import pytest
 
 from controller.scene_controller import SceneController
 from scene_common.mqtt import PubSub
@@ -100,3 +101,33 @@ class TestWrapCallback:
 
     assert wrapped(None, None, SimpleNamespace(topic='a/b')) is None
     assert seen == [pubsub]
+
+
+class TestProcessMovingObjectMessageParsing:
+
+  def _message(self, payload):
+    topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id='cam-1')
+    return SimpleNamespace(topic=topic, payload=payload)
+
+  @pytest.mark.parametrize("payload", [
+    b'{not json',
+    b'\xff\xfe\x00',
+    b'[1, 2, 3]',
+    b'"text"',
+    b'42',
+    b'null',
+  ])
+  def test_bad_payload_is_dropped_and_next_valid_message_processed(self, payload):
+    ctrl = _controller()
+    ctrl.schema_val = MagicMock()
+    ctrl.schema_val.validateMessage.return_value = False
+    valid = {'id': 'cam-1', 'timestamp': '2026-01-01T00:00:00.000Z', 'objects': {}}
+
+    with patch('controller.scene_controller.metrics'):
+      ctrl._processMovingObjectMessage(None, None, self._message(payload))
+      ctrl.schema_val.validateMessage.assert_not_called()
+      ctrl.cache_manager.sceneWithID.assert_not_called()
+
+      ctrl._processMovingObjectMessage(None, None, self._message(orjson.dumps(valid)))
+
+    ctrl.schema_val.validateMessage.assert_called_once_with('detector', valid)
