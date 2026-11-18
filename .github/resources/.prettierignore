@@ -24,6 +24,7 @@
 **/tests/system/metric/unity_dataset/*.json
 **/tests/system/metric/wildtrack_dataset/*.json
 
-# Recorded ground-truth locations of the SPP demo (generated, compact)
-**/sample_data/spp_demo/Rolling-terrain/gtLoc.json
-**/sample_data/spp_demo/Stairs-synthetic/gtLoc.json
+# SPP demo scene data: JSON Lines files (one object per line), generated and
+# compact; prettier cannot parse them as JSON.
+**/sample_data/spp_demo/*/gtLoc.json
+**/sample_data/spp_demo/*/metadata/*.json
