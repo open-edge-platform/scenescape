@@ -3,12 +3,13 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# SPP Demo: Tracking on Stairs with the Observation Processor
+# SPP Demo: Tracking on Non-Planar Terrain with the Observation Processor
 
 > **⚠️ Experimental.** Uses experimental tracking options that may change between releases.
 
-This demo tracks people walking on stairs (non-planar motion) with the Tracker service and the
-experimental Observation Processor service (spatial performance primitives), in two scenes:
+This demo tracks people walking on stairs and rolling terrain (non-planar motion) with the Tracker
+service and the experimental Observation Processor service (spatial performance primitives), in
+three scenes:
 
 - `Stairs`: recorded videos; DL Streamer Pipeline Server detects people with a person detection
   model.
@@ -17,6 +18,9 @@ experimental Observation Processor service (spatial performance primitives), in 
   videos with the detections recorded when rendering them instead, and publishes them like a
   detection-only pipeline. The videos already show the recorded boxes; the published Live View
   frames redraw them.
+- `Rolling-terrain`: a synthetic person walking over rolling terrain, replayed like
+  `Stairs-synthetic`. The videos are trimmed so that they loop without a jump in the person's
+  position.
 
 The Observation
 Processor projects each pixel box with a frustum Gaussian and conditions it on the scene mesh
@@ -43,7 +47,10 @@ SUPASS='<choose-a-strong-admin-password>' make demo-spp
    ([`compose.stairs-synthetic-video.yml`](compose.stairs-synthetic-video.yml)) for cameras
    `cam1_front_left` and `cam2_back_right`, from the videos and per-frame detections in
    [`Stairs-synthetic`](Stairs-synthetic);
-4. uploads the `Stairs` and `Stairs-synthetic` scenes with their meshes and the
+4. starts the Rolling-terrain detection replay
+   ([`compose.rolling-terrain-video.yml`](compose.rolling-terrain-video.yml)) for cameras
+   `rt-cam1_front_left` and `rt-cam2_back_right`, from [`Rolling-terrain`](Rolling-terrain);
+5. uploads the `Stairs`, `Stairs-synthetic` and `Rolling-terrain` scenes with their meshes and the
    [object library](object-library.json).
 
 Stop it with `make demo-close`.
@@ -59,7 +66,6 @@ Stop it with `make demo-close`.
   It logs `Experimental observation processor enabled`. Failed calls are logged as warnings
   (`Observation processor call failed ...; using local processing`).
 
-- The `Stairs-synthetic` cameras show Live View frames with the recorded boxes redrawn.
+- The `Stairs-synthetic` and `Rolling-terrain` cameras show Live View frames with the recorded boxes redrawn.
 
-- Open the `Stairs` or `Stairs-synthetic` scene in the web UI: tracks on the stairs follow the
-  steps in height.
+- Open a scene in the web UI: tracks follow the steps of the stairs or the terrain in height.

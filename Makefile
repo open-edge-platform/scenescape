@@ -49,14 +49,15 @@ DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,aprilt
 	tools/pipeline_runner/video/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/compose.dl-streamer-example.yml
 VIDEO_SOURCE_VIDEOS = $(DLSTREAMER_SAMPLE_VIDEOS)
-# SPP demo: Stairs and Stairs-synthetic scenes, Tracker service with the experimental
-# observation processor. Stairs-synthetic replays recorded detections with its mp4 videos
-# (tools/detection_replay), so only the Stairs videos must be converted to ts.
+# SPP demo: Stairs, Stairs-synthetic and Rolling-terrain scenes, Tracker service with the experimental
+# observation processor. Stairs-synthetic and Rolling-terrain replay recorded detections with their
+# mp4 videos (tools/detection_replay), so only the Stairs videos must be converted to ts.
 SPP_DEMO_DIR := sample_data/spp_demo
 SPP_DEMO_VIDEOS := $(addprefix $(SPP_DEMO_DIR)/Stairs/video/,cam1.ts cam2.ts)
 SPP_DEMO_COMPOSE_ARGS = -f docker-compose.yml -f $(SPP_DEMO_DIR)/compose.spp-demo.yml
 SPP_DEMO_VIDEO_COMPOSE_FILES := -f $(SPP_DEMO_DIR)/compose.stairs-video.yml \
-	-f $(SPP_DEMO_DIR)/compose.stairs-synthetic-video.yml
+	-f $(SPP_DEMO_DIR)/compose.stairs-synthetic-video.yml \
+	-f $(SPP_DEMO_DIR)/compose.rolling-terrain-video.yml
 DEMO_WAIT_SECONDS ?= "0"
 DEPLOY_WAIT_SECONDS ?= $(DEMO_WAIT_SECONDS)
 DEPLOY_PROFILES ?= controller
@@ -149,7 +150,7 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
-	@echo "  demo-spp                    Start the Stairs and Stairs-synthetic demo with the Tracker service and the experimental observation processor"
+	@echo "  demo-spp                    Start the Stairs, Stairs-synthetic and Rolling-terrain demo with the Tracker service and the experimental observation processor"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
