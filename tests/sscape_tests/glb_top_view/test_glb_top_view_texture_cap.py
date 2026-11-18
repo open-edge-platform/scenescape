@@ -51,15 +51,12 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
     assert eye[2] > max_z
     assert up == [0, 1, 0]
     _, left, right, bottom, top, near, far = renderer.scene.camera.set_projection.call_args.args
-    assert left == pytest.approx(-right)
-    assert bottom == pytest.approx(-top)
-    assert right == pytest.approx(512 / ppm)
-    assert top == pytest.approx(384 / ppm)
+    assert right - left == pytest.approx(1024 / ppm)
+    assert top - bottom == pytest.approx(768 / ppm)
     center = bounds.get_center().numpy()
-    half_width = (right - left) / 2
-    half_height = (top - bottom) / 2
-    assert np.all(np.abs(bounds.get_box_points().numpy()[:, 0] - center[0]) <= half_width)
-    assert np.all(np.abs(bounds.get_box_points().numpy()[:, 1] - center[1]) <= half_height)
+    # The 2D view maps the image's bottom-left corner to world (0, 0).
+    assert center[0] + left == pytest.approx(0.0)
+    assert center[1] + bottom == pytest.approx(0.0)
     assert near < eye[2] - max_z
     assert far > eye[2] - min_z
 

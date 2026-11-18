@@ -40,8 +40,8 @@ def main():
       args.restauth,
   )
 
-  camera_calibration_controller.preprocess_scenes()
   api = CameraCalibrationApi(camera_calibration_controller)
+  camera_calibration_controller.preprocess_scenes()
   api.start(
     port=args.restport,
     ssl_cert=args.ssl_certfile,

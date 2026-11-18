@@ -20,19 +20,6 @@ class CameraCalibrationController(ABC):
   def __init__(self, calibration_data_interface):
     self.frame_count = {}
     self.calibration_data_interface = calibration_data_interface
-    self.socketio = None
-    self.socket_scene_clients = None
-
-  def notify_scene_registration(self, scene_id, response):
-    if not self.socket_scene_clients:
-      return
-
-    socket_id = self.socket_scene_clients.get(scene_id)
-    if socket_id:
-      if self.socketio:
-        self.socketio.emit("register_result", {"scene_id": scene_id, "data": response}, to=socket_id)
-        log.info(f"Sent WebSocket result to {socket_id} for {scene_id}")
-    return
 
   @abstractmethod
   def process_scene_for_calibration(self, sceneobj, map_update=False):

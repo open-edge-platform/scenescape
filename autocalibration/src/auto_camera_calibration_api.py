@@ -496,8 +496,6 @@ class CameraCalibrationApi:
       scene = self._get_scene(sceneId)
       self._validate_scene_for_operation(scene, "registered")
       strategy = self._get_calibration_strategy(scene)
-      strategy.socketio = self.socketio
-      strategy.socket_scene_clients = self.calibrationContext.socket_scene_clients
 
       if strategy.is_map_updated(scene):
         log.info(f"Scene map updated for {sceneId}")

@@ -4,6 +4,8 @@
 import json
 import threading
 
+from eventlet import tpool
+
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 from auto_camera_calibration_model import CameraCalibrationModel
 from markerless_camera_calibration_controller import MarkerlessCameraCalibrationController
@@ -80,9 +82,9 @@ class CameraCalibrationContext:
 
     @return  None
     """
+    # Emits from a plain OS thread are never flushed by the eventlet Socket.IO server.
     if not self.register_thread_lock.locked():
-      thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
-      thread.start()
+      self.socketio.start_background_task(self.process_scene, sceneobj, map_update)
     return
 
   def process_scene(self, sceneobj, map_update):
@@ -93,12 +95,29 @@ class CameraCalibrationContext:
 
     @return  None
     """
-    with self.register_thread_lock:
-      try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].process_scene_for_calibration(sceneobj, map_update)
-      except (FileNotFoundError, KeyError) as e:
-        log.error(f"Error in register dataset : {e}")
-    self.current_processing_scene = {}
+    # A blocking acquire would stall the whole eventlet hub.
+    while not self.register_thread_lock.acquire(blocking=False):
+      self.socketio.sleep(0.5)
+    try:
+      strategy = self.scene_strategies[sceneobj.camera_calibration]
+      # CPU-heavy work runs in a native thread so the Socket.IO hub keeps serving.
+      response_dict = tpool.execute(strategy.process_scene_for_calibration, sceneobj, map_update)
+    except (FileNotFoundError, KeyError) as e:
+      log.error(f"Error in register dataset : {e}")
+      response_dict = {"status": "error", "message": f"Error in register dataset: {e}"}
+    finally:
+      self.current_processing_scene = {}
+      self.register_thread_lock.release()
+    self.notify_scene_registration(sceneobj.id, response_dict)
+    return
+
+  def notify_scene_registration(self, scene_id, response):
+    socket_id = self.socket_scene_clients.get(scene_id)
+    if socket_id and self.socketio:
+      self.socketio.emit("register_result", {"scene_id": scene_id, "data": response}, to=socket_id)
+      log.info(f"Sent WebSocket result to {socket_id} for {scene_id}")
+    else:
+      log.info(f"No socket_id found for scene {scene_id}, can't send result via WebSocket")
     return
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):

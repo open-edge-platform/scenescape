@@ -121,8 +121,9 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
     [0.0, 1.0, 0.0]
   )
 
+  # The 2D view maps the image's bottom-left corner to world (0, 0).
   renderer.scene.camera.set_projection(renderer.scene.camera.Projection.Ortho,
-                                       -right / 2, right / 2, -top / 2, top / 2,
+                                       -center_x, right - center_x, -center_y, top - center_y,
                                        0.0, max_z - min_z + 2 * margin)
   # We use the vertical resolution as the base for all computations
   pixels_per_meter = res_y / top
