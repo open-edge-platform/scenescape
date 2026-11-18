@@ -1133,7 +1133,8 @@ TEST(MultipleObjectTrackerTest, VerticalSpeedAloneUsesDynamicCoastTimeout)
     }
     if (climbing)
     {
-      EXPECT_TRUE(tracker.getTracks()[0].isDynamic()) << "vz alone should mark the track dynamic";
+      EXPECT_TRUE(tracker.getTracks()[0].isDynamic())
+          << "measured-z climbing track: vz alone should mark the track dynamic";
       EXPECT_GT(std::fabs(tracker.getTracks()[0].vz), 1.0);
     }
     else

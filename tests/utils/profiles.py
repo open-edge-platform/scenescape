@@ -574,6 +574,8 @@ MARKERLESS = ServiceProfile(
     f"{COMPOSE}/compose.ntp.yml",
     f"{COMPOSE}/compose.web.yml",
     f"{COMPOSE}/compose.autocalibration.yml",
+    # Declares the vol-videos volume that the autocalibration service mounts.
+    f"{COMPOSE}/compose.cams.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,

@@ -8,10 +8,11 @@ A scenario directory holds up to four JSONL files, written by ScenarioRecorder
 
 - groundtruth.jsonl: canonical ground truth, optionally with size, rotation,
   velocity and a "truth" object (speed, yaw_rate, acceleration)
-- detections.jsonl: canonical camera-data frames with 3D detections
+- detections.jsonl: canonical camera-data frames with 3D detections, optionally
+  with a per-detection R ("measurement_noise_covariance")
 - tracks.jsonl: canonical tracker output
 - estimator.jsonl: one "config" line per track, then one "step" line per
-  estimator step
+  estimator step; steps whose detections carry R add "HPHt"
 
 Any file may be missing, e.g. estimator.jsonl for real tracker output. An
 evaluation pipeline run directory (pipeline_engine.py) is read the same way,
@@ -57,6 +58,7 @@ GROUND_TRUTH_COLUMNS = [
 ]
 DETECTION_COLUMNS = [
   "t", "sensor_id", "object_id", "category", "x", "y", "z", "length", "width", "height", "yaw",
+  "measurement_noise_cov",  # the detection's own R (7x7 array), None without one
 ]
 TRACK_COLUMNS = [
   "t", "track_id", "category", "x", "y", "z", "length", "width", "height", "yaw", "vx", "vy", "vz",
@@ -64,7 +66,7 @@ TRACK_COLUMNS = [
 
 
 @dataclass
-class EstimatorTrace:
+class EstimatorTrace:  # pylint: disable=too-many-instance-attributes
   """Estimator steps of one track. Arrays are indexed by step, in file order."""
 
   config: Dict[str, Any]
@@ -74,6 +76,9 @@ class EstimatorTrace:
   covariance: np.ndarray                 # (N, states, states)
   predicted_measurement: np.ndarray      # (N, 7), NaN at init
   predicted_measurement_cov: np.ndarray  # (N, 7, 7), NaN at init
+  # (N, 7, 7) H P H^T, S without R: written for steps whose detections carry their own R,
+  # NaN otherwise
+  predicted_state_measurement_cov: Optional[np.ndarray] = None
 
   @property
   def motion_models(self) -> List[str]:
@@ -299,6 +304,8 @@ def _detections(lines, seconds) -> pd.DataFrame:
           "object_id": str(obj["id"]) if "id" in obj else "", "category": category,
           "x": x, "y": y, "z": z, "length": length, "width": width, "height": height,
           "yaw": yaw_from_quaternion(obj.get("rotation")),
+          "measurement_noise_cov": (np.asarray(obj["measurement_noise_covariance"], dtype=float)
+                                    if "measurement_noise_covariance" in obj else None),
         })
   return _table(rows, DETECTION_COLUMNS)
 
@@ -337,7 +344,7 @@ def _estimator(lines, seconds) -> Dict[str, EstimatorTrace]:
 def _trace(config, steps, seconds) -> EstimatorTrace:
   def stack(key: str, shape: Tuple[int, ...]) -> np.ndarray:
     return np.array([
-      np.asarray(step[key], dtype=float) if step[key] is not None else np.full(shape, math.nan)
+      np.asarray(step[key], dtype=float) if step.get(key) is not None else np.full(shape, math.nan)
       for _, step in steps
     ]).reshape((len(steps), *shape))
 
@@ -352,4 +359,5 @@ def _trace(config, steps, seconds) -> EstimatorTrace:
     covariance=stack("P", (states, states)),
     predicted_measurement=stack("z_pred", (measurements,)),
     predicted_measurement_cov=stack("S", (measurements, measurements)),
+    predicted_state_measurement_cov=stack("HPHt", (measurements, measurements)),
   )

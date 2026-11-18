@@ -6,6 +6,7 @@
 import json
 import os
 import queue
+import struct
 import threading
 
 import orjson
@@ -16,6 +17,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
+import robot_vision as rv
 from controller.child_scene_controller import ChildSceneController
 from controller.external_source import IdentityClaimRegistry
 from controller.scene_controller import (FAILURE_RATE_LIMIT_WINDOW_S, RateLimiter,
@@ -160,6 +162,77 @@ class TestSceneControllerExtractTrackerConfigAssociation:
     assert association['method'] == 'euclidean'
     # The tracker gates on the objects' tracking_radius, as before the association block.
     assert association['max_radius_m'] is None
+
+
+PRODUCTION_FILTER = {
+  'process_noise': rv.tracking.PRODUCTION_PROCESS_NOISE,
+  'base_measurement_noise': rv.tracking.PRODUCTION_MEASUREMENT_NOISE,
+  'init_state_covariance': rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE,
+}
+
+
+def _extract_tracker_config(tmp_path, extra):
+  scene_controller = SceneController.__new__(SceneController)
+  scene_controller.tracker_config_data = {}
+  config_path = tmp_path / 'tracker-config.json'
+  config_path.write_text(json.dumps({
+    'max_unreliable_time_s': 1.0,
+    'non_measurement_time_dynamic_s': 0.8,
+    'non_measurement_time_static_s': 1.6,
+    **extra,
+  }))
+  scene_controller.extractTrackerConfigData(str(config_path))
+  return scene_controller.tracker_config_data
+
+
+class TestSceneControllerExtractTrackerConfigFilter:
+  """Top-level ``filter`` block (q, r, P0) of tracker-config.json."""
+
+  @pytest.mark.parametrize('config_file', [
+    'tracker-config.json', 'tracker-config-immediate.json', 'tracker-config-persist-attr.json',
+    'tracker-config-mahalanobis.json',
+  ])
+  def test_shipped_configs_keep_the_production_constants(self, config_file):
+    # The shipped configs have no filter block, so the constants are used as they are (bit for bit).
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    scene_controller.extractTrackerConfigData(str(CONTROLLER_CONFIG_DIR / config_file))
+    filter_config = scene_controller.tracker_config_data['filter']
+    assert filter_config == PRODUCTION_FILTER
+    for key, constant in PRODUCTION_FILTER.items():
+      assert struct.pack('<d', filter_config[key]) == struct.pack('<d', constant)
+
+  def test_extract_filter_values(self, tmp_path):
+    data = _extract_tracker_config(tmp_path, {
+      'filter': {'process_noise': 2e-4, 'base_measurement_noise': 0.5, 'init_state_covariance': 16.0}})
+    assert data['filter'] == {'process_noise': 2e-4, 'base_measurement_noise': 0.5, 'init_state_covariance': 16.0}
+
+  def test_extract_filter_partial_block_fills_the_rest(self, tmp_path):
+    data = _extract_tracker_config(tmp_path, {'filter': {'base_measurement_noise': 0.5}})
+    assert data['filter'] == {**PRODUCTION_FILTER, 'base_measurement_noise': 0.5}
+
+  @pytest.mark.parametrize('block', ['filter', [0.1], 3])
+  def test_extract_filter_block_that_is_not_an_object_uses_defaults(self, tmp_path, block):
+    with patch('controller.ilabs_tracking.log') as log:
+      data = _extract_tracker_config(tmp_path, {'filter': block})
+    assert data['filter'] == PRODUCTION_FILTER
+    log.error.assert_called_once()
+
+  @pytest.mark.parametrize('field', ['process_noise', 'base_measurement_noise', 'init_state_covariance'])
+  @pytest.mark.parametrize('value', [0, -1.0, 'x', True, None, [], {}])
+  def test_extract_filter_invalid_field_uses_its_default(self, tmp_path, field, value):
+    block = {'process_noise': 2e-4, 'base_measurement_noise': 0.5, 'init_state_covariance': 16.0, field: value}
+    with patch('controller.ilabs_tracking.log'):
+      data = _extract_tracker_config(tmp_path, {'filter': block})
+    expected = {'process_noise': 2e-4, 'base_measurement_noise': 0.5, 'init_state_covariance': 16.0}
+    expected[field] = PRODUCTION_FILTER[field]
+    assert data['filter'] == expected
+
+  def test_extract_association_birth_cluster_radius(self, tmp_path):
+    data = _extract_tracker_config(tmp_path, {
+      'association': {'method': 'euclidean', 'birth_cluster_radius_m': 3.5}})
+    assert data['association']['birth_cluster_radius_m'] == 3.5
+    assert data['association']['max_radius_m'] is None
 
 
 class TestSceneControllerExtractTrackerRate:
@@ -500,6 +573,74 @@ class TestSceneDeserializeAssociationConfigPropagation:
 
     assert scene.association_config['method'] == 'position_mahalanobis'
     mock_tracker.applyAssociationConfig.assert_called()
+
+
+class TestSceneFilterConfigPropagation:
+  """filter_config from scene data is read at construction and reaches every tracker the scene builds."""
+
+  FILTER = {'process_noise': 2e-4, 'base_measurement_noise': 0.5, 'init_state_covariance': 16.0}
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_deserialize_passes_filter_config_to_the_tracker(self, mock_tracking):
+    from controller.scene import Scene
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene = Scene.deserialize({
+        'uid': 'test-uid-filter-1', 'name': 'test_scene', 'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'filter_config': self.FILTER,
+      })
+
+    assert scene.filter_config == self.FILTER
+    assert mock_tracking.call_args.kwargs['filter_config'] == self.FILTER
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_without_filter_config_the_tracker_gets_the_production_constants(self, mock_tracking):
+    from controller.scene import Scene
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene = Scene.deserialize({
+        'uid': 'test-uid-filter-2', 'name': 'test_scene', 'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+      })
+
+    assert scene.filter_config == PRODUCTION_FILTER
+    assert mock_tracking.call_args.kwargs['filter_config'] == PRODUCTION_FILTER
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_new_timing_parameters_rebuild_the_tracker_with_the_same_filter(self, mock_tracking):
+    from controller.scene import Scene
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene = Scene.deserialize({
+        'uid': 'test-uid-filter-3', 'name': 'test_scene', 'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'filter_config': self.FILTER,
+      })
+      scene.updateTracker(2.0, 0.8, 1.6)
+
+    assert mock_tracking.call_count == 2
+    assert mock_tracking.call_args.kwargs['filter_config'] == self.FILTER
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_update_scene_does_not_change_the_filter(self, mock_tracking):
+    # Startup-only: a later scene update with another block neither rebuilds the tracker nor changes the filter.
+    from controller.scene import Scene
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene = Scene.deserialize({
+        'uid': 'test-uid-filter-4', 'name': 'test_scene', 'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'filter_config': self.FILTER,
+      })
+      scene.updateScene({
+        'uid': 'test-uid-filter-4', 'name': 'test_scene', 'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'filter_config': {'process_noise': 9e-4},
+      })
+
+    assert mock_tracking.call_count == 1
+    assert scene.filter_config == self.FILTER
 
 
 class TestSceneControllerPublishers:

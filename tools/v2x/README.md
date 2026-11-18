@@ -190,7 +190,7 @@ An example setup to run the bridge can be achieved following the steps:
 
 1. Install Scenescape application containing Pedestrian data.
 
-   An example application used is Smart-Intersection. Follow the [installation instructions to get started](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-intersection/docs/user-guide/get-started.md).
+   An example application used is Smart-Intersection. Follow the [installation instructions to get started](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/smart-intersection/docs/user-guide/get-started.md).
 
    > **Note:** Change the webUI port from `443:443` to `<port>:443` in docker-compose file to avoid clashing with V2XHUB.
 
@@ -221,6 +221,6 @@ An example setup to run the bridge can be achieved following the steps:
 
 ## Related Documentation
 
-- [Scenescape Documentation](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html)
+- [Scenescape Documentation](https://docs.openedgeplatform.intel.com/2026.3/scenescape/index.html)
 - [V2X Hub Documentation](https://github.com/usdot-fhwa-OPS/V2X-Hub)
 - [J2735 PSM Standard](https://www.sae.org/standards/j2735_202007-v2x-communications-message-set-dictionary)
