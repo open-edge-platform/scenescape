@@ -304,7 +304,7 @@ def reconstruct3D():
 
       cam_id = camera_ids[idx] if idx < len(camera_ids) else None
 
-      if cam_id and not CAMERA_ID_PATTERN.match(cam_id):
+      if cam_id and not CAMERA_ID_PATTERN.fullmatch(cam_id):
         set_status(request_id, state="failed", updated_at=time.time(), error="Invalid input")
         return jsonify({"success": False, "request_id": request_id, "error": "Invalid camera_id format"}), 400
 
@@ -490,7 +490,7 @@ def list_models():
 
 @app.route(f"{API_PREFIX}/reconstruction/status/<request_id>", methods=["GET"])
 def reconstruction_status(request_id):
-  if not _REQUEST_ID_RE.match(request_id):
+  if not _REQUEST_ID_RE.fullmatch(request_id):
     return jsonify({"success": False, "error": "Invalid request ID"}), 400
   prune_status()
   status = get_status(request_id)
