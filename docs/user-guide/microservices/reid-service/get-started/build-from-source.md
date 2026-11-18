@@ -12,18 +12,22 @@ make reid
 ```
 
 The service is also included by `make build-all`. It is intentionally excluded
-from `build-core` while the Controller continues to own the live in-process
-Re-ID path.
+from `build-core` because the default Controller profile still uses the legacy
+in-process ReID path.
 
 Start it with a backend override after building:
 
 ```bash
 docker compose \
   -f docker-compose.yml \
-  -f sample_data/compose/docker-compose.vdms-override.yml \
+  -f sample_data/compose/compose.vdms-override.yml \
   up -d reid reid-service
 ```
 
-Use the Qdrant override instead when selecting Qdrant. The service listens on
+Use `sample_data/compose/compose.qdrant-override.yml` instead when selecting Qdrant. The service listens on
 `REID_SERVICE_PORT` (default `50051`) and uses the existing `REID_*` backend and
 TLS configuration.
+
+To keep Controller hierarchy publishing but delegate ReID matching and writes
+to the service, set `CONTROLLER_REID_MODE=service` and start both the Controller
+and ReID service profiles as shown in the [service configuration](../reid-service.md#configuration).

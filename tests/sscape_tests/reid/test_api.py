@@ -6,6 +6,7 @@
 from pathlib import Path
 import json
 import re
+import threading
 from types import SimpleNamespace
 from unittest import mock
 
@@ -18,7 +19,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from reid.api import ReIDService
 from reid.client import ReIDClient, RPC_METHODS, SERVICE_NAME
 from reid.qdrant_adapter import QdrantDatabase
-from reid.server import _authorize_token, create_server
+from reid.server import PurgeScheduler, _authorize_token, create_server
 from reid.vdms_adapter import VDMSDatabase
 from scene_common.reid_constants import SCHEMA_MARKER_COLLECTION, SCHEMA_NAME
 
@@ -43,6 +44,50 @@ class FakeAdapter:
 
   def purgeExpired(self):
     return 2
+
+  def retentionEnabled(self):
+    return True
+
+
+def test_purge_scheduler_uses_interval_and_continues_after_failure():
+  class FailingOnceAdapter(FakeAdapter):
+    def __init__(self):
+      self.calls = 0
+      self.second_call = threading.Event()
+
+    def purgeExpired(self):
+      self.calls += 1
+      if self.calls == 1:
+        raise RuntimeError("temporary backend failure")
+      self.second_call.set()
+      return 0
+
+  adapter = FailingOnceAdapter()
+  service = ReIDService(adapter=adapter)
+  scheduler = PurgeScheduler(service)
+  with mock.patch("reid.server.get_reid_purge_interval_secs", return_value=0.01) as get_interval, \
+       mock.patch("reid.server.log.error") as log_error:
+    assert scheduler.start()
+    try:
+      assert adapter.second_call.wait(timeout=2)
+    finally:
+      scheduler.stop()
+
+  assert adapter.calls >= 2
+  get_interval.assert_called_once()
+  assert scheduler.interval_secs == 0.01
+  log_error.assert_called_once()
+
+
+def test_purge_scheduler_does_not_start_when_retention_is_disabled():
+  adapter = FakeAdapter()
+  adapter.retentionEnabled = lambda: False
+  scheduler = PurgeScheduler(ReIDService(adapter=adapter))
+
+  with mock.patch("reid.server.get_reid_purge_interval_secs") as get_interval:
+    assert not scheduler.start()
+  get_interval.assert_not_called()
+  assert scheduler._thread is None
 
 
 def test_facade_delegates_baseline_operations():

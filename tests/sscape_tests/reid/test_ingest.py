@@ -128,9 +128,14 @@ class TestShutdown(unittest.TestCase):
 class FakePubSub:
   def __init__(self):
     self.published = []
+    self.ownership = []
 
   def publish(self, topic, payload, qos=0, retain=False):
-    self.published.append((topic, json.loads(payload), qos))
+    record = (topic, json.loads(payload), qos, retain)
+    if "/data/reid/ownership/" in topic:
+      self.ownership.append(record)
+    else:
+      self.published.append(record[:3])
 
 
 class TestDecisionPublishing(unittest.TestCase):
@@ -235,6 +240,46 @@ class TestDecisionPublishing(unittest.TestCase):
     self.assertEqual(set(msg), {"scene_id", "category", "track_id", "gid", "matched",
                                 "similarity", "timestamp", "decided_at", "reid_state",
                                 "unique_id_count"})
+
+
+class TestOwnershipPublishing(unittest.TestCase):
+
+  def test_retained_snapshot_tracks_withhold_then_confirmed_ownership(self):
+    ingest, _ = make_ingest(write_enabled=True)
+    ingest.pubsub = FakePubSub()
+
+    for seed in range(3):
+      ingest.handle_message(TOPIC, scene_message([_object("t1", seed=seed)]))
+
+    topic, before_write, qos, retain = ingest.pubsub.ownership[-1]
+    self.assertEqual(topic, "scenescape/data/reid/ownership/scene1/person")
+    self.assertEqual((qos, retain), (1, True))
+    self.assertEqual(before_write["write_mode"], "withhold")
+    self.assertTrue(before_write["tracks"]["t1"]["enrolled"])
+
+    matcher = ingest._matchers[("scene1", "person")]
+    matcher._flush("t1")
+
+    _, after_write, _, _ = ingest.pubsub.ownership[-1]
+    self.assertEqual(after_write["write_mode"], "will_enroll")
+    self.assertTrue(after_write["tracks"]["t1"]["enrolled"])
+
+  def test_ownership_publish_failure_does_not_stop_identity_decisions(self):
+    ingest, _ = make_ingest()
+
+    class OwnershipFailingPubSub(FakePubSub):
+      def publish(self, topic, payload, qos=0, retain=False):
+        if "/data/reid/ownership/" in topic:
+          raise ConnectionError("ownership channel unavailable")
+        super().publish(topic, payload, qos, retain)
+
+    ingest.pubsub = OwnershipFailingPubSub()
+    for seed in range(3):
+      ingest.handle_message(TOPIC, scene_message([_object("t1", seed=seed)]))
+
+    self.assertEqual(ingest.snapshot()["counters"]["ownership_publish_errors"], 4)
+    self.assertEqual(ingest.snapshot()["counters"]["decisions"], 1)
+    self.assertEqual(ingest.pubsub.published[-1][1]["reid_state"], "query_no_match")
 
 
 if __name__ == "__main__":
