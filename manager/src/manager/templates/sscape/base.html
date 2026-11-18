@@ -168,6 +168,9 @@ SPDX-License-Identifier: Apache-2.0
 
     <div class="container-fluid wrapper">
       <div class="content">
+        {% block messages %}
+          {% include 'sscape/messages.html' %}
+        {% endblock %}
         {% block content %}
         {% endblock %}
       </div>

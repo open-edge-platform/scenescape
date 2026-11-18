@@ -20,6 +20,10 @@ SPDX-License-Identifier: Apache-2.0
         {% csrf_token %}
         <p>Are you sure you want to delete the "{{ object }}" pipeline?</p>
         <p>Associated cameras' pipeline selection will be cleared.</p>
+        <p>
+          A running DL Streamer Pipeline Server instance is stopped the next
+          time its camera is saved.
+        </p>
         <input class="btn btn-primary" type="submit" value="Delete Pipeline" />
         <a class="btn btn-secondary" href="{% url 'pipeline_list' %}">Cancel</a>
       </form>

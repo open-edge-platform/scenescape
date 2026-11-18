@@ -3,9 +3,20 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
+{% load pipeline_tags %}
+{% dlsps_instance_status form.instance as dlsps_status %}
 <div class="form-text text-muted mt-2">
   <strong>DLSPS instance UUID:</strong>
   <span id="camera-dlsps-instance-id"
     >{{ form.instance.dlsps_instance_id|default_if_none:"Not assigned" }}</span
   >
+  {% if dlsps_status %}
+    <br />
+    <strong>DLSPS state:</strong>
+    <span id="camera-dlsps-instance-state">{{ dlsps_status.state }}</span>
+    {% if dlsps_status.message %}
+      <br />
+      <span id="camera-dlsps-instance-message">{{ dlsps_status.message }}</span>
+    {% endif %}
+  {% endif %}
 </div>
