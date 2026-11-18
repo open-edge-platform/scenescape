@@ -37,7 +37,7 @@ registered as a `Cam` and publishing detections here (RGB, depth, LiDAR or radar
 that emit the same object metadata, and similar sensing that uses pose plus optional
 intrinsics). Environmental / singleton sensors use a different topic and do not carry
 pose or optics. Messages are validated against the `detector` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/controller/src/schema/metadata.schema.json).
 
 ### Top-Level Message Fields
 
@@ -123,7 +123,7 @@ Explicit detection sizes and library size priors remain unchanged.
 | `category`             | string             |   Yes    | Object class label (e.g. `"person"`, `"car"`)                                                                                                                  |
 | `bounding_box`         | object             | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`)                                                                                              |
 | `bounding_box_px`      | object             | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`)                                                                                  |
-| `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres                                                                                                                    |
+| `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres ③                                                                                                                  |
 | `lat_long_alt`         | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally                                                                              |
 | `size`                 | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                 |
 | `confidence`           | number > 0         |    No    | Inference confidence score for this detection                                                                                                                  |
@@ -146,6 +146,11 @@ Explicit detection sizes and library size priors remain unchanged.
 > `category` is in the schema's `required` array). However, the controller accesses
 > `id` unconditionally at runtime and will reject detections that omit it. Always
 > include `id` in every detection object.
+
+> **③ Height reference**: with
+> [experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+> the tracker reads `translation` as the object's centre of mass and publishes tracks at their
+> footprint base (`z` minus half the height).
 
 ### Semantic Metadata Fields (`objects.<category>[*].metadata.<attr>`)
 
@@ -217,7 +222,7 @@ omitted; `embedding_vector` truncated for readability):
 ```
 
 For the full schema definition, see
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/controller/src/schema/metadata.schema.json).
 
 ## External Source Input Message Format
 
@@ -225,7 +230,7 @@ The Scene Controller subscribes to `scenescape/external/{publisher_id}/{thing_ty
 (MQTT template parameter name remains `scene_id` in `PubSub` APIs). The path id is
 always the **publisher** (configured child scene uid or agent `source_id`). Scenes
 attach via consumer-side **bindings**, not by addressing a scene inbox. See
-[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md).
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md).
 
 Two payload contracts share the topic, distinguished by `source_id`:
 
@@ -244,7 +249,7 @@ Two payload contracts share the topic, distinguished by `source_id`:
     `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for acceptance)
 
 Messages with `source_id` are validated against the `external_source` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/controller/src/schema/metadata.schema.json).
 
 This section documents the unified external-source **payload** contract.
 
@@ -420,6 +425,11 @@ extent may report a point observation. Point objects (no `size`) remain eligible
 position-based ROI, tripwire, and sensor-tagging analytics, but are excluded from
 volume/occupancy/collision analytics.
 
+Report `translation` at the object's centre of mass: with
+[experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+tracked objects are published at their footprint base (`z` minus half the height). Objects with
+`track=false` bypass the tracker and keep the reported `z`.
+
 The top-level source `track` field determines the tracking mode for detection
 objects in the message. When `track` is true or omitted, detections follow the
 normal Scenescape tracking path and the controller assigns the published object
@@ -491,7 +501,7 @@ other Cartesian objects from the same message are still ingested.
 Identity is trusted based on the `source_id` and `id` values in the payload, not a
 cryptographically verified per-device credential. Scenescape's current MQTT authentication does
 not bind individual publishers to individual source IDs (see
-[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md#future-work)).
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md#future-work)).
 A publisher that can reach the broker can claim either of these values.
 
 ### Tracked External Objects Use Controller-Assigned IDs

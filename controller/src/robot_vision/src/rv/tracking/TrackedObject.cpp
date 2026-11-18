@@ -3,6 +3,12 @@
 
 #include "rv/tracking/TrackedObject.hpp"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <iterator>
+#include <stdexcept>
+
 namespace rv {
 namespace tracking {
 
@@ -24,8 +30,14 @@ std::string TrackedObject::toString() const
 
 bool TrackedObject::isDynamic() const
 {
-  // 3D speed: vertical motion counts toward dynamic coast / deletion aging.
-  return (vx * vx + vy * vy + vz * vz) > 1.0;
+  // Horizontal always counts. vz only when height was measured: otherwise process noise on an
+  // unobserved z can invent |vz| > 1 and cut coast lifetime on the dynamic timeout.
+  const double horizontal = vx * vx + vy * vy;
+  if (!z_measured)
+  {
+    return horizontal > 1.0;
+  }
+  return (horizontal + vz * vz) > 1.0;
 }
 
 Eigen::VectorXf TrackedObject::getVectorXf() const
@@ -125,8 +137,74 @@ TrackedObject::MeasurementVector TrackedObject::measurementVector() const
   return vector;
 }
 
+namespace {
 
+bool allFinite(const TrackedObject::MeasurementMatrix &matrix)
+{
+  return std::all_of(std::begin(matrix.val), std::end(matrix.val), [](double value) { return std::isfinite(value); });
+}
 
+} // namespace
+
+std::optional<TrackedObject::MeasurementMatrix>
+validMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise) noexcept
+{
+  constexpr int n = TrackedObject::MeasurementSize;
+  const TrackedObject::MeasurementMatrix symmetric = 0.5 * (noise + noise.t());
+  // Checked after symmetrizing, so a non-finite entry and an overflowing sum are both caught.
+  if (!allFinite(symmetric))
+  {
+    return std::nullopt;
+  }
+  // LDL^T without pivoting: symmetric is positive definite iff every pivot is positive.
+  std::array<std::array<double, n>, n> lower{};
+  std::array<double, n> pivots{};
+  for (int j = 0; j < n; ++j)
+  {
+    double pivot = symmetric(j, j);
+    for (int k = 0; k < j; ++k)
+    {
+      pivot -= lower[j][k] * lower[j][k] * pivots[k];
+    }
+    if (!(pivot > 0.0))
+    {
+      return std::nullopt;
+    }
+    pivots[j] = pivot;
+    for (int i = j + 1; i < n; ++i)
+    {
+      double value = symmetric(i, j);
+      for (int k = 0; k < j; ++k)
+      {
+        value -= lower[i][k] * lower[j][k] * pivots[k];
+      }
+      lower[i][j] = value / pivot;
+    }
+  }
+  return symmetric;
+}
+
+TrackedObject::MeasurementMatrix validatedMeasurementNoiseCov(const TrackedObject::MeasurementMatrix &noise)
+{
+  if (!allFinite(noise))
+  {
+    throw std::invalid_argument("measurement_noise_covariance must be finite");
+  }
+  const auto valid = validMeasurementNoiseCov(noise);
+  if (!valid)
+  {
+    throw std::invalid_argument("measurement_noise_covariance must be positive definite");
+  }
+  return *valid;
+}
+
+void clearInvalidMeasurementNoiseCov(TrackedObject &object) noexcept
+{
+  if (object.measurementNoiseCov)
+  {
+    object.measurementNoiseCov = validMeasurementNoiseCov(*object.measurementNoiseCov);
+  }
+}
 
 } // namespace tracking
 } // namespace rv

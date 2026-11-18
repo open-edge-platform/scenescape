@@ -12,7 +12,9 @@ Design context (architecture, contracts, rollout) is in
 [Observation Processor Service](../../../design/observation-processor-service.md).
 
 The service is available through the Docker Compose
-`observation-processor` profile.
+`observation-processor` profile. The Scene Controller and Tracker service call
+it only when the experimental observation processor is enabled; see
+[Experimental Observation Processor](../controller/how-to-configure-tracker.md#experimental-observation-processor).
 
 ## Processing
 

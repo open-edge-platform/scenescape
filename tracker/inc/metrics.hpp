@@ -31,6 +31,7 @@ inline constexpr const char* kReasonRejectedLag = "rejected_lag";
 inline constexpr const char* kReasonRejectedInvalidCategory = "rejected_invalid_category";
 inline constexpr const char* kReasonDroppedQueueFull = "dropped_queue_full";
 inline constexpr const char* kReasonDroppedMaxWorkers = "dropped_max_workers";
+inline constexpr const char* kReasonDroppedProcessingError = "dropped_processing_error";
 
 // Metric name constants
 inline constexpr const char* kMetricMqttLatency = "tracker.mqtt.latency";
@@ -55,6 +56,10 @@ inline constexpr const char* kMetricTimeChunkingNonEmptyChunks =
     "tracker.time_chunking.non_empty_chunks";
 inline constexpr const char* kMetricTimeChunkingEmptyChunks = "tracker.time_chunking.empty_chunks";
 
+// Observation processor (experimental)
+inline constexpr const char* kMetricObservationProcessorFailedCalls =
+    "tracker.observation_processor.failed_calls";
+
 // Meter scope name
 inline constexpr const char* kMeterName = "tracker";
 
@@ -76,6 +81,7 @@ using MetricAttributes = std::initializer_list<
  * - tracker.mqtt.dropped (counter)
  * - tracker.tracks.active (observable gauge)
  * - tracker.stage.{parse,buffer,queue,transform,track,publish}_duration (histograms, ms)
+ * - tracker.observation_processor.failed_calls (counter)
  *
  * Instruments are created lazily on first use via the global MeterProvider
  * (set by Telemetry::init()). When metrics are disabled, the default no-op
@@ -162,6 +168,16 @@ public:
      * @param attrs Attributes (optional)
      */
     static void inc_time_chunking_empty_chunks(MetricAttributes attrs = {});
+
+    /**
+     * @brief Increment the failed observation processor calls counter by 1.
+     *
+     * Recorded per camera frame whose observation processor failed or returned an invalid
+     * response; the frame keeps the local processing.
+     *
+     * @param attrs Attributes (scene, category, reason)
+     */
+    static void inc_observation_processor_failed_calls(MetricAttributes attrs = {});
 
     /**
      * @brief Update the active track count for a given scope.
