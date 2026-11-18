@@ -546,14 +546,13 @@ class IntelLabsTracking(Tracking):
       z -= tracked_object.height / 2.0
     return Point(tracked_object.x, tracked_object.y, z)
 
-  def _publishedUncertainty(self, tracked_object, sscape_object):
+  def _publishedUncertainty(self, tracked_object, filter_yaw_published):
     """Covariance of the published state with an observation processor, ``None`` otherwise (legacy
-    output carries no uncertainty).
+    output carries no uncertainty). ``filter_yaw_published`` tells whether the published rotation is
+    the filter yaw (the yaw variance is published only then).
     """
     if getattr(self, 'observation_processor', None) is None:
       return None
-    filter_yaw_published = (_uses_kalman_yaw(tracked_object, sscape_object)
-                            and not _kalman_yaw_disagrees_with_velocity(tracked_object))
     return build_track_uncertainty(tracked_object.error_covariance,
                                    bool(getattr(tracked_object, "z_measured", False)),
                                    filter_yaw_published)
@@ -617,7 +616,9 @@ class IntelLabsTracking(Tracking):
             self.tracking_radius_m,
             z_measured=bool(getattr(tracked_object, "z_measured", False)),
           )
-          obj.uncertainty = self._publishedUncertainty(tracked_object, obj)
+          # The object keeps its previously published rotation, so its yaw provenance is kept too.
+          obj.uncertainty = self._publishedUncertainty(
+            tracked_object, getattr(obj, 'filter_yaw_published', False))
           return obj
 
     sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
@@ -645,12 +646,14 @@ class IntelLabsTracking(Tracking):
     if not found:
       sscape_object.setGID(object_uuid)
 
+    sscape_object.filter_yaw_published = False
     if use_kalman_yaw:
       if _kalman_yaw_disagrees_with_velocity(tracked_object):
         heading = math.atan2(tracked_object.vy, tracked_object.vx)
         sscape_object.rotation = _yaw_to_quaternion(heading)
       else:
         sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
+        sscape_object.filter_yaw_published = True
     else:
       sscape_object.inferRotationFromVelocity()
 
@@ -662,7 +665,8 @@ class IntelLabsTracking(Tracking):
       self.tracking_radius_m,
       z_measured=bool(getattr(tracked_object, "z_measured", False)),
     )
-    sscape_object.uncertainty = self._publishedUncertainty(tracked_object, sscape_object)
+    sscape_object.uncertainty = self._publishedUncertainty(
+      tracked_object, sscape_object.filter_yaw_published)
 
     return sscape_object
 

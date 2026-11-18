@@ -938,6 +938,36 @@ class TestPublishedUncertainty:
     assert published is previous
     assert set(published.uncertainty) == {"translation", "velocity"}
 
+  def test_gap_keeps_the_yaw_provenance_of_the_retained_rotation(self):
+    tracker = self.tracker(Mock())
+    tracked = self.tracked()
+    tracked.yaw, tracked.vx, tracked.vy = 0.0, 0.0, 2.0
+    published = tracker.from_tracked_object(
+      tracked, [self.sscape_object(has_detection_rotation=True)])
+    assert "yaw" not in published.uncertainty
+    tracker.all_tracker_objects = [published]
+
+    # The track slows below the yaw speed gate while its detection is missing: the retained
+    # rotation is still the velocity heading, so no yaw variance may appear.
+    tracked.vx = tracked.vy = 0.0
+    refreshed = tracker.from_tracked_object(tracked, [])
+
+    assert refreshed is published
+    assert "yaw" not in refreshed.uncertainty
+
+  def test_gap_keeps_the_yaw_variance_of_a_retained_filter_yaw(self):
+    tracker = self.tracker(Mock())
+    tracked = self.tracked()
+    tracked.yaw = 0.2
+    published = tracker.from_tracked_object(
+      tracked, [self.sscape_object(has_detection_rotation=True)])
+    tracker.all_tracker_objects = [published]
+
+    refreshed = tracker.from_tracked_object(tracked, [])
+
+    assert refreshed.uncertainty["yaw"] == pytest.approx(
+      covariance_with_distinct_entries()[STATE_YAW, STATE_YAW])
+
 
 FPS = 15
 FRAMES = 30 * FPS
