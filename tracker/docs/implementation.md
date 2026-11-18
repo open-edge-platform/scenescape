@@ -92,6 +92,24 @@ is published half its height too low. Pixel-box tracks publish a z that follows
 the per-frame box height instead of 0: in a simulation with production tracker
 settings at 15 fps, about 5–6 cm RMS in z and 3–5 cm/s RMS in `velocity[2]`.
 
+#### Track uncertainty in the output
+
+Workers with `ZReference::CentreOfMass` also publish the covariance of the published state
+(`uncertainty` in the scene output, [`track_uncertainty.hpp`](../inc/track_uncertainty.hpp)). It is built
+from `TrackedObject::errorCovariance` (P, the IMM-combined posterior), per published element:
+
+- `translation`: the 3×3 position block. The filter tracks the centre of mass and the published z is
+  the footprint base z − height / 2, so the z entries are J P Jᵀ with J = [1 on z, −1/2 on height].
+- `velocity`: the 3×3 block of vx, vy, vz. `size`: the 3×3 block of length, width and height.
+- Without measured z (`z_measured`) the z row and column of `translation` and the vz row and column of
+  `velocity` are 0.
+- `yaw`: the variance of the filter yaw, only when `select_track_rotation()` published the filter
+  yaw (`filter_yaw_published()`). For the velocity heading or the identity quaternion, the
+  rotation is published and its yaw uncertainty is not.
+- Each block is symmetrized and a block with a non-finite value is omitted. Cross-block terms are not
+  published. Workers with `ZReference::FootprintBase` publish no `uncertainty`, so the legacy output
+  is unchanged.
+
 #### Why local processing runs on every frame
 
 `RemoteObservationProcessor` processes every frame locally first and replaces a detection's

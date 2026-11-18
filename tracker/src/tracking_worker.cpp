@@ -134,21 +134,31 @@ std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRot
     return state.rotation;
 }
 
+bool filter_yaw_published(const rv::tracking::TrackedObject& track) {
+    using rv::tracking::orientation::orientationObserved;
+
+    if (!orientationObserved(track)) {
+        return false;
+    }
+    const double speed = std::hypot(track.vx, track.vy);
+    if (speed < rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE) {
+        return true;
+    }
+    const double velocity_heading = std::atan2(track.vy, track.vx);
+    const double yaw_error = std::abs(rv::angleDifference(velocity_heading, track.yaw));
+    return yaw_error <= rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL;
+}
+
 std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& track,
                                             bool rotation_from_velocity,
                                             VelocityRotationState& state) {
     using rv::tracking::orientation::orientationObserved;
 
-    if (orientationObserved(track)) {
-        const double speed = std::hypot(track.vx, track.vy);
-        if (speed >= rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE) {
-            const double velocity_heading = std::atan2(track.vy, track.vx);
-            const double yaw_error = std::abs(rv::angleDifference(velocity_heading, track.yaw));
-            if (yaw_error > rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL) {
-                return CoordinateTransformer::yawToQuaternion(velocity_heading);
-            }
-        }
+    if (filter_yaw_published(track)) {
         return CoordinateTransformer::yawToQuaternion(track.yaw);
+    }
+    if (orientationObserved(track)) {
+        return CoordinateTransformer::yawToQuaternion(std::atan2(track.vy, track.vx));
     }
 
     if (!rotation_from_velocity) {
@@ -418,6 +428,9 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         }
 
         track.association_window = buildAssociationWindow(association_config_, rv_track);
+        if (z_reference_ == ZReference::CentreOfMass) {
+            track.uncertainty = buildTrackUncertainty(rv_track, filter_yaw_published(rv_track));
+        }
 
         tracks.push_back(std::move(track));
     }

@@ -5,6 +5,7 @@
 
 #include "association_window.hpp"
 #include "observability_context.hpp"
+#include "track_uncertainty.hpp"
 
 #include <array>
 #include <chrono>
@@ -105,6 +106,8 @@ struct Track {
         confidence; ///< Detection confidence score in [0, 1] (absent if not available)
     std::optional<AssociationWindow> association_window; ///< Gate geometry for UI visualization
     std::string reid_sighting_json; ///< Current-chunk detection crop and embedding, if any
+    std::optional<TrackUncertainty>
+        uncertainty; ///< Covariance of the published state (experimental observation processor)
 };
 
 /**

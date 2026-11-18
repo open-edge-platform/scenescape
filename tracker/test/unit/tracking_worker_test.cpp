@@ -189,6 +189,24 @@ TEST(VelocityRotationTest, WrapsYawResidualAcrossPi) {
     EXPECT_NEAR(rotation[3], expected[3], 1e-12);
 }
 
+TEST(VelocityRotationTest, FilterYawIsPublishedOnlyForAnObservedAgreeingTrack) {
+    rv::tracking::TrackedObject unobserved;
+    unobserved.vx = 2.0;
+    EXPECT_FALSE(filter_yaw_published(unobserved));
+
+    rv::tracking::TrackedObject observed;
+    observed.yaw = 0.4;
+    observed.vx = 0.99;
+    rv::tracking::orientation::setHasOrientation(observed, true);
+    EXPECT_TRUE(filter_yaw_published(observed));
+
+    rv::tracking::TrackedObject disagreeing;
+    disagreeing.yaw = 0.0;
+    disagreeing.vy = 2.0;
+    rv::tracking::orientation::setHasOrientation(disagreeing, true);
+    EXPECT_FALSE(filter_yaw_published(disagreeing)) << "the velocity heading is published";
+}
+
 // Test that worker processes chunks and calls publish callback
 TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
     std::mutex mtx;
@@ -2200,6 +2218,81 @@ TEST_F(TrackingWorkerTest, CentreOfMass_RemoteMeasurementAtCentre) {
     EXPECT_EQ(centre[0].velocity, legacy[0].velocity);
     EXPECT_EQ(centre[0].size, legacy[0].size);
     EXPECT_GT(centre[0].velocity[0], 1.0) << "the object moves along x";
+}
+
+// -----------------------------------------------------------------
+// Track uncertainty: published only in centre-of-mass (experimental) mode.
+// -----------------------------------------------------------------
+
+Detection rotatedCentreTranslationDetection() {
+    constexpr double kYaw = 0.8;
+    return Detection{
+        .id = 1,
+        .translation = std::array<double, 3>{1.0, 2.0, 0.9},
+        .size = std::array<double, 3>{0.5, 0.5, 1.8},
+        .rotation = std::array<double, 4>{0.0, 0.0, std::sin(kYaw / 2.0), std::cos(kYaw / 2.0)}};
+}
+
+TEST_F(TrackingWorkerTest, Legacy_PublishesNoUncertainty) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                          published.callback(), config, cameras_);
+
+    const auto tracks = track_last_frame(worker, published, groundBoxDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    EXPECT_FALSE(tracks[0].uncertainty.has_value());
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_PlanarTrackPublishesZeroZRelatedUncertainty) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                          published.callback(), config,
+                          std::make_unique<CameraModelProcessor>(cameras_, ObjectClassConfig{}),
+                          false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, groundBoxDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    ASSERT_TRUE(tracks[0].uncertainty.has_value());
+    const auto& uncertainty = *tracks[0].uncertainty;
+    ASSERT_TRUE(uncertainty.translation.has_value());
+    ASSERT_TRUE(uncertainty.velocity.has_value());
+    ASSERT_TRUE(uncertainty.size.has_value());
+    EXPECT_GT((*uncertainty.translation)[0], 0.0);
+    EXPECT_GT((*uncertainty.translation)[4], 0.0);
+    for (const int i : {2, 5, 6, 7, 8}) {
+        EXPECT_EQ((*uncertainty.translation)[i], 0.0) << i;
+        EXPECT_EQ((*uncertainty.velocity)[i], 0.0) << i;
+    }
+    EXPECT_GT((*uncertainty.size)[0], 0.0);
+    EXPECT_FALSE(uncertainty.yaw.has_value()) << "rotation is the identity";
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_MeasuredZTrackPublishesTheFullUncertainty) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Test Scene", kZReferenceChunks, published.callback(), config,
+        std::make_unique<CameraModelProcessor>(make_identity_pose_cameras(), ObjectClassConfig{}),
+        false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, rotatedCentreTranslationDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    ASSERT_TRUE(tracks[0].uncertainty.has_value());
+    const auto& uncertainty = *tracks[0].uncertainty;
+    ASSERT_TRUE(uncertainty.translation.has_value());
+    EXPECT_GT((*uncertainty.translation)[8], 0.0) << "z variance of a measured-z track";
+    ASSERT_TRUE(uncertainty.velocity.has_value());
+    EXPECT_GT((*uncertainty.velocity)[8], 0.0);
+    ASSERT_TRUE(uncertainty.yaw.has_value()) << "the detector yaw is the published rotation";
+    EXPECT_GT(*uncertainty.yaw, 0.0);
 }
 
 } // namespace

@@ -335,6 +335,7 @@ def test_tracking_produces_reliable_tracks(tls_tracker_service):
     assert len(track["velocity"]) == 3, "Velocity should have 3 elements"
     assert len(track["size"]) == 3, "Size should have 3 elements"
     assert len(track["rotation"]) == 4, "Rotation should have 4 elements (quaternion)"
+    assert "uncertainty" not in track, "Uncertainty is published only with the observation processor"
 
     print(f"Track validated: id={track['id']}, position={track['translation']}")
     print("\nTracking test passed")

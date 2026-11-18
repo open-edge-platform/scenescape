@@ -450,5 +450,59 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithAssociationWindow_IncludesGeometr
     EXPECT_DOUBLE_EQ(assoc["angle_rad"].GetDouble(), 0.25);
 }
 
+TEST_F(TrackPublisherTest, Serialize_Track_WithUncertainty_EmitsBlocksAndYaw) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    TrackUncertainty uncertainty;
+    uncertainty.translation = Covariance3{1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uncertainty.velocity = Covariance3{9, 8, 7, 6, 5, 4, 3, 2, 1};
+    uncertainty.yaw = 0.25;
+    track.uncertainty = uncertainty;
+
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+    const auto& obj = doc["objects"][0];
+    ASSERT_TRUE(obj.HasMember("uncertainty"));
+    const auto& out = obj["uncertainty"];
+    ASSERT_TRUE(out["translation"].IsArray());
+    ASSERT_EQ(out["translation"].Size(), 9u);
+    EXPECT_DOUBLE_EQ(out["translation"][0].GetDouble(), 1.0);
+    EXPECT_DOUBLE_EQ(out["translation"][8].GetDouble(), 9.0);
+    ASSERT_EQ(out["velocity"].Size(), 9u);
+    EXPECT_DOUBLE_EQ(out["velocity"][0].GetDouble(), 9.0);
+    EXPECT_FALSE(out.HasMember("size")) << "an absent block is not emitted";
+    EXPECT_DOUBLE_EQ(out["yaw"].GetDouble(), 0.25);
+}
+
+TEST_F(TrackPublisherTest, Serialize_Track_WithoutUncertainty_OmitsTheField) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z",
+                      {createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person")});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+    EXPECT_FALSE(doc["objects"][0].HasMember("uncertainty"));
+}
+
 } // namespace
 } // namespace tracker

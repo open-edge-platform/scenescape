@@ -140,6 +140,29 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
             obj.AddMember("association_window", assoc, allocator);
         }
 
+        if (track.uncertainty.has_value()) {
+            const auto& uncertainty = *track.uncertainty;
+            Value out(kObjectType);
+            const auto add_block = [&](const char* name, const std::optional<Covariance3>& block) {
+                if (!block.has_value()) {
+                    return;
+                }
+                Value values(kArrayType);
+                values.Reserve(static_cast<SizeType>(block->size()), allocator);
+                for (const double value : *block) {
+                    values.PushBack(value, allocator);
+                }
+                out.AddMember(Value().SetString(name, allocator), values, allocator);
+            };
+            add_block("translation", uncertainty.translation);
+            add_block("velocity", uncertainty.velocity);
+            add_block("size", uncertainty.size);
+            if (uncertainty.yaw.has_value()) {
+                out.AddMember("yaw", Value(*uncertainty.yaw), allocator);
+            }
+            obj.AddMember("uncertainty", out, allocator);
+        }
+
         objects_array.PushBack(obj, allocator);
     }
 

@@ -34,6 +34,7 @@ from python_on_whales import DockerClient
 from waiting import wait
 
 from utils.docker import get_broker_host, get_container_logs, wait_for_readiness
+from utils.schema import validate_scene_output
 
 SCENE_ID = "302cf49a-97ec-402d-a324-c5077b280b7b"
 CAMERA_ID = "atag-qcam1"
@@ -165,6 +166,31 @@ def last_track(received, category=CATEGORY):
   return objects[0] if objects else None
 
 
+def last_message(received, category=CATEGORY):
+  for _, message in reversed(received):
+    if any(obj["category"] == category for obj in message.get("objects", [])):
+      return message
+  return None
+
+
+def assert_uncertainty(track, z_measured):
+  """The published state's covariance: 3x3 blocks, z-related values 0 without measured z."""
+  uncertainty = track["uncertainty"]
+  assert set(uncertainty) <= {"translation", "velocity", "size", "yaw"}, uncertainty
+  for name in ("translation", "velocity", "size"):
+    assert len(uncertainty[name]) == 9, uncertainty
+  # A planar or remote track carries no orientation: the rotation is the identity.
+  assert "yaw" not in uncertainty, uncertainty
+  for name in ("translation", "velocity"):
+    block = uncertainty[name]
+    assert block[0] > 0 and block[4] > 0, block
+    z_related = [block[i] for i in (2, 5, 6, 7, 8)]
+    if z_measured:
+      assert block[8] > 0, block
+    else:
+      assert z_related == [0.0] * 5, block
+
+
 def latencies_ms(sent, received):
   """End-to-end latency of each frame whose output carries its timestamp."""
   latencies = {}
@@ -196,7 +222,8 @@ def test_observation_processor_measurements_drive_tracks(tls_certs):
   """Remote measurements become track positions; the request identifies scene, camera, mode.
 
   The tracker is fed centre-of-mass positions and publishes the footprint base: the mock's centre
-  z = HEIGHT_M / 2 is published at z = 0, and a 3D detection at z = centre - height / 2.
+  z = HEIGHT_M / 2 is published at z = 0, and a 3D detection at z = centre - height / 2. Tracks
+  also publish the covariance of that state (`uncertainty`), schema-valid.
   """
   other_objects = {category: [{"id": 1, "translation": CENTRE_TRANSLATION,
                                "size": [0.5, 0.5, height]}]
@@ -211,6 +238,10 @@ def test_observation_processor_measurements_drive_tracks(tls_certs):
     track = last_track(received)
     for actual, expected in zip(track["translation"], REMOTE_POSITION):
       assert actual == pytest.approx(expected, abs=0.05), track["translation"]
+    assert_uncertainty(track, z_measured=True)
+    for category in TRANSLATION_HEIGHTS:
+      assert_uncertainty(last_track(received, category), z_measured=True)
+      validate_scene_output(last_message(received, category))
     tall, short = (last_track(received, category)["translation"] for category in TRANSLATION_HEIGHTS)
     assert distance(tall, short) < 0.01, (tall, short)
     assert tall[2] - short[2] == pytest.approx(
@@ -232,7 +263,8 @@ def test_observation_processor_measurements_drive_tracks(tls_certs):
 def test_observation_processor_failure_keeps_local_processing(tls_certs, failure):
   """Failed calls keep the local processing, are counted and logged; the tracker keeps running.
 
-  The local processing is still fed at its centre of mass and published at its base (z = 0).
+  The local processing is still fed at its centre of mass and published at its base (z = 0), with
+  its z-related uncertainty values 0 (the track has no measured z).
   """
   reason = failure["reason"]
   options = {key: value for key, value in failure.items() if key != "reason"}
@@ -245,6 +277,8 @@ def test_observation_processor_failure_keeps_local_processing(tls_certs, failure
     assert distance(track["translation"], REMOTE_POSITION) > 0.5, \
         f"Expected the local processing, got the remote position {track['translation']}"
     assert abs(track["translation"][2]) < 0.01, track["translation"]
+    assert_uncertainty(track, z_measured=False)
+    validate_scene_output(last_message(received))
 
     def failure_exported():
       logs = get_container_logs(docker, "otel-collector")

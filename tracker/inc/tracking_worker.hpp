@@ -67,6 +67,12 @@ struct VelocityRotationState {
 std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state);
 
 /**
+ * @brief True when select_track_rotation() publishes the filter yaw: the orientation was observed
+ * and the yaw agrees with the velocity heading (or the track is below the speed gate).
+ */
+bool filter_yaw_published(const rv::tracking::TrackedObject& track);
+
+/**
  * @brief Select published yaw, preferring observed orientation over velocity fallback.
  */
 std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& track,
