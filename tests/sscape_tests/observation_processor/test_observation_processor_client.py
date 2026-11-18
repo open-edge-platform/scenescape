@@ -863,6 +863,29 @@ class TestBuildTrackUncertainty:
     assert "velocity" not in uncertainty
     assert "translation" in uncertainty and "yaw" in uncertainty
 
+  @pytest.mark.parametrize("unused_state", [STATE_Z, STATE_HEIGHT])
+  def test_planar_translation_ignores_a_non_finite_z_or_height_variance(self, unused_state):
+    p = covariance_with_distinct_entries()
+    p[unused_state, :] = np.nan
+    p[:, unused_state] = np.nan
+
+    uncertainty = build_track_uncertainty(p, z_measured=False, filter_yaw_published=False)
+
+    translation = np.array(uncertainty["translation"]).reshape(3, 3)
+    np.testing.assert_allclose(translation[:2, :2], p[:2, :2])
+    assert not translation[2].any() and not translation[:, 2].any()
+
+  @pytest.mark.parametrize("unused_state", [STATE_Z, STATE_HEIGHT])
+  def test_measured_translation_is_omitted_for_a_non_finite_z_or_height_variance(self, unused_state):
+    p = covariance_with_distinct_entries()
+    p[unused_state, :] = np.nan
+    p[:, unused_state] = np.nan
+
+    uncertainty = build_track_uncertainty(p, z_measured=True, filter_yaw_published=False)
+
+    assert "translation" not in uncertainty
+    assert "velocity" in uncertainty
+
   def test_nothing_finite_gives_no_uncertainty(self):
     assert build_track_uncertainty(np.full((13, 13), np.nan), True, False) is None
 

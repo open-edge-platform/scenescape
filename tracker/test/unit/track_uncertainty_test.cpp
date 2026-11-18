@@ -151,6 +151,40 @@ TEST(TrackUncertaintyTest, NonFiniteBlockIsOmittedAndTheOthersStay) {
     EXPECT_TRUE(uncertainty->yaw.has_value());
 }
 
+TEST(TrackUncertaintyTest, PlanarTranslationIgnoresANonFiniteZOrHeightVariance) {
+    for (const int unused_state :
+         {static_cast<int>(StateIndex::Z), static_cast<int>(StateIndex::HEIGHT)}) {
+        auto track = trackWithCovariance(false);
+        for (int i = 0; i < 13; ++i) {
+            track.errorCovariance(unused_state, i) = std::numeric_limits<double>::quiet_NaN();
+            track.errorCovariance(i, unused_state) = std::numeric_limits<double>::quiet_NaN();
+        }
+
+        const auto uncertainty = buildTrackUncertainty(track, false);
+
+        ASSERT_TRUE(uncertainty.has_value());
+        ASSERT_TRUE(uncertainty->translation.has_value());
+        const auto& translation = *uncertainty->translation;
+        EXPECT_DOUBLE_EQ(translation[0], track.errorCovariance(StateIndex::X, StateIndex::X));
+        EXPECT_DOUBLE_EQ(translation[1], track.errorCovariance(StateIndex::X, StateIndex::Y));
+        EXPECT_DOUBLE_EQ(translation[4], track.errorCovariance(StateIndex::Y, StateIndex::Y));
+        for (const int index : {2, 5, 6, 7, 8}) {
+            EXPECT_EQ(translation[index], 0.0);
+        }
+    }
+}
+
+TEST(TrackUncertaintyTest, MeasuredTranslationIsOmittedForANonFiniteZVariance) {
+    auto track = trackWithCovariance(true);
+    track.errorCovariance(StateIndex::Z, StateIndex::Z) = std::numeric_limits<double>::quiet_NaN();
+
+    const auto uncertainty = buildTrackUncertainty(track, false);
+
+    ASSERT_TRUE(uncertainty.has_value());
+    EXPECT_FALSE(uncertainty->translation.has_value());
+    EXPECT_TRUE(uncertainty->velocity.has_value());
+}
+
 TEST(TrackUncertaintyTest, NonFiniteYawVarianceIsOmitted) {
     auto track = trackWithCovariance(true);
     track.errorCovariance(StateIndex::YAW, StateIndex::YAW) =

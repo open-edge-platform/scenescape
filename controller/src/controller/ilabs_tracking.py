@@ -359,13 +359,20 @@ def build_track_uncertainty(error_covariance, z_measured, filter_yaw_published):
   covariance = 0.5 * (covariance + covariance.T)
 
   # Only the states of a block enter it: a non-finite value elsewhere in P must not leak into it.
-  position_index = [_STATE_X, _STATE_Y, _STATE_Z, _STATE_HEIGHT]
-  to_published = np.array([[1.0, 0.0, 0.0, 0.0],
-                           [0.0, 1.0, 0.0, 0.0],
-                           [0.0, 0.0, 1.0, -0.5]])
+  if z_measured:
+    position_index = [_STATE_X, _STATE_Y, _STATE_Z, _STATE_HEIGHT]
+    to_published = np.array([[1.0, 0.0, 0.0, 0.0],
+                             [0.0, 1.0, 0.0, 0.0],
+                             [0.0, 0.0, 1.0, -0.5]])
+    translation = to_published @ covariance[np.ix_(position_index, position_index)] @ to_published.T
+  else:
+    # The z row and column are 0, so the unused z and height variances must not enter the block
+    # (a non-finite one would spread into x and y through 0 * nan).
+    translation = np.zeros((3, 3))
+    translation[:2, :2] = covariance[np.ix_([_STATE_X, _STATE_Y], [_STATE_X, _STATE_Y])]
   velocity_index = [_STATE_VX, _STATE_VY, _STATE_VZ]
   blocks = {
-    "translation": to_published @ covariance[np.ix_(position_index, position_index)] @ to_published.T,
+    "translation": translation,
     "velocity": covariance[np.ix_(velocity_index, velocity_index)].copy(),
   }
 
