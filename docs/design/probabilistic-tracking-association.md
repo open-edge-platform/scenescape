@@ -24,7 +24,7 @@ This document specifies how [ADR-0019](../adr/0019-probabilistic-tracking-associ
 - Scale gates with object motion / coast (Phase 1) and with viewpoint / range measurement uncertainty (Phase 2).
 - Align UKF correct with association noise (Phase 3).
 - Keep controller and tracker service behaviorally aligned via shared `robot_vision` and shared association config.
-- Publish each track's location uncertainty in both services (§5.7).
+- Publish the covariance of each track's published state in both services, with the experimental observation processor (§5.7).
 - Ship each phase behind a config flag, validated with the evaluation pipeline before the next phase.
 
 ## 3. Non-Goals
@@ -199,13 +199,17 @@ Default recommendation: **0.99**.
 
 ### 5.7 Track location uncertainty in the output
 
-Both services publish the track's position uncertainty for external consumers; `association_window` (§5.2) stays the UI's gate.
+Both services publish the covariance of the track's published state for external consumers, as `uncertainty`, only when the experimental observation processor is enabled (the legacy output is unchanged); `association_window` (§5.2) stays the UI's gate.
 
-| Element   | Design choice                                                                                  |
-| --------- | ---------------------------------------------------------------------------------------------- |
-| Quantity  | Position block of the posterior covariance P after the update (IMM-combined), world axes, m²   |
-| Dimension | x, y; z only for tracks with measured z (`z_measured`)                                         |
-| Producers | Tracker Service and Scene Controller, same field in the data formats and the scene-data schema |
+| Element   | Design choice                                                                                                                                                                                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quantity  | Blocks of the posterior covariance P after the update (IMM-combined), world axes: `translation` [m²], `velocity` [m²/s²], `size` [m²] and `yaw` [rad²]. Row-major 3×3 blocks (9 numbers) for the first three, a number for `yaw`; cross-block terms are not published |
+| Published | Only the track-state elements that are published already: `translation`, `velocity`, `size` and `rotation`                                                                                                                                                            |
+| z         | `translation` is the published footprint base z − height / 2, so its z entries are J P Jᵀ of the centre-of-mass filter. `translation` and `velocity` are always 3×3; for a track without measured z (`z_measured`) the z-related values are 0                         |
+| `size`    | The Tracker Service publishes the filter's size, so it has a block. The Scene Controller publishes the detection's or the object class's size, not the filter's, so it publishes no `size` block                                                                      |
+| `yaw`     | The variance of the filter yaw, only when the published `rotation` is the filter yaw. For the velocity-heading fallback and the identity quaternion the `rotation` is published and the `yaw` uncertainty is not                                                      |
+| Gating    | Only with the experimental observation processor (the same switch as its centre-of-mass z reference); no new configuration. Independent of `association.method`                                                                                                       |
+| Producers | Tracker Service and Scene Controller, same field in the data formats and the scene-data schema; Analytics passes it through                                                                                                                                           |
 
 ## 6. Alternatives Considered
 
@@ -255,7 +259,6 @@ Phase-specific unit tests and sign-off notes are tracked in the [implementation 
 - Whether incidence-angle scaling is required on gated datasets or optional.
 - Scope of multi-cam class/confidence fusion vs pure R threading in Phase 3.
 - Residual Phase 1 acceptances (Controller-TC jerk budget, Wildtrack IDSW) to revisit with Phase 2 R.
-- Track location uncertainty (§5.7): field name and shape, and whether it is always published.
 - Whether fusion should treat all-unset R the same as all-explicit-default R (today: equal-weight leave-R-unset vs information-weighted `R/n`).
 - Camera / MQTT contract for per-detection R so black-box eval can inject synthetic anisotropic R.
 

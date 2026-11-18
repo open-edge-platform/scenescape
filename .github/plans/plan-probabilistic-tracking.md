@@ -167,10 +167,23 @@ cd tracker && make test-unit-coverage
 
 ## Track location uncertainty in the output (controller + tracker)
 
-**Goal:** See [design §5.7](../../docs/design/probabilistic-tracking-association.md#57-track-location-uncertainty-in-the-output). **Status:** not started; both services publish only `association_window`.
+**Goal:** See [design §5.7](../../docs/design/probabilistic-tracking-association.md#57-track-location-uncertainty-in-the-output). **Status:** implemented; published as `uncertainty` with the experimental observation processor only. Without it both services publish only `association_window`.
 
-| Task                   | Location                                                   |
-| ---------------------- | ---------------------------------------------------------- |
+| Task                         | Location                                                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Field definition             | `data_formats.md`, `tracker/schema/scene-data.schema.json`                                                            |
+| Tracker Service output       | `track_uncertainty.hpp`, `tracking_types.hpp`, `tracking_worker.cpp`, `track_publisher.cpp`                           |
+| Controller output            | `ilabs_tracking.py`, `scene_common` (`association.py`, `detections_builder.py`)                                       |
+| Analytics pass-through       | `scene_common/ingestion.py`, `analytics/analytics_models.py`, `analytics/event_serializer.py`                         |
+
+Published for the track state that is published already: `translation` (the footprint base), `velocity`, `size` (Tracker Service only) and `yaw` (only when `rotation` is the filter yaw).
+
+### Exit criteria
+
+- [x] Both services publish the field with the experimental observation processor; unit tests check it against the filter's P
+- [x] Legacy output unchanged (no field)
+
+---------------------- | ---------------------------------------------------------- |
 | Field definition       | `data_formats.md`, `tracker/schema/scene-data.schema.json` |
 | Tracker Service output | `tracking_types.hpp`, `track_publisher.cpp`                |
 | Controller output      | `ilabs_tracking.py`, `scene_common`                        |
@@ -276,7 +289,7 @@ cd tracker && make test-unit test-robot-vision
 9. [ ] F8: One z reference for pixel and 3D detections (mitigated: gated association + planar UKF omits z)
 10. [x] Planar UKF updates omit z only when the track already has sticky measured height and the detection does not
 11. [x] `position_gate` helpers centralize XY vs XYZ (association, UKF rows, UI); deferred alternatives listed above
-12. [ ] Track location uncertainty in the output
+12. [x] Track location uncertainty in the output (experimental observation processor only)
 13. [x] Invalid per-detection R rejected at C++ ingest; invalid Controller `birth_cluster_radius_m` → 2 m
 14. [x] Black-box mahalanobis companion configs (`*_mahalanobis.yaml`, `--association`)
 

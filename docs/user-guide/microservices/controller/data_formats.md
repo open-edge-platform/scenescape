@@ -715,6 +715,7 @@ tracked object contains the following fields:
 | `metadata`             | object                     | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
 | `camera_bounds`        | object                     | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
 | `association_window`   | object or absent           | Association gate geometry for UI visualization. Present when the producer publishes gate parameters. See note below.                                                                                                                                             |
+| `uncertainty`          | object or absent           | Covariance of the published track state. Present only with the experimental observation processor enabled. See note below.                                                                                                                                       |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)
@@ -782,6 +783,31 @@ subject to the existing identity-collision checks.
 > `translation`, while the gate is centred on the predicted position. The drawing is exact for a
 > track without a detection in that frame and off by the Kalman correction otherwise.
 > Analytics passes the field through on regulated scene output when present.
+
+> **Note on `uncertainty`**: Produced by the Scene Controller and Tracker service only when the
+> experimental observation processor is enabled; legacy output carries no `uncertainty`. It is the
+> covariance of the track state that is published, taken from the filter's posterior covariance
+> after the update (or the coast prediction). Each block is row-major: a 3×3 covariance matrix as
+> 9 numbers. Cross-block terms are not published.
+>
+> | Key           | Unit  | Describes                                                                              |
+> | ------------- | ----- | -------------------------------------------------------------------------------------- |
+> | `translation` | m²    | `translation` (x, y, z)                                                                |
+> | `velocity`    | m²/s² | `velocity` (x, y, z)                                                                   |
+> | `size`        | m²    | `size` (length, width, height); Tracker service only                                   |
+> | `yaw`         | rad²  | Variance of the yaw in `rotation` (a number); only when `rotation` is the filter's yaw |
+>
+> - `translation` describes the published point, so its z entries are those of the footprint base
+>   (z of the centre of mass minus half the height), not of the centre of mass.
+> - `translation` and `velocity` are always 3×3. For a track without measured z the z-related
+>   values (the z row and column, the vz row and column) are 0.
+> - `size`: the Tracker service publishes the filter's size, so it carries a block. The Scene
+>   Controller publishes the detection's or the object class's size, not the filter's, so it has no
+>   `size` block.
+> - `yaw`: when `rotation` is the velocity heading (the filter yaw disagrees with the heading) or
+>   the identity, `rotation` is still published and `yaw` is absent.
+> - A block with a non-finite value is omitted.
+> - Analytics passes the field through on regulated scene output when present.
 
 ## Data Scene Output Message Format
 

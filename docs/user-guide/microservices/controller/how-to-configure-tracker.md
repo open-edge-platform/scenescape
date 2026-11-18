@@ -428,6 +428,21 @@ of 0. In a simulation with production tracker settings at 15 fps, the published 
 5.1 cm RMS (at most 11 cm) for a box-height noise of 8 cm and 6.3 cm RMS (at most 21 cm) for
 25 cm; `velocity[2]` varied by 3.5 and 5.2 cm/s RMS. x and y are unchanged.
 
+### Track Uncertainty in the Output
+
+With an observation processor, each published track also carries `uncertainty`, the covariance of
+the track state that is published (`translation`, `velocity`, and `size` and `yaw` where they come
+from the filter). It is taken from the filter's posterior covariance, so it grows while a track
+coasts and shrinks with measurements that carry a small R. Without an observation processor
+nothing is published. See the [data formats](data_formats.md) for the keys, units and rules:
+
+- `translation` describes the published footprint base, not the centre of mass.
+- `translation` and `velocity` are always 3×3; for a track without measured z the z-related values
+  are 0.
+- The Scene Controller has no `size` block: it publishes the detection's size, not the filter's.
+- `yaw` is present only when the published `rotation` is the filter's yaw, not for the velocity
+  heading fallback.
+
 ## Persisting Object Attributes Across Detection Gaps
 
 Detection pipelines do not always re-report every attribute (e.g., shirt color, license plate,
