@@ -8,6 +8,7 @@
 #include "rv/tracking/TrackedObject.hpp"
 
 #include <chrono>
+#include <cstddef>
 #include <limits>
 #include <vector>
 
@@ -124,6 +125,15 @@ public:
   }
 
   /**
+   * @brief Number of detections the last track() call dropped because their measurementNoiseCov is not finite or not
+   * positive definite (see validMeasurementNoiseCov). The other detections of the call are tracked.
+   */
+  std::size_t getRejectedDetectionCount() const
+  {
+    return mRejectedDetectionCount;
+  }
+
+  /**
    * @brief Returns current timestamp
    *
    */
@@ -137,6 +147,7 @@ private:
   DistanceType mDistanceType;
   double mDistanceThreshold{5.0};
   double mMaxRadiusM{std::numeric_limits<double>::infinity()};
+  std::size_t mRejectedDetectionCount{0};
 
   std::chrono::system_clock::time_point mLastTimestamp;
 

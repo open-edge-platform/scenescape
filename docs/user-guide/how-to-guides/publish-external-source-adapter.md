@@ -35,7 +35,7 @@ maintain a per-publisher ID-mapping cache.
 Publish under your persistent `source_id` (topic path = publisher id). Scene
 membership is consumer-side binding (`wgs84` geospatial auto-attach, or
 `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`). See
-[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md).
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md).
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ membership is consumer-side binding (`wgs84` geospatial auto-attach, or
 
 Familiarity with the source protocol and with JSON/MQTT is assumed. Architecture
 background:
-[ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md).
+[ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md).
 
 ## Mapping Checklist
 
@@ -80,7 +80,9 @@ fields and examples; do not invent alternate shapes.
    with `category` and exactly one location form:
    - **Cartesian**: `translation` in the **source's local frame** (metres
      relative to the source origin described by `pose` for top-level objects;
-     camera-local metres for observations nested under a camera).
+     camera-local metres for observations nested under a camera), at the object's
+     centre of mass (see `translation` in
+     [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects)).
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
      `translation`. For camera observations, use that camera entry's own
      calibration and resolution. Do not put both `translation` and
@@ -221,14 +223,14 @@ or certificates in the converter. Topic path uses `SOURCE_ID`; optional
    [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).
 
 End-to-end MQTT coverage that exercises this path lives in
-[`tests/functional/test_external_source_ingest.py`](https://github.com/open-edge-platform/scenescape/blob/main/tests/functional/test_external_source_ingest.py).
+[`tests/functional/test_external_source_ingest.py`](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/tests/functional/test_external_source_ingest.py).
 
 ## Out of Scope
 
 The adapter and this guide do **not** cover:
 
 - Footprint-based multi-scene handoff policy (platform **binding** Future Work,
-  [ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md))
+  [ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md))
 - Cross-source fusion or camera/external deduplication
 - Stronger trust-domain join / MQTT ACL hardening beyond same-authority certs
   (ADR 14 Future Work — discuss with security)
@@ -237,8 +239,8 @@ The adapter and this guide do **not** cover:
 
 - [External Source Input Message Format](../microservices/controller/data_formats.md#external-source-input-message-format)
 - [Scene Controller](../microservices/controller/controller.md)
-- [ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md)
+- [ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md)
 - [Integrate Cameras and Sensors](./integrate-cameras-and-sensors.md)
 - Example MAVLink adapter:
-  [`tools/external_source_adapters/`](https://github.com/open-edge-platform/scenescape/blob/main/tools/external_source_adapters/README.md)
+  [`tools/external_source_adapters/`](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/tools/external_source_adapters/README.md)
   (`mavlink_to_external_source.py`)

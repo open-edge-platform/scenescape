@@ -56,9 +56,11 @@ make deploy DEPLOY_PROFILES="controller observation-processor"
 
 The gRPC service is private to the Compose network at
 `observation-processor.scenescape.intel.com:50052` and listens with TLS using the
-`scenescape-observation-processor` server certificate. This profile makes it
-available for future pipeline integration but does not yet route Controller
-requests to it.
+`scenescape-observation-processor` server certificate. Deploying the profile starts
+the service; the Scene Controller and Tracker service send detections to it only
+when the experimental observation processor flag is set and the service host and
+port are configured. See
+[Experimental Observation Processor](../docs/user-guide/microservices/controller/how-to-configure-tracker.md#experimental-observation-processor).
 
 To send a sample request from inside the running service container, replace the
 scene and camera IDs with IDs from your deployment:

@@ -42,6 +42,7 @@ class Tracking(Thread):
     self.queue = Queue()
     self.reid_config_data = reid_config_data if reid_config_data else {}
     self.uuid_manager = UUIDManager(reid_config_data=self.reid_config_data)
+    self.observation_processor = None
     self._joined = False
     self._lifecycle_lock = Lock()
     return
@@ -130,6 +131,7 @@ class Tracking(Thread):
             **kwargs,
           )
           tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
+          tracker.observation_processor = getattr(self, 'observation_processor', None)
           self.trackers[category] = tracker
           tracker.start()
     return
