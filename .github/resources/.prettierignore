@@ -23,3 +23,6 @@
 **/tests/api/README.md
 **/tests/system/metric/unity_dataset/*.json
 **/tests/system/metric/wildtrack_dataset/*.json
+
+# Recorded ground-truth locations of the SPP demo (generated, compact)
+**/sample_data/spp_demo/Rolling-terrain/gtLoc.json
