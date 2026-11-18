@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0010-reid-metadata-storage-architecture.md).
+This document describes the implementation of 2-tier hybrid search for Re-ID (Re-Identification) in the Scene Controller, as specified in [ADR-0010](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0010-reid-metadata-storage-architecture.md).
 
 **Architecture**: TIER 1 (metadata filtering) + TIER 2 (vector similarity)
 
@@ -263,7 +263,7 @@ Each embedding still has to be attributable to exactly one enrollment:
 - **Live-gid collision limits concurrent Rematch.** A parent will not assign the same database
   UUID to two concurrent live tracks. Cross-child identity continuity via ReID is therefore
   verified for **sequential** rematch today; concurrent two-child merge via ReID alone is a
-  [product follow-up](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity).
+  [product follow-up](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity).
 - **Provenance is not accepted from detectors.** Origin claims arriving on a camera topic are
   discarded, so a detector cannot bypass the bounding-box quality gate.
 

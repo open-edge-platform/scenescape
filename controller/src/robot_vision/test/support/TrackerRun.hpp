@@ -153,6 +153,10 @@ public:
                    kScoreThreshold,
                    mAssociation.maxRadiusM);
     recordUpdates(t);
+    for (const Id id : reliableTrackIds())
+    {
+      mPublished.insert(id);
+    }
     if (mObserver != nullptr)
     {
       mObserver->trackerStep(*this, t, observations);
@@ -188,22 +192,25 @@ public:
     return objects;
   }
 
-  // Extra tracks per object plus extra objects per track; 0 when every object keeps one track of its own.
+  // tracksOf() without the tracks that never became reliable, i.e. were never published.
+  std::vector<Id> publishedTracksOf(int objectId) const
+  {
+    auto tracks = tracksOf(objectId);
+    std::erase_if(tracks, [this](Id id) { return !mPublished.contains(id); });
+    return tracks;
+  }
+
+  // Extra tracks per object plus extra objects per track; 0 when every object keeps one track of its own. Counts
+  // every track a detection started, also one that dies unreliable, e.g. after a single gate miss.
   int identityErrors(const std::set<int> &objectIds) const
   {
-    int errors = 0;
-    std::set<Id> trackIds;
-    for (const int objectId : objectIds)
-    {
-      const auto tracks = tracksOf(objectId);
-      errors += std::max(static_cast<int>(tracks.size()) - 1, 0);
-      trackIds.insert(tracks.begin(), tracks.end());
-    }
-    for (const Id trackId : trackIds)
-    {
-      errors += std::max(static_cast<int>(objectsOf(trackId).size()) - 1, 0);
-    }
-    return errors;
+    return identityErrors(objectIds, [this](int objectId) { return tracksOf(objectId); });
+  }
+
+  // identityErrors() over published tracks only, as the Controller and the Tracker Service output them.
+  int publishedIdentityErrors(const std::set<int> &objectIds) const
+  {
+    return identityErrors(objectIds, [this](int objectId) { return publishedTracksOf(objectId); });
   }
 
   // Frames in which the object's detection updated or started a track.
@@ -276,6 +283,23 @@ private:
     return std::llround(t * 1e6);
   }
 
+  template <typename TracksOf> int identityErrors(const std::set<int> &objectIds, TracksOf tracksOfObject) const
+  {
+    int errors = 0;
+    std::set<Id> trackIds;
+    for (const int objectId : objectIds)
+    {
+      const auto tracks = tracksOfObject(objectId);
+      errors += std::max(static_cast<int>(tracks.size()) - 1, 0);
+      trackIds.insert(tracks.begin(), tracks.end());
+    }
+    for (const Id trackId : trackIds)
+    {
+      errors += std::max(static_cast<int>(objectsOf(trackId).size()) - 1, 0);
+    }
+    return errors;
+  }
+
   // A track measured or started in this frame has no non-measurement frames.
   void recordUpdates(double t)
   {
@@ -295,6 +319,7 @@ private:
   MultipleObjectTracker mTracker;
   TrackerRunObserver *mObserver = nullptr;
   std::vector<Update> mUpdates;
+  std::set<Id> mPublished; // tracks that were reliable after some frame
 };
 
 } // namespace rv::tracking::test

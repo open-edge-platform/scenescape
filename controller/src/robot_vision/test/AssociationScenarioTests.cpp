@@ -12,6 +12,8 @@
 // $RV_SCENARIO_DIR/<Suite>.<Test>/<method>/ for tools/tracker/evaluation/visualization.
 
 #include <algorithm>
+#include <array>
+#include <map>
 #include <numbers>
 #include <optional>
 #include <set>
@@ -226,6 +228,31 @@ TEST(TrackerRunTest, CountsATrackRestartedAfterDropAsIdentityError)
   EXPECT_EQ(run.identityErrors({1}), 1);
 }
 
+TEST(TrackerRunTest, PublishedIdentityErrorsIgnoreTracksThatNeverBecameReliable)
+{
+  // One detection 5 m off starts a track beyond the 2 m gate; it is never updated again and dies unreliable, so it
+  // counts as an identity error but not as a published one. A restart after a drop is published.
+  const auto person = Trajectory(startAt(0.0, 0.0, 0.0, kWalkingSpeed, kPerson)).straight(5.0).sample(kFps);
+  Sensor camera;
+  auto observations = observe(person, camera);
+  for (auto &observation : observations)
+  {
+    if (std::abs(observation.t - 2.0) < 1e-9)
+    {
+      observation.detection.y += 5.0;
+    }
+  }
+  TrackerRun outlier(euclideanAssociation(), kFps);
+  outlier.play(sampleTimes(person), observations);
+  EXPECT_EQ(outlier.identityErrors({1}), 1);
+  EXPECT_EQ(outlier.publishedIdentityErrors({1}), 0);
+  EXPECT_EQ(outlier.publishedTracksOf(1).size(), 1U);
+
+  TrackerRun restarted(euclideanAssociation(), kFps);
+  restarted.play(sampleTimes(person), withoutBetween(observe(person, camera), 2.0, 3.5));
+  EXPECT_EQ(restarted.publishedIdentityErrors({1}), 1);
+}
+
 TEST(TrackerRunTest, PositionMahalanobisUsesTheServiceGate)
 {
   // The Controller and the Tracker Service gate the 3x3 position with chi2(p, 3), not chi2(p, 2) (9.21 at 0.99).
@@ -398,4 +425,199 @@ TEST(AssociationScenarioTest, CarEnteringAtSpeedGetsOneTrack)
   {
     GTEST_SKIP() << "Known issue, the car gets more than one track:" << failures;
   }
+}
+
+// Per-detection measurement noise R: the same detections with R reported and without (the tracker's default R).
+
+namespace {
+
+constexpr double kNoiseAngularSigma = 0.005; // [rad]: 0.06 m across the viewing ray at 12 m
+constexpr double kNoiseWarmUp = 1.5;         // [s] before the error counts: the track is reliable after 1 s
+const cv::Vec3d kCameraSouth{0.0, -12.0, 3.0};
+const cv::Vec3d kCameraWest{-12.0, 0.0, 3.0}; // 90 degrees to kCameraSouth as seen from the path
+
+struct NoiseCamera
+{
+  cv::Vec3d position;
+  bool reported = true;
+  double reportedScale = 1.0;
+};
+
+struct NoiseRun
+{
+  int publishedIdentityErrors = 0;
+  double positionRms = 0.0; // [m], x/y of object 1's published tracks against the truth after kNoiseWarmUp
+  int positionSamples = 0;  // published track positions in positionRms; 0 makes positionRms 0
+};
+
+// Collects the x/y error of every published track that object 1 last updated; forwards to `recorder`, if any.
+class PositionErrorObserver : public TrackerRunObserver
+{
+public:
+  PositionErrorObserver(const std::vector<TruthSample> &truth, TrackerRunObserver *recorder)
+    : mTruth(truth)
+    , mRecorder(recorder)
+  {
+  }
+
+  void trackerStep(const TrackerRun &run, double t, const std::vector<Observation> &observations) override
+  {
+    if (mRecorder != nullptr)
+    {
+      mRecorder->trackerStep(run, t, observations);
+    }
+    if (t < kNoiseWarmUp)
+    {
+      return;
+    }
+    const auto sample = std::ranges::find_if(mTruth, [t](const TruthSample &s) { return std::abs(s.t - t) < 1e-9; });
+    for (const auto &track : run.reliableTracks())
+    {
+      if (sample != mTruth.end() && TrackerRun::objectIdOf(track) == 1)
+      {
+        mSquares += (track.x - sample->x) * (track.x - sample->x) + (track.y - sample->y) * (track.y - sample->y);
+        ++mCount;
+      }
+    }
+  }
+
+  double rms() const
+  {
+    return mCount > 0 ? std::sqrt(mSquares / mCount) : 0.0;
+  }
+
+  int count() const
+  {
+    return mCount;
+  }
+
+private:
+  const std::vector<TruthSample> &mTruth;
+  TrackerRunObserver *mRecorder;
+  double mSquares = 0.0;
+  int mCount = 0;
+};
+
+// A person walking 5 s along x through the origin, seen by ground-plane cameras, with production position_mahalanobis.
+// A non-empty `caseName` records the run to <caseName>/.
+NoiseRun runWithCameras(const std::vector<NoiseCamera> &cameras, unsigned seed, const std::string &caseName = {})
+{
+  const auto truth = personPassing(0.0, 0.0, 2.5, 5.0);
+  std::optional<ScenarioRecorder> recorder;
+  if (!caseName.empty())
+  {
+    recorder.emplace(caseName);
+    recorder->truth(truth, 1);
+  }
+  std::vector<Observation> observations;
+  for (size_t i = 0; i < cameras.size(); ++i)
+  {
+    auto model = groundPlaneCamera(cameras[i].position, kNoiseAngularSigma);
+    model.reported = cameras[i].reported;
+    model.reportedScale = cameras[i].reportedScale;
+    auto sensor = seeded(Sensor{.id = "cam" + std::to_string(i), .positionCovariance = model},
+                         static_cast<unsigned>(100 * seed + i));
+    const auto cameraObservations = observe(truth, sensor);
+    observations.insert(observations.end(), cameraObservations.begin(), cameraObservations.end());
+  }
+  PositionErrorObserver errors(truth, recorder ? &*recorder : nullptr);
+  TrackerRun run(positionMahalanobisAssociation(), kFps, productionTrackerConfig(), &errors);
+  run.play(sampleTimes(truth), observations);
+  return {.publishedIdentityErrors = run.publishedIdentityErrors({1}),
+          .positionRms = errors.rms(),
+          .positionSamples = errors.count()};
+}
+
+std::vector<NoiseCamera> notReported(std::vector<NoiseCamera> cameras)
+{
+  for (auto &camera : cameras)
+  {
+    camera.reported = false;
+  }
+  return cameras;
+}
+
+// The run without R: the same detections whatever the cameras report, so the cases with the same camera positions
+// share it (two-camera runs are slow in Debug). Seed 1 is recorded to one_camera_noR/ or two_cameras_noR/.
+const NoiseRun &runWithoutR(const std::vector<NoiseCamera> &cameras, int seed)
+{
+  static std::map<std::pair<std::vector<std::array<double, 3>>, int>, NoiseRun> runs;
+  std::vector<std::array<double, 3>> positions;
+  for (const auto &camera : cameras)
+  {
+    positions.push_back({camera.position[0], camera.position[1], camera.position[2]});
+  }
+  const auto key = std::make_pair(positions, seed);
+  if (const auto found = runs.find(key); found != runs.end())
+  {
+    return found->second;
+  }
+  const std::string caseName = seed == 1 ? (cameras.size() == 1 ? "one_camera_noR" : "two_cameras_noR") : "";
+  return runs.emplace(key, runWithCameras(notReported(cameras), static_cast<unsigned>(seed), caseName)).first->second;
+}
+
+// Paired runs per seed: the same detections with R reported and without. With R, at most `maxPublishedErrors`
+// published identity errors and a position RMS at most `maxRmsRatio` times the one without R. Seed 1 is recorded.
+void expectPairedRuns(const std::string &caseName,
+                      const std::vector<NoiseCamera> &cameras,
+                      double maxRmsRatio,
+                      int maxPublishedErrors = 0)
+{
+  for (int seed = 1; seed <= kSeeds; ++seed)
+  {
+    const auto withR = runWithCameras(cameras, static_cast<unsigned>(seed), seed == 1 ? caseName : "");
+    const auto &without = runWithoutR(cameras, seed);
+    SCOPED_TRACE(testing::Message() << "seed " << seed << ": RMS " << withR.positionRms << " m with R, "
+                                    << without.positionRms << " m without");
+    EXPECT_LE(withR.publishedIdentityErrors, maxPublishedErrors);
+    EXPECT_EQ(without.publishedIdentityErrors, 0);
+    // No published output would pass the bounds with RMS 0 and no identity errors.
+    ASSERT_GT(withR.positionSamples, 0);
+    ASSERT_GT(without.positionSamples, 0);
+    ASSERT_GT(without.positionRms, 0.0);
+    EXPECT_LE(withR.positionRms / without.positionRms, maxRmsRatio);
+  }
+}
+
+} // namespace
+
+TEST(MeasurementNoiseScenarioTest, TwoCamerasAt90DegreesAreMoreAccurateWithR)
+{
+  // Each camera is precise across its viewing ray and coarse along it; at 90 degrees the information-weighted fusion
+  // takes each axis from the camera that sees it best, which the equal weights of the default R cannot. Measured ratio
+  // 0.58-0.88 (better on 20 of 20 seeds).
+  expectPairedRuns("two_cameras_90", {{kCameraSouth}, {kCameraWest}}, 0.95);
+}
+
+TEST(MeasurementNoiseScenarioTest, OneCameraWithRKeepsOneTrack)
+{
+  // No accuracy gain yet: the default R (0.2) overstates this camera's noise, so it smooths the straight walk more,
+  // with the process noise tuned against it (PR 8). Measured ratio 0.89-1.30 (up to 1.40 over 20 seeds).
+  expectPairedRuns("one_camera", {{kCameraSouth}}, 1.45);
+}
+
+TEST(MeasurementNoiseScenarioTest, CamerasWithAndWithoutRKeepOneTrack)
+{
+  // One camera reports R, the other not (the tracker's default R), as remote measurements and local fallbacks of the
+  // observation processor client. Measured ratio 0.91-1.33 (up to 1.41 over 20 seeds).
+  expectPairedRuns("mixed", {{kCameraSouth}, {.position = kCameraWest, .reported = false}}, 1.5);
+}
+
+TEST(MeasurementNoiseScenarioTest, UnderreportedRDegradesBoundedly)
+{
+  // R claims half the true sigma: the gate is too tight and misses true detections, so a track can restart. Measured:
+  // at most 1 published identity error per seed, ratio 1.08-3.15 (up to 4.5 over 20 seeds).
+  expectPairedRuns(
+    "underreported",
+    {{.position = kCameraSouth, .reportedScale = 0.25}, {.position = kCameraWest, .reportedScale = 0.25}},
+    3.5,
+    1);
+}
+
+TEST(MeasurementNoiseScenarioTest, OverreportedRKeepsOneTrack)
+{
+  // R claims twice the true sigma: a wider gate and more smoothing, no restarts. Measured ratio 0.53-0.75.
+  expectPairedRuns("overreported",
+                   {{.position = kCameraSouth, .reportedScale = 4.0}, {.position = kCameraWest, .reportedScale = 4.0}},
+                   0.9);
 }

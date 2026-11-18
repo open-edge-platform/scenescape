@@ -268,6 +268,7 @@ coverage-html:
 		'*/robot_vision/*' \
 		'*/controller/*' \
 		'*/build-debug/_deps/*' \
+		'*/build-debug/generated/*' \
 		'*/external/*' \
 		'*/third_party/*' \
 		'*/src/main.cpp' \
@@ -293,6 +294,7 @@ coverage-xml:
 		--root . \
 		--exclude '.*test.*' \
 		--exclude '.*/build-debug/.*' \
+		--exclude '.*\.pb\.(cc|h)$$' \
 		--exclude '.*/usr/.*' \
 		--exclude '.*/.conan/.*' \
 		--exclude '.*/.conan2/.*' \
@@ -318,6 +320,7 @@ coverage-report:
 		--root . \
 		--exclude '.*test.*' \
 		--exclude '.*/build-debug/.*' \
+		--exclude '.*\.pb\.(cc|h)$$' \
 		--exclude '.*/usr/.*' \
 		--exclude '.*/.conan/.*' \
 		--exclude '.*/.conan2/.*' \
