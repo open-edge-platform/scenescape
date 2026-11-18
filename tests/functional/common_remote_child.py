@@ -180,9 +180,12 @@ class RemoteHierarchySetup:
     if template is None:
       template = demo_cams["results"][0]
 
+    # A scene change drops the camera pose unless the update re-supplies it.
     moved = rest.updateCamera(template["uid"], {
       "name": template.get("name", "camera1"),
       "scene": scene_uid,
+      "transform_type": template["transform_type"],
+      "transforms": template["transforms"],
     })
     assert moved.statusCode in (200, 201), \
       f"move camera1 onto {scene_name} failed: {moved.statusCode} " \
