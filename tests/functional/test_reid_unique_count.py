@@ -259,13 +259,10 @@ def check_unique_detections(params):
 
   return True
 
-def run_test(test_name, test_desc, scene_config, params):
+def run_test(scene_config, params):
   """! Generic test runner for RE-ID unique count tests.
-  @param    test_name       The test identifier (e.g., "NEX-T10539").
-  @param    test_desc       The test description.
   @param    scene_config    Dict of scene_id -> {error, current, maximum}.
   @param    params          Dict of test parameters.
-  @return   exit_code       Indicates test success or failure.
   """
   global detection_count
   global count_transitions
@@ -282,21 +279,20 @@ def run_test(test_name, test_desc, scene_config, params):
     for scene in detection_count
   }
   callback_failures = []
-  exit_code = 1
+
+  client = PubSub(params["auth"], None, params["rootcert"], params["broker_url"],
+                  port=int(params["broker_port"]))
+  rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
+  res = rest.authenticate(params['user'], params['password'])
+  assert res, (res.errors)
+
+  client.onConnect = on_connect
+  for sc_uid in detection_count:
+    client.addCallback(PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=sc_uid, thing_type="person"), on_scene_message)
+  client.connect()
+  client.loopStart()
 
   try:
-    client = PubSub(params["auth"], None, params["rootcert"], params["broker_url"],
-                    port=int(params["broker_port"]))
-    rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
-    res = rest.authenticate(params['user'], params['password'])
-    assert res, (res.errors)
-
-    client.onConnect = on_connect
-    for sc_uid in detection_count:
-      client.addCallback(PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=sc_uid, thing_type="person"), on_scene_message)
-    client.connect()
-    client.loopStart()
-
     assert check_unique_detections(params)
 
     expect_exceed = expect_exceed_max_unique_count(params)
@@ -326,23 +322,16 @@ def run_test(test_name, test_desc, scene_config, params):
       else:
         log.info(f"No transitions observed for {scene}; final count: {detection_count[scene]['current']}")
 
-    client.loopStop()
-    exit_code = 0
-
   finally:
-    common.record_test_result(test_name, exit_code)
-
-  assert exit_code == 0
-  return exit_code
+    client.loopStop()
 
 @pytest.mark.test_name("NEX-T10539")
-def test_reid_unique_count(demo_scene, params, record_xml_attribute):
+def test_reid_unique_count(params, result_recorder):
   """! Tests the unique count for each scene when RE-ID is enabled.
   @param    params                  Dict of test parameters.
-  @return   exit_code               Indicates test success or failure.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   """
-  TEST_NAME = "NEX-T10539"
-  log.info("Executing: " + TEST_NAME)
+  log.info("Executing: NEX-T10539")
   log.info("Test the unique count for each scene when RE-ID is enabled.")
 
   minimum, maximum = get_scene_count_bounds()
@@ -355,4 +344,5 @@ def test_reid_unique_count(demo_scene, params, record_xml_attribute):
     }
   }
 
-  run_test(TEST_NAME, "Test the unique count for each scene when RE-ID is enabled.", scene_config, params)
+  run_test(scene_config, params)
+  result_recorder.success()

@@ -42,6 +42,7 @@ services:
       - "DBHOST=child2-pgserver"
       - "DBPORT=5432"
       - "DBTYPE=postgres"
+      - "WEBSERVER_URL=https://child2-web.scenescape.intel.com"
       - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
     volumes:
