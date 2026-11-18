@@ -126,6 +126,16 @@ def test_other_events_do_not_restart_frame_count(element):
   assert regions_at(element, 0.04) == [(2, 5, 6, 7, "person", 1.0)]
 
 
+def test_frame_mode_does_not_need_timestamp(element):
+  element.do_set_property(make_prop("sync-mode"), "frame")
+  element.do_set_caps(caps(), None)
+  RecordingVideoFrame.frames = []
+  element.do_transform_ip(SimpleNamespace(pts=CLOCK_TIME_NONE))
+  element.do_transform_ip(SimpleNamespace(pts=CLOCK_TIME_NONE))
+  regions = [region for frame in RecordingVideoFrame.frames for region in frame.regions]
+  assert regions == [(1, 5, 6, 7, "person", 1.0), (2, 5, 6, 7, "person", 1.0)]
+
+
 def test_buffer_without_timestamp_passes_through(element):
   element.do_set_caps(caps(), None)
   RecordingVideoFrame.frames = []

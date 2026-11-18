@@ -128,9 +128,11 @@ class SscapeDetectionReplay(GstBase.BaseTransform):
     self._frame += 1
     # Stream time restarts at 0 on every loop of the file.
     stream_time = self.segment.to_stream_time(Gst.Format.TIME, buffer.pts)
-    if stream_time == Gst.CLOCK_TIME_NONE:
+    has_time = stream_time != Gst.CLOCK_TIME_NONE
+    # Only time mode needs a timestamp; frame mode looks up by buffer count.
+    if not has_time and self._sync_mode == "time":
       return Gst.FlowReturn.OK
-    seconds = stream_time / Gst.SECOND
+    seconds = stream_time / Gst.SECOND if has_time else 0.0
     detections = self._timeline.lookup(self._sync_mode, seconds, frame_index)
     if not detections:
       return Gst.FlowReturn.OK
@@ -138,7 +140,8 @@ class SscapeDetectionReplay(GstBase.BaseTransform):
     for det in detections:
       frame.add_region(det.x, det.y, det.width, det.height,
                        label=det.label, confidence=det.confidence)
-    self._log.debug(f"t={seconds:.3f}s regions={len(detections)}")
+    time_text = f"{seconds:.3f}s" if has_time else "n/a"
+    self._log.debug(f"t={time_text} regions={len(detections)}")
     return Gst.FlowReturn.OK
 
 
