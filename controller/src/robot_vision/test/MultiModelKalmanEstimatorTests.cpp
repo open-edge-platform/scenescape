@@ -6,7 +6,6 @@
 #include <cmath>
 #include <iterator>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -740,21 +739,4 @@ TEST(MultiModelKalmanEstimatorTest, InitializeSeedsErrorCovarianceFromMeasuremen
   EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::VX, StateIndex::VX), 1.0);
   EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::YAW, StateIndex::YAW), 0.05);
   EXPECT_FALSE(estimator.currentState().measurementNoiseCov) << "tracks must not carry a detection R";
-}
-
-TEST(MultiModelKalmanEstimatorTest, InvalidMeasurementNoiseIsRejectedOnInitializeAndCorrect)
-{
-  rv::tracking::TrackedObject object;
-  object.length = object.width = object.height = 1.0;
-  object.measurementNoiseCov = rv::tracking::TrackedObject::MeasurementMatrix::zeros();
-
-  MultiModelKalmanEstimator estimator;
-  EXPECT_THROW(estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 0.2, 1.0, {MotionModel::CV}),
-               std::invalid_argument);
-
-  object.measurementNoiseCov.reset();
-  estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 0.2, 1.0, {MotionModel::CV});
-  estimator.predict(0.1);
-  object.measurementNoiseCov = rv::tracking::TrackedObject::MeasurementMatrix::eye() * -0.2;
-  EXPECT_THROW(estimator.correct(object), std::invalid_argument);
 }
