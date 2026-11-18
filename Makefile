@@ -952,7 +952,8 @@ $(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
 
-$(SPP_DEMO_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
+# Grouped targets (&:) run the converter once, even under make -j.
+$(SPP_DEMO_VIDEOS) &: $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@$(VIDEO_SOURCE_DIR)/convert_videos.sh mp4 $(SPP_DEMO_DIR) Stairs
 
 # Demo video sources are not a part of the core Scenescape stack; it joins the same "scenescape" Docker network so it
