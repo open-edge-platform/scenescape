@@ -184,6 +184,54 @@ class TestAPIService:
     else:
       pytest.fail("Reconstruction did not complete within timeout")
 
+  @pytest.mark.parametrize('camera_id, expected_status', [
+    pytest.param('cam_1', 200, id='valid-camera-id'),
+    pytest.param('cam_1\n', 400, id='trailing-newline')
+  ])
+  def test_reconstruction_camera_id_validation(self, client, camera_id, expected_status):
+    """Camera IDs must match completely before a reconstruction job is queued."""
+    img_bytes = base64.b64decode(self.create_test_image_base64())
+    with patch('api_service_base.RECON_STATUS', {}):
+      with patch('api_service_base.threading.Thread') as mock_thread:
+        response = client.post(
+          f'{API_PREFIX}/reconstruction',
+          data={
+            'output_format': 'json',
+            'images': [(io.BytesIO(img_bytes), 'test.png')],
+            'camera_ids': camera_id
+          },
+          content_type='multipart/form-data'
+        )
+
+        assert response.status_code == expected_status
+        data = response.get_json()
+        if expected_status == 400:
+          assert data['success'] is False
+          assert data['error'] == 'Invalid camera_id format'
+          mock_thread.assert_not_called()
+        else:
+          assert data['success'] is True
+          assert data['request_id']
+          assert data['state'] == 'processing'
+          mock_thread.return_value.start.assert_called_once_with()
+
+  @pytest.mark.parametrize('suffix, expected_status, expected_error', [
+    pytest.param('', 404, 'unknown request_id', id='valid-unknown-request-id'),
+    pytest.param('%0A', 400, 'Invalid request ID', id='trailing-newline')
+  ])
+  def test_reconstruction_status_request_id_validation(
+    self, client, suffix, expected_status, expected_error
+  ):
+    """Status IDs must match completely, including URL-decoded trailing newlines."""
+    request_id = '0123456789abcdef' * 2
+    with patch('api_service_base.RECON_STATUS', {}):
+      response = client.get(f'{API_PREFIX}/reconstruction/status/{request_id}{suffix}')
+
+    assert response.status_code == expected_status
+    data = response.get_json()
+    assert data['success'] is False
+    assert data['error'] == expected_error
+
   def test_reconstruction_with_glb_output(self, client):
     """Test reconstruction with GLB output format"""
     import trimesh
