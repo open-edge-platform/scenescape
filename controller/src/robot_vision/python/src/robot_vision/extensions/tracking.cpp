@@ -93,7 +93,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("corrected", &rv::tracking::TrackedObject::corrected, "Returns True if the TrackedObject was the result of a correction step.")
     .def_readwrite("id", &rv::tracking::TrackedObject::id, "Object's identification number.")
     .def("isDynamic", &rv::tracking::TrackedObject::isDynamic,
-         "True when 3D speed squared exceeds 1 m^2/s^2 (includes vertical motion; affects coast aging).")
+         "True when speed squared exceeds 1 m^2/s^2 (vz only when z_measured; affects coast aging).")
     .def_readwrite("classification", &rv::tracking::TrackedObject::classification, "Returns a numpy array with classification probabilities.")
     .def_readwrite("attributes", &rv::tracking::TrackedObject::attributes, "Dictionary of attributes. Note: only string types are supported.")
     .def_property("vector",
@@ -112,6 +112,34 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
                   [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.errorCovariance); },
                   [](rv::tracking::TrackedObject &object, const cv::Mat &covariance) { object.errorCovariance = covariance; },
                   "Copy of the error covariance matrix, convert to numpy using np.array(tracked_object.error_covariance).")
+    .def_property(
+      "measurement_noise_covariance",
+      [](const rv::tracking::TrackedObject &self) -> py::object {
+        if (!self.measurementNoiseCov)
+        {
+          return py::none();
+        }
+        const int n = rv::tracking::TrackedObject::MeasurementSize;
+        return py::array_t<double>({n, n}, self.measurementNoiseCov->val);
+      },
+      [](rv::tracking::TrackedObject &self, py::object value) {
+        if (value.is_none())
+        {
+          self.measurementNoiseCov.reset();
+          return;
+        }
+        const int n = rv::tracking::TrackedObject::MeasurementSize;
+        auto array = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(value);
+        if (!array || array.ndim() != 2 || array.shape(0) != n || array.shape(1) != n)
+        {
+          throw std::invalid_argument("measurement_noise_covariance must be a 7x7 float64 matrix or None");
+        }
+        self.measurementNoiseCov
+          = rv::tracking::validatedMeasurementNoiseCov(rv::tracking::TrackedObject::MeasurementMatrix(array.data()));
+      },
+      "Per-detection measurement noise R (7x7, [x, y, z, length, width, height, yaw]); None uses the "
+      "tracker default R. Drives multi-camera fusion weights, the association gate (S = H P H^T + R) "
+      "and the Kalman update.")
     .def("__repr__", &rv::tracking::TrackedObject::toString, "String representation.");
 
 

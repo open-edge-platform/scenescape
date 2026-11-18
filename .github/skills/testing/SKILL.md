@@ -79,7 +79,7 @@ That check **excludes** `tests/sscape_tests/` and fails on missing / invalid / d
 - **Naming**: files `test_*.py`, functions `test_*` (pytest norms).
 - **Markers that matter**:
   - `@pytest.mark.basic_acceptance` — BAT / `make run_basic_acceptance_tests`
-  - `@pytest.mark.kubernetes_only` — skipped on `--backend=docker`
+  - `@pytest.mark.kubernetes_only` — always runs against Kubernetes
 - **Isolation**: Create test data with the `scene_factory` fixture (auto-removes its scenes/cameras on teardown)
   and clean up anything else the test mutates.
 

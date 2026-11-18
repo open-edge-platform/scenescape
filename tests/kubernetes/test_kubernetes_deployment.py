@@ -6,7 +6,7 @@ Kubernetes-specific deployment smoke tests.
 
 These tests verify that the KinD cluster and Helm deployment are healthy.
 They use the unified K8sManager via the _k8s_manager fixture from conftest.py
-and are marked kubernetes_only so they're skipped when --backend=docker.
+and are marked kubernetes_only so they always run against the Kubernetes backend.
 """
 
 import json

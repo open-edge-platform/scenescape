@@ -49,7 +49,9 @@
     "non_measurement_time_static_s": 1.6,
     "association": {
       "method": "euclidean"
-    }
+    },
+    "experimental_observation_processor": false,
+    "observation_processor_mode": "auto"
   },
   "scenes": {
     "source": "api"
