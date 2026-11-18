@@ -76,12 +76,12 @@ docker run --rm --network scenescape_scenescape \
   -v "$PWD/tools/detection_replay/gstplugins:/home/detection_replay/python:ro" \
   -v "$PWD/tools/detection_replay/detection_replay.py:/home/detection_replay/detection_replay.py:ro" \
   -v "$PWD/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro" \
-  -v "$PWD/sample_data/spp_demo/Stairs-synthetic:/workspace:ro" \
+  -v "$PWD/sample_data/spp_demo/Rolling-terrain:/workspace:ro" \
   --entrypoint python3 \
   intel/dlstreamer-pipeline-server:2026.3.0-20261027-weekly-ubuntu24 \
   /home/detection_replay/detection_replay.py \
-  --camera cam1_front_left /workspace/video/cam1_front_left.mp4 /workspace/metadata/cam1_front_left.json \
-  --camera cam2_back_right /workspace/video/cam2_back_right.mp4 /workspace/metadata/cam2_back_right.json
+  --camera rt-cam1_front_left /workspace/video/rt-cam1_front_left.mp4 /workspace/metadata/rt-cam1_front_left.json \
+  --camera rt-cam2_back_right /workspace/video/rt-cam2_back_right.mp4 /workspace/metadata/rt-cam2_back_right.json
 ```
 
 | Option                   | Default                                       | Description                                                                                           |
@@ -95,7 +95,7 @@ docker run --rm --network scenescape_scenescape \
 | `--no-loop`              | loop                                          | Exit at the end of the videos.                                                                        |
 | `--print-pipeline`       |                                               | Print the GStreamer pipeline and exit.                                                                |
 
-The [SPP demo](../../sample_data/spp_demo/README.md) uses the tool for its `Stairs-synthetic` scene
-([`compose.stairs-synthetic-video.yml`](../../sample_data/spp_demo/compose.stairs-synthetic-video.yml)).
+The [SPP demo](../../sample_data/spp_demo/README.md) uses the tool for its `Rolling-terrain` scene
+([`compose.rolling-terrain-video.yml`](../../sample_data/spp_demo/compose.rolling-terrain-video.yml)).
 
 Unit tests: `pytest tests/sscape_tests/detection_replay`.

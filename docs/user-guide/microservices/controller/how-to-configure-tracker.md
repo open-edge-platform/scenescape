@@ -406,7 +406,7 @@ scene and category. An unobservable depth is not counted. See [How to Enable Obs
 
 A remote measurement replaces the position and size of its detection; detector yaw is kept.
 
-`make demo-spp` deploys the Tracker service with the observation processor on three scenes with non-planar terrain: recorded and synthetic stairs, and a synthetic rolling terrain;
+`make demo-spp` deploys the Tracker service with the observation processor on a scene with non-planar terrain (a synthetic person walking over rolling terrain);
 see [`sample_data/spp_demo`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/spp_demo/README.md).
 
 ### Height Reference of Tracked Objects
