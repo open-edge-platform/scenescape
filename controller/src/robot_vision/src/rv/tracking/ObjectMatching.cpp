@@ -92,7 +92,7 @@ double mahalanobisCostFromCache(const TrackedObject &measurement,
                                 const MahalanobisTrackCache &trackCache)
 {
   // S = H P H^T + R is per pair when the detection carries its own R, so the track's cached inverses do not apply.
-  // track() / the Python setter require R to be finite SPD; match() trusts that contract.
+  // track() drops detections whose R is not finite SPD and the Python setter rejects them; match() trusts that.
   std::optional<MahalanobisTrackCache> pairCache;
   if (measurement.measurementNoiseCov)
   {

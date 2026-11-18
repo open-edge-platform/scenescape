@@ -69,6 +69,8 @@ Example `pose-adjustment-route.json`:
 
 Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
 
+`--experimental-observation-processor`: Experimental. Processes camera detections with the observation processor service at `CONTROLLER_OBSERVATION_PROCESSOR_HOST` and `CONTROLLER_OBSERVATION_PROCESSOR_PORT` and gives the tracker its measurement noise covariance. Disabled by default; can also be enabled with the `CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR` environment variable set to `true`. Detections without a valid remote measurement keep the local processing. See [Experimental Observation Processor](./how-to-configure-tracker.md#experimental-observation-processor).
+
 `--ptz` / `--ptz-shadow`: Consume the Positioning service's resolved PTZ poses. `--ptz` drops PTZ camera detections the dwell contract rejects and projects the rest with the camera's pose; `--ptz-shadow` only observes and records. Both are disabled by default, can also be set with `CONTROLLER_PTZ_ENABLED` / `CONTROLLER_PTZ_SHADOW_MODE`, and are mutually exclusive. They cannot be combined with `--rewriteAllTime` or `--rewriteBadTime`, and they require `--ntp`.
 
 `--ptz_config_file`: JSON file with the required PTZ consumer bounds. The default file is `ptz-consumer-config.json` next to the controller executable. It is read only when a PTZ mode is on.

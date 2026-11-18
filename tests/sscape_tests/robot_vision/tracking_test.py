@@ -966,12 +966,19 @@ class TestNonPlanarTracking(unittest.TestCase):
   def test_is_dynamic_includes_vertical_velocity(self):
     obj = create_object_at_location()
     obj.vx = obj.vy = obj.vz = 0.0
+    obj.z_measured = False
     self.assertFalse(obj.isDynamic())
     obj.vz = 1.1
+    self.assertFalse(obj.isDynamic())
+    obj.z_measured = True
     self.assertTrue(obj.isDynamic())
     obj.vx = 0.5
     obj.vz = 0.5
     self.assertFalse(obj.isDynamic())
+    obj.z_measured = False
+    obj.vx = 1.1
+    obj.vz = 0.0
+    self.assertTrue(obj.isDynamic())
 
   def test_planar_correct_after_measured_does_not_pull_z(self):
     """Planar UKF updates omit z only after the track has sticky measured z."""
