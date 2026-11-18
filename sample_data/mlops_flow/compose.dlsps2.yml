@@ -73,9 +73,12 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     devices:
-      # GPU (dri) / NPU (accel) / USB cameras. Selective mounts are preferred
-      # over mounting all of /dev in production deployments.
-      - "/dev:/dev"
+      # Uncomment these lines to use GPU acceleration
+      # devices:
+      #   - "/dev/dri:/dev/dri"
+      # Uncomment these lines to use NPU acceleration
+      # devices:
+      #   - "/dev/accel:/dev/accel"
     healthcheck:
       test:
         [

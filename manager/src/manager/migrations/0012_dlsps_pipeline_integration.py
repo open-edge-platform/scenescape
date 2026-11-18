@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0006_osm_roi_support'),
+    ('manager', '0011_cam_pose_provenance'),
   ]
 
   operations = [
@@ -40,8 +40,30 @@ class Migration(migrations.Migration):
       name='dlsps_instance_id',
       field=models.UUIDField(blank=True, editable=False, null=True),
     ),
+    migrations.AddField(
+      model_name='cam',
+      name='dlsps_pipeline_digest',
+      field=models.CharField(blank=True, editable=False, max_length=64, null=True),
+    ),
+    migrations.AddField(
+      model_name='cam',
+      name='dlsps_launch_id',
+      field=models.UUIDField(blank=True, editable=False, null=True),
+    ),
     migrations.AddConstraint(
       model_name='cam',
       constraint=models.UniqueConstraint(fields=('pipeline',), name='unique_camera_pipeline'),
+    ),
+    migrations.CreateModel(
+      name='PendingDLSPSStop',
+      fields=[
+        ('id', models.AutoField(auto_created=True, primary_key=True,
+                               serialize=False, verbose_name='ID')),
+        ('instance_id', models.UUIDField(blank=True, null=True, unique=True)),
+        ('launch_id', models.UUIDField(blank=True, null=True, unique=True)),
+        ('attempts', models.PositiveIntegerField(default=0)),
+        ('last_error', models.TextField(blank=True, default='')),
+        ('created_at', models.DateTimeField(auto_now_add=True)),
+      ],
     ),
   ]

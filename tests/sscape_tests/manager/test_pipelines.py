@@ -271,21 +271,15 @@ class PipelineTests(TestCase):
     executor = MigrationExecutor(connection)
     self.assertEqual(executor.loader.detect_conflicts(), {})
     self.assertEqual(executor.loader.graph.leaf_nodes('manager'),
-                     [('manager', '0013_cam_dlsps_pipeline_digest_pendingdlspsstop')])
+                     [('manager', '0012_dlsps_pipeline_integration')])
     state = executor.loader.project_state()
     historical = state.apps.get_model('manager', 'Pipeline')
     for name in ('id', 'name', 'pipeline', 'vippet_pipeline_id'):
       self.assertEqual(historical._meta.get_field(name).deconstruct()[1:],
                        Pipeline._meta.get_field(name).deconstruct()[1:])
-    module = import_module('manager.migrations.0007_pipeline_cam_pipeline')
-    self.assertEqual(module.Migration.dependencies, [('manager', '0006_osm_roi_support')])
-    self.assertEqual(len(module.Migration.operations), 4)
-    merge = import_module('manager.migrations.0012_merge_pipeline_and_camera_pose')
-    self.assertEqual(set(merge.Migration.dependencies), {
-      ('manager', '0007_pipeline_cam_pipeline'),
-      ('manager', '0011_cam_pose_provenance'),
-    })
-    self.assertEqual(merge.Migration.operations, [])
+    module = import_module('manager.migrations.0012_dlsps_pipeline_integration')
+    self.assertEqual(module.Migration.dependencies, [('manager', '0011_cam_pose_provenance')])
+    self.assertEqual(len(module.Migration.operations), 7)
     historical_camera = state.apps.get_model('manager', 'Cam')
     for name in ('dlsps_instance_id', 'dlsps_pipeline_digest', 'dlsps_launch_id'):
       self.assertEqual(historical_camera._meta.get_field(name).deconstruct()[1:],
@@ -299,8 +293,8 @@ class PipelineTests(TestCase):
 class PipelineMigrationTests(TransactionTestCase):
 
   def test_upgrade_and_rollback_preserve_camera(self):
-    old_target = [('manager', '0006_osm_roi_support')]
-    new_target = [('manager', '0007_pipeline_cam_pipeline')]
+    old_target = [('manager', '0011_cam_pose_provenance')]
+    new_target = [('manager', '0012_dlsps_pipeline_integration')]
     executor = MigrationExecutor(connection)
     executor.migrate(old_target)
     try:
