@@ -106,7 +106,7 @@ Check `harnesses/README.md` for more details
   Wraps TrackEval library, provides tracker output format conversion and delivers state of the art tracking metrics.
 
 - **DiagnosticEvaluator**: `evaluators/diagnostic_evaluator.py`
-  Per-frame location and distance error analysis between bipartite-matched tracker output tracks and ground-truth tracks. Produces CSV and plot outputs alongside summary scalar metrics (`DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`).
+  Per-frame location and distance error analysis between bipartite-matched tracker output tracks and ground-truth tracks, over x, y and z (`set_space()` / `space` restricts it to the plane or the height). Produces CSV and plot outputs alongside summary scalar metrics (`DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `LOC_T_Z_mae`, `num_matches`).
 
 - **JitterEvaluator**: `evaluators/jitter_evaluator.py`
   Measures trajectory smoothness via RMS jerk and acceleration variance, computed from both tracker outputs and ground-truth tracks. Supports GT and ratio variants to isolate tracker-added jitter from dataset-inherent jitter.
@@ -141,7 +141,7 @@ Check `evaluators/README.md` for more details
 - **Diagnostic adapter**: [evaluators/diagnostic_evaluator.py](evaluators/diagnostic_evaluator.py).
 - **Camera projection harness**: [harnesses/camera_projection_harness/camera_projection_harness.py](harnesses/camera_projection_harness/camera_projection_harness.py), container script: [harnesses/camera_projection_harness/run_projection.py](harnesses/camera_projection_harness/run_projection.py).
 - **Camera accuracy evaluator**: [evaluators/camera_accuracy_evaluator.py](evaluators/camera_accuracy_evaluator.py).
-- **Track matching**: [utils/tracks.py](utils/tracks.py) (`match_tracks()`, used by the diagnostic evaluator and the visualization tools).
+- **Track matching**: [utils/tracks.py](utils/tracks.py) (`match_tracks()` and `position_distance()`, over x, y and z by default or the `xy`/`z` space with `--xy-only`/`--z-only`; used by the diagnostic evaluator and the visualization tools).
 - **Scenario visualization**: [visualization/plot_scenario.py](visualization/plot_scenario.py) (PNG plots) and [visualization/render_video.py](visualization/render_video.py) (MP4/GIF videos), both on a scenario directory or pipeline run directory loaded by [visualization/scenario_data.py](visualization/scenario_data.py); workflow in [visualization/README.md](visualization/README.md).
 
 ## Guidelines for Adding New Component or Updating Existing One

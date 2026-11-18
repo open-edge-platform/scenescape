@@ -17,18 +17,19 @@ namespace rv::tracking::test {
 namespace idx {
 enum : int
 {
-  X,
-  Y,
-  Vx,
-  Vy,
-  Ax,
-  Ay,
-  Z,
-  Length,
-  Width,
-  Height,
-  Yaw,
-  YawRate
+  X = StateIndex::X,
+  Y = StateIndex::Y,
+  Vx = StateIndex::VX,
+  Vy = StateIndex::VY,
+  Ax = StateIndex::AX,
+  Ay = StateIndex::AY,
+  Z = StateIndex::Z,
+  Vz = StateIndex::VZ,
+  Length = StateIndex::LENGTH,
+  Width = StateIndex::WIDTH,
+  Height = StateIndex::HEIGHT,
+  Yaw = StateIndex::YAW,
+  YawRate = StateIndex::YAW_RATE
 };
 } // namespace idx
 

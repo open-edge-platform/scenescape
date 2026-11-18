@@ -27,7 +27,7 @@ DEFAULT_DESCRIPTOR_TTL_SECS = int(
     os.getenv("DEFAULT_DESCRIPTOR_TTL_SECS", "86400")
 )
 
-# How often the controller asks the active backend to purge expired descriptors.
+# How often reid-service purges expired descriptors.
 DEFAULT_PURGE_INTERVAL_SECS = int(
     os.getenv("DEFAULT_PURGE_INTERVAL_SECS", "300")
 )
@@ -189,7 +189,7 @@ def get_reid_descriptor_ttl_secs():
 
 
 def get_reid_purge_interval_secs():
-  """Return how often the controller triggers backend purgeExpired()."""
+  """Return the service-owned backend purge interval in seconds."""
   return _env_int(
     "REID_PURGE_INTERVAL_SECS", DEFAULT_PURGE_INTERVAL_SECS,
     PURGE_INTERVAL_RANGE)
