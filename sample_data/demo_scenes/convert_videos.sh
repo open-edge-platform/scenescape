@@ -7,9 +7,6 @@ set -euo pipefail
 # Converts sample mp4 videos (per-scene under demo_scenes/*/video, plus
 # tools/pipeline_runner/video) to ts so the gstreamer pipeline can loop them
 # infinitely without deallocating buffers.
-#
-# Usage: convert_videos.sh [extension] [scenes-dir] [scene]
-# With a scene name, only <scenes-dir>/<scene>/video is converted.
 
 docker pull intel/intel-optimized-ffmpeg:avx3
 
@@ -17,18 +14,8 @@ DIRNAME=${PWD}
 FFMPEG_DIR="/app/data"
 FFMPEG_IMAGE="intel/intel-optimized-ffmpeg:avx3"
 EXTENSION=${1:-mp4}
-# Parent of the scene folders (<scene>/video/*.mp4), relative to the repo root
-SCENES_DIR=${2:-sample_data/demo_scenes}
-# Optional single scene to convert (default: all scenes and pipeline_runner)
-SCENE=${3:-}
 
-if [ -n "$SCENE" ]; then
-  VIDEO_GLOBS=("$DIRNAME/$SCENES_DIR/$SCENE/video/"*."${EXTENSION}")
-else
-  VIDEO_GLOBS=("$DIRNAME/$SCENES_DIR"/*/video/*."${EXTENSION}" "$DIRNAME"/tools/pipeline_runner/video/*."${EXTENSION}")
-fi
-
-for mfile in "${VIDEO_GLOBS[@]}"; do
+for mfile in "$DIRNAME"/sample_data/demo_scenes/*/video/*."${EXTENSION}" "$DIRNAME"/tools/pipeline_runner/video/*."${EXTENSION}"; do
   [ -f "$mfile" ] || continue
   # relative dir under the repo root, so the ts file lands next to its source mp4
   reldir=$(dirname "${mfile#"$DIRNAME"/}")

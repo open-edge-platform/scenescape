@@ -49,15 +49,12 @@ DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,aprilt
 	tools/pipeline_runner/video/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/compose.dl-streamer-example.yml
 VIDEO_SOURCE_VIDEOS = $(DLSTREAMER_SAMPLE_VIDEOS)
-# SPP demo: Stairs, Stairs-synthetic and Rolling-terrain scenes, Tracker service with the experimental
-# observation processor. Stairs-synthetic and Rolling-terrain replay recorded detections with their
-# mp4 videos (tools/detection_replay), so only the Stairs videos must be converted to ts.
+# SPP demo: Rolling-terrain scene, Tracker service with the experimental observation processor.
+# The scene replays recorded detections with its mp4 videos (tools/detection_replay), so no videos
+# have to be converted to ts.
 SPP_DEMO_DIR := sample_data/spp_demo
-SPP_DEMO_VIDEOS := $(addprefix $(SPP_DEMO_DIR)/Stairs/video/,cam1.ts cam2.ts)
 SPP_DEMO_COMPOSE_ARGS = -f docker-compose.yml -f $(SPP_DEMO_DIR)/compose.spp-demo.yml
-SPP_DEMO_VIDEO_COMPOSE_FILES := -f $(SPP_DEMO_DIR)/compose.stairs-video.yml \
-	-f $(SPP_DEMO_DIR)/compose.stairs-synthetic-video.yml \
-	-f $(SPP_DEMO_DIR)/compose.rolling-terrain-video.yml
+SPP_DEMO_VIDEO_COMPOSE_FILES := -f $(SPP_DEMO_DIR)/compose.rolling-terrain-video.yml
 DEMO_WAIT_SECONDS ?= "0"
 DEPLOY_WAIT_SECONDS ?= $(DEMO_WAIT_SECONDS)
 DEPLOY_PROFILES ?= controller
@@ -150,7 +147,7 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
-	@echo "  demo-spp                    Start the Stairs, Stairs-synthetic and Rolling-terrain demo with the Tracker service and the experimental observation processor"
+	@echo "  demo-spp                    Start the Rolling-terrain demo with the Tracker service and the experimental observation processor"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
@@ -322,7 +319,7 @@ clean-all: clean-images clean-secrets clean-volumes clean-models clean-tests
 
 define clean-artifacts
 	@echo "==> Cleaning build artifacts..."
-	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS) $(SPP_DEMO_VIDEOS)
+	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
 	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning build artifacts"
 endef
@@ -921,7 +918,7 @@ demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
 
 .PHONY: demo-spp
 demo-spp: VIDEO_SOURCE_COMPOSE_FILES := $(SPP_DEMO_VIDEO_COMPOSE_FILES)
-demo-spp: VIDEO_SOURCE_VIDEOS := $(SPP_DEMO_VIDEOS)
+demo-spp: VIDEO_SOURCE_VIDEOS :=
 demo-spp: DEMO_SCENES_DIR := $(SPP_DEMO_DIR)
 demo-spp: $(DEMO_BUILD:build=build-core tracker reid observation_processor)
 	$(call start_demo,tracker observation-processor,$(SPP_DEMO_COMPOSE_ARGS))
@@ -951,10 +948,6 @@ $(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "==> Converting sample videos for DLStreamer..."
 	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
-
-# Grouped targets (&:) run the converter once, even under make -j.
-$(SPP_DEMO_VIDEOS) &: $(VIDEO_SOURCE_DIR)/convert_videos.sh
-	@$(VIDEO_SOURCE_DIR)/convert_videos.sh mp4 $(SPP_DEMO_DIR) Stairs
 
 # Demo video sources are not a part of the core Scenescape stack; it joins the same "scenescape" Docker network so it
 # can reach the broker/ntpserv aliases and dlsps pipelines can be reached at

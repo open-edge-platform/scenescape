@@ -6,8 +6,8 @@
 # Streamer Pipeline Server pipelines, tools/detection_replay plays the videos
 # of rt-cam1_front_left and rt-cam2_back_right with their recorded detections and
 # publishes them over MQTT like detection-only pipelines (Live View frames
-# included). Started by `make demo-spp` next to the other SPP demo video sources
-# (same COMPOSE_PROJECT_NAME, so the "scenescape" network is shared).
+# included). Started by `make demo-spp` (same COMPOSE_PROJECT_NAME as the main
+# stack, so the "scenescape" network is shared).
 
 name: scenescape
 
