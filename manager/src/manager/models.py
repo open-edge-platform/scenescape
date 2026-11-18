@@ -1117,7 +1117,7 @@ class Cam(Sensor):
       kwargs["update_fields"] = set(update_fields) | {
         "transforms", "scene_x", "scene_y", "scene_z"
       }
-    if kwargs.get("update_fields") is None and not self._state.adding \
+    if settings.ENABLE_MLOPS_FLOW and kwargs.get("update_fields") is None and not self._state.adding \
         and not kwargs.get("force_insert"):
       kwargs["update_fields"] = self._fields_without_runtime_state()
 

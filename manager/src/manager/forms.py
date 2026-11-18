@@ -98,9 +98,10 @@ class CameraPipelineForm(forms.ModelForm):
   def clean_sensor_id(self):
     """Reject IDs that cannot be an MQTT topic level, as the REST API does."""
     sensor_id = self.cleaned_data.get('sensor_id')
-    error = camera_id_topic_error(sensor_id)
-    if error:
-      raise ValidationError(f"Camera ID {error}")
+    if settings.ENABLE_MLOPS_FLOW:
+      error = camera_id_topic_error(sensor_id)
+      if error:
+        raise ValidationError(f"Camera ID {error}")
     return sensor_id
 
 

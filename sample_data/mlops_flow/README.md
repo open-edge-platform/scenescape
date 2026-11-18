@@ -162,6 +162,10 @@ enable the MLOps Flow. Enable it with one of:
   containers rejoin ViPPET's network.
 - If ViPPET was recreated without the demo's proxy override, run
   `make configure-mlops-vippet` to reapply it without redeploying Scenescape.
+- If the DLSPS container restarts, the camera pipelines are not restarted.
+  Save each camera again to start its pipeline.
+- **Sync with ViPPET** restarts the pipeline of every camera whose pipeline
+  string changed.
 
 This override exposes the Scenescape broker and NTP server to all containers on
 ViPPET's network, and the broker to the host network. Use it for demos only.

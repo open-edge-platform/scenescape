@@ -677,7 +677,7 @@ def record_deleted_camera_instance(cam_pk: int) -> None:
   else:
     return
   transaction.on_commit(lambda: retry_pending_stops(
-    timeout_s=settings.DLSPS_STOP_TIMEOUT_S, entry_pk=entry.pk))
+    timeout_s=0, entry_pk=entry.pk), robust=True)
 
 
 def retry_pending_stops(timeout_s: float = 0, entry_pk: Optional[int] = None) -> None:

@@ -21,7 +21,7 @@ from manager.pipeline_runtime import (
   retry_pending_stops,
   sync_vippet_pipelines,
 )
-from manager.settings import _env_flag
+from manager.settings import _dlsps_stop_timeout, _env_flag
 
 INSTANCE_ID = UUID('11111111-1111-4111-8111-111111111111')
 HINT = settings.MLOPS_FLOW_DISABLED_HINT
@@ -50,6 +50,20 @@ class EnvFlagTests(TestCase):
     self.assertEqual(context['MLOPS_FLOW_DISABLED_HINT'], HINT)
     self.assertIn('--enable-mlops-flow', HINT)
     self.assertIn('ENABLE_MLOPS_FLOW=true', HINT)
+
+  def test_invalid_stop_timeout_uses_default_with_warning(self):
+    for value in ('', '10s', '-1', 'nan', 'inf', '-inf'):
+      with self.subTest(value=value), patch.dict('os.environ', {'DLSPS_STOP_TIMEOUT_S': value}):
+        with self.assertLogs('manager.settings', level='WARNING'):
+          self.assertEqual(_dlsps_stop_timeout(), 10.0)
+
+  def test_valid_and_unset_stop_timeouts(self):
+    with patch.dict('os.environ', {}, clear=True):
+      self.assertEqual(_dlsps_stop_timeout(), 10.0)
+    for value, expected in (('0', 0.0), ('2.5', 2.5), (' 12 ', 12.0)):
+      with self.subTest(value=value), patch.dict('os.environ', {'DLSPS_STOP_TIMEOUT_S': value}):
+        with self.assertNoLogs('manager.settings', level='WARNING'):
+          self.assertEqual(_dlsps_stop_timeout(), expected)
 
 
 @override_settings(ENABLE_MLOPS_FLOW=False)
@@ -192,6 +206,29 @@ class MlopsFlowDisabledTests(TestCase):
     self.assertEqual(response.status_code, 302)
     camera.refresh_from_db()
     self.assertIsNone(camera.pipeline)
+    self.assert_no_external_calls()
+
+  def test_camera_forms_accept_existing_mqtt_special_ids_when_disabled(self):
+    camera = self.make_camera()
+    for sensor_id in ('legacy/cam', 'legacy+cam', 'legacy#cam'):
+      camera.sensor_id = sensor_id
+      camera.save()
+      for form_class in (CamUpdateForm, CamCalibrateForm):
+        with self.subTest(sensor_id=sensor_id, form=form_class.__name__):
+          form = form_class(instance=camera)
+          data = {name: form[name].value() for name in form.fields
+                  if form[name].value() not in (None, False)}
+          bound = form_class(data=data, instance=camera)
+          self.assertTrue(bound.is_valid(), bound.errors)
+          bound.save()
+    self.assert_no_external_calls()
+
+  def test_saving_concurrently_deleted_camera_reinserts_when_disabled(self):
+    camera = self.make_camera()
+    Cam.objects.filter(pk=camera.pk).delete()
+    camera.name = 'Restored'
+    camera.save()
+    self.assertEqual(Cam.objects.get(pk=camera.pk).name, 'Restored')
     self.assert_no_external_calls()
 
   def test_deleting_camera_does_not_contact_dlsps(self):

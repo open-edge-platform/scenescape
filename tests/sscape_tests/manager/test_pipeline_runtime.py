@@ -10,7 +10,7 @@ from uuid import UUID
 
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
-from django.db import connection, connections, transaction
+from django.db import DatabaseError, connection, connections, transaction
 from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, \
   override_settings, skipUnlessDBFeature
 from django.urls import reverse
@@ -1032,6 +1032,30 @@ class PipelineLifecycleTests(CameraFixturesMixin, TransactionTestCase):
       self.assertTrue(PendingDLSPSStop.objects.filter(instance_id=OLD_ID).exists())
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
     self.assertFalse(PendingDLSPSStop.objects.exists())
+
+  def test_deletion_stop_does_not_wait_for_configured_timeout(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID)
+    self.state_after_stop = RUNNING
+    with override_settings(DLSPS_STOP_TIMEOUT_S=10):
+      with patch('manager.pipeline_runtime._stop_and_confirm',
+                 wraps=pipeline_runtime._stop_and_confirm) as stop:
+        camera.delete()
+    self.assertEqual(stop.call_args.kwargs['timeout_s'], 0)
+    self.assertTrue(PendingDLSPSStop.objects.filter(instance_id=OLD_ID).exists())
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+
+  def test_failed_deletion_stop_does_not_skip_controller_notification(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID)
+    with patch('manager.pipeline_runtime.retry_pending_stops',
+               side_effect=DatabaseError('stop retry failed')):
+      with patch('manager.models.sendUpdateCommand') as notify:
+        with self.assertLogs(level='ERROR') as logs:
+          with transaction.atomic():
+            camera.delete()
+    self.assertIn('stop retry failed', '\n'.join(logs.output))
+    notify.assert_called_once()
+    self.assertEqual(notify.call_args.kwargs['camera_data']['action'], 'delete')
+    self.assertTrue(PendingDLSPSStop.objects.filter(instance_id=OLD_ID).exists())
 
   def test_deleting_stale_camera_stops_instance_recorded_since_loading(self):
     for delete in ('instance', 'queryset', 'sensor cascade'):

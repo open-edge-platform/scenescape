@@ -356,18 +356,21 @@ docker compose exec manager python manage.py showmigrations
 - `bind_pipeline_to_camera` tokenizes the launch string (quotes, backslash escapes, `key = value`)
   and only rewrites `sscape_post_inference_data_publish` element tokens, never quoted text
 - Camera IDs are one MQTT topic level: `validators.camera_id_topic_error` is used by both
-  `CamSerializer` and `CameraPipelineForm.clean_sensor_id`
+  `CamSerializer` and `CameraPipelineForm.clean_sensor_id` (the UI form check applies only
+  when the MLOps Flow is enabled, preserving edits of legacy IDs when disabled)
 - `Cam.RUNTIME_FIELDS` (`dlsps_instance_id`, `dlsps_pipeline_digest`, `dlsps_launch_id`) are written
   only by `pipeline_runtime` (`_set_runtime`, a queryset update). `Cam.save()` without
-  `update_fields` skips them for existing rows, so a stale form or REST save cannot overwrite a
-  newer handle. Camera POSTs (`views._cameras_for`, in a transaction) and REST updates
+  `update_fields` skips them for existing rows when the MLOps Flow is enabled, so a stale form or
+  REST save cannot overwrite a newer handle. Camera POSTs (`views._cameras_for`, in a transaction) and REST updates
   (`CamSerializer.refresh_locked`) also lock and re-read the row before applying changes, so a
   stale save cannot revert a concurrently selected pipeline. The serializer refreshes the
   original ID/name snapshots too, so rename notifications describe the last committed values
 - A `pre_delete` signal on `Cam` (also fired for queryset and `Sensor` cascade deletes) re-reads
   the runtime fields under the row lock and writes a `PendingDLSPSStop` (instance id, or launch id
   for an unconfirmed start) in the deletion transaction; a launch-only entry stores the instance
-  id once resolved (merging into an entry that already covers it), so retries check that instance; the stop is attempted after commit and
+  id once resolved (merging into an entry that already covers it), so retries check that instance;
+  the stop is attempted after commit with `timeout_s=0` in a robust callback, so it does not
+  wait for teardown and a failure is logged without skipping controller notifications. It is
   retried (bounded, `MAX_PENDING_STOP_ATTEMPTS`) by `retry_pending_stops()` at the start of every
   reconcile and sync. A REST update that changes `sensor_id` reconciles the camera
   (`CamSerializer.rebind_camera_pipeline`; warnings are only logged). Deleting a `Pipeline` does not call DLSPS. Instances are not

@@ -127,7 +127,8 @@ Related events:
   applied one after another, each from the latest saved state.
 
 Before starting a replacement, Manager waits up to 10 seconds
-(`DLSPS_STOP_TIMEOUT_S` in the `web` environment) for DLSPS to report that the
+(`DLSPS_STOP_TIMEOUT_S` in the `web` environment; invalid, negative or non-finite
+values log a warning and use the 10-second default) for DLSPS to report that the
 old instance has ended. If it has not ended by then (DLSPS
 versions that cannot stop a `QUEUED` instance are asked again until it runs), or
 if DLSPS is unreachable, the old instance stays recorded, no new one is started,
