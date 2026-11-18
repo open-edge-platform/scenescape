@@ -31,7 +31,7 @@ class Image:
     return
 
   def getREST(self):
-    rest = RESTClient(self.url, self.rootCert, self.auth)
+    rest = RESTClient(self.url, rootcert=self.rootCert, auth=self.auth)
 
     data = rest.frame(self.cameraID, self.timestamp)
     log.debug("FRAME RESULT", data.statusCode, data.keys())
