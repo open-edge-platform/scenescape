@@ -211,6 +211,22 @@ python -m run_black_box_evaluation --association mahalanobis
 python -m run_black_box_evaluation --association both
 ```
 
+**Experimental observation processor** (disabled by default): every black-box YAML (euclidean and
+mahalanobis) has a `harness.config.observation_processor` block with `enabled: false`. Set
+`enabled: true` in a YAML, or pass `--observation-processor` to enable it for all configs of the
+session (run names get the suffix `-ObservationProcessor`); it combines with `--association`. The
+harness then starts the service container next to the tracker/controller, waits until it is SERVING and sets the experimental client flag, so the
+results can be compared with a legacy run of the same dataset. Both datasets have no scene
+mesh, so the service runs frustum-only (`mode: auto`).
+
+```bash
+python -m run_black_box_evaluation --observation-processor
+```
+
+Extra prerequisite: the `intel/scenescape-observation-processor` image (built from the
+observation processor service branch with `make -C observation_processor`), or another tag set
+in `observation_processor.image`.
+
 **Output structure**:
 
 ```
@@ -222,6 +238,7 @@ python -m run_black_box_evaluation --association both
       inputs.jsonl         # All input frames published to MQTT
       outputs.jsonl        # All tracker output frames collected from MQTT
       tracker_logs.txt     # Container stdout/stderr
+      observation_processor_logs.txt  # Only with the observation processor enabled
     evaluators/
       TrackEvalEvaluator/
       DiagnosticEvaluator/
