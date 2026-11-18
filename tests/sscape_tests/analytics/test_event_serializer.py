@@ -287,6 +287,16 @@ class TestEventSerializer:
 
     assert 'uncertainty' not in result
 
+  @pytest.mark.parametrize("uncertainty", [None, {}])
+  def test_uncertainty_inherited_from_info_is_dropped(self, uncertainty):
+    obj = _make_obj()
+    obj.info = {**(obj.info or {}), 'uncertainty': {'yaw': 0.5}}
+    obj.uncertainty = uncertainty
+
+    result = serialize_for_event(obj)
+
+    assert 'uncertainty' not in result
+
   @pytest.mark.parametrize("association_window", [None, {}])
   def test_association_window_absent_when_missing_or_empty(self, association_window):
     obj = _make_obj()

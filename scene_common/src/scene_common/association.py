@@ -25,10 +25,16 @@ DEFAULT_ASSOCIATION_CONFIG = {
 
 
 def add_uncertainty(obj_dict, obj):
-  """Copy the tracker's ``uncertainty`` (covariance of the published state) of ``obj`` into ``obj_dict`` when it has one."""
+  """Set the output ``uncertainty`` of ``obj`` (the tracker's covariance of the published state) in ``obj_dict``.
+
+  ``obj_dict`` may start from the incoming detection (``obj.info``), which can carry the ``uncertainty`` of
+  another tracker (a child scene). The field is authoritative on ``obj``: when it has none, the key is removed.
+  """
   uncertainty = getattr(obj, 'uncertainty', None)
   if uncertainty:
     obj_dict['uncertainty'] = uncertainty
+  else:
+    obj_dict.pop('uncertainty', None)
 
 
 def add_association_window(obj_dict, obj):

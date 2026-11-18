@@ -235,6 +235,16 @@ class TestDetectionsBuilder:
 
     assert 'uncertainty' not in detection
 
+  @pytest.mark.parametrize('uncertainty', [None, {}])
+  def test_prepare_obj_dict_drops_uncertainty_inherited_from_info(self, uncertainty):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.info = {**(obj.info or {}), 'uncertainty': {'yaw': 0.5}}
+    obj.uncertainty = uncertainty
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert 'uncertainty' not in detection
+
   def test_prepare_obj_dict_handles_chain_data_without_sensor_fields(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
     obj.chain_data = ChainData(regions=[], persist={}, publishedLocations=[])
