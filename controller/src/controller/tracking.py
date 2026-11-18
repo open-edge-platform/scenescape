@@ -42,7 +42,6 @@ class Tracking(Thread):
     self.queue = Queue()
     self.reid_config_data = reid_config_data if reid_config_data else {}
     self.uuid_manager = UUIDManager(reid_config_data=self.reid_config_data)
-    # Experimental observation processor bound to the scene (observation_processor.SceneObservationProcessor)
     self.observation_processor = None
     self._joined = False
     self._lifecycle_lock = Lock()

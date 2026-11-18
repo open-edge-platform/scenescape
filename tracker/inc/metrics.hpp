@@ -31,6 +31,7 @@ inline constexpr const char* kReasonRejectedLag = "rejected_lag";
 inline constexpr const char* kReasonRejectedInvalidCategory = "rejected_invalid_category";
 inline constexpr const char* kReasonDroppedQueueFull = "dropped_queue_full";
 inline constexpr const char* kReasonDroppedMaxWorkers = "dropped_max_workers";
+inline constexpr const char* kReasonDroppedProcessingError = "dropped_processing_error";
 
 // Metric name constants
 inline constexpr const char* kMetricMqttLatency = "tracker.mqtt.latency";
