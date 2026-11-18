@@ -78,6 +78,19 @@ def test_ingest_explicit_visibility_is_preserved():
   assert ingestion._objects['obj-1'].visibility == ['cam1']
 
 
+def test_ingest_preserves_uncertainty():
+  uncertainty = {'translation': [1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0], 'yaw': 0.1}
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person(uncertainty=uncertainty)], {})
+  assert ingestion._objects['obj-1'].uncertainty == uncertainty
+
+
+def test_ingest_omitted_uncertainty_is_none():
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person()], {})
+  assert ingestion._objects['obj-1'].uncertainty is None
+
+
 def test_ingest_explicit_empty_visibility_is_preserved():
   ingestion = SceneDataIngestion()
   ingestion.ingest('person', [_person(visibility=[])], {})

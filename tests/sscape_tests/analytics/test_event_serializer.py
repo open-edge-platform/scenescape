@@ -269,6 +269,24 @@ class TestEventSerializer:
 
     assert result['association_window'] == obj.association_window
 
+  def test_uncertainty_passed_through_when_present(self):
+    obj = _make_obj()
+    obj.uncertainty = {'translation': [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], 'yaw': 0.1}
+
+    result = serialize_for_event(obj)
+
+    assert result['uncertainty'] == obj.uncertainty
+
+  @pytest.mark.parametrize("uncertainty", [None, {}])
+  def test_uncertainty_absent_when_missing_or_empty(self, uncertainty):
+    obj = _make_obj()
+    if uncertainty is not None:
+      obj.uncertainty = uncertainty
+
+    result = serialize_for_event(obj)
+
+    assert 'uncertainty' not in result
+
   @pytest.mark.parametrize("association_window", [None, {}])
   def test_association_window_absent_when_missing_or_empty(self, association_window):
     obj = _make_obj()

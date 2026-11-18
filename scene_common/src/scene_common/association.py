@@ -24,6 +24,13 @@ DEFAULT_ASSOCIATION_CONFIG = {
 }
 
 
+def add_uncertainty(obj_dict, obj):
+  """Copy the tracker's ``uncertainty`` (covariance of the published state) of ``obj`` into ``obj_dict`` when it has one."""
+  uncertainty = getattr(obj, 'uncertainty', None)
+  if uncertainty:
+    obj_dict['uncertainty'] = uncertainty
+
+
 def add_association_window(obj_dict, obj):
   """Copy the tracker's ``association_window`` of ``obj`` into ``obj_dict`` when it has one."""
   association_window = getattr(obj, 'association_window', None)

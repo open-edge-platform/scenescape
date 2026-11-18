@@ -21,7 +21,7 @@ autocalibration/src/markerless_camera_calibration_controller.py	MarkerlessCamera
 autocalibration/src/polycam_to_images.py	transform_dataset	14
 cluster_analytics/src/cluster_analytics_context.py	ClusterAnalyticsContext::_publishTrackedClusters	15
 cluster_analytics/src/cluster_analytics_context.py	ClusterAnalyticsContext::analyze_object_clusters	33
-controller/src/controller/ilabs_tracking.py	IntelLabsTracking::from_tracked_object	21
+controller/src/controller/ilabs_tracking.py	IntelLabsTracking::from_tracked_object	19
 controller/src/controller/ilabs_tracking.py	IntelLabsTracking::mergeAlreadyTrackedObjects	16
 controller/src/controller/moving_object.py	MovingObject::mapObjectDetectionToWorld	25
 controller/src/controller/moving_object.py	MovingObject::setPersistentAttributes	25

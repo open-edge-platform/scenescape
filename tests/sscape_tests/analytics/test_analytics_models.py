@@ -61,6 +61,7 @@ class TestAnalyticsObject:
     assert obj.reid is None
     assert obj.visibility is None
     assert obj.association_window is None
+    assert obj.uncertainty is None
 
   def test_optional_fields_accept_arbitrary_values(self):
     sentinel = object()
@@ -135,6 +136,7 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.reid is None
     assert ao.visibility is None
     assert ao.association_window is None
+    assert ao.uncertainty is None
 
   def test_publishing_fields_carried_through_when_present(self):
     association_window = {'method': 'euclidean', 'shape': 'circle', 'radius_m': 2.0}
@@ -182,6 +184,14 @@ class TestMovingObjectToAnalyticsObject:
     ao = moving_object_to_analytics_object(self._source_object())
 
     assert isinstance(ao, AnalyticsObject)
+
+  def test_uncertainty_survives_conversion_into_event_payload(self):
+    from analytics.event_serializer import serialize_for_event
+
+    uncertainty = {'translation': [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], 'yaw': 0.1}
+    ao = moving_object_to_analytics_object(self._source_object(uncertainty=uncertainty))
+
+    assert serialize_for_event(ao)['uncertainty'] is uncertainty
 
   def test_association_window_survives_conversion_into_event_payload(self):
     from analytics.event_serializer import serialize_for_event

@@ -218,6 +218,23 @@ class TestDetectionsBuilder:
 
     assert 'association_window' not in detection
 
+  def test_prepare_obj_dict_includes_uncertainty(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.uncertainty = {'translation': [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], 'yaw': 0.1}
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert detection['uncertainty'] == obj.uncertainty
+
+  @pytest.mark.parametrize('uncertainty', [None, {}])
+  def test_prepare_obj_dict_omits_missing_or_empty_uncertainty(self, uncertainty):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.uncertainty = uncertainty
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert 'uncertainty' not in detection
+
   def test_prepare_obj_dict_handles_chain_data_without_sensor_fields(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
     obj.chain_data = ChainData(regions=[], persist={}, publishedLocations=[])
