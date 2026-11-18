@@ -181,6 +181,8 @@ class CacheManager:
                                       tracker["suspended_track_timeout_secs"]]
       scene_data["persist_attributes"] = tracker.get("persist_attributes", {})
       scene_data["association_config"] = tracker.get("association", DEFAULT_ASSOCIATION_CONFIG.copy())
+      if "filter" in tracker:
+        scene_data["filter_config"] = tracker["filter"]
     if self.reid_config_data:
       scene_data["reid_config_data"] = self.reid_config_data
     if getattr(self, 'pose_adjustment_config_data', {}):
