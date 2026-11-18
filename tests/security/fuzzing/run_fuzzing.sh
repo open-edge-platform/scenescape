@@ -223,12 +223,12 @@ def patch_camera_query_param(marker: str):
     if block is None:
         raise RuntimeError(f"Unable to find {marker}")
 
-    camera_parameter = 'primitives.restler_fuzzable_string("fuzzstring", quoted=False),\n    primitives.restler_static_string(" HTTP/1.1\\r\\n"),'
+    camera_parameter = 'primitives.restler_static_string("camera="),\n    primitives.restler_fuzzable_string("fuzzstring", quoted=False),'
     if block.count(camera_parameter) != 1:
         raise RuntimeError(f"Expected one camera query parameter in {marker}")
     block = block.replace(
         camera_parameter,
-        'primitives.restler_static_string(_camera_post_sensor_id.reader(), quoted=False),\n    primitives.restler_static_string(" HTTP/1.1\\r\\n"),',
+        'primitives.restler_static_string("camera="),\n    primitives.restler_static_string(_camera_post_sensor_id.reader(), quoted=False),',
         1,
     )
 
@@ -236,6 +236,22 @@ def patch_camera_query_param(marker: str):
 
 patch_camera_query_param("# Endpoint: /video, method: Get")
 patch_camera_query_param("# Endpoint: /frame, method: Get")
+
+# RESTler rewrites the spec's date-time example and drops zero fractional seconds,
+# but the manager only accepts timestamps with fractional seconds.
+frame_marker = "# Endpoint: /frame, method: Get"
+start, end, block = get_endpoint_block(text, frame_marker)
+if block is None:
+    raise RuntimeError(f"Unable to find {frame_marker}")
+block, timestamp_count = re.subn(
+    r'(primitives\.restler_static_string\("timestamp="\),\n\s*)'
+    r'primitives\.restler_fuzzable_string\("fuzzstring", quoted=False[^)]*\),',
+    r'\1primitives.restler_fuzzable_string("fuzzstring", quoted=False, examples=["2026-01-01T00:00:00.123Z"]),',
+    block,
+)
+if timestamp_count != 1:
+    raise RuntimeError(f"Expected one timestamp query parameter in {frame_marker}")
+text = text[:start] + block + text[end:]
 
 # /save-geospatial-snapshot requires a trailing slash;
 # RESTler strips trailing slashes during compilation so we patch the grammar.
