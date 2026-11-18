@@ -159,6 +159,7 @@ class TestAPI(FunctionalTest):
     getThings = self.getMethod('get{}s'.format(thing))
     self.thingNames = []
     self.thingUIDs = []
+    ownThings = None
 
     for test in testCases:
       expectedCode = test[1]
@@ -169,7 +170,11 @@ class TestAPI(FunctionalTest):
         res = getThings(nameFilter)
         assert res['results']
         self.allThings = res['results']
-    for thing in self.allThings:
+        if nameFilter and ownThings is None:
+          ownThings = res['results']
+    # Unfiltered lists include seeded data (e.g. the admin user) that must never be deleted.
+    assert ownThings, f"No {thing} created by this test was listed"
+    for thing in ownThings:
       self.thingNames.append(thing[self.nameField])
       self.thingUIDs.append(thing[self.uidField])
     return
@@ -235,20 +240,16 @@ class TestAPI(FunctionalTest):
     return
 
   def verifyThings(self):
-    try:
-      for thing in testCases:
-        self.verifyAPI(thing, testCases[thing])
-      self.exitCode = 0
-    finally:
-      self.recordTestResult()
+    for thing in testCases:
+      self.verifyAPI(thing, testCases[thing])
     return
 
 @pytest.mark.test_name("NEX-T10464")
-def test_api(scenescape_env, demo_scene, request, record_xml_attribute):
+def test_api(scenescape_env, demo_scene, request, record_xml_attribute, result_recorder):
   test = TestAPI(TEST_NAME, request, record_xml_attribute)
   test.sceneName = 'test_scene_1'
   test.verifyThings()
-  assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():
