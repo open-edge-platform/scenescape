@@ -621,7 +621,14 @@ class SceneController:
   def _processMovingObjectMessage(self, client, userdata, message):
 
     topic = PubSub.parseTopic(message.topic)
-    jdata = orjson.loads(message.payload.decode('utf-8'))
+    try:
+      jdata = orjson.loads(message.payload.decode('utf-8'))
+    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+      log.error(f"Invalid JSON payload on {message.topic}: {e}")
+      return
+    if not isinstance(jdata, dict):
+      log.error(f"Malformed payload on {message.topic}: expected JSON object")
+      return
 
     # Own hierarchy echo: this instance published to external/{own_uid}/+
     # and the wildcard subscription delivered it back. A local scene with
@@ -1343,7 +1350,14 @@ class SceneController:
     enables parent to visualize them.
     """
     topic = PubSub.parseTopic(message.topic)
-    msg = orjson.loads(message.payload.decode('utf-8'))
+    try:
+      msg = orjson.loads(message.payload.decode('utf-8'))
+    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+      log.error(f"Invalid event payload on {message.topic}: {e}")
+      return
+    if not isinstance(msg, dict) or not isinstance(msg.get('metadata'), dict):
+      log.error(f"Malformed event payload on {message.topic}")
+      return
 
     sender_id = topic['scene_id']
     sender = self.cache_manager.sceneWithID(sender_id)
@@ -1356,7 +1370,7 @@ class SceneController:
         sender = remote_sender
 
     if not hasattr(sender, 'parent') or sender.parent is None:
-      log.error("UNKNOWN PARENT", sender_id)
+      log.error(f"UNKNOWN PARENT: {sender_id}")
       return
 
     scene = self.cache_manager.sceneWithID(sender.parent)

@@ -68,3 +68,35 @@ class TestRepublishEvents:
     assert 'parent-1' in topic
     msg = orjson.loads(payload)
     assert msg['metadata']['from_child_scene'] == 'Demo'
+
+  def test_malformed_json_is_dropped_without_raising(self):
+    ctrl = _controller()
+    message = SimpleNamespace(topic=self._message('child-1').topic, payload=b'{not json')
+
+    ctrl.republishEvents(None, None, message)
+
+    ctrl.cache_manager.sceneWithID.assert_not_called()
+    ctrl.pubsub.publish.assert_not_called()
+
+  def test_non_object_payload_is_dropped_without_raising(self):
+    ctrl = _controller()
+
+    ctrl.republishEvents(None, None, self._message('child-1', payload=[1, 2]))
+
+    ctrl.pubsub.publish.assert_not_called()
+
+
+class TestWrapCallback:
+
+  def test_exception_in_callback_is_contained(self):
+    pubsub = PubSub.__new__(PubSub)
+    seen = []
+
+    def callback(client, userdata, message):
+      seen.append(client)
+      raise ValueError("boom")
+
+    wrapped = pubsub.wrapCallback(callback)
+
+    assert wrapped(None, None, SimpleNamespace(topic='a/b')) is None
+    assert seen == [pubsub]

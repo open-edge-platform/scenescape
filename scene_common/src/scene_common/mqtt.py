@@ -275,7 +275,15 @@ class PubSub(_PubSubTopicBase):
     def wrapper(*args, **kwargs):
       modified_args = list(args)
       modified_args[0] = self
-      return function(*modified_args, **kwargs)
+      try:
+        return function(*modified_args, **kwargs)
+      except Exception as e:
+        # An exception escaping a paho callback terminates the network loop,
+        # so one bad message must not take the service down.
+        topic = getattr(next((a for a in args if hasattr(a, 'topic')), None), 'topic', None)
+        log.error(f"Exception in MQTT callback {getattr(function, '__name__', function)}"
+                  f"{f' (topic {topic})' if topic else ''}: {type(e).__name__}: {e}")
+        return None
     return wrapper
 
   @staticmethod
