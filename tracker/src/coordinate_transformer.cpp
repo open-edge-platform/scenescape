@@ -155,7 +155,7 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
     }
 }
 
-ProjectedDetections
+ProcessedObservations
 CoordinateTransformer::transformDetections(std::span<const Detection> detections) const {
     const auto n = detections.size();
     if (n == 0)
@@ -241,8 +241,8 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 
     // Phase 4: Assemble world geometry, one entry per detection. Objects are constructed here,
     // outside the parallel loop: constructing them inside it doubles the time per batch.
-    ProjectedDetections result{std::vector<rv::tracking::TrackedObject>(n),
-                               std::vector<uint8_t>(n, 0)};
+    ProcessedObservations result{std::vector<rv::tracking::TrackedObject>(n),
+                                 std::vector<uint8_t>(n, 0)};
 
     const double cam_x = camera_origin_.x;
     const double cam_y = camera_origin_.y;
