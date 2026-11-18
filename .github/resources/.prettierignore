@@ -26,3 +26,4 @@
 
 # Recorded ground-truth locations of the SPP demo (generated, compact)
 **/sample_data/spp_demo/Rolling-terrain/gtLoc.json
+**/sample_data/spp_demo/Stairs-synthetic/gtLoc.json
