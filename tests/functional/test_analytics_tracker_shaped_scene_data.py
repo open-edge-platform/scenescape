@@ -13,6 +13,7 @@ Tracker envelope on data/scene and asserts Analytics emits ROI events."""
 import json
 import threading
 import time
+import uuid
 
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -26,8 +27,6 @@ from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import ANALYTICS_MQTT
 import pytest
 
-import pytest
-
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=ANALYTICS_MQTT,
   auth=AUTH_CONTROLLER,
@@ -36,22 +35,26 @@ SCENESCAPE_SPEC = FuncTestSpec(
 EVENT_WAIT = 20
 CONNECT_WAIT = 10
 GEOMETRY_SETTLE = 3
+NEGATIVE_WAIT = 5
+SCENE_MAP = "tests/resources/maps/HazardZoneSceneLarge.png"
+SCENE_SCALE = 100.0
 
 
 @pytest.mark.test_name("NEX-T29241")
-def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(demo_scene,
+def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(scene_factory,
     params, result_recorder):
   """! Analytics accepts Tracker DATA_SCENE envelopes and emits region events.
 
+  @param    scene_factory    Pytest fixture creating scenes removed on teardown.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
   """
   rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
   assert rest.authenticate(params["user"], params["password"])
 
-  scenes = rest.getScenes({"name": "Demo"})
-  assert scenes["count"] > 0, "Demo scene required"
-  scene_id = scenes["results"][0]["uid"]
+  # Not demo_scene: that fixture waits on a Tracker, which ANALYTICS_MQTT lacks.
+  scene_id = scene_factory(
+    "AnalyticsTrackerShape", map_image=SCENE_MAP, scale=SCENE_SCALE)["uid"]
 
   roi = rest.createRegion({
     "scene": scene_id,
@@ -123,6 +126,108 @@ def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(demo_scene,
     check_event_contains_data(events[0], "region")
     assert_event_objects_have_visibility(events[0])
     log.info(f"PASS: {len(events)} ROI event(s) from Tracker-shaped scene data")
+    result_recorder.success()
+  finally:
+    client.loopStop()
+    rest.deleteRegion(roi_uid)
+
+
+def _person_frame(scene_id):
+  """! Tracker-shaped person frame inside the ROI used by these tests."""
+  return {
+    "id": scene_id,
+    "name": "Demo",
+    "timestamp": get_iso_time(),
+    "objects": [
+      {
+        "id": "8cce2bc7-51fc-4a6e-8c5d-a73ac72d3eb2",
+        "category": "person",
+        "translation": [4.5, 3.2, 0.0],
+        "velocity": [0.0, 0.0, 0.0],
+        "size": [0.5, 0.5, 1.8],
+        "rotation": [0, 0, 0, 1],
+      }
+    ],
+  }
+
+
+@pytest.mark.test_name("NEX-T29242")
+def test_analytics_ignores_scene_data_for_unregistered_scene(scene_factory,
+    params, result_recorder):
+  """! Analytics emits no region events for a DATA_SCENE envelope with an unregistered scene id.
+
+  @param    scene_factory    Pytest fixture creating scenes removed on teardown.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  """
+  rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
+  assert rest.authenticate(params["user"], params["password"])
+
+  # Not demo_scene: that fixture waits on a Tracker, which ANALYTICS_MQTT lacks.
+  scene_id = scene_factory(
+    "AnalyticsScope", map_image=SCENE_MAP, scale=SCENE_SCALE)["uid"]
+  unregistered_id = str(uuid.uuid4())
+  assert unregistered_id != scene_id
+
+  roi = rest.createRegion({
+    "scene": scene_id,
+    "name": "UnregisteredSceneROI",
+    "points": ((1.38, 5.94), (1.17, 0.8), (7.41, 0.83), (7.35, 6.01)),
+  })
+  assert roi.statusCode == 201, f"ROI create failed: {roi.statusCode} {roi.errors}"
+  roi_uid = roi["uid"]
+
+  events = []
+  connected = threading.Event()
+
+  def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+      connected.set()
+      # Any region event for the unregistered scene, and the real ROI's events.
+      client.subscribe(PubSub.formatTopic(
+        PubSub.EVENT, region_type="+", event_type="+",
+        scene_id=unregistered_id, region_id="+"))
+      client.subscribe(PubSub.formatTopic(
+        PubSub.EVENT, region_type="region", event_type="+",
+        scene_id=scene_id, region_id=roi_uid))
+
+  def on_message(client, userdata, msg):
+    events.append(msg.topic)
+
+  client = PubSub(params["auth"], None, params["rootcert"],
+                  params["broker_url"], params["broker_port"])
+  client.onConnect = on_connect
+  client.onMessage = on_message
+  client.connect()
+  client.loopStart()
+
+  try:
+    assert connected.wait(CONNECT_WAIT), "MQTT connect timeout"
+    client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
+    time.sleep(GEOMETRY_SETTLE)
+
+    bogus_topic = PubSub.formatTopic(
+      PubSub.DATA_SCENE, scene_id=unregistered_id, thing_type="person")
+    for _ in range(6):
+      client.publish(bogus_topic, json.dumps(_person_frame(unregistered_id)))
+      time.sleep(0.15)
+    time.sleep(NEGATIVE_WAIT)
+
+    assert not events, f"Region events emitted for unregistered scene: {events}"
+
+    # Control: the same frames on the registered scene must still produce events,
+    # proving silence above came from the scene id and not a stalled Analytics.
+    scene_topic = PubSub.formatTopic(
+      PubSub.DATA_SCENE, scene_id=scene_id, thing_type="person")
+    for _ in range(6):
+      client.publish(scene_topic, json.dumps(_person_frame(scene_id)))
+      time.sleep(0.15)
+    deadline = time.time() + EVENT_WAIT
+    while time.time() < deadline and not events:
+      time.sleep(0.5)
+    assert events, f"Analytics produced no ROI events for the registered scene within {EVENT_WAIT}s"
+
+    log.info("PASS: no region events for unregistered scene id")
     result_recorder.success()
   finally:
     client.loopStop()
