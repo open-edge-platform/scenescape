@@ -982,6 +982,10 @@ configure-mlops-vippet: check-mlops-flow
 		| tr ',' '\n' | sed '/^mediaserver$$/d; /^$$/d' | sort -u | paste -sd,); \
 	VIPPET_DLSPS_NO_PROXY=$$(docker exec dlstreamer-pipeline-server sh -c 'printf "%s,%s" "$${no_proxy:-}" "$${NO_PROXY:-}"' \
 		| tr ',' '\n' | sed '/^mediaserver$$/d; /^$$/d' | sort -u | paste -sd,); \
+	VIPPET_IMAGE=$$(docker inspect -f '{{.Config.Image}}' vippet); \
+	DLSPS_IMAGE=$$(docker inspect -f '{{.Config.Image}}' dlstreamer-pipeline-server); \
+	VIPPET_HTTP_PROXY=$$(docker exec vippet printenv http_proxy || true); \
+	VIPPET_HTTPS_PROXY=$$(docker exec vippet printenv https_proxy || true); \
 	OVERRIDE="$(CURDIR)/$(MLOPS_FLOW_DIR)/compose.vippet-proxy-override.yml"; \
 	IFS=, read -ra COMPOSE_FILES <<< "$$FILES"; \
 	ARGS=(); \
@@ -990,9 +994,15 @@ configure-mlops-vippet: check-mlops-flow
 	done; \
 	echo "Configuring ViPPET and its DLSPS to bypass the proxy for the demo RTSP server..."; \
 	cd "$$DIR"; \
-	VIPPET_NO_PROXY="$$VIPPET_NO_PROXY" VIPPET_DLSPS_NO_PROXY="$$VIPPET_DLSPS_NO_PROXY" \
-		docker compose -p "$$PROJECT" "$${ARGS[@]}" -f "$$OVERRIDE" \
-		up -d --no-deps --wait --wait-timeout 120 vippet dlstreamer-pipeline-server
+	set -a; \
+	if [ -f .env ]; then . ./.env; fi; \
+	set +a; \
+	export http_proxy="$$VIPPET_HTTP_PROXY" https_proxy="$$VIPPET_HTTPS_PROXY"; \
+	export DLSPS2_IMAGE="$$DLSPS_IMAGE"; \
+	case "$${VIPPET_IMAGE##*/}" in *:*) export DOCKER_TAG="$${VIPPET_IMAGE##*:}" ;; esac; \
+	export VIPPET_NO_PROXY VIPPET_DLSPS_NO_PROXY; \
+	docker compose -p "$$PROJECT" "$${ARGS[@]}" -f "$$OVERRIDE" \
+		up -d --no-deps --no-build --pull never --wait --wait-timeout 120 vippet dlstreamer-pipeline-server
 
 .PHONY: demo-mlops-flow
 demo-mlops-flow: configure-mlops-vippet $(DEMO_BUILD:build=build-core)

@@ -54,6 +54,9 @@ DLSPS read-only at `/models`, then:
   [compose.vippet-proxy-override.yml](./compose.vippet-proxy-override.yml).
   The target discovers ViPPET's existing Compose project and files from its
   container labels; that project's directory must be accessible on this host.
+  It keeps the running containers' images (`DOCKER_TAG`, `DLSPS2_IMAGE`) and
+  proxy settings, and loads the project's `.env`; it never builds or pulls
+  images, so prebuilt-only (`make run-prebuilt`) setups are not changed.
   If the exclusion is missing, it recreates those two containers, interrupting
   any running ViPPET pipelines. No ViPPET source files are changed;
 - deploys Scenescape with
