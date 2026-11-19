@@ -144,7 +144,9 @@ records a unique launch attempt before contacting DLSPS. If the worker exits
 after the start, the next save can find the instance using that attempt.
 Deleting a camera queues the stop of its instance together with the deletion;
 a stop that cannot be confirmed right away is retried on later camera saves
-and syncs, up to 10 times.
+and syncs. After 10 unsuccessful attempts, the pending stop is retained and
+automatic retries are limited to once every five minutes. Demo shutdown retries
+pending stops immediately, including those in the cooldown period.
 
 Limitations:
 

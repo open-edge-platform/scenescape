@@ -16,12 +16,14 @@ import unicodedata
 import uuid
 from contextlib import ExitStack
 from dataclasses import dataclass, field
+from datetime import timedelta
 from http import HTTPStatus
 from typing import Callable, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from manager.dlsps import (
   DLSPS_URL_ENV,
@@ -47,6 +49,7 @@ STOP_POLL_INTERVAL_S = 0.5
 STATUS_DISPLAY_TIMEOUT_S = 2
 MAX_STATUS_MESSAGE_LENGTH = 300
 MAX_PENDING_STOP_ATTEMPTS = 10
+PENDING_STOP_RETRY_INTERVAL = timedelta(minutes=5)
 VIPPET_ID_SEPARATOR = "/"
 MAX_PIPELINE_NAME_LENGTH = Pipeline._meta.get_field('name').max_length
 MAX_FILTER_TAGS = 20
@@ -680,12 +683,13 @@ def record_deleted_camera_instance(cam_pk: int) -> None:
     timeout_s=0, entry_pk=entry.pk), robust=True)
 
 
-def retry_pending_stops(timeout_s: float = 0, entry_pk: Optional[int] = None) -> None:
-  """Retry stopping instances of deleted cameras; give up after ``MAX_PENDING_STOP_ATTEMPTS``.
+def retry_pending_stops(timeout_s: float = 0, entry_pk: Optional[int] = None,
+                        force: bool = False) -> None:
+  """Retry stopping instances of deleted cameras, respecting their retry cooldown.
 
   Each attempt requests the stop without waiting (unless ``timeout_s`` is set); a later attempt
   confirms that the instance ended. ``entry_pk`` limits the retry to one entry. Rows locked by a
-  concurrent retry are skipped.
+  concurrent retry are skipped. ``force`` bypasses the cooldown for shutdown.
   """
   if not mlops_flow_enabled():
     return
@@ -693,6 +697,8 @@ def retry_pending_stops(timeout_s: float = 0, entry_pk: Optional[int] = None) ->
     pending = PendingDLSPSStop.objects.select_for_update(skip_locked=True)
     if entry_pk is not None:
       pending = pending.filter(pk=entry_pk)
+    if not force:
+      pending = pending.filter(Q(next_retry_at__isnull=True) | Q(next_retry_at__lte=timezone.now()))
     pending = list(pending)
     if not pending:
       return
@@ -711,14 +717,13 @@ def _retry_pending_stop(client: DLSPSClient, entry: PendingDLSPSStop, timeout_s:
     log.info(f"Resolved the pending DLSPS stop of a deleted camera ({entry})")
     entry.delete()
     return
-  entry.attempts += 1
+  entry.attempts = min(entry.attempts + 1, MAX_PENDING_STOP_ATTEMPTS)
   if entry.attempts >= MAX_PENDING_STOP_ATTEMPTS:
-    log.error(f"Giving up stopping the DLSPS pipeline of a deleted camera ({entry}) "
-              f"after {entry.attempts} attempts; stop it manually")
-    entry.delete()
-    return
+    log.warning(f"DLSPS stop of a deleted camera ({entry}) remains unconfirmed after "
+                f"{entry.attempts} attempts; automatic retries are delayed")
+    entry.next_retry_at = timezone.now() + PENDING_STOP_RETRY_INTERVAL
   entry.last_error = "stop not confirmed"
-  entry.save(update_fields=['attempts', 'last_error'])
+  entry.save(update_fields=['attempts', 'last_error', 'next_retry_at'])
 
 
 def _stop_pending_entry(client: DLSPSClient, entry: PendingDLSPSStop, timeout_s: float) -> bool:
@@ -762,7 +767,7 @@ def stop_all_camera_instances() -> None:
         if cam.dlsps_instance_id is not None \
             and _stop_and_confirm(client, cam.dlsps_instance_id):
           _set_runtime(cam, None, None)
-  retry_pending_stops(timeout_s=settings.DLSPS_STOP_TIMEOUT_S)
+  retry_pending_stops(timeout_s=settings.DLSPS_STOP_TIMEOUT_S, force=True)
 
 
 def describe_camera_instance(cam: Cam) -> Optional[dict]:

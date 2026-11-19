@@ -371,8 +371,10 @@ docker compose exec manager python manage.py showmigrations
   id once resolved (merging into an entry that already covers it), so retries check that instance;
   the stop is attempted after commit with `timeout_s=0` in a robust callback, so it does not
   wait for teardown and a failure is logged without skipping controller notifications. It is
-  retried (bounded, `MAX_PENDING_STOP_ATTEMPTS`) by `retry_pending_stops()` at the start of every
-  reconcile and sync. A REST update that changes `sensor_id` reconciles the camera
+  retried by `retry_pending_stops()` at the start of every reconcile and sync. After
+  `MAX_PENDING_STOP_ATTEMPTS` failures, retain the entry and delay subsequent automatic retries
+  for five minutes; demo shutdown bypasses this cooldown. A REST update that changes `sensor_id`
+  reconciles the camera
   (`CamSerializer.rebind_camera_pipeline`; warnings are only logged). Deleting a `Pipeline` does not call DLSPS. Instances are not
   recreated after a DLSPS restart until the camera is saved
 - Camera pages show the live instance state via the `dlsps_instance_status` template tag

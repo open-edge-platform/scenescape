@@ -856,6 +856,7 @@ class PendingDLSPSStop(models.Model):
   attempts = models.PositiveIntegerField(default=0)
   last_error = models.TextField(blank=True, default="")
   created_at = models.DateTimeField(auto_now_add=True)
+  next_retry_at = models.DateTimeField(null=True, blank=True)
 
   def __str__(self):
     return str(self.instance_id or f"launch {self.launch_id}")

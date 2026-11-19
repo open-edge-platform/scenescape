@@ -4,6 +4,7 @@
 import hashlib
 import re
 import uuid
+from datetime import timedelta
 from threading import Event, Thread
 from unittest.mock import patch
 from uuid import UUID
@@ -14,6 +15,7 @@ from django.db import DatabaseError, connection, connections, transaction
 from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, \
   override_settings, skipUnlessDBFeature
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from manager.dlsps import (
@@ -1114,14 +1116,68 @@ class PipelineLifecycleTests(CameraFixturesMixin, TransactionTestCase):
     self.assertEqual(self.instances[OLD_ID][0], PipelineState.ABORTED)
     self.assertFalse(PendingDLSPSStop.objects.exists())
 
-  def test_pending_stop_gives_up_after_max_attempts(self):
+  def test_exhausted_pending_stop_backs_off_and_recovers(self):
     self.instances[OLD_ID] = (QUEUED, '')
-    PendingDLSPSStop.objects.create(instance_id=OLD_ID)
-    for _ in range(MAX_PENDING_STOP_ATTEMPTS - 1):
+    entry = PendingDLSPSStop.objects.create(instance_id=OLD_ID)
+    now = timezone.now()
+    with patch('manager.pipeline_runtime.timezone.now', return_value=now):
+      for _ in range(MAX_PENDING_STOP_ATTEMPTS):
+        retry_pending_stops()
+    entry.refresh_from_db()
+    self.assertEqual(entry.attempts, MAX_PENDING_STOP_ATTEMPTS)
+    self.assertEqual(entry.next_retry_at, now + pipeline_runtime.PENDING_STOP_RETRY_INTERVAL)
+    self.dlsps.reset_mock()
+    with patch('manager.pipeline_runtime.timezone.now',
+               return_value=entry.next_retry_at - timedelta(microseconds=1)):
       retry_pending_stops()
-    self.assertEqual(PendingDLSPSStop.objects.get().attempts, MAX_PENDING_STOP_ATTEMPTS - 1)
-    retry_pending_stops()
+    self.dlsps.get_pipeline_status.assert_not_called()
+    self.assertTrue(PendingDLSPSStop.objects.filter(pk=entry.pk).exists())
+    with patch('manager.pipeline_runtime.timezone.now', return_value=entry.next_retry_at):
+      retry_pending_stops()
+    entry.refresh_from_db()
+    self.assertEqual(entry.attempts, MAX_PENDING_STOP_ATTEMPTS)
+    self.assertEqual(entry.next_retry_at, now + 2 * pipeline_runtime.PENDING_STOP_RETRY_INTERVAL)
+    self.instances[OLD_ID] = (RUNNING, '')
+    self.dlsps.reset_mock()
+    with patch('manager.pipeline_runtime.timezone.now', return_value=entry.next_retry_at):
+      retry_pending_stops()
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
     self.assertFalse(PendingDLSPSStop.objects.exists())
+
+  def test_shutdown_retries_exhausted_stop_during_cooldown(self):
+    entry = PendingDLSPSStop.objects.create(
+      instance_id=OLD_ID, attempts=MAX_PENDING_STOP_ATTEMPTS,
+      next_retry_at=timezone.now() + timedelta(minutes=5))
+    self.instances[OLD_ID] = (RUNNING, '')
+    stop_all_camera_instances()
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+    self.assertFalse(PendingDLSPSStop.objects.filter(pk=entry.pk).exists())
+
+  def test_failed_shutdown_preserves_exhausted_stop(self):
+    entry = PendingDLSPSStop.objects.create(
+      instance_id=OLD_ID, attempts=MAX_PENDING_STOP_ATTEMPTS,
+      next_retry_at=timezone.now() + timedelta(minutes=5))
+    self.instances[OLD_ID] = (QUEUED, '')
+    with override_settings(DLSPS_STOP_TIMEOUT_S=0):
+      stop_all_camera_instances()
+    entry.refresh_from_db()
+    self.assertEqual(entry.attempts, MAX_PENDING_STOP_ATTEMPTS)
+    self.assertEqual(entry.last_error, 'stop not confirmed')
+    self.assertIsNotNone(entry.next_retry_at)
+
+  def test_launch_only_exhausted_stop_is_retained_and_retried(self):
+    entry = PendingDLSPSStop.objects.create(launch_id=NEW_ID,
+                                            attempts=MAX_PENDING_STOP_ATTEMPTS - 1)
+    self.instances[OLD_ID] = (RUNNING, '')
+    retry_pending_stops()
+    entry.refresh_from_db()
+    self.assertEqual((entry.instance_id, entry.launch_id, entry.attempts),
+                     (None, NEW_ID, MAX_PENDING_STOP_ATTEMPTS))
+    self.assertIsNotNone(entry.next_retry_at)
+    self.launches[OLD_ID] = 'first ! fakesink' + launch_marker(NEW_ID)
+    stop_all_camera_instances()
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+    self.assertFalse(PendingDLSPSStop.objects.filter(pk=entry.pk).exists())
 
   def test_launch_only_pending_stop_records_resolved_instance(self):
     PendingDLSPSStop.objects.create(launch_id=NEW_ID)

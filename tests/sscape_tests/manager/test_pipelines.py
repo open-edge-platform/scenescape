@@ -271,7 +271,7 @@ class PipelineTests(TestCase):
     executor = MigrationExecutor(connection)
     self.assertEqual(executor.loader.detect_conflicts(), {})
     self.assertEqual(executor.loader.graph.leaf_nodes('manager'),
-                     [('manager', '0012_dlsps_pipeline_integration')])
+                     [('manager', '0013_pending_stop_retry_cooldown')])
     state = executor.loader.project_state()
     historical = state.apps.get_model('manager', 'Pipeline')
     for name in ('id', 'name', 'pipeline', 'vippet_pipeline_id'):
@@ -291,6 +291,26 @@ class PipelineTests(TestCase):
 
 
 class PipelineMigrationTests(TransactionTestCase):
+
+  def test_retry_cooldown_migration_preserves_pending_stops(self):
+    old_target = [('manager', '0012_dlsps_pipeline_integration')]
+    new_target = [('manager', '0013_pending_stop_retry_cooldown')]
+    executor = MigrationExecutor(connection)
+    executor.migrate(old_target)
+    try:
+      old_apps = executor.loader.project_state(old_target).apps
+      instance_id = UUID('3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f')
+      entry = old_apps.get_model('manager', 'PendingDLSPSStop').objects.create(
+        instance_id=instance_id, attempts=9, last_error='unconfirmed')
+      executor = MigrationExecutor(connection)
+      executor.migrate(new_target)
+      apps = executor.loader.project_state(new_target).apps
+      migrated = apps.get_model('manager', 'PendingDLSPSStop').objects.get(pk=entry.pk)
+      self.assertEqual((migrated.instance_id, migrated.attempts, migrated.last_error,
+                        migrated.next_retry_at), (instance_id, 9, 'unconfirmed', None))
+    finally:
+      executor = MigrationExecutor(connection)
+      executor.migrate(executor.loader.graph.leaf_nodes())
 
   def test_upgrade_and_rollback_preserve_camera(self):
     old_target = [('manager', '0011_cam_pose_provenance')]
