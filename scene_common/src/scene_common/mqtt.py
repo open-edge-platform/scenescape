@@ -302,9 +302,11 @@ class PubSub(_PubSubTopicBase):
       try:
         return function(*modified_args, **kwargs)
       except Exception as e:
-        # An exception escaping a paho callback terminates the network loop,
-        # so one bad message must not take the service down.
-        topic = getattr(next((a for a in args if hasattr(a, 'topic')), None), 'topic', None)
+        # Contain message failures without hiding connection/setup failures.
+        message = args[2] if len(args) > 2 else kwargs.get('message')
+        if not hasattr(message, 'topic'):
+          raise
+        topic = message.topic
         log.error(f"Exception in MQTT callback {getattr(function, '__name__', function)}"
                   f"{f' (topic {topic})' if topic else ''}: {type(e).__name__}: {e}")
         return None
