@@ -401,7 +401,6 @@ class CameraCalibrationApi:
   def _request_scene_registration(self, scene_id: str, scene) -> dict:
     status = self.OpenApi.Status
     context = self.calibrationContext
-    context.registration_results.pop(scene.id, None)
     if context.scene_update_thread_wrapper(scene, map_update=True):
       outcome, message = status.REGISTERING, "Registration started"
     elif context.current_processing_scene == scene.id:
@@ -426,8 +425,6 @@ class CameraCalibrationApi:
     result = context.registration_results.get(scene.id)
     if result and result["status"] != status.SUCCESS:
       return status.ERROR, result["message"]
-    if result:
-      return status.SUCCESS, "Registration is complete"
     if strategy.is_map_updated(scene):
       if context.register_thread_lock.locked():
         return status.BUSY, "Registration is currently busy"

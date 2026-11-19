@@ -396,6 +396,25 @@ def test_registration_status_reports_worker_result(scene_id, status, message):
   assert response.get_json()["message"] == message
 
 
+def test_registration_retry_keeps_worker_error_when_busy(monkeypatch):
+  """A retry that cannot start a worker must not erase the last error."""
+  error = {"status": "error", "message": _TOO_FEW_TAGS}
+  monkeypatch.setitem(_api.calibrationContext.registration_results, _BUSY_SCENE, error)
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
+  assert response.get_json()["status"] == "busy"
+  assert _api.calibrationContext.registration_results[_BUSY_SCENE] == error
+
+
+def test_registration_status_prefers_pending_map_over_stale_success(monkeypatch):
+  """A newer map must not be reported as registered from an older success."""
+  monkeypatch.setitem(
+    _api.calibrationContext.registration_results, _BUSY_SCENE, {"status": "success"})
+  with _api.app.test_client() as client:
+    response = client.get(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration")
+  assert response.get_json()["status"] == "busy"
+
+
 def test_contract_inputs_cover_success_and_error():
   """Every documented operation needs a success payload and an error outcome."""
   documented = _documented_operation_ids()
