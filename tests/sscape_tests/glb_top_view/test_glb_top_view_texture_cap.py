@@ -37,7 +37,7 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
   with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
     renderer = _mock_offscreen_renderer()
     renderer_class.return_value = renderer
-    _, ppm = generateOrthoView(scene, str(path))
+    _, ppm, origin = generateOrthoView(scene, str(path))
     rendered_mesh = renderer.scene.add_geometry.call_args.args[1]
     extents = rendered_mesh.get_axis_aligned_bounding_box().get_extent().numpy()
     np.testing.assert_allclose(extents, [4 * scale[1], 2 * scale[0], 6 * scale[2]])
@@ -60,6 +60,10 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
     half_height = (top - bottom) / 2
     assert np.all(np.abs(bounds.get_box_points().numpy()[:, 0] - center[0]) <= half_width)
     assert np.all(np.abs(bounds.get_box_points().numpy()[:, 1] - center[1]) <= half_height)
+    np.testing.assert_allclose(origin, [center[0] + left, center[1] + bottom])
+    box_xy = bounds.get_box_points().numpy()[:, :2]
+    assert np.all(box_xy >= np.array(origin) - 1e-9)
+    assert np.all(box_xy <= np.array(origin) + [1024 / ppm, 768 / ppm] + 1e-9)
     assert near < eye[2] - max_z
     assert far > eye[2] - min_z
 
@@ -85,6 +89,7 @@ def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, 
     scene.save(send_update_command=False)
     scene.refresh_from_db()
     assert scene.scale == pytest.approx(1024 / 12)
+    assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((4.0, 15.5))
     assert scene.thumbnail.storage.exists(scene.thumbnail.name)
     source = SceneSourceMap.objects.create(
       scene=scene, method="scaled", file=scene.map.name,
@@ -92,6 +97,7 @@ def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, 
     activate_source_map(scene, source)
     scene.refresh_from_db()
     assert scene.scale == pytest.approx(1024 / 16)
+    assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((2.0, 14.0))
     assert scene.thumbnail.storage.exists(scene.thumbnail.name)
 
 # Wide atlas mirrors the multi-mesh GLB that triggered the crash; tall covers
