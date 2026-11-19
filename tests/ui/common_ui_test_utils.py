@@ -1490,13 +1490,17 @@ def set_3d_control_input_value(browser, input_element, value):
   )
 
 def get_3d_scene_object_state(browser, object_name):
-  """! Read a named 3D scene object and its optional text label."""
+  """! Read a named 3D scene object and its CSS2D thing label.
+  labelVisible is the label's rendered DOM state, so it only follows the
+  object's visibility after the CSS2DRenderer has drawn a frame.
+  """
   script = """
     const testScene = window.__testScene;
     if (!testScene) return {hooksAvailable: false};
     const node = testScene.getObjectByName(arguments[0]);
     if (!node) return {hooksAvailable: true, found: false};
-    const label = node.getObjectByName("textObject_" + arguments[0]);
+    const label = node.getObjectByName("thingLabel_" + arguments[0]);
+    const labelElement = label ? label.element : null;
     return {
       hooksAvailable: true,
       found: true,
@@ -1505,23 +1509,30 @@ def get_3d_scene_object_state(browser, object_name):
       color: node.material ? node.material.color.getHexString() : null,
       opacity: node.material ? node.material.opacity : null,
       hasLabel: !!label,
-      labelVisible: label ? (label.visible && node.visible) : null,
+      labelVisible: labelElement
+        ? (labelElement.isConnected && labelElement.style.display !== "none")
+        : null,
     };
   """
   return browser.execute_script(script, object_name)
 
-def wait_for_3d_scene_object_state(browser, object_name, predicate, timeout_seconds=30):
-  """! Poll a 3D scene object until its state satisfies a predicate."""
+def wait_for_3d_scene_object_state(browser, object_name, predicate, timeout_seconds=30,
+                                   description="the expected state"):
+  """! Poll a 3D scene object until its state satisfies a predicate.
+  @param    description                Expectation included in the timeout failure message.
+  @return   dict                       The first state that satisfied the predicate.
+  """
   deadline = time.monotonic() + timeout_seconds
-  last_state = None
-  while time.monotonic() < deadline:
-    last_state = get_3d_scene_object_state(browser, object_name)
-    if predicate(last_state):
-      return last_state
+  while True:
+    state = get_3d_scene_object_state(browser, object_name)
+    if predicate(state):
+      return state
+    if time.monotonic() >= deadline:
+      raise AssertionError(
+        f"3D object '{object_name}' did not reach {description} within "
+        f"{timeout_seconds}s; last state: {state}"
+      )
     time.sleep(0.25)
-  assert last_state is not None, f"3D object '{object_name}' state was never available"
-  assert predicate(last_state), f"3D object '{object_name}' never reached the expected state"
-  return last_state
 
 def wait_for_3d_control_enabled(browser, object_name, control_name="show", timeout_seconds=30):
   """! Poll until a named lil-gui checkbox control is enabled."""
