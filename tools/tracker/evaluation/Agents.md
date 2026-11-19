@@ -53,7 +53,7 @@ SPDX-License-Identifier: Apache-2.0
     - input camera videos (currently unused)
 - **RollingTerrainDataset**: `datasets/rolling_terrain_dataset.py`
   - dataset location in the repository: `../../../tests/system/metric/rolling_terrain_dataset/`
-  - one person on a non-planar surface, two cameras (`cam_front_left`, `cam_back_right`), irregular timestamps (~13 Hz, ≥ 58 ms apart; evaluation grid and time chunking at 20 fps; some same-camera frames may still share a chunk because of arrival jitter), scene mesh `scene.glb`
+  - one person on a non-planar surface, two cameras (`cam_front_left`, `cam_back_right`), irregular timestamps (~13 Hz, ≥ 58 ms apart; evaluation grid at 20 fps, time chunking at 15 fps; some same-camera frames may still share a chunk because of arrival jitter), scene mesh `scene.glb`
   - needs `position_mahalanobis` association and the observation processor in `full` mode (the mock Manager serves the mesh)
 - **WildtrackDataset**: `datasets/wildtrack_dataset.py`
   - dataset location in the repository: `../../../tests/system/metric/wildtrack_dataset/` (preprocessed with `datasets/wildtrack/preprocess.py`)

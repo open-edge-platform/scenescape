@@ -34,7 +34,7 @@ harness:
       enabled: true
       image: intel/scenescape-observation-processor:latest
       mode: full # auto | full | frustum_only (full uses the scene mesh)
-      timeout_ms: 40 # 1-100, keep below the chunk interval (50 ms)
+      timeout_ms: 40 # 1-100, keep below the chunk interval (66 ms at 15 fps)
       # ready_timeout_s: 60
 
 evaluators:

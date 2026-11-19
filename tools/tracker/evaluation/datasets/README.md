@@ -116,7 +116,7 @@ gt_path = dataset.get_ground_truth()
 
 **Key Features**:
 - Single scene: `rolling-terrain`, two cameras: `cam_front_left`, `cam_back_right`
-- 685 frames with irregular timestamps (about 13 Hz, at least 58 ms apart); `camera_fps: 20` is the evaluation frame grid and the matching time-chunking rate (every frame has its own grid cell; MQTT arrival jitter can still put two frames of one camera into the same chunk, so a few are overwritten)
+- 685 frames with irregular timestamps (about 13 Hz, at least 58 ms apart); `camera_fps: 20` is the evaluation frame grid (every frame has its own grid cell) and the shipped tracker configs chunk at 15 fps; MQTT arrival jitter can still put two frames of one camera into the same chunk, so a few are overwritten
 - Scene mesh `scene.glb`: `get_scene_config()` returns its absolute path as `map`, and the black-box mock Manager serves it to the observation processor
 - Ground truth in canonical JSONL format; z follows the terrain
 
