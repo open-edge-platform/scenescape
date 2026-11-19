@@ -57,6 +57,8 @@ class CameraCalibrationContext:
     self.socketio = None
 
     self.register_thread_lock = threading.Lock()
+    # Guards worker start/finish and pending_registrations so they change together.
+    self.registration_state_lock = threading.RLock()
     self.calibration_thread_lock = threading.Lock()
     self.current_processing_scene = None
 
@@ -81,19 +83,33 @@ class CameraCalibrationContext:
 
     @return  True if a registration thread started, False if already busy.
     """
-    if not self.register_thread_lock.acquire(blocking=False):
-      return False
-    self.current_processing_scene = sceneobj.id
-    self.pending_registrations.discard(sceneobj.id)
-    self.registration_results.pop(sceneobj.id, None)
-    try:
-      thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
-      thread.start()
-    except Exception:
-      self.current_processing_scene = None
-      self.register_thread_lock.release()
-      raise
-    return True
+    with self.registration_state_lock:
+      if not self.register_thread_lock.acquire(blocking=False):
+        return False
+      self.current_processing_scene = sceneobj.id
+      self.pending_registrations.discard(sceneobj.id)
+      self.registration_results.pop(sceneobj.id, None)
+      try:
+        thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
+        thread.start()
+      except Exception:
+        self.current_processing_scene = None
+        self.register_thread_lock.release()
+        raise
+      return True
+
+  def request_scene_registration(self, sceneobj):
+    """! Start registering a scene, or queue it while another scene registers.
+
+    @return  "active", "started", or "busy".
+    """
+    with self.registration_state_lock:
+      if self.current_processing_scene == sceneobj.id:
+        return "active"
+      if self.scene_update_thread_wrapper(sceneobj, map_update=True):
+        return "started"
+      self.pending_registrations.add(sceneobj.id)
+      return "busy"
 
   def process_scene(self, sceneobj, map_update):
     """! function processes the uploaded scene(image/glb) and publish back the
@@ -111,9 +127,16 @@ class CameraCalibrationContext:
       log.error(f"Error in register dataset : {e}")
       result = {"status": "error", "message": str(e)}
     finally:
-      self.record_registration_result(sceneobj.id, result)
-      self.current_processing_scene = None
-      self.register_thread_lock.release()
+      self.finish_registration(sceneobj.id, result)
+
+  def finish_registration(self, scene_id, result):
+    """! Record the worker result and free the worker slot in one step."""
+    with self.registration_state_lock:
+      try:
+        self.record_registration_result(scene_id, result)
+      finally:
+        self.current_processing_scene = None
+        self.register_thread_lock.release()
 
   def record_registration_result(self, scene_id, result):
     """! Store a scene's terminal registration result as success or error."""

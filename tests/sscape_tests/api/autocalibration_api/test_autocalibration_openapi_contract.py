@@ -198,6 +198,7 @@ class _ReadyContext:
     self.current_processing_scene = _ACTIVE_SCENE
     # The AprilTag worker saved map_processed, then rejected the scene for too few tags.
     self.registration_results = {
+      _SUCCESS_SCENE: {"status": "success"},
       _REJECTED_SCENE: {"status": "error", "message": _TOO_FEW_TAGS},
     }
     self.pending_registrations = set()
@@ -227,6 +228,15 @@ class _ReadyContext:
   def scene_update_thread_wrapper(self, scene, map_update=False):
     """Accept an update trigger only if the simulated worker is idle."""
     return not self.register_thread_lock.locked()
+
+  def request_scene_registration(self, scene):
+    """Start, report active, or queue the scene like the real context."""
+    if self.current_processing_scene == scene.id:
+      return "active"
+    if self.scene_update_thread_wrapper(scene, map_update=True):
+      return "started"
+    self.pending_registrations.add(scene.id)
+    return "busy"
 
   def record_registration_result(self, scene_id, result):
     """Store the synchronous registration result."""
@@ -438,6 +448,14 @@ def test_refused_scene_update_keeps_error_and_waits(monkeypatch):
     status = client.get(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration")
   assert context.registration_results[_BUSY_SCENE] == error
   assert status.get_json()["status"] == "busy"
+
+
+def test_registration_status_without_worker_result_is_not_success(monkeypatch):
+  """A processed map alone is not proof of success, e.g. after a service restart."""
+  monkeypatch.delitem(_api.calibrationContext.registration_results, _SUCCESS_SCENE)
+  with _api.app.test_client() as client:
+    response = client.get(f"{API_PREFIX}/scenes/{_SUCCESS_SCENE}/registration")
+  assert response.get_json()["status"] == "busy"
 
 
 def test_registration_status_prefers_pending_map_over_stale_success(monkeypatch):

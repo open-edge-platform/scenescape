@@ -407,22 +407,15 @@ class CameraCalibrationApi:
     return strategy.is_map_updated(scene)
 
   def _request_scene_update(self, scene):
-    context = self.calibrationContext
-    if not context.scene_update_thread_wrapper(scene, map_update=True):
-      context.pending_registrations.add(scene.id)
+    self.calibrationContext.request_scene_registration(scene)
 
   def _request_scene_registration(self, scene_id: str, scene) -> dict:
     status = self.OpenApi.Status
-    context = self.calibrationContext
-    if context.current_processing_scene == scene.id:
-      outcome, message = status.REGISTERING, "Registration is in progress"
-    elif context.scene_update_thread_wrapper(scene, map_update=True):
-      outcome, message = status.REGISTERING, "Registration started"
-    elif context.current_processing_scene == scene.id:
-      outcome, message = status.REGISTERING, "Registration is in progress"
-    else:
-      outcome, message = status.BUSY, "Registration is currently busy"
-      context.pending_registrations.add(scene.id)
+    outcome, message = {
+        "active": (status.REGISTERING, "Registration is in progress"),
+        "started": (status.REGISTERING, "Registration started"),
+        "busy": (status.BUSY, "Registration is currently busy"),
+    }[self.calibrationContext.request_scene_registration(scene)]
     response = {
         self.OpenApi.STATUS: outcome,
         self.OpenApi.SCENE_ID: scene_id,
@@ -449,7 +442,10 @@ class CameraCalibrationApi:
       if context.register_thread_lock.locked():
         return status.BUSY, "Registration is currently busy"
       return status.BUSY, "Registration is waiting to start"
-    return status.SUCCESS, "Registration is complete"
+    if result:
+      return status.SUCCESS, "Registration is complete"
+    # No worker result yet (e.g. after a restart): ask the client to POST rather than infer success.
+    return status.BUSY, "Registration is waiting to start"
 
   def _register_socket_events(self):
     @self.socketio.on("connect")
