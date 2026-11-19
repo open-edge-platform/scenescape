@@ -54,5 +54,5 @@ Stop it with `make demo-close`.
 
 - The cameras show Live View frames with the recorded boxes redrawn.
 
-- Open the scene in the web UI **3D view**: the track follows the terrain in height. 
+- Open the scene in the web UI **3D view**: the track follows the terrain in height.
   Use mouse to rotate 3D scene view and observe object tracking on the non-planar surface.
