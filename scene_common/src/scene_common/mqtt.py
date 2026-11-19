@@ -400,29 +400,29 @@ class PubSub(_PubSubTopicBase):
 
   def chunkReceived(self, client, userdata, message):
     # self and client are the same
-    self.receivedCondition.acquire()
+    # The condition must be released on malformed chunks so the waiter in
+    # receiveFile can re-acquire it and finish.
+    with self.receivedCondition:
+      headerLen = struct.calcsize(CHUNK_HEADER)
+      header = struct.unpack(CHUNK_HEADER, message.payload[:headerLen])
+      data = message.payload[headerLen:]
 
-    headerLen = struct.calcsize(CHUNK_HEADER)
-    header = struct.unpack(CHUNK_HEADER, message.payload[:headerLen])
-    data = message.payload[headerLen:]
+      totalSize = header[0]
+      chunkSize = header[1]
+      chunkCount = header[2]
+      idx = header[3]
 
-    totalSize = header[0]
-    chunkSize = header[1]
-    chunkCount = header[2]
-    idx = header[3]
+      if not hasattr(self, 'remaining') or self.remaining is None:
+        self.remaining = list(range(chunkCount))
+        self.received = bytearray(totalSize)
 
-    if not hasattr(self, 'remaining') or self.remaining is None:
-      self.remaining = list(range(chunkCount))
-      self.received = bytearray(totalSize)
+      if idx in self.remaining:
+        offset = idx * chunkSize
+        self.received[offset:offset + len(data)] = data
+        self.remaining.remove(idx)
+        self.complete = len(self.remaining) == 0
 
-    if idx in self.remaining:
-      offset = idx * chunkSize
-      self.received[offset:offset + len(data)] = data
-      self.remaining.remove(idx)
-      self.complete = len(self.remaining) == 0
-
-    self.receivedCondition.notify()
-    self.receivedCondition.release()
+      self.receivedCondition.notify()
     return
 
 def initializeMqttClient(**kwargs):

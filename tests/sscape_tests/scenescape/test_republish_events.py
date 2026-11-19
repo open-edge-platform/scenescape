@@ -3,6 +3,7 @@
 
 """Unit tests for Controller parent-event republish edge cases."""
 
+import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -131,3 +132,31 @@ class TestProcessMovingObjectMessageParsing:
       ctrl._processMovingObjectMessage(None, None, self._message(orjson.dumps(valid)))
 
     ctrl.schema_val.validateMessage.assert_called_once_with('detector', valid)
+
+
+def _lockIsFreeForOtherThread(condition):
+  """Condition uses an RLock, so only another thread can detect a leaked lock."""
+  result = []
+
+  def attempt():
+    acquired = condition.acquire(timeout=0.5)
+    if acquired:
+      condition.release()
+    result.append(acquired)
+
+  thread = threading.Thread(target=attempt)
+  thread.start()
+  thread.join()
+  return result[0]
+
+
+class TestMalformedChunkReleasesCondition:
+
+  def test_malformed_chunk_releases_condition(self):
+    pubsub = PubSub.__new__(PubSub)
+    pubsub.receivedCondition = threading.Condition()
+
+    wrapped = pubsub.wrapCallback(pubsub.chunkReceived)
+    wrapped(None, None, SimpleNamespace(topic='t', payload=b'\x00'))
+
+    assert _lockIsFreeForOtherThread(pubsub.receivedCondition)
