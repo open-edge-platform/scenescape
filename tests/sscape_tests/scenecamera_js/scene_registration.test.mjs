@@ -62,7 +62,12 @@ function startRegistration(context, responses) {
 }
 
 test("the 3D view shows registration progress and enables the same camera when ready", async (context) => {
-  const view = startRegistration(context, ["registering", "busy", "success"]);
+  const view = startRegistration(context, [
+    "registering",
+    "registering",
+    "registering",
+    "success",
+  ]);
   await setImmediate();
   assert.equal(view.camera.enabled, false);
   assert.deepEqual(view.notifications, [
@@ -84,6 +89,7 @@ test("the 3D view shows registration progress and enables the same camera when r
     [`${API}/status`, "GET"],
     [REGISTRATION, "POST"],
     [REGISTRATION, "GET"],
+    [REGISTRATION, "POST"],
     [REGISTRATION, "GET"],
   ]);
 });
@@ -124,9 +130,9 @@ test("the 3D view waits for another scene, then registers this scene", async (co
   );
 });
 
-test("an unsuccessful registration leaves Auto Calibrate disabled", async (context) => {
+test("a failed registration result leaves Auto Calibrate disabled", async (context) => {
   context.mock.method(console, "warn", () => {});
-  const view = startRegistration(context, ["registering", "registering"]);
+  const view = startRegistration(context, ["registering", "error"]);
   await setImmediate();
   await view.poll();
   await view.done;

@@ -49,6 +49,7 @@ class CameraCalibrationContext:
     }
 
     self.calibration_results = {}
+    self.registration_results = {}
     self.socket_clients = {}
     self.socket_scene_clients = {}
     self.socketio = None
@@ -81,6 +82,7 @@ class CameraCalibrationContext:
     if not self.register_thread_lock.acquire(blocking=False):
       return False
     self.current_processing_scene = sceneobj.id
+    self.registration_results.pop(sceneobj.id, None)
     try:
       thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
       thread.start()
@@ -98,14 +100,29 @@ class CameraCalibrationContext:
 
     @return  None
     """
+    result = None
     try:
       strategy = self.scene_strategies[sceneobj.camera_calibration]
-      strategy.process_scene_for_calibration(sceneobj, map_update)
+      result = strategy.process_scene_for_calibration(sceneobj, map_update)
     except (FileNotFoundError, KeyError) as e:
       log.error(f"Error in register dataset : {e}")
+      result = {"status": "error", "message": str(e)}
     finally:
+      self.record_registration_result(sceneobj.id, result)
       self.current_processing_scene = None
       self.register_thread_lock.release()
+
+  def record_registration_result(self, scene_id, result):
+    """! Store a scene's terminal registration result as success or error."""
+    status = result.get("status") if isinstance(result, dict) else None
+    if status == "success":
+      self.registration_results[scene_id] = {"status": "success"}
+    else:
+      message = result.get("message", status) if isinstance(result, dict) else None
+      self.registration_results[scene_id] = {
+          "status": "error",
+          "message": message or "Scene registration failed",
+      }
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """

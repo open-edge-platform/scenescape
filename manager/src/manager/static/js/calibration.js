@@ -127,15 +127,10 @@ export async function registerSceneFor3DView(sceneId, sceneCameras, toast) {
         progressStatus = status;
       }
 
-      do {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        registration = await getSceneRegistrationStatus(sceneId);
-      } while (registration.status === "busy");
-
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      registration = await getSceneRegistrationStatus(sceneId);
+      // POST is idempotent while this scene registers and restarts it when idle.
       if (registration.status === "registering") {
-        if (status === "registering") {
-          throw new Error("Scene registration did not complete");
-        }
         registration = await registerScene(sceneId);
       }
     }

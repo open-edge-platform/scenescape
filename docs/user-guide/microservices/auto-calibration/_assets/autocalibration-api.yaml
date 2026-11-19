@@ -428,7 +428,10 @@ paths:
 
     get:
       summary: Get scene registration status
-      description: Checks the status of scene registration
+      description: >-
+        Checks the status of scene registration. When the last registration
+        attempt for the scene failed (for example, too few AprilTags), returns
+        `error` with the failure reason even if the map was processed.
       operationId: getSceneRegistrationStatus
       parameters:
         - name: sceneId

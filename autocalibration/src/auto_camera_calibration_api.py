@@ -401,6 +401,7 @@ class CameraCalibrationApi:
   def _request_scene_registration(self, scene_id: str, scene) -> dict:
     status = self.OpenApi.Status
     context = self.calibrationContext
+    context.registration_results.pop(scene.id, None)
     if context.scene_update_thread_wrapper(scene, map_update=True):
       outcome, message = status.REGISTERING, "Registration started"
     elif context.current_processing_scene == scene.id:
@@ -415,6 +416,23 @@ class CameraCalibrationApi:
     if outcome == status.BUSY:
       response["sceneName"] = getattr(scene, "name", None)
     return response
+
+  def _scene_registration_status(self, scene, strategy):
+    status = self.OpenApi.Status
+    context = self.calibrationContext
+    if context.current_processing_scene == scene.id:
+      return status.REGISTERING, "Registration is in progress"
+    # map_processed can be saved before validation fails, so map freshness is not proof of success.
+    result = context.registration_results.get(scene.id)
+    if result and result["status"] != status.SUCCESS:
+      return status.ERROR, result["message"]
+    if result:
+      return status.SUCCESS, "Registration is complete"
+    if strategy.is_map_updated(scene):
+      if context.register_thread_lock.locked():
+        return status.BUSY, "Registration is currently busy"
+      return status.REGISTERING, "Registration is in progress"
+    return status.SUCCESS, "Registration is complete"
 
   def _register_socket_events(self):
     @self.socketio.on("connect")
@@ -523,6 +541,7 @@ class CameraCalibrationApi:
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
         result = strategy.process_scene_for_calibration(scene)
+        self.calibrationContext.record_registration_result(scene.id, result)
         status = result.get(self.OpenApi.STATUS, self.OpenApi.Status.ERROR) if result else self.OpenApi.Status.ERROR
 
         if status == self.OpenApi.Status.SUCCESS:
@@ -548,18 +567,7 @@ class CameraCalibrationApi:
       scene = self._get_scene(sceneId)
       self._validate_scene_for_operation(scene, "queried")
       strategy = self._get_calibration_strategy(scene)
-
-      if strategy.is_map_updated(scene):
-        if self.calibrationContext.register_thread_lock.locked():
-          status = self.OpenApi.Status.BUSY
-          message = "Registration is currently busy"
-        else:
-          status = self.OpenApi.Status.REGISTERING
-          message = "Registration is in progress"
-      else:
-        status = self.OpenApi.Status.SUCCESS
-        message = "Registration is complete"
-
+      status, message = self._scene_registration_status(scene, strategy)
       response = {
           self.OpenApi.STATUS: status,
           self.OpenApi.SCENE_ID: sceneId,
@@ -580,6 +588,7 @@ class CameraCalibrationApi:
 
       if strategy.is_map_updated(scene):
         strategy.reset_scene(scene)
+        self.calibrationContext.registration_results.pop(scene.id, None)
         self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202

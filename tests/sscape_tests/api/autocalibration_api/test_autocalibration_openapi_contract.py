@@ -49,6 +49,8 @@ _NO_STRATEGY_SCENE = "55555555-5555-4555-8555-555555555555"
 _MANUAL_SCENE = "66666666-6666-4666-8666-666666666666"
 _CAMERA_SCENE = "77777777-7777-4777-8777-777777777777"
 _ACTIVE_SCENE = "88888888-8888-4888-8888-888888888888"
+_REJECTED_SCENE = "99999999-9999-4999-8999-999999999999"
+_TOO_FEW_TAGS = "Cannot auto calibrate. Check scene to ensure there are at least 4 april tags"
 
 _CAM_SUCCESS = "atag-qcam1"
 _CAM_STORED = "atag-qcam-stored"
@@ -176,6 +178,7 @@ class _ReadyContext:
       _REGISTERING_SCENE: _Scene(_REGISTERING_SCENE, _MARKERLESS),
       _BUSY_SCENE: _Scene(_BUSY_SCENE, _MARKERLESS),
       _ACTIVE_SCENE: _Scene(_ACTIVE_SCENE, _MARKERLESS),
+      _REJECTED_SCENE: _Scene(_REJECTED_SCENE, _APRILTAG),
       _NO_STRATEGY_SCENE: _Scene(_NO_STRATEGY_SCENE, _MISSING_STRATEGY),
       _MANUAL_SCENE: _Scene(_MANUAL_SCENE, _MANUAL),
     }
@@ -193,6 +196,10 @@ class _ReadyContext:
     }
     self.register_thread_lock = _ViewLock({_BUSY_SCENE, _ACTIVE_SCENE})
     self.current_processing_scene = _ACTIVE_SCENE
+    # The AprilTag worker saved map_processed, then rejected the scene for too few tags.
+    self.registration_results = {
+      _REJECTED_SCENE: {"status": "error", "message": _TOO_FEW_TAGS},
+    }
     self.calibration_thread_lock = _ViewLock({_CAM_BUSY})
     self.calibration_results = _Results({
       _CAM_SUCCESS: {
@@ -219,6 +226,10 @@ class _ReadyContext:
   def scene_update_thread_wrapper(self, scene, map_update=False):
     """Accept an update trigger only if the simulated worker is idle."""
     return not self.register_thread_lock.locked()
+
+  def record_registration_result(self, scene_id, result):
+    """Store the synchronous registration result."""
+    self.registration_results[scene_id] = result
 
   def calibrate_camera_thread_wrapper(self, scene, camera_id, intrinsics, frame):
     """Accept calibration, or fail for the camera that must return 500."""
@@ -281,6 +292,8 @@ _CONTRACT_INPUTS = [
          {"sceneId": _REGISTERING_SCENE}),
   _input("registration-status-busy", "getSceneRegistrationStatus", "success",
          {"sceneId": _BUSY_SCENE}),
+  _input("registration-status-rejected", "getSceneRegistrationStatus", "success",
+         {"sceneId": _REJECTED_SCENE}),
   _input("registration-status-missing", "getSceneRegistrationStatus", "error",
          {"sceneId": _MISSING_SCENE}),
   _input("registration-status-no-strategy", "getSceneRegistrationStatus", "error",
@@ -366,6 +379,21 @@ def test_registration_distinguishes_active_scene(scene_id, http_status, status):
     response = client.post(f"{API_PREFIX}/scenes/{scene_id}/registration", json={})
   assert response.status_code == http_status
   assert response.get_json()["status"] == status
+
+
+@pytest.mark.parametrize("scene_id,status,message", [
+  (_REJECTED_SCENE, "error", _TOO_FEW_TAGS),
+  (_ACTIVE_SCENE, "registering", "Registration is in progress"),
+  (_BUSY_SCENE, "busy", "Registration is currently busy"),
+  (_SUCCESS_SCENE, "success", "Registration is complete"),
+])
+def test_registration_status_reports_worker_result(scene_id, status, message):
+  """A processed map is not success when the worker rejected the scene."""
+  with _api.app.test_client() as client:
+    response = client.get(f"{API_PREFIX}/scenes/{scene_id}/registration")
+  assert response.status_code == 200
+  assert response.get_json()["status"] == status
+  assert response.get_json()["message"] == message
 
 
 def test_contract_inputs_cover_success_and_error():
