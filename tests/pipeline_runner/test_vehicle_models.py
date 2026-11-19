@@ -44,7 +44,6 @@ def _apply_marks(scenario: PipelineScenario):
   marks = [getattr(pytest.mark, m) for m in scenario.marks]
   return pytest.param(scenario, marks=marks, id=scenario.id)
 
-@pytest.mark.usefixtures("install_shared_models")
 class TestVehiclePipelines:
   """Integration tests for vehicle-detection model chains on car-detection.ts."""
 
