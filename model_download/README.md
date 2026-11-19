@@ -31,7 +31,7 @@ to check model initialization.
 - `MODEL_DOWNLOADER_IMAGE` (default: `intel/model-download:latest`)
 - `MODEL_DOWNLOADER_URL` (default: `http://127.0.0.1:8200`)
 - `MODEL_CONFIG_FILE` (default: `models.json`; shared model download and Scenescape config metadata)
-- `MODEL_DOWNLOADER_CMD` (model_downloader startup arguments; default: `--plugins omz,huggingface`)
+- `MODEL_DOWNLOADER_CMD` (model_downloader startup arguments; default: `--plugins omz,huggingface,ultralytics`)
 
 > [!NOTE]
 > In proxy-enabled environments, set explicit loopback hosts in `NO_PROXY` / `no_proxy`.
