@@ -364,7 +364,7 @@ def install_shared_models(request, repo_root):
     )
     logger.info("Shared models volume ready.")
   except Exception as exc:
-    pytest.exit(f"Model installation failed: {exc}")
+    pytest.fail(f"Model installation failed: {exc}")
 
   yield
 
