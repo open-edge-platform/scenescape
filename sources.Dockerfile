@@ -17,6 +17,7 @@ RUN apt-get source --download-only \
     apache2-bin \
     apache2-data \
     apache2-utils \
+    apt \
     armadillo \
     bzip2 \
     ca-certificates \
@@ -40,6 +41,7 @@ RUN apt-get source --download-only \
     hdf5 \
     icu \
     jbigkit \
+    libapt-pkg6.0 \
     libarchive13 \
     libasound2 \
     libasound2-data \
@@ -101,6 +103,7 @@ RUN apt-get source --download-only \
     liblcms2-2 \
     libldap-2.5-0 \
     libltdl7 \
+    liblzma5 \
     libmbedcrypto7 \
     libmp3lame0 \
     libmpg123-0 \
@@ -141,6 +144,7 @@ RUN apt-get source --download-only \
     libsphinxbase3 \
     libsrt1.5-gnutls \
     libssh-gcrypt-4 \
+    libssl3 \
     libsvtav1enc1 \
     libswresample4 \
     libswscale6 \
@@ -175,6 +179,7 @@ RUN apt-get source --download-only \
     numactl \
     ogdi-dfsg \
     opencv \
+    openssl \
     perl \
     poppler \
     procps \
@@ -199,6 +204,7 @@ WORKDIR /sources/python
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates git
 RUN : \
     ; git clone --depth 1 https://github.com/certifi/python-certifi \
+    ; git clone --depth 1 https://github.com/dranjan/python-plyfile \
     ; git clone --depth 1 https://github.com/eclipse-paho/paho.mqtt.python \
     ; git clone --depth 1 https://github.com/ijl/orjson \
     ; git clone --depth 1 https://github.com/jab/bidict \
