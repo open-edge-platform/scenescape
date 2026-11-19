@@ -34,7 +34,9 @@ export default function Toast() {
     );
 
     document.getElementById("toast-area").appendChild(toast);
-    $("." + runtimeToastClass).toast({ delay: delay });
+    $("." + runtimeToastClass).toast(
+      delay === null ? { autohide: false } : { delay },
+    );
     $("." + runtimeToastClass).toast("show");
 
     document

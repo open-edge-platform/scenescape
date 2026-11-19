@@ -90,6 +90,85 @@ async function registerScene(sceneId) {
   }
 }
 
+async function getSceneRegistrationStatus(sceneId) {
+  const response = await fetch(
+    `${AUTOCALIB_PROXY_BASE}/scenes/${sceneId}/registration`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Registration status unavailable (HTTP ${response.status})`,
+    );
+  }
+  return response.json();
+}
+
+export async function registerSceneFor3DView(sceneId, sceneCameras, toast) {
+  const toastId = "scene-registration-toast";
+  const resultToastDelay = 10000;
+  let progressStatus;
+  try {
+    const response = await getCalibrationServiceStatus();
+    if (response?.status !== "running") return;
+
+    let registration = await registerScene(sceneId);
+    while (["registering", "busy"].includes(registration.status)) {
+      const status = registration.status;
+      if (status !== progressStatus) {
+        const message =
+          status === "registering"
+            ? "Processing the scene data to enable auto calibration"
+            : "Another scene is being registered. Waiting to register this scene.";
+        if (progressStatus) {
+          toast.updateToast(toastId, message);
+        } else {
+          toast.showToast(message, "default", toastId, null);
+        }
+        progressStatus = status;
+      }
+
+      do {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        registration = await getSceneRegistrationStatus(sceneId);
+      } while (registration.status === "busy");
+
+      if (registration.status === "registering") {
+        if (status === "registering") {
+          throw new Error("Scene registration did not complete");
+        }
+        registration = await registerScene(sceneId);
+      }
+    }
+
+    if (registration.status !== "success") {
+      throw new Error(registration.message || "Scene registration failed");
+    }
+    for (const [key, camera] of Object.entries(sceneCameras)) {
+      if (key !== "undefined") camera.enableAutoCalibration(true);
+    }
+    if (progressStatus) {
+      document.getElementById(toastId)?.remove();
+      toast.showToast(
+        "Dataset registered",
+        "success",
+        "None",
+        resultToastDelay,
+      );
+    }
+  } catch (error) {
+    console.warn("Scene registration failed:", error);
+    if (progressStatus) {
+      document.getElementById(toastId)?.remove();
+      toast.showToast(
+        "Scene registration could not be completed",
+        "danger",
+        "None",
+        resultToastDelay,
+      );
+    }
+  }
+}
+
 function clearRegistrationRetry(btn) {
   if (btn) {
     delete btn.dataset.registrationRetry;
@@ -315,5 +394,6 @@ export {
   getCalibrationServiceStatus,
   startCameraCalibration,
   registerScene,
+  getSceneRegistrationStatus,
   requestSceneRegistration,
 };

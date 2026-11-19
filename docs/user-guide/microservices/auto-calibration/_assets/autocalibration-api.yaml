@@ -392,13 +392,13 @@ paths:
                     sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
                     message: "Error details"
                 busy:
-                  summary: Registration is busy
+                  summary: Another scene is being registered
                   value:
                     status: "busy"
                     sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
                     message: "Registration is currently busy"
         "202":
-          description: Registration started asynchronously
+          description: Registration started asynchronously or is already in progress for this scene
           content:
             application/json:
               schema:

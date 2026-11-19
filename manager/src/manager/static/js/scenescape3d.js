@@ -17,10 +17,7 @@ import { SetupInteractions } from "/static/js/interactions.js";
 import Scene from "/static/js/thing/scene.js";
 import { Draw } from "/static/js/draw.js";
 import Toast from "/static/js/toast.js";
-import {
-  getCalibrationServiceStatus,
-  registerScene,
-} from "/static/js/calibration.js";
+import { registerSceneFor3DView } from "/static/js/calibration.js";
 
 import {
   initializeOpencv,
@@ -304,6 +301,7 @@ function main() {
     }
 
     connectMQTT();
+    autoCalibrationSetup(sceneThingManagers.things.camera.obj);
 
     refreshGlobalCameraPanelControls();
 
@@ -443,8 +441,6 @@ function main() {
             cameraManager.sceneCameras[key].setMQTTClient(client, appName);
           }
         }
-
-        autoCalibrationSetup();
       });
     }
 
@@ -543,28 +539,18 @@ function main() {
     }
   }
 
-  async function autoCalibrationSetup() {
+  function autoCalibrationSetup(cameraManager) {
+    if (!isStaff) return;
     if (document.getElementById("camera_calib_strategy").value == "Manual") {
       for (const key in cameraManager.sceneCameras) {
         if (key !== "undefined") {
           cameraManager.sceneCameras[key].hideAutoCalibrateButton();
         }
       }
-    } else {
-      const response = await getCalibrationServiceStatus();
-      if (response.status === "running") {
-        const responseRegister = await registerScene(sceneID);
-        if (responseRegister.status === "success") {
-          for (const key in cameraManager.sceneCameras) {
-            if (key !== "undefined") {
-              if (isStaff) {
-                cameraManager.sceneCameras[key].enableAutoCalibration(true);
-              }
-            }
-          }
-        }
-      }
+      return;
     }
+
+    registerSceneFor3DView(sceneID, cameraManager.sceneCameras, toast);
   }
 
   function handleMQTTMessage(topic, data) {

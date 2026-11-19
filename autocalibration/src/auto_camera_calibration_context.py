@@ -72,18 +72,23 @@ class CameraCalibrationContext:
     return
 
   def scene_update_thread_wrapper(self, sceneobj, map_update=False):
-    """! function checks if lock is not acquired and processes the
-    scene with updated metadata.
-    status.
+    """! Start processing the scene if no registration is in progress.
     @param   sceneobj      scene object.
     @param   map_update    boolean for re-registering the scene.
 
-    @return  None
+    @return  True if a registration thread started, False if already busy.
     """
-    if not self.register_thread_lock.locked():
+    if not self.register_thread_lock.acquire(blocking=False):
+      return False
+    self.current_processing_scene = sceneobj.id
+    try:
       thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
       thread.start()
-    return
+    except Exception:
+      self.current_processing_scene = None
+      self.register_thread_lock.release()
+      raise
+    return True
 
   def process_scene(self, sceneobj, map_update):
     """! function processes the uploaded scene(image/glb) and publish back the
@@ -93,13 +98,14 @@ class CameraCalibrationContext:
 
     @return  None
     """
-    with self.register_thread_lock:
-      try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].process_scene_for_calibration(sceneobj, map_update)
-      except (FileNotFoundError, KeyError) as e:
-        log.error(f"Error in register dataset : {e}")
-    self.current_processing_scene = {}
-    return
+    try:
+      strategy = self.scene_strategies[sceneobj.camera_calibration]
+      strategy.process_scene_for_calibration(sceneobj, map_update)
+    except (FileNotFoundError, KeyError) as e:
+      log.error(f"Error in register dataset : {e}")
+    finally:
+      self.current_processing_scene = None
+      self.register_thread_lock.release()
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """

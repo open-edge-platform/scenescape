@@ -398,6 +398,24 @@ class CameraCalibrationApi:
       raise StrategyNotFoundError()
     return strategy
 
+  def _request_scene_registration(self, scene_id: str, scene) -> dict:
+    status = self.OpenApi.Status
+    context = self.calibrationContext
+    if context.scene_update_thread_wrapper(scene, map_update=True):
+      outcome, message = status.REGISTERING, "Registration started"
+    elif context.current_processing_scene == scene.id:
+      outcome, message = status.REGISTERING, "Registration is in progress"
+    else:
+      outcome, message = status.BUSY, "Registration is currently busy"
+    response = {
+        self.OpenApi.STATUS: outcome,
+        self.OpenApi.SCENE_ID: scene_id,
+        self.OpenApi.MESSAGE: message,
+    }
+    if outcome == status.BUSY:
+      response["sceneName"] = getattr(scene, "name", None)
+    return response
+
   def _register_socket_events(self):
     @self.socketio.on("connect")
     def handle_connect():
@@ -501,22 +519,7 @@ class CameraCalibrationApi:
 
       if strategy.is_map_updated(scene):
         log.info(f"Scene map updated for {sceneId}")
-        if self.calibrationContext.register_thread_lock.locked():
-          log.info(f"Registration busy for {sceneId}")
-          register_response = {
-              self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
-              self.OpenApi.SCENE_ID: sceneId,
-              "sceneName": getattr(scene, "name", None),
-              self.OpenApi.MESSAGE: "Registration is currently busy"
-          }
-        else:
-          log.info(f"Registration triggered for {sceneId}")
-          register_response = {
-              self.OpenApi.STATUS: self.OpenApi.Status.REGISTERING,
-              self.OpenApi.SCENE_ID: sceneId,
-              self.OpenApi.MESSAGE: "Registration started"
-          }
-          self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
+        register_response = self._request_scene_registration(sceneId, scene)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
         result = strategy.process_scene_for_calibration(scene)

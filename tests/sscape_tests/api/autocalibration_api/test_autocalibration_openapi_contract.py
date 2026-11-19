@@ -48,6 +48,7 @@ _MISSING_SCENE = "44444444-4444-4444-8444-444444444444"
 _NO_STRATEGY_SCENE = "55555555-5555-4555-8555-555555555555"
 _MANUAL_SCENE = "66666666-6666-4666-8666-666666666666"
 _CAMERA_SCENE = "77777777-7777-4777-8777-777777777777"
+_ACTIVE_SCENE = "88888888-8888-4888-8888-888888888888"
 
 _CAM_SUCCESS = "atag-qcam1"
 _CAM_STORED = "atag-qcam-stored"
@@ -174,6 +175,7 @@ class _ReadyContext:
       _ERROR_SCENE: _Scene(_ERROR_SCENE, _FAILING),
       _REGISTERING_SCENE: _Scene(_REGISTERING_SCENE, _MARKERLESS),
       _BUSY_SCENE: _Scene(_BUSY_SCENE, _MARKERLESS),
+      _ACTIVE_SCENE: _Scene(_ACTIVE_SCENE, _MARKERLESS),
       _NO_STRATEGY_SCENE: _Scene(_NO_STRATEGY_SCENE, _MISSING_STRATEGY),
       _MANUAL_SCENE: _Scene(_MANUAL_SCENE, _MANUAL),
     }
@@ -189,7 +191,8 @@ class _ReadyContext:
       _MARKERLESS: _Strategy(True, {"status": "success"}),
       _FAILING: _Strategy(False, {"status": "error", "message": "registration failed"}),
     }
-    self.register_thread_lock = _ViewLock({_BUSY_SCENE})
+    self.register_thread_lock = _ViewLock({_BUSY_SCENE, _ACTIVE_SCENE})
+    self.current_processing_scene = _ACTIVE_SCENE
     self.calibration_thread_lock = _ViewLock({_CAM_BUSY})
     self.calibration_results = _Results({
       _CAM_SUCCESS: {
@@ -214,8 +217,8 @@ class _ReadyContext:
     self.socket_scene_clients = {}
 
   def scene_update_thread_wrapper(self, scene, map_update=False):
-    """Accept an update trigger without starting a thread."""
-    return None
+    """Accept an update trigger only if the simulated worker is idle."""
+    return not self.register_thread_lock.locked()
 
   def calibrate_camera_thread_wrapper(self, scene, camera_id, intrinsics, frame):
     """Accept calibration, or fail for the camera that must return 500."""
@@ -350,6 +353,19 @@ def test_autocalibration_matches_openapi_contract(contract_input):
   if contract_input.use_unready_app:
     call_kwargs["app"] = _unready_api.app
   case.call_and_validate(checks=CONTRACT_CHECKS, **call_kwargs)
+
+
+@pytest.mark.parametrize("scene_id,http_status,status", [
+  (_REGISTERING_SCENE, 202, "registering"),
+  (_ACTIVE_SCENE, 202, "registering"),
+  (_BUSY_SCENE, 200, "busy"),
+])
+def test_registration_distinguishes_active_scene(scene_id, http_status, status):
+  """Only a different scene's registration should return busy."""
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{scene_id}/registration", json={})
+  assert response.status_code == http_status
+  assert response.get_json()["status"] == status
 
 
 def test_contract_inputs_cover_success_and_error():
