@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - Phase 1 constraints:
   - only batch mode is supported (read/process/write all data at once), although class interfaces and I/O utilities may use streaming API underneath
-  - supported datasets: Unity (default) and Wildtrack
+  - supported datasets: Unity (default), Wildtrack and Rolling Terrain
 
 ## Quick Links
 
@@ -30,7 +30,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - `.venv/` – local virtual environment for running pytest and CLI commands (never commit contents).
 - `base/` – shared abstractions wiring datasets, harnesses, and evaluators; reference here before extending component folders.
-- `datasets/` – dataset component group; hosts concrete dataset adapters
+- `datasets/` – dataset component group; hosts concrete dataset adapters (`canonical_dataset.py` is the base of the canonical-artifact datasets Wildtrack and Rolling Terrain)
   - `datasets/tests/` - component-specific unit tests
 - `harnesses/` – tracker harness component group; hosts concrete harness adapters with service-specific runners
   - `harnesses/tests/` - component-specific unit tests
@@ -51,6 +51,10 @@ SPDX-License-Identifier: Apache-2.0
     - scene configuration in non-canonical format (however accepted by SceneControllerHarness implementation)
     - JSONL files with camera detections for 1, 10 and 30 FPS in canonical format
     - input camera videos (currently unused)
+- **RollingTerrainDataset**: `datasets/rolling_terrain_dataset.py`
+  - dataset location in the repository: `../../../tests/system/metric/rolling_terrain_dataset/`
+  - one person on a non-planar surface, two cameras (`cam_front_left`, `cam_back_right`), irregular timestamps (~13 Hz, ≥ 58 ms apart; evaluation grid and time chunking at 20 fps; some same-camera frames may still share a chunk because of arrival jitter), scene mesh `scene.glb`
+  - needs `position_mahalanobis` association and the observation processor in `full` mode (the mock Manager serves the mesh)
 - **WildtrackDataset**: `datasets/wildtrack_dataset.py`
   - dataset location in the repository: `../../../tests/system/metric/wildtrack_dataset/` (preprocessed with `datasets/wildtrack/preprocess.py`)
   - single scene, seven cameras (`cam0`–`cam6`), 2 FPS, 400 annotated frames, explicit camera calibration in the scene configuration

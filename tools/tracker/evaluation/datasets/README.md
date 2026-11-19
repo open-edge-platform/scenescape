@@ -110,11 +110,25 @@ gt_path = dataset.get_ground_truth()
 > "The WILDTRACK Multi-Camera Person Dataset." T. Chavdarova et al.
 > https://arxiv.org/pdf/1707.09299.pdf
 
+### RollingTerrainDataset
+
+**Purpose**: Adapter for `tests/system/metric/rolling_terrain_dataset`: one person moving on a non-planar surface. It needs probabilistic (Mahalanobis) association and the observation processor in `full` mode.
+
+**Key Features**:
+- Single scene: `rolling-terrain`, two cameras: `cam_front_left`, `cam_back_right`
+- 685 frames with irregular timestamps (about 13 Hz, at least 58 ms apart); `camera_fps: 20` is the evaluation frame grid and the matching time-chunking rate (every frame has its own grid cell; MQTT arrival jitter can still put two frames of one camera into the same chunk, so a few are overwritten)
+- Scene mesh `scene.glb`: `get_scene_config()` returns its absolute path as `map`, and the black-box mock Manager serves it to the observation processor
+- Ground truth in canonical JSONL format; z follows the terrain
+
+**Usage**: as for `WildtrackDataset`, with `RollingTerrainDataset("../../../tests/system/metric/rolling_terrain_dataset")`.
+
+**Tests**: See [tests/test_rolling_terrain_dataset.py](tests/test_rolling_terrain_dataset.py).
+
 ## Adding New Datasets
 
 To add support for a new dataset:
 
-1. **Create adapter class**: Implement all abstract methods from `TrackingDataset` base class (see [../base/tracking_dataset.py](../base/tracking_dataset.py))
+1. **Create adapter class**: Implement all abstract methods from `TrackingDataset` base class (see [../base/tracking_dataset.py](../base/tracking_dataset.py)). A dataset stored as canonical artifacts (`scene_config.json`, `<camera>.json`, `gtLoc.json`) only needs to subclass [canonical_dataset.py](canonical_dataset.py) and set its constants, as `WildtrackDataset` and `RollingTerrainDataset` do
 2. **Format conversion**: Convert dataset-specific formats to Scenescape canonical formats (see [Canonical Data Formats](../README.md#canonical-data-formats))
 3. **Create tests**: Add comprehensive tests validating format conversion and schema compliance
 4. **Update documentation**: Add entry to this README with usage example and key features
