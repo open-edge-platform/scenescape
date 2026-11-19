@@ -396,6 +396,22 @@ def test_registration_status_reports_worker_result(scene_id, status, message):
   assert response.get_json()["message"] == message
 
 
+def test_registration_retry_does_not_rerun_active_scene(monkeypatch):
+  """A retry during registration must not run the strategy outside the worker."""
+  context = _api.calibrationContext
+  monkeypatch.setattr(context, "current_processing_scene", _REJECTED_SCENE)
+
+  def fail_if_called(scene):
+    pytest.fail("strategy ran while the scene was registering")
+
+  monkeypatch.setattr(
+    context.scene_strategies[_APRILTAG], "process_scene_for_calibration", fail_if_called)
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{_REJECTED_SCENE}/registration", json={})
+  assert response.status_code == 202
+  assert response.get_json()["message"] == "Registration is in progress"
+
+
 def test_registration_retry_keeps_worker_error_when_busy(monkeypatch):
   """A retry that cannot start a worker must not erase the last error."""
   error = {"status": "error", "message": _TOO_FEW_TAGS}

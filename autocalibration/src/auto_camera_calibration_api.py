@@ -398,10 +398,18 @@ class CameraCalibrationApi:
       raise StrategyNotFoundError()
     return strategy
 
+  def _needs_registration_worker(self, scene, strategy):
+    # The worker may save map_processed before it finishes, so check the active scene first.
+    if self.calibrationContext.current_processing_scene == scene.id:
+      return True
+    return strategy.is_map_updated(scene)
+
   def _request_scene_registration(self, scene_id: str, scene) -> dict:
     status = self.OpenApi.Status
     context = self.calibrationContext
-    if context.scene_update_thread_wrapper(scene, map_update=True):
+    if context.current_processing_scene == scene.id:
+      outcome, message = status.REGISTERING, "Registration is in progress"
+    elif context.scene_update_thread_wrapper(scene, map_update=True):
       outcome, message = status.REGISTERING, "Registration started"
     elif context.current_processing_scene == scene.id:
       outcome, message = status.REGISTERING, "Registration is in progress"
@@ -532,8 +540,8 @@ class CameraCalibrationApi:
       strategy.socketio = self.socketio
       strategy.socket_scene_clients = self.calibrationContext.socket_scene_clients
 
-      if strategy.is_map_updated(scene):
-        log.info(f"Scene map updated for {sceneId}")
+      if self._needs_registration_worker(scene, strategy):
+        log.info(f"Scene map updated or registering for {sceneId}")
         register_response = self._request_scene_registration(sceneId, scene)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
