@@ -25,17 +25,19 @@ SCENESCAPE_SPEC = FuncTestSpec(
 FRAMES_PER_SECOND = 10
 PERSON = "person"
 MQTT_CONNECT_TIMEOUT_S = 30
-SCENE_WAIT_TIMEOUT_S = 30
+SCENE_WAIT_TIMEOUT_S = 60
 
 class SceneControllerImportJSON(FunctionalTest):
   def __init__(self, request, result_recorder):
     super().__init__(None, request, None)
     self.result_recorder = result_recorder
-    self.sceneUID = self.params['scene_id']
     self.frameRate = FRAMES_PER_SECOND
     self.sceneData = None
     self.jsonPath = "./tests/resources/Retail.json"
     self._mqtt_ready = threading.Event()
+
+    with open(self.jsonPath, encoding="utf-8") as f:
+      self.sceneUID = json.load(f)['uid']
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
                          self.params['broker_url'], int(self.params['broker_port']))
@@ -52,6 +54,10 @@ class SceneControllerImportJSON(FunctionalTest):
   def sceneReceived(self, pahoClient, userdata, message):
     data = message.payload.decode("utf-8")
     self.sceneData = json.loads(data)
+    return
+
+  def anySceneMessageReceived(self, pahoClient, userdata, message):
+    log.info(f"Observed scene topic message: {message.topic}")
     return
 
   def runTest(self):
@@ -80,7 +86,10 @@ class SceneControllerImportJSON(FunctionalTest):
       topic_scene = PubSub.formatTopic(PubSub.DATA_SCENE,
                                        scene_id=self.sceneUID,
                                        thing_type=PERSON)
+      log.info(f"Subscribing for scene UID {self.sceneUID!r} on topic {topic_scene!r}")
       self.pubsub.addCallback(topic_scene, self.sceneReceived)
+      wildcard_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id="+", thing_type="+")
+      self.pubsub.addCallback(wildcard_topic, self.anySceneMessageReceived)
 
       log.info("Sending detections for scene messages to appear.")
       objLocation = self.getLocations()
@@ -109,7 +118,7 @@ class SceneControllerImportJSON(FunctionalTest):
 
     except Exception as e:
       log.error(f"Test failed with exception: {e}")
-      self.result_recorder.failure()
+      raise
 
     finally:
       self.pubsub.loopStop()

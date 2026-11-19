@@ -125,6 +125,21 @@ class PipelineConfigGenerator:
                 "type": "boolean",
                 "description": "Publish annotated JPEG frames to scenescape/image/camera/<cameraid> each frame"
               },
+              "annotate_track_ids": {
+                "element": {
+                  "name": "datapublisher",
+                  "property": "annotate-track-ids"
+                },
+                "type": "boolean",
+                "description": "Add Analytics track GID labels to requested camera images (default off)"
+              },
+              "track_topic": {
+                "element": {
+                  "name": "datapublisher",
+                  "property": "track-topic"
+                },
+                "type": "string"
+              },
               "detection_labels": {
                 "element": {
                   "name": "datapublisher",
@@ -174,6 +189,11 @@ class PipelineConfigGenerator:
 
     pipeline_cfg["payload"]["parameters"]["cameraid"] = self.camera_id
     pipeline_cfg["payload"]["parameters"]["metadatagenpolicy"] = self.metadata_policy
+    if camera_settings.get('scene_uid'):
+      pipeline_cfg["payload"]["parameters"]["track_topic"] = (
+        f"scenescape/regulated/scene/{camera_settings['scene_uid']}")
+    if camera_settings.get('annotate_track_ids', False):
+      pipeline_cfg["payload"]["parameters"]["annotate_track_ids"] = True
 
     # Add detection_labels if provided in camera_settings.
     # The new sscape_post_inference_data_publish element takes a comma-separated string;

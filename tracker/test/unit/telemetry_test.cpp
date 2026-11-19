@@ -5,6 +5,7 @@
 
 #include "config_loader.hpp"
 #include "logger.hpp"
+#include "utils/in_memory_metrics.hpp"
 
 #include <gtest/gtest.h>
 #include <opentelemetry/exporters/memory/in_memory_metric_data.h>
@@ -18,7 +19,6 @@ namespace tracker {
 namespace {
 
 namespace metrics_sdk = opentelemetry::sdk::metrics;
-namespace memory = opentelemetry::exporter::memory;
 
 /**
  * @brief Helper to build a minimal ServiceConfig with telemetry settings.
@@ -65,17 +65,6 @@ ServiceConfig make_inmemory_config() {
     config.observability.tracing.enabled = false;
     // No OTLP config needed — exporter is injected
     return config;
-}
-
-/**
- * @brief Create an InMemoryMetricExporter and its backing data store.
- */
-std::pair<std::unique_ptr<metrics_sdk::PushMetricExporter>,
-          std::shared_ptr<memory::SimpleAggregateInMemoryMetricData>>
-make_in_memory_exporter() {
-    auto data = std::make_shared<memory::SimpleAggregateInMemoryMetricData>();
-    auto exporter = memory::InMemoryMetricExporterFactory::Create(data);
-    return {std::move(exporter), data};
 }
 
 /**
@@ -202,7 +191,7 @@ TEST_F(TelemetryTest, TracingEnabledWithoutOtlpDisabled) {
 // ============================================================================
 
 TEST_F(TelemetryTest, CounterRecordedViaInMemoryExporter) {
-    auto [exporter, data] = make_in_memory_exporter();
+    auto [exporter, data] = test::make_in_memory_exporter();
     auto config = make_inmemory_config();
     Telemetry::init(config, std::move(exporter));
 
@@ -230,7 +219,7 @@ TEST_F(TelemetryTest, CounterRecordedViaInMemoryExporter) {
 }
 
 TEST_F(TelemetryTest, HistogramRecordedViaInMemoryExporter) {
-    auto [exporter, data] = make_in_memory_exporter();
+    auto [exporter, data] = test::make_in_memory_exporter();
     auto config = make_inmemory_config();
     Telemetry::init(config, std::move(exporter));
 
@@ -253,7 +242,7 @@ TEST_F(TelemetryTest, HistogramRecordedViaInMemoryExporter) {
 }
 
 TEST_F(TelemetryTest, CounterWithAttributesRecorded) {
-    auto [exporter, data] = make_in_memory_exporter();
+    auto [exporter, data] = test::make_in_memory_exporter();
     auto config = make_inmemory_config();
     Telemetry::init(config, std::move(exporter));
 
@@ -271,7 +260,7 @@ TEST_F(TelemetryTest, CounterWithAttributesRecorded) {
 }
 
 TEST_F(TelemetryTest, MultipleRecordingsAccumulate) {
-    auto [exporter, data] = make_in_memory_exporter();
+    auto [exporter, data] = test::make_in_memory_exporter();
     auto config = make_inmemory_config();
     Telemetry::init(config, std::move(exporter));
 
@@ -295,9 +284,36 @@ TEST_F(TelemetryTest, MultipleRecordingsAccumulate) {
     }
 }
 
+TEST_F(TelemetryTest, ExportBetweenRecordingsKeepsTheTotal) {
+    // The periodic reader exports at an arbitrary moment; an export between two recordings must not
+    // hide the first.
+    auto [exporter, data] = test::make_in_memory_exporter();
+    auto config = make_inmemory_config();
+    Telemetry::init(config, std::move(exporter));
+
+    auto provider = opentelemetry::metrics::Provider::GetMeterProvider();
+    auto counter =
+        provider->GetMeter("test_meter")->CreateUInt64Counter("test.accum", "test", "{count}");
+    counter->Add(3);
+    dynamic_cast<metrics_sdk::MeterProvider*>(provider.get())->ForceFlush();
+    counter->Add(7);
+
+    Telemetry::shutdown();
+
+    auto& points = data->Get("test_meter", "test.accum");
+    ASSERT_FALSE(points.empty());
+    for (const auto& [attrs, point] : points) {
+        auto* sum_data = std::get_if<metrics_sdk::SumPointData>(&point);
+        ASSERT_NE(sum_data, nullptr);
+        auto value = std::get_if<int64_t>(&sum_data->value_);
+        ASSERT_NE(value, nullptr);
+        EXPECT_EQ(*value, 10);
+    }
+}
+
 TEST_F(TelemetryTest, InMemoryExporterDisabledMetrics) {
     // When metrics disabled, injected exporter is ignored
-    auto [exporter, data] = make_in_memory_exporter();
+    auto [exporter, data] = test::make_in_memory_exporter();
     auto config = make_config(false, false);
     Telemetry::init(config, std::move(exporter));
 
@@ -316,7 +332,7 @@ TEST_F(TelemetryTest, InMemoryExporterDisabledMetrics) {
 
 TEST_F(TelemetryTest, InjectedExporterOverridesOtlp) {
     // Even with OTLP endpoint configured, injected exporter is used
-    auto [exporter, data] = make_in_memory_exporter();
+    auto [exporter, data] = test::make_in_memory_exporter();
     auto config = make_config(true, false); // Has OTLP endpoint
     Telemetry::init(config, std::move(exporter));
 

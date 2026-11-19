@@ -22,6 +22,9 @@ spec:
       annotations:
         checksum/tracker-config: {{ .Files.Get "files/scene-controller/tracker-config.json" | sha256sum }}
         checksum/reid-config: {{ .Files.Get "files/scene-controller/reid-config.json" | sha256sum }}
+        {{- if include "scene.ptzActive" . }}
+        checksum/ptz-config: {{ dict "config" .Values.scene.ptz.config "assignments" .Values.positioning.assignments | toJson | sha256sum }}
+        {{- end }}
     spec:
       securityContext:
         runAsNonRoot: true
@@ -64,6 +67,12 @@ spec:
             value: {{ .Values.reid.descriptorTtlSecs | quote }}
           - name: REID_PURGE_INTERVAL_SECS
             value: {{ .Values.reid.purgeIntervalSecs | quote }}
+          {{- end }}
+          {{- if include "scene.ptzActive" . }}
+          - name: CONTROLLER_PTZ_ENABLED
+            value: {{ .Values.scene.ptz.enabled | default false | quote }}
+          - name: CONTROLLER_PTZ_SHADOW_MODE
+            value: {{ .Values.scene.ptz.shadowMode | default false | quote }}
           {{- end }}
             {{ include "proxy_envs" . | indent 10 }}
           ports:
@@ -124,6 +133,16 @@ spec:
           - mountPath: /home/scenescape/Scenescape/reid-config.json
             name: reid-config
             subPath: reid-config.json
+          {{- if include "scene.ptzActive" . }}
+          - mountPath: /home/scenescape/Scenescape/ptz-consumer-config.json
+            name: scene-ptz
+            subPath: ptz-consumer-config.json
+            readOnly: true
+          - mountPath: /home/scenescape/Scenescape/positioning-assignments.json
+            name: scene-ptz
+            subPath: positioning-assignments.json
+            readOnly: true
+          {{- end }}
       restartPolicy: Always
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -146,5 +165,10 @@ spec:
       - name: reid-config
         configMap:
           name: {{ .Release.Name }}-reid-config
+      {{- if include "scene.ptzActive" . }}
+      - name: scene-ptz
+        configMap:
+          name: {{ .Release.Name }}-scene-ptz
+      {{- end }}
 status: {}
 {{- end }}

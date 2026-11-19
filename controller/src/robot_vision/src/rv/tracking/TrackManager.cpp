@@ -227,6 +227,7 @@ void TrackManager::correct()
 std::vector<TrackedObject> TrackManager::getTracks()
 {
   std::vector<TrackedObject> tracks;
+  tracks.reserve(mKalmanEstimators.size() + mSuspendedKalmanEstimators.size());
 
   for (const auto &element : mKalmanEstimators)
   {
@@ -243,6 +244,7 @@ std::vector<TrackedObject> TrackManager::getTracks()
 std::vector<TrackedObject> TrackManager::getReliableTracks()
 {
   std::vector<TrackedObject> tracks;
+  tracks.reserve(mKalmanEstimators.size()); // most tracks are reliable
 
   for (const auto &element : mKalmanEstimators)
   {
@@ -274,6 +276,7 @@ std::vector<TrackedObject> TrackManager::getUnreliableTracks()
 std::vector<TrackedObject> TrackManager::getSuspendedTracks()
 {
   std::vector<TrackedObject> tracks;
+  tracks.reserve(mSuspendedKalmanEstimators.size());
 
   for (const auto &element : mSuspendedKalmanEstimators)
   {
@@ -308,27 +311,6 @@ void TrackManager::setMeasurement(const Id &id, const TrackedObject &measurement
   else
   {
     mMeasurementMap.insert(std::make_pair(id, measurement));
-  }
-}
-
-TrackedObject TrackManager::getTrack(const Id &id)
-{
-  return getKalmanEstimator(id).currentState();
-}
-
-MultiModelKalmanEstimator TrackManager::getKalmanEstimator(const Id &id)
-{
-  if (mKalmanEstimators.count(id) > 0)
-  {
-    return mKalmanEstimators[id];
-  }
-  else if(mSuspendedKalmanEstimators.count(id) > 0)
-  {
-    return mSuspendedKalmanEstimators[id];
-  }
-  else
-  {
-    throw std::runtime_error("The given id is not registered in this TrackManager.");
   }
 }
 

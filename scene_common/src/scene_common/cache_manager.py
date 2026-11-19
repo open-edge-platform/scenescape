@@ -5,6 +5,8 @@
 # module level) isn't installed in the analytics image, so keep all
 # controller.* imports lazy to allow CacheManager (and therefore
 # AnalyticsService) to be imported there.
+import collections
+import copy
 import threading
 
 # Scene (and robot_vision, imported by controller.scene at module level)
@@ -17,6 +19,7 @@ from scene_common.camera_registry import CameraRegistry
 from scene_common.tracking_object_registry import TrackedObjectRegistry
 
 from scene_common import log
+from scene_common.association import DEFAULT_ASSOCIATION_CONFIG
 from scene_common.timestamp import get_epoch_time
 
 REFRESH_TIME = 60
@@ -31,6 +34,8 @@ class CacheManager:
     # in one process must not block or supersede each other).
     self._cache_epoch = 0
     self._refresh_in_progress = False
+    self._teardown_pending = collections.deque()
+    self._teardown_worker = None
     self.cached_child_transforms_by_uid = {}
     self.camera_parameters = {}
     self.tracker_config_data = tracker_config_data
@@ -45,6 +50,7 @@ class CacheManager:
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
+    self._scene_signatures = {}
 
     if rest_url and rest_auth:
       self.data_source = RestSceneDataSource(rest_url, rest_auth, root_cert)
@@ -65,6 +71,10 @@ class CacheManager:
       self._cache_epoch = 0
     if not hasattr(self, '_refresh_in_progress'):
       self._refresh_in_progress = False
+    if not hasattr(self, '_teardown_pending'):
+      self._teardown_pending = collections.deque()
+    if not hasattr(self, '_teardown_worker'):
+      self._teardown_worker = None
     return self._lock
 
   def _cacheNeedsRefresh(self):
@@ -111,7 +121,8 @@ class CacheManager:
           if epoch != self._cache_epoch:
             # invalidate() superseded this fetch, so its results are stale.
             return
-          self._applySceneResults(found)
+          retired = self._applySceneResults(found)
+        self._scheduleTeardown(retired)
         return
       finally:
         with self._lock:
@@ -119,97 +130,191 @@ class CacheManager:
           self._refresh_done.notify_all()
 
   def _applySceneResults(self, found):
-    """Apply fetched scene results. Caller must hold self._lock."""
+    """Apply fetched scene results. Caller must hold self._lock.
+
+    @return  Previous Scene instances that are no longer cached (replaced by a
+             rebuild, or deleted), each once. The caller tears them down after
+             releasing the lock.
+    """
     if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
       self.cached_scenes_by_uid = {}
+    if not hasattr(self, '_scene_signatures'):
+      self._scene_signatures = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
 
-    old = set(self.cached_scenes_by_uid.keys())
-    new = set(x['uid'] for x in found)
-    deleted = old - new
-    for uid in deleted:
-      self._teardownScene(self.cached_scenes_by_uid.pop(uid, None))
-
+    candidates = self._popDeletedScenes({x['uid'] for x in found})
     for scene_data in found:
-      if self.tracker_config_data:
-        scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
-                                      self.tracker_config_data["non_measurement_time_dynamic"],
-                                      self.tracker_config_data["non_measurement_time_static"],
-                                      self.tracker_config_data["effective_object_update_rate"],
-                                      self.tracker_config_data["time_chunking_enabled"],
-                                      self.tracker_config_data["time_chunking_rate_fps"],
-                                      self.tracker_config_data["suspended_track_timeout_secs"]]
-        scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
-      if self.reid_config_data:
-        scene_data["reid_config_data"] = self.reid_config_data
-      if getattr(self, 'pose_adjustment_config_data', {}):
-        scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
-
-      uid = scene_data['uid']
-      if uid not in self.cached_scenes_by_uid:
-        old_scene = self._sensorNeedsRestoring(uid)
-        if old_scene is not None:
-          # Reuse the existing scene to preserve tracked objects, sensor state,
-          # analytics_state and dwell times across DB-triggered refreshes.
-          scene = old_scene
-          scene.updateScene(scene_data)
-        else:
-          scene_cls = getattr(self, '_scene_cls', None)
-          if scene_cls is None:
-            from controller.scene import Scene
-            scene_cls = Scene
-          scene = scene_cls.deserialize(scene_data)
-      else:
-        scene = self.cached_scenes_by_uid[uid]
-        scene.updateScene(scene_data)
-
-      for cameraID in scene.cameras.keys():
-        self._cached_scenes_by_cameraID[cameraID] = scene
-      for sensorID in scene.sensors.keys():
-        self._cached_scenes_by_sensorID[sensorID] = scene
-      self.cached_scenes_by_uid[scene.uid] = scene
+      # Taken before runtime config is injected, so it only reflects the scene's own data.
+      signature = self._sceneSignature(scene_data)
+      scene = self._sceneForData(self._withRuntimeConfig(scene_data), signature)
+      self._scene_signatures[scene_data['uid']] = signature
+      self._indexScene(scene)
+    candidates.extend((getattr(self, '_old_scene_cache', None) or {}).values())
+    retired = self._notCached(candidates)
 
     # Clear old scene cache after processing all scenes
     if hasattr(self, '_old_scene_cache'):
       self._old_scene_cache = None
 
     self._cache_refreshed = get_epoch_time()
+    return retired
+
+  def _popDeletedScenes(self, current_uids):
+    """Remove and return the cached scenes whose uid is not in current_uids."""
+    deleted = set(self.cached_scenes_by_uid) - current_uids
+    for uid in set(self._scene_signatures) - current_uids:
+      del self._scene_signatures[uid]
+    return [self.cached_scenes_by_uid.pop(uid) for uid in deleted]
+
+  def _withRuntimeConfig(self, scene_data):
+    """Return a copy of scene_data with this manager's tracker/reid/pose settings added."""
+    scene_data = dict(scene_data)
+    if self.tracker_config_data:
+      tracker = self.tracker_config_data
+      scene_data["tracker_config"] = [tracker["max_unreliable_time"],
+                                      tracker["non_measurement_time_dynamic"],
+                                      tracker["non_measurement_time_static"],
+                                      tracker["effective_object_update_rate"],
+                                      tracker["time_chunking_enabled"],
+                                      tracker["time_chunking_rate_fps"],
+                                      tracker["suspended_track_timeout_secs"]]
+      scene_data["persist_attributes"] = tracker.get("persist_attributes", {})
+      scene_data["association_config"] = tracker.get("association", DEFAULT_ASSOCIATION_CONFIG.copy())
+    if self.reid_config_data:
+      scene_data["reid_config_data"] = self.reid_config_data
+    if getattr(self, 'pose_adjustment_config_data', {}):
+      scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
+    return scene_data
+
+  def _sceneForData(self, scene_data, signature):
+    """Pick the Scene to use for scene_data: update, reuse or build one."""
+    uid = scene_data['uid']
+    live_scene = self.cached_scenes_by_uid.get(uid)
+    if live_scene is not None:
+      live_scene.updateScene(scene_data)
+      return live_scene
+
+    old_scene = self._sceneNeedsFullReuse(uid)
+    if old_scene is not None:
+      # Only scenes without a tracker are reused, to keep their ingestion
+      # state across DB-triggered refreshes.
+      old_scene.updateScene(scene_data)
+      return old_scene
+
+    # Only a scene whose own data changed gets a new tracker; the old one is retired.
+    unchanged_scene = self._unchangedScene(uid, signature)
+    if unchanged_scene is not None:
+      return unchanged_scene
+
+    scene_cls = getattr(self, '_scene_cls', None)
+    if scene_cls is None:
+      from controller.scene import Scene
+      scene_cls = Scene
+    scene = scene_cls.deserialize(scene_data)
+    previous = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
+    retain_poses = getattr(scene, 'retainObservedCameraPoses', None)
+    if previous is not None and retain_poses is not None:
+      retain_poses(previous)
+    return scene
+
+  def _indexScene(self, scene):
+    """Make scene findable by uid, and by each of its camera and sensor IDs."""
+    for cameraID in scene.cameras.keys():
+      self._cached_scenes_by_cameraID[cameraID] = scene
+    for sensorID in scene.sensors.keys():
+      self._cached_scenes_by_sensorID[sensorID] = scene
+    self.cached_scenes_by_uid[scene.uid] = scene
+
+  def _notCached(self, candidates):
+    """Return each candidate scene that is not in the cache, once."""
+    live = {id(scene) for scene in self.cached_scenes_by_uid.values()}
+    unique = []
+    for scene in candidates:
+      if scene is not None and id(scene) not in live:
+        live.add(id(scene))
+        unique.append(scene)
+    return unique
+
+  def _scheduleTeardown(self, scenes):
+    """Queue retired scenes for teardown by a background worker.
+
+    Joining a tracker waits for its queue to drain, so teardown must not run
+    under the lock or block the refresh. One worker handles the queue in order,
+    so bursts of refreshes cannot pile up threads.
+    """
+    if not scenes:
+      return
+    with self._refreshLock():
+      self._teardown_pending.extend(scenes)
+      if self._teardown_worker is None:
+        self._teardown_worker = threading.Thread(
+          target=self._drainTeardowns, name='scene-teardown', daemon=True)
+        self._teardown_worker.start()
+    return
+
+  def _drainTeardowns(self):
+    """Worker body: tear down queued scenes one by one, then exit when none are left."""
+    while True:
+      with self._lock:
+        if not self._teardown_pending:
+          self._teardown_worker = None
+          return
+        scene = self._teardown_pending.popleft()
+      self._teardownScene(scene)
 
   def _teardownScene(self, scene):
     """
-    Fully tear down a Scene that has been deleted (no longer present in the
-    data source). Stops its tracker thread(s) -- which in turn shuts down
-    each category's UUIDManager (thread pool, stale-feature timer) -- and
-    clears its process-wide registry state, so a deleted scene doesn't leak
-    threads or linger in CameraRegistry/TrackedObjectRegistry indefinitely.
-    Must run in this order: join the tracker before clearing the registries,
-    since an in-flight detection could otherwise repopulate registry state
-    for a scene_id that's about to disappear.
+    Tear down a Scene that was replaced by a rebuild or deleted. Joins its
+    tracker -- which stops the category threads and shuts down each UUIDManager
+    (thread pool, timers) -- then clears its CameraRegistry/TrackedObjectRegistry
+    entries unless a live scene still uses the same name.
+    The join comes first, since an in-flight detection could otherwise repopulate
+    the registries. Failures are logged and never raised, and a failed join does
+    not skip the registry clear.
 
-    @param  scene  The Scene instance being removed, or None (safe no-op --
-                   pop(uid, None) returns None if uid was somehow already gone)
+    @param  scene  The retired Scene instance, or None (safe no-op)
     """
     if scene is None:
       return
-    if getattr(scene, "tracker", None) is not None:
-      scene.tracker.join()
-    CameraRegistry.getInstance().removeScene(scene.name)
-    TrackedObjectRegistry.getInstance().removeScene(scene.name)
+    uid = getattr(scene, 'uid', None)
+    name = getattr(scene, 'name', None)
+    try:
+      if getattr(scene, 'tracker', None) is not None:
+        scene.tracker.join()
+    except Exception as err:
+      log.error(f"Failed to join tracker of scene {uid} ({name}): {err}")
+    try:
+      with self._refreshLock():
+        if not self._sceneNameInUse(name):
+          CameraRegistry.getInstance().removeScene(name)
+          TrackedObjectRegistry.getInstance().removeScene(name)
+    except Exception as err:
+      log.error(f"Failed to clear registries of scene {uid} ({name}): {err}")
     return
 
-  def _sensorNeedsRestoring(self, uid):
-    # Reuse the previous Scene instance across a DB-triggered refresh in two
-    # cases: (1) it has sensors with cache values worth restoring (readings,
-    # dwell state, etc.), or (2) it has no tracker at all -- i.e. it's an
-    # AnalyticsScene, which owns no tracked-object identity of its own (that
-    # comes from the Controller via MQTT) and instead needs its ingestion
-    # cache (chain_data history, region/tripwire/dwell state) preserved
-    # across the frequent invalidate() calls REST config changes trigger.
-    # Otherwise return None so callers deserialize a fresh Scene (and
-    # tracker) for uid -- e.g. after an explicit REST-triggered scene config
-    # update on the Controller, where a blanket reuse would silently keep
-    # stale tracked-object identities.
+  def _sceneNameInUse(self, name):
+    """True if a cached scene has this name. Caller must hold self._lock.
+
+    While the cache is invalidated, the scenes awaiting rebuild count instead.
+    """
+    scenes = getattr(self, 'cached_scenes_by_uid', None)
+    if scenes is None:
+      scenes = getattr(self, '_old_scene_cache', None) or {}
+    return any(getattr(scene, 'name', None) == name for scene in scenes.values())
+
+  def _sceneNeedsFullReuse(self, uid):
+    # Reuse the previous Scene instance across a DB-triggered refresh only
+    # when it has no tracker at all -- i.e. it's an AnalyticsScene, which owns
+    # no tracked-object identity of its own (that comes from the Controller
+    # via MQTT) and instead needs its ingestion cache (chain_data history,
+    # region/tripwire/dwell state) preserved across the frequent invalidate()
+    # calls REST config changes trigger. Otherwise return None; the caller
+    # then reuses the scene only if its own data is unchanged
+    # (_unchangedScene) and else deserializes a fresh Scene (and tracker) for
+    # uid -- e.g. after an explicit REST-triggered scene config update on the
+    # Controller, where a blanket reuse would silently keep stale
+    # tracked-object identities.
     if not hasattr(self, '_old_scene_cache') or not self._old_scene_cache:
       return None
     old_scene = self._old_scene_cache.get(uid)
@@ -217,31 +322,29 @@ class CacheManager:
       return None
     if not hasattr(old_scene, 'tracker'):
       return old_scene
-    for sensor in getattr(old_scene, 'sensors', {}).values():
-      if getattr(sensor, 'value', None) is not None:
-        return old_scene
     return None
 
-  def _restoreSensorCache(self, uid, old_scene, scene):
-    """Restore sensor cache values from old_scene to new scene"""
-    restored_count = 0
-    for sensor_id, old_sensor in old_scene.sensors.items():
-      if hasattr(scene, 'sensors') and sensor_id in scene.sensors:
-        new_sensor = scene.sensors[sensor_id]
-        restored = False
-        if hasattr(old_sensor, 'value'):
-          new_sensor.value = old_sensor.value
-          restored = True
-        if hasattr(old_sensor, 'lastValue'):
-          new_sensor.lastValue = old_sensor.lastValue
-          restored = True
-        if hasattr(old_sensor, 'lastWhen'):
-          new_sensor.lastWhen = old_sensor.lastWhen
-          restored = True
-        if restored:
-          restored_count += 1
-    if restored_count > 0:
-      log.debug(f"Restored sensor cache for {restored_count} sensor(s) in scene {uid}")
+  def _sceneSignature(self, scene_data):
+    # Taken before tracker/reid config is injected into scene_data.
+    ignored = getattr(getattr(self, '_scene_cls', None), 'UNUSED_SCENE_KEYS', ())
+    return self._withoutKeys(scene_data, ignored)
+
+  @staticmethod
+  def _withoutKeys(scene_data, ignored):
+    signature = {key: copy.deepcopy(value) for key, value in scene_data.items()
+                 if key not in ignored and key != 'children'}
+    if 'children' in scene_data:
+      # SceneSerializer embeds each whole child scene (itself with children).
+      signature['children'] = [CacheManager._withoutKeys(child, ignored)
+                               for child in scene_data['children']]
+    return signature
+
+  def _unchangedScene(self, uid, signature):
+    """Return the previous Scene for uid if its data is identical to signature."""
+    old_scene = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
+    if old_scene is not None and getattr(self, '_scene_signatures', {}).get(uid) == signature:
+      return old_scene
+    return None
 
   def _refreshCameras(self, scene_data):
     for camera in scene_data.get('cameras', []):

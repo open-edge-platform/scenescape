@@ -73,6 +73,7 @@ Enable additional chart features by setting these values on `helm upgrade`/`helm
 | `tracker.enabled`          | `false` | Deploys Tracker + Analytics instead of the Scene Controller.                                                                                             |
 | `mapping.enabled`          | `false` | Deploys the mapping service.                                                                                                                             |
 | `clusterAnalytics.enabled` | `false` | Deploys the cluster-analytics service.                                                                                                                   |
+| `positioning.enabled`      | `false` | Deploys the Positioning service. See [Configure the Positioning Service](#configure-the-positioning-service).                                            |
 
 ReID is consumed by the Scene Controller. Tracker mode replaces the Scene Controller, so do not enable ReID together with `tracker.enabled=true`.
 
@@ -89,6 +90,85 @@ Each Mapping image contains exactly one 3D reconstruction model, fixed at build 
 | `vggt`          | `intel/scenescape-mapping:<version>-vggt`          |
 
 The matching variant must be available to the cluster: either pulled from Docker Hub, or built with `make -C mapping build-all` (see [Build Mapping Service from Source](../../microservices/mapping-service/build-from-source.md)) and pushed to the registry set in `repository`. The root `make build-all` builds only the default MapAnything image.
+
+### Configure the Positioning Service
+
+When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account, and renders `positioning.json` from these values. The deployment reads calibration from Manager at `https://web.<namespace>.svc.cluster.local/api/v1`, verifying TLS against the chart's Scenescape CA:
+
+| Value                                                       | Default                       | Effect                                                                                                                                                                                                                |
+| ----------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `positioning.resolverId`                                    | `positioning-default`         | Identifies the instance in its status topic `scenescape/positioning/status/{resolverId}` and is rendered as `resolver_id`. Must be a single MQTT topic segment (no `/`, `+`, or `#`).                                 |
+| `positioning.assignments`                                   | `{}`                          | Source ownership manifest (`source_id` to `resolver_id`), mounted into Positioning and the Scene Controller. Positioning exits if its sources are not assigned to `resolverId`.                                       |
+| `positioning.config`                                        | resolver limits, no `sources` | Rendered as `positioning.json` using the runtime keys described in [Configure](../../microservices/positioning/positioning.md#configure); do not set `resolver_id` here. The chart defaults the four resolver limits. |
+| `positioning.onvifCredentials.sources`                      | `{}`                          | `<source_id>: {username, password}` entries; the chart creates a Secret with one `<source_id>.json` key per source and mounts it read-only at `/run/secrets/onvif`.                                                   |
+| `positioning.onvifCredentials.existingSecret`               | `""`                          | Name of an existing Secret with the same `<source_id>.json` keys, mounted at `/run/secrets/onvif`. Mutually exclusive with `onvifCredentials.sources`.                                                                |
+| `positioning.extraVolumes`, `positioning.extraVolumeMounts` | `[]`                          | Additional pod volumes and Positioning container mounts, for example a camera CA bundle referenced by a source's `tls_ca_file`.                                                                                       |
+| `positioning.networkPolicy.cameraCIDRs`                     | `[]`                          | Camera IP/CIDR allowlist for Positioning egress. Required when PTZ sources are configured.                                                                                                                            |
+| `positioning.networkPolicy.cameraPorts`                     | `[80, 443]`                   | ONVIF TCP ports allowed to the camera CIDRs; include each configured custom port.                                                                                                                                     |
+| `scene.ptz.enabled`, `scene.ptz.shadowMode`                 | `false`, `false`              | Controller PTZ modes; leave disabled until that profile independently passes shadow acceptance. See below.                                                                                                            |
+
+Positioning connects to the standard broker TLS listener on port 1883 with its
+`positioning.auth` credentials. Positioning egress is isolated by a NetworkPolicy:
+only the broker TLS listener, Manager HTTPS, NTP, cluster DNS, and the
+configured camera CIDRs/ports are allowed. The policy blocks all inbound traffic to
+the Positioning pod. Ensure the cluster CNI enforces Kubernetes NetworkPolicy.
+
+PTZ resolution runs only when `positioning.config.sources` is not empty. A source
+without `credentials_file` reads `/run/secrets/onvif/<source_id>.json`. Rendering
+fails when a source is not assigned to `resolverId`, when an assignment to
+`resolverId` has no source, or when a resolver limit (`max_pose_age_s`,
+`max_timestamp_uncertainty_s`, `max_clock_offset_s`, `target_reprojection_rms_px`)
+is removed while sources are configured. For example, a values file:
+
+```yaml
+positioning:
+  enabled: true
+  resolverId: positioning-default
+  assignments:
+    <manager-camera-uid>: positioning-default
+  networkPolicy:
+    cameraCIDRs:
+      - <camera-ip>/32
+    cameraPorts: [443]
+  config:
+    target_reprojection_rms_px: 3.0
+    sources:
+      <manager-camera-uid>:
+        type: onvif_ptz
+        host: <camera-host>
+        scheme: https
+        port: 443
+        tls_ca_file: /run/secrets/camera-ca/ca.pem
+        move_status: get_status
+  onvifCredentials:
+    existingSecret: positioning-onvif
+  extraVolumes:
+    - name: camera-ca
+      secret:
+        secretName: camera-ca
+  extraVolumeMounts:
+    - name: camera-ca
+      mountPath: /run/secrets/camera-ca
+      readOnly: true
+```
+
+Create the referenced Secrets before installing, for example
+`kubectl create secret generic positioning-onvif --namespace "$NAMESPACE" --from-file=<manager-camera-uid>.json=<path-to-credentials.json>`,
+where the file contains `{"username": "...", "password": "..."}`. Prefer
+`existingSecret` over `onvifCredentials.sources`, which keeps credentials in Helm
+values and release history. Changes to `positioning.config` or
+`positioning.assignments` roll the Positioning pod automatically; after rotating
+credentials, run `kubectl rollout restart deployment/<release>-positioning`.
+
+To let the Scene Controller consume the resolved poses, set `scene.ptz.enabled` (gate
+and project PTZ detections) or `scene.ptz.shadowMode` (observe and record only); they
+are off by default and mutually exclusive. Both need the four bounds in
+`scene.ptz.config`, and use `positioning.assignments` as the source-to-Resolver
+manifest. Rendering fails if both modes are on or a bound is missing. See
+[PTZ Pose Consumption](../../microservices/controller/ptz-pose-consumption.md#deploy).
+
+See the [Positioning Service](../../microservices/positioning/positioning.md)
+and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for runtime behavior.
 
 ## Verify
 

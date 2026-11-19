@@ -185,5 +185,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 @pytest.mark.test_name("NEX-T21879")
 def test_camera_intrinsics(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraIntrinsicsTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
+  test.existingSceneUID = demo_scene
   test.testCameraIntrinsics()
   assert test.exitCode == 0

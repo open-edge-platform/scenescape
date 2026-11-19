@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -10,7 +10,44 @@ from zipfile import ZipFile
 from django.core.exceptions import ValidationError
 import open3d as o3d
 from PIL import Image
-from plyfile import PlyData
+from plyfile import PlyData, PlyParseError
+
+# Allow-list character class (letters, digits, space, dash, underscore, dot).
+# SCENE_NAME_DB_PATTERN is POSIX-safe for PostgreSQL CheckConstraint (no lookarounds).
+# SCENE_NAME_PATTERN is the canonical full rule for Python validation; api.yaml
+# Scene.name.pattern must match it (enforced by test_scene_name_validation).
+# DB Q filters in models/migrations encode the same leading-'.' / '..' bans.
+SCENE_NAME_CHAR_CLASS = r'[\w \-.]'
+SCENE_NAME_DB_PATTERN = rf'^{SCENE_NAME_CHAR_CLASS}+$'
+SCENE_NAME_PATTERN = rf'^(?!.*\.\.)(?!\.){SCENE_NAME_CHAR_CLASS}+$'
+SCENE_NAME_RE = re.compile(SCENE_NAME_PATTERN)
+
+def is_valid_scene_name(name):
+  return bool(name) and bool(SCENE_NAME_RE.fullmatch(name))
+
+def sanitize_scene_name(name, used_names):
+  """Normalize a legacy scene name to satisfy SCENE_NAME_PATTERN and uniqueness."""
+  cleaned = re.sub(r'[^\w \-.]', '_', name or '')
+  while '..' in cleaned:
+    cleaned = cleaned.replace('..', '_')
+  # Strip leading whitespace and dots together so names like " .hidden"
+  # become "hidden" (lstrip('.') alone leaves a leading dot after strip).
+  cleaned = cleaned.lstrip(' .').strip() or 'scene'
+  cleaned = cleaned[:200]
+  candidate = cleaned
+  suffix = 1
+  while candidate in used_names or not is_valid_scene_name(candidate):
+    suffix_str = f'_{suffix}'
+    candidate = f"{cleaned[:200 - len(suffix_str)]}{suffix_str}"
+    suffix += 1
+  return candidate
+
+def validate_scene_name(value):
+  if not is_valid_scene_name(value):
+    raise ValidationError(
+        "Scene name may only contain letters, digits, spaces, dashes, underscores, and dots, "
+        "and may not start with a dot or contain '..'.")
+  return value
 
 def validate_glb(value):
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
@@ -43,10 +80,16 @@ def validate_image(value):
 
 def validate_ply(value):
   try:
-    PlyData.read(value)
+    # plyfile's ASCII TextIOWrapper closes its stream; validate a separate copy.
+    with tempfile.NamedTemporaryFile(suffix=".ply") as ply_file:
+      for chunk in value.chunks():
+        ply_file.write(chunk)
+      ply_file.flush()
+      PlyData.read(ply_file.name)
+  except (PlyParseError, ValueError) as exc:
+    raise ValidationError("Invalid PLY file") from exc
+  finally:
     value.seek(0)
-  except Exception as e:
-    raise ValidationError(f"Invalid PLY file: {str(e)}")
   return value
 
 def validate_map_file(value):

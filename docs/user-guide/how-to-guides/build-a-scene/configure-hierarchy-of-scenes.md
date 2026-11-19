@@ -53,6 +53,78 @@ _Figure 2: Local Child scene on scene detail page._
 
 ## Steps to Add a Remote Child Scene
 
+### Exporting and Restoring a Hierarchy
+
+**Export Scene** includes all local descendants and their maps, plus remote
+child references (scene UUID, broker hostname, transform, and **Retrack**
+setting). Remote scenes themselves live on another deployment and are not
+embedded in the ZIP. MQTT credentials and cached remote catalogs are not exported.
+
+On **Import Scene**, optionally select **Restore original scene IDs** when
+restoring or migrating a deployment. Leave it unchecked to generate new UUIDs.
+By default, restoration rejects existing names and UUID collisions rather than
+overwriting scenes. When restoring both deployments, restore the remote child with its
+original UUID so its parent's reference continues to match its MQTT topics.
+If you instead clone the child with a new UUID, update the parent's remote link.
+Exporting a child alone cannot capture incoming links stored on another deployment.
+
+For archives containing remote children, provide a separate **Remote MQTT
+credentials (JSON)** file keyed by each remote scene UUID:
+
+```json
+{
+  "<remote-scene-uuid>": {
+    "mqtt_username": "<deployment-mqtt-username>",
+    "mqtt_password": "<deployment-mqtt-password>"
+  }
+}
+```
+
+Populate this file securely from deployment credentials, restrict its permissions,
+and do not commit it or put it in the scene ZIP. Missing or invalid credentials
+are reported before any scenes are created. The destination must also trust the
+remote broker's certificate and be able to reach its exported hostname.
+
+The standalone uploader supports the same options:
+
+```bash
+tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
+  --restauth manager/secrets/controller.auth \
+  --rootcert manager/secrets/certs/scenescape-ca.pem \
+  --restore-ids --reuse-existing \
+  --remote-credentials /secure/path/remote-credentials.json \
+  https://<deployment-host>/api/v1 ./my-scenes
+```
+
+Select **Reuse existing scenes**, pass `--reuse-existing` to the uploader, or
+set `reuse_existing=true` in the API to import overlapping parent/child ZIPs
+in either order. The importer creates missing scenes and links but keeps existing
+scene settings, maps, cameras, sensors, regions, tripwires, and calibration markers
+untouched. Existing parents are traversed too, so retrying can restore links and
+descendants missing after an interrupted import.
+
+Reuse is explicit: without **Restore original scene IDs**, scenes are matched by
+name, and an exported UUID belonging to a different scene is rejected. With both
+options enabled, both the scene name and UUID must match. Existing links must
+match the requested parent, transforms, retrack setting, and remote configuration;
+conflicts are reported rather than silently updated or reparented. Remote
+credentials must still be supplied for remote references, including on retries.
+Do not run overlapping imports concurrently; reuse handles sequential imports
+and retries, not concurrent provisioning.
+
+The API accepts `restore_ids=true`, `reuse_existing=true`, and a `remote_credentials` file alongside
+`zipFile` at `POST /api/v1/import-scene/`. Metadata for ZIP creation is available
+at `GET /api/v1/scene/<uuid>/export`; the ordinary scene API is unchanged.
+
+Older ZIPs with name-only remote children cannot be repaired automatically:
+re-export them from the source deployment. Legacy local-only archives remain
+supported. Import is not a full database restore or an update operation.
+Without reuse enabled, hierarchy uploads to existing scenes fail explicitly.
+Reuse repairs missing hierarchy links, but does not repair missing resources in
+an already-created scene. If a camera or other resource failed during import,
+resolve its reported error and repair that resource separately, or remove the
+partial import before retrying without reuse.
+
 ### 1. Configure NTP for Synchronization
 
 **On Parent System**:

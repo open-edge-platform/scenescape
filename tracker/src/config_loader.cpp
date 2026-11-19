@@ -6,8 +6,10 @@
 #include "env_vars.hpp"
 #include "json_utils.hpp"
 
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
 
 #include <rapidjson/document.h>
@@ -312,6 +314,40 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                      kDefaultNonMeasurementTimeStaticS)
             .GetDouble();
 
+    if (auto* method = GetValueByPointer(config_doc, json::TRACKING_ASSOCIATION_METHOD)) {
+        if (!method->IsString()) {
+            throw std::runtime_error("Invalid association method: expected string");
+        }
+        config.tracking.association.method = parseAssociationMethod(method->GetString());
+    }
+    config.tracking.association.gate_probability =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_GATE_PROBABILITY,
+                                     kDefaultAssociationGateProbability)
+            .GetDouble();
+    // RapidJSON validates draft-04, which ignores the schema's numeric exclusiveMinimum.
+    if (!(config.tracking.association.gate_probability > 0.0 &&
+          config.tracking.association.gate_probability <= 1.0)) {
+        throw std::runtime_error("tracking.association.gate_probability must be in (0, 1]: " +
+                                 std::to_string(config.tracking.association.gate_probability));
+    }
+    // Without max_radius_m the default depends on the method, so it is resolved after the env
+    // overrides below. Validate here too: schema minimum:0 is not enough if validation is skipped
+    // or a non-finite value slips through.
+    std::optional<double> association_max_radius_m;
+    if (auto* max_radius_m =
+            GetValueByPointer(config_doc, json::TRACKING_ASSOCIATION_MAX_RADIUS_M)) {
+        if (!max_radius_m->IsNumber()) {
+            throw std::runtime_error("tracking.association.max_radius_m must be a number");
+        }
+        const double radius = max_radius_m->GetDouble();
+        if (!std::isfinite(radius) || radius < 0.0) {
+            throw std::runtime_error(
+                "tracking.association.max_radius_m must be a finite number >= 0: " +
+                std::to_string(radius));
+        }
+        association_max_radius_m = radius;
+    }
+
     // NTP configuration (optional; server empty/missing = use OS clock)
     if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
         NtpConfig ntp_config;
@@ -402,6 +438,46 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               tracker::env::NON_MEASUREMENT_TIME_DYNAMIC_S, parse_positive_double);
     apply_env(config.tracking.non_measurement_time_static_s,
               tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
+
+    if (auto val = get_env(tracker::env::ASSOCIATION_METHOD); val.has_value()) {
+        config.tracking.association.method = parseAssociationMethod(val.value());
+    }
+    apply_env(config.tracking.association.gate_probability,
+              tracker::env::ASSOCIATION_GATE_PROBABILITY,
+              [](const std::string& v, const std::string& s) {
+                  try {
+                      std::size_t parsed = 0;
+                      double probability = std::stod(v, &parsed);
+                      if (parsed != v.size()) {
+                          throw std::runtime_error("Invalid " + s + ": " + v);
+                      }
+                      if (!std::isfinite(probability) || probability <= 0.0 || probability > 1.0) {
+                          throw std::runtime_error(s + " must be in (0, 1]: " + v);
+                      }
+                      return probability;
+                  } catch (const std::invalid_argument&) {
+                      throw std::runtime_error("Invalid " + s + ": " + v);
+                  } catch (const std::out_of_range&) {
+                      throw std::runtime_error("Value out of range for " + s + ": " + v);
+                  }
+              });
+    apply_env(association_max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
+              [](const std::string& v, const std::string& s) {
+                  try {
+                      std::size_t parsed = 0;
+                      double radius = std::stod(v, &parsed);
+                      if (parsed != v.size() || !std::isfinite(radius) || radius < 0.0) {
+                          throw std::runtime_error(s + " must be a finite number >= 0: " + v);
+                      }
+                      return radius;
+                  } catch (const std::invalid_argument&) {
+                      throw std::runtime_error("Invalid " + s + ": " + v);
+                  } catch (const std::out_of_range&) {
+                      throw std::runtime_error("Value out of range for " + s + ": " + v);
+                  }
+              });
+    config.tracking.association.max_radius_m =
+        association_max_radius_m.value_or(defaultMaxRadiusM(config.tracking.association.method));
 
     // NTP overrides: env vars take precedence;
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {

@@ -39,7 +39,7 @@ GEOMETRY_SETTLE = 3
 
 
 @pytest.mark.test_name("NEX-T29241")
-def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(
+def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(demo_scene,
     params, result_recorder):
   """! Analytics accepts Tracker DATA_SCENE envelopes and emits region events.
 

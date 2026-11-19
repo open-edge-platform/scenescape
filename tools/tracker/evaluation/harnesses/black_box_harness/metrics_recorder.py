@@ -36,13 +36,25 @@ _KIND_HISTOGRAM = "histogram"
 _KIND_SUM = "sum"
 _KIND_GAUGE = "gauge"
 
-# Counter metrics whose cumulative total reports messages/frames the service
+# Counter metrics whose cumulative total reports messages the service
 # dropped (e.g. due to lag, queue overflow, or worker saturation).  Both the
 # legacy controller and the tracker service expose an equivalent counter.
 DROPPED_FRAME_METRICS = (
     "scenescape_controller_mqtt_messages_dropped",
     "tracker.mqtt.dropped",
 )
+
+# Counter metrics with the number of messages the service counted as received.
+# tracker.mqtt.messages counts accepted messages only; see REJECTED_REASON_PREFIX.
+RECEIVED_MESSAGE_METRICS = (
+    "scenescape_controller_mqtt_messages",
+    "tracker.mqtt.messages",
+)
+
+# Dropped-counter reason of messages rejected before acceptance (parse, schema,
+# unknown camera, lag). They are not in tracker.mqtt.messages, so they are added
+# to the received total; later drops (e.g. queue full) were already counted.
+REJECTED_REASON_PREFIX = "rejected_"
 
 # Default warning threshold for the dropped-frame ratio (1%).
 DEFAULT_DROPPED_FRAME_THRESHOLD = 0.01
@@ -195,15 +207,16 @@ def _summarise_histogram(points: List[Dict[str, Any]]) -> Optional[Dict[str, flo
 
 
 def _summarise_counter(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-  """Aggregate cumulative counter series into a total plus per-export deltas."""
+  """Aggregate cumulative counter series into a total, per-reason totals and per-export deltas."""
   # Group points by series so deltas are computed within a single time series.
   by_series: Dict[Tuple, List[Dict[str, Any]]] = {}
   for point in points:
     by_series.setdefault(_series_key(point), []).append(point)
 
   total = 0.0
+  by_reason: Dict[str, float] = {}
   deltas: List[float] = []
-  for series_points in by_series.values():
+  for key, series_points in by_series.items():
     series_points.sort(key=_point_time)
     previous = 0.0
     for point in series_points:
@@ -217,9 +230,11 @@ def _summarise_counter(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
         deltas.append(value - previous)
       previous = value
     total += previous
+    reason = dict(key).get("reason", "")
+    by_reason[reason] = by_reason.get(reason, 0.0) + previous
   if not deltas:
     return None
-  return {"total": total, "delta": _stats(deltas)}
+  return {"total": total, "by_reason": by_reason, "delta": _stats(deltas)}
 
 
 def _summarise_gauge(points: List[Dict[str, Any]]) -> Optional[Dict[str, float]]:
@@ -269,36 +284,58 @@ def collect_metric_values(metrics_file: Path) -> Dict[str, Dict[str, Any]]:
   return values
 
 
-def check_dropped_frames(
-    metric_values: Dict[str, Dict[str, Any]],
-    output_frame_count: int,
-    threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
-) -> Dict[str, Any]:
-  """Verify how many frames the tracker/controller dropped during the run.
-
-  Sums the cumulative totals of the known dropped-frame counters and compares
-  the dropped count against the number of tracker output frames.
-
-  Args:
-      metric_values:      Output of :func:`collect_metric_values`.
-      output_frame_count: Number of tracker output frames collected.
-      threshold:          Ratio above which the run is flagged (default 1%).
-
-  Returns:
-      Mapping with ``dropped`` (int), ``output_frames`` (int), ``ratio``
-      (float; 0.0 when no output frames), ``threshold`` (float) and
-      ``exceeded`` (bool).
-  """
-  dropped = 0
-  for name in DROPPED_FRAME_METRICS:
+def _counter_total(metric_values: Dict[str, Dict[str, Any]], names: Tuple[str, ...]) -> int:
+  """Sum the cumulative totals of the given counter metrics (missing -> 0)."""
+  total = 0
+  for name in names:
     entry = metric_values.get(name)
     if entry and entry.get("stats"):
-      dropped += int(entry["stats"].get("total", 0) or 0)
+      total += int(entry["stats"].get("total", 0) or 0)
+  return total
 
-  ratio = dropped / output_frame_count if output_frame_count > 0 else 0.0
+
+def _rejected_total(metric_values: Dict[str, Dict[str, Any]]) -> int:
+  """Sum the dropped messages that were rejected before acceptance."""
+  total = 0
+  for name in DROPPED_FRAME_METRICS:
+    stats = (metric_values.get(name) or {}).get("stats") or {}
+    for reason, value in (stats.get("by_reason") or {}).items():
+      if reason.startswith(REJECTED_REASON_PREFIX):
+        total += int(value or 0)
+  return total
+
+
+def check_dropped_frames(
+    metric_values: Dict[str, Dict[str, Any]],
+    threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
+) -> Dict[str, Any]:
+  """Verify how many messages the tracker/controller dropped during the run.
+
+  Sums the cumulative totals of the known dropped-message counters and compares
+  them with the number of messages the service received: its message counter
+  plus the messages rejected before acceptance, which the Tracker counts only as
+  dropped.  Both services count dropped messages per camera, so the ratio is
+  independent of the camera count.
+
+  Args:
+      metric_values: Output of :func:`collect_metric_values`.
+      threshold:     Ratio above which the run is flagged (default 1%).
+
+  Returns:
+      Mapping with ``dropped`` (int), ``received`` (int), ``ratio`` (float;
+      1.0 when messages were dropped but none received, 0.0 when neither),
+      ``threshold`` (float) and ``exceeded`` (bool).
+  """
+  dropped = _counter_total(metric_values, DROPPED_FRAME_METRICS)
+  received = _counter_total(metric_values, RECEIVED_MESSAGE_METRICS) + _rejected_total(metric_values)
+
+  if received > 0:
+    ratio = dropped / received
+  else:
+    ratio = 1.0 if dropped > 0 else 0.0
   return {
       "dropped": dropped,
-      "output_frames": int(output_frame_count),
+      "received": received,
       "ratio": ratio,
       "threshold": threshold,
       "exceeded": ratio > threshold,

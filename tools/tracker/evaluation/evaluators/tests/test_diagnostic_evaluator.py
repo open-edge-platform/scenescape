@@ -19,7 +19,8 @@ import pandas as pd
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from evaluators.diagnostic_evaluator import DiagnosticEvaluator, MIN_OVERLAP_FRAMES
+from evaluators.diagnostic_evaluator import DiagnosticEvaluator
+from utils.tracks import MIN_OVERLAP_FRAMES
 
 
 def _make_timestamp(index, interval_ms=100):

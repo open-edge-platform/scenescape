@@ -10,6 +10,7 @@ import {
   DATA_REGULATED,
   IMAGE_CALIBRATE,
   IMAGE_CAMERA,
+  POSITIONING_POSE,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
 } from "/static/js/constants.js";
@@ -21,11 +22,13 @@ import {
 } from "/static/js/utils.js";
 import { plot } from "/static/js/marks.js";
 import { setupChildScene } from "/static/js/childscene.js";
+import { addSceneMaps } from "/static/js/scene-archive.js";
 import {
   initializeCalibration,
   initializeCalibrationSettings,
   startCameraCalibration,
   updateCalibrationView,
+  updateCalibrationPTZPose,
   handleAutoCalibrationPose,
   registerAutoCameraCalibration,
 } from "/static/js/calibration.js";
@@ -48,6 +51,7 @@ import {
   selectionMouseMove,
   selectionMouseUp,
 } from "/static/js/regions/area-select.js";
+import { PTZ_AWAY_MESSAGE } from "/static/js/ptzpose.js";
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
@@ -71,6 +75,7 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
+var show_association_windows = false;
 var scene_y_max = 480; // Scene image height in pixels
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
@@ -162,6 +167,11 @@ async function checkBrokerConnections() {
         console.log("Subscribed to " + $("#topic").val());
       }
 
+      // PTZ cameras: follow the live pose on the calibration page.
+      if ($("#ptz_calibration_version").val()) {
+        client.subscribe(APP_NAME + POSITIONING_POSE + $("#sensor_id").val());
+      }
+
       client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
       console.log(
         "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
@@ -245,6 +255,7 @@ async function checkBrokerConnections() {
           svgCanvas,
           show_telemetry,
           show_trails,
+          show_association_windows,
         );
       } else if (topic.includes("event")) {
         var etype = topic.split("/")[2];
@@ -288,6 +299,8 @@ async function checkBrokerConnections() {
         plotSingleton(msg);
       } else if (topic.includes(IMAGE_CALIBRATE)) {
         updateCalibrationView(msg);
+      } else if (topic.includes(POSITIONING_POSE)) {
+        updateCalibrationPTZPose(msg);
       } else if (topic.includes(IMAGE_CAMERA)) {
         // Skip processing regular camera images on calibration page
         if (window.location.href.includes("/cam/calibrate/")) {
@@ -362,6 +375,10 @@ $("#auto-autocalibration").on("click", async function () {
   }
 
   const camera_id = $("#sensor_id").val();
+  if (camera_calibration.isPTZAwayFromHome()) {
+    alert(PTZ_AWAY_MESSAGE);
+    return;
+  }
   if (btn) {
     btn.disabled = true;
   }
@@ -2114,16 +2131,7 @@ function setupGenerateMesh() {
 
       const statusResult = await pollMeshStatus(sceneId, requestId);
 
-      if (statusResult?.unanchored_cameras?.length) {
-        alert(
-          "Mesh generated successfully! The scene map has been updated.\n\n" +
-            "Warning: the following cameras had no prior calibration and were " +
-            "placed automatically, review their position before relying on them: " +
-            statusResult.unanchored_cameras.join(", "),
-        );
-      } else {
-        alert("Mesh generated successfully! The scene map has been updated.");
-      }
+      alert("Mesh generated successfully! The scene map has been updated.");
 
       $("#id_rotation_x").val(0);
       $("#id_rotation_y").val(0);
@@ -2330,10 +2338,21 @@ $(document).ready(function () {
               let messageText = "";
               let message = msg[0];
 
-              if (message && (message["name"] || message["sensor_id"])) {
-                messageText = message["name"]
-                  ? message["name"][0]
-                  : message["sensor_id"][0];
+              if (message && typeof message === "object") {
+                const fields = ["name", "sensor_id", "error"];
+                const field =
+                  fields.find((f) => message[f]) ||
+                  Object.keys(message).find((f) => message[f]);
+                if (field) {
+                  const value = message[field];
+                  messageText = String(Array.isArray(value) ? value[0] : value);
+                  if (field !== "name" && field !== "sensor_id") {
+                    const label = msg[1]?.name ? `${msg[1].name}: ` : "";
+                    const text = document.createElement("span");
+                    text.textContent = label + messageText;
+                    messageText = text.innerHTML;
+                  }
+                }
               }
               if (
                 messageText.includes("orphaned camera") ||
@@ -2349,9 +2368,12 @@ $(document).ready(function () {
                   try {
                     let updateResponse;
                     if (isCamera) {
+                      // Send the exported camera (minus its sensor_id) so the
+                      // calibration is applied along with the scene link.
+                      const { sensor_id: _ignored, ...cameraData } = msg[1];
                       updateResponse = await restClient.updateCamera(
                         msg[1].sensor_id,
-                        { scene: msg[1].scene },
+                        cameraData,
                       );
                     } else {
                       let sensorData = {
@@ -2413,7 +2435,38 @@ $(document).ready(function () {
         });
 
         importSpinner.style.display = "none";
-        const result = await response.json();
+        let result;
+        try {
+          result = await response.json();
+        } catch {
+          showError({
+            error: [`Import failed (${response.status})`],
+          });
+          return;
+        }
+
+        if (!response.ok) {
+          if (result.scene) {
+            showError(result.scene);
+            return;
+          }
+          if (
+            result.cameras ||
+            result.calibration_markers ||
+            result.tripwires ||
+            result.regions ||
+            result.sensors
+          ) {
+            await showWarnings(result, restclient);
+            return;
+          }
+          const message = result.error || `Import failed (${response.status})`;
+          showError(
+            typeof message === "string" ? { error: [message] } : message,
+          );
+          return;
+        }
+
         if (result.scene) {
           showError(result.scene);
           return;
@@ -2444,33 +2497,15 @@ $(document).ready(function () {
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       try {
-        const response = await restclient.getScene(scene_id);
+        const response = await restclient.exportScene(scene_id);
         if (response.statusCode !== 200)
           throw new Error("Failed to fetch scenes");
 
         const scene = response.content;
         const zip = new JSZip();
 
-        zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
-        const sceneName = scene.name.replace(/\s+/g, "_");
-
-        if (scene.map) {
-          try {
-            const mapBlob = await fetchFileAsBlob(scene.map);
-            const mapExt = scene.map.split(".").pop();
-            zip.file(`${sceneName}.${mapExt}`, mapBlob);
-
-            if (Array.isArray(scene.children)) {
-              for (const child of scene.children) {
-                const mapBlob = await fetchFileAsBlob(child.map);
-                const mapExt = child.map.split(".").pop();
-                zip.file(`${child.name}.${mapExt}`, mapBlob);
-              }
-            }
-          } catch (err) {
-            console.warn(`Skipping map for ${sceneName}:`, err);
-          }
-        }
+        await addSceneMaps(zip, scene);
+        zip.file(scene.uid + ".json", JSON.stringify(scene, null, 2));
 
         // Download the zip
         const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -2481,15 +2516,10 @@ $(document).ready(function () {
         URL.revokeObjectURL(link.href);
       } catch (error) {
         console.error("Error exporting scene:", error);
+        window.alert(`Scene export failed: ${error.message}`);
       }
     };
   }
-  async function fetchFileAsBlob(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
-    return await response.blob();
-  }
-
   if ($("#scale").val() !== "") {
     scale = $("#scale").val();
   }
@@ -2820,6 +2850,10 @@ $(document).ready(function () {
   $("input#show-telemetry").on("change", function () {
     if ($(this).is(":checked")) show_telemetry = true;
     else show_telemetry = false;
+  });
+
+  $("input#show-association-windows").on("change", function () {
+    show_association_windows = $(this).is(":checked");
   });
 
   $(".form-group")

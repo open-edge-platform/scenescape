@@ -259,9 +259,16 @@ folder with, per metric:
 - **Counters** (e.g. `tracker.mqtt.messages`): cumulative `total` plus the per-export delta `avg` / `min` / `max` / `median`.
 - **Gauges** (e.g. `tracker.tracks.active`): `avg` / `min` / `max` / `median` over all observed values.
 
-After writing the summary, the harness verifies how many frames were dropped (summing the
+After writing the summary, the harness verifies how many messages were dropped (summing the
 `scenescape_controller_mqtt_messages_dropped` and `tracker.mqtt.dropped` counters), prints the
-count and ratio, and emits a `WARNING` when the dropped-to-output-frame ratio exceeds 1%.
+count and ratio, and emits a `WARNING` when the dropped-to-received-message ratio exceeds 1%.
+The denominator is the total of the `scenescape_controller_mqtt_messages` and
+`tracker.mqtt.messages` counters, plus the messages the Tracker rejected before accepting them
+(`tracker.mqtt.dropped` with a `rejected_*` reason), which `tracker.mqtt.messages` does not count.
+A run that dropped messages but received none is reported as 100%. Dropped messages are counted
+per camera, so the ratio does not depend on the number of cameras in the dataset. Drops after the
+split by category (busy tracker, full queue) count once per category, so with several categories
+the ratio errs high and can exceed 100%.
 The aggregated values are also available programmatically via
 `metrics_recorder.collect_metric_values()` and `metrics_recorder.check_dropped_frames()`.
 

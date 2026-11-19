@@ -20,6 +20,7 @@ from harnesses.black_box_harness.black_box_harness import (
     CONTAINER_TYPE_TRACKER,
     DEFAULT_DRAIN_TIMEOUT,
     DEFAULT_STARTUP_WAIT,
+    _build_tracker_service_config,
     _free_port,
     _merge_outputs_by_timestamp,
     _parse_ts,
@@ -954,6 +955,31 @@ class TestPersistConfig:
     # Should not raise when no output folder is configured.
     harness._persist_config()
     assert harness._output_folder is None
+
+
+# ---------------------------------------------------------------------------
+# Tracker service config
+# ---------------------------------------------------------------------------
+
+class TestBuildTrackerServiceConfig:
+  """_build_tracker_service_config must forward the association block."""
+
+  EUCLIDEAN = {"method": "euclidean", "max_radius_m": 2.0}
+
+  def _build(self, tracker_cfg):
+    return _build_tracker_service_config("broker", "manager", 1234, tracker_cfg)
+
+  def test_flat_config_association_forwarded(self):
+    cfg = self._build({"time_chunking_rate_fps": 10, "association": self.EUCLIDEAN})
+    assert cfg["tracking"]["association"] == self.EUCLIDEAN
+
+  def test_nested_config_association_forwarded(self):
+    cfg = self._build({"tracking": {"association": self.EUCLIDEAN}})
+    assert cfg["tracking"]["association"] == self.EUCLIDEAN
+
+  def test_missing_association_left_to_tracker_defaults(self):
+    cfg = self._build({"time_chunking_rate_fps": 10})
+    assert "association" not in cfg["tracking"]
 
 
 # ---------------------------------------------------------------------------
