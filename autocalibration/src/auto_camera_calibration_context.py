@@ -53,7 +53,6 @@ class CameraCalibrationContext:
 
     self.calibration_results = {}
     self.socket_clients = {}
-    self.socket_scene_clients = {}
     self.socketio = None
 
     self.register_thread_lock = threading.Lock()
@@ -61,6 +60,10 @@ class CameraCalibrationContext:
     self.current_processing_scene = None
 
     return
+
+  @staticmethod
+  def scene_room(scene_id):
+    return f"scene:{scene_id}"
 
   def preprocess_scenes(self):
     """! For all scenes in database, preprocess the scene map and store/update results
@@ -99,6 +102,8 @@ class CameraCalibrationContext:
     # A blocking acquire would stall the whole eventlet hub.
     while not self.register_thread_lock.acquire(blocking=False):
       self.socketio.sleep(0.5)
+    # Pages already open for the scene must show the spinner while it re-registers.
+    self.notify_scene_registration(sceneobj, {"status": "registering"})
     try:
       strategy = self.scene_strategies[sceneobj.camera_calibration]
       # CPU-heavy work runs in a native thread so the Socket.IO hub keeps serving.
@@ -112,16 +117,19 @@ class CameraCalibrationContext:
     finally:
       self.current_processing_scene = {}
       self.register_thread_lock.release()
-    self.notify_scene_registration(sceneobj.id, response_dict)
+    self.notify_scene_registration(sceneobj, response_dict)
     return
 
-  def notify_scene_registration(self, scene_id, response):
-    socket_id = self.socket_scene_clients.get(scene_id)
-    if socket_id and self.socketio:
-      self.socketio.emit("register_result", {"scene_id": scene_id, "data": response}, to=socket_id)
-      log.info(f"Sent WebSocket result to {socket_id} for {scene_id}")
-    else:
-      log.info(f"No socket_id found for scene {scene_id}, can't send result via WebSocket")
+  def notify_scene_registration(self, sceneobj, response):
+    # Every page open for the scene joins its room, so no page misses the result.
+    room = self.scene_room(sceneobj.id)
+    # The calibration type may have changed since the page loaded.
+    self.socketio.emit("register_result", {
+        "scene_id": sceneobj.id,
+        "camera_calibration": sceneobj.camera_calibration,
+        "data": response,
+    }, to=room)
+    log.info(f"Sent WebSocket result to room {room}")
     return
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):

@@ -145,6 +145,10 @@ async function registerAutoCameraCalibration(scene_id, socket) {
   // Replace any prior handler so retries do not stack listeners.
   socket.off("register_result");
   socket.on("register_result", async (notification) => {
+    if (notification.camera_calibration) {
+      calibration_strategy = notification.camera_calibration;
+      document.getElementById("calib_strategy").value = calibration_strategy;
+    }
     await manageCalibrationState(notification.data, scene_id);
   });
 

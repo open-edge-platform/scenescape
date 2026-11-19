@@ -209,7 +209,6 @@ class _ReadyContext:
       },
     })
     self.socket_clients = {}
-    self.socket_scene_clients = {}
 
   def scene_update_thread_wrapper(self, scene, map_update=False):
     """Accept an update trigger without starting a thread."""

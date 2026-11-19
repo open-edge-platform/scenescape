@@ -7,7 +7,7 @@ import os
 import base64
 
 from flask import Flask, jsonify, request
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
 from point_cloud_registration import PointCloudRegistration, PointCloudRegistrationError
@@ -451,7 +451,7 @@ class CameraCalibrationApi:
         return
 
       sid = request.sid
-      self.calibrationContext.socket_scene_clients[scene_id] = sid
+      join_room(self.calibrationContext.scene_room(scene_id))
       log.info(f"Registered scene '{scene_id}' with socket id {sid}")
       return
 
