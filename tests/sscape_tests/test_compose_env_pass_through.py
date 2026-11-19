@@ -257,3 +257,78 @@ services:
     assert environment["NO_PROXY"] == expected
     assert environment["http_proxy"] == "http://proxy.example.test:8080"
   assert services["vippet"]["environment"]["KEEP_SETTING"] == "unchanged"
+
+
+@pytest.fixture
+def mlops_docker_stub(tmp_path):
+  docker = tmp_path / "docker"
+  docker.write_text("""#!/bin/bash
+printf '%s\\n' "$*" >> "$DOCKER_CALLS"
+case "$1" in
+  network) echo "vippet dlstreamer-pipeline-server" ;;
+  inspect)
+    case "$3" in
+      *State.Running*) if [ "$4" = "$STOPPED_CONTAINER" ]; then echo false; else echo true; fi ;;
+      *working_dir*) echo "$FAKE_PROJECT_DIR" ;;
+      *config_files*) echo "$FAKE_PROJECT_DIR/compose.yml" ;;
+      *project*) echo vippet-project ;;
+      *Config.Image*) echo example/image:tag ;;
+      *) exit 1 ;;
+    esac ;;
+  exec)
+    if [ "$2" = "ui-id" ]; then
+      [ "$RELOAD_FAIL" != 1 ] || exit 1
+    elif [ "$3" = "sh" ]; then
+      echo "localhost,mediamtx"
+    fi ;;
+  compose) ;;
+  ps) if [ "$UI_RUNNING" = 1 ]; then echo ui-id; fi ;;
+  *) exit 1 ;;
+esac
+""")
+  docker.chmod(0o755)
+  return docker
+
+
+def _run_mlops_configure(tmp_path, **settings):
+  root = Path(__file__).resolve().parents[2]
+  log = tmp_path / "docker-calls"
+  env = {
+    **os.environ,
+    "PATH": f"{tmp_path}:{os.environ['PATH']}",
+    "DOCKER_CALLS": str(log),
+    "FAKE_PROJECT_DIR": str(tmp_path),
+    "UI_RUNNING": "1",
+    **settings,
+  }
+  result = subprocess.run(
+    ["make", "-C", str(root), "configure-mlops-vippet",
+     f"VIPPET_MODELS_DIR={tmp_path}", "VIPPET_MODELS_VOLUME="],
+    env=env, capture_output=True, text=True, check=False,
+  )
+  return result, log.read_text().splitlines()
+
+
+@pytest.mark.parametrize("ui_running,reload_fail,success", [
+  ("1", "0", True),
+  ("0", "0", True),
+  ("1", "1", False),
+])
+def test_mlops_configure_refreshes_running_ui(tmp_path, mlops_docker_stub,
+                                             ui_running, reload_fail, success):
+  result, calls = _run_mlops_configure(tmp_path, UI_RUNNING=ui_running, RELOAD_FAIL=reload_fail)
+  assert (result.returncode == 0) is success
+  reloads = [index for index, call in enumerate(calls) if call == "exec ui-id nginx -s reload"]
+  assert bool(reloads) is (ui_running == "1")
+  if reloads:
+    compose = next(index for index, call in enumerate(calls) if call.startswith("compose "))
+    assert compose < reloads[0]
+  else:
+    assert "UI container is not running" in result.stdout
+
+
+def test_mlops_configure_reports_stopped_server(tmp_path, mlops_docker_stub):
+  result, calls = _run_mlops_configure(tmp_path, STOPPED_CONTAINER="dlstreamer-pipeline-server")
+  assert result.returncode != 0
+  assert "docker start dlstreamer-pipeline-server" in result.stdout
+  assert not any(call.startswith("compose ") for call in calls)

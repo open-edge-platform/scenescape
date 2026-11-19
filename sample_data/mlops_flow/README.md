@@ -20,14 +20,15 @@ camera streams.
 
 ## Prerequisites
 
-- ViPPET running on the same host. In the ViPPET directory run:
+- ViPPET and its `dlstreamer-pipeline-server` container running on the same
+  host. In the ViPPET directory run:
 
   ```bash
   make build run
   ```
 
-  The demo starts its own DLSPS 2.0, so ViPPET's optional `DLSPS2=1` backend is
-  not needed.
+  The demo starts a separate DLSPS 2.0 for Scenescape; ViPPET's own pipeline
+  server is also required for the proxy configuration step.
 
 - Scenescape images built (`make build-core`) and the super user password set:
 
@@ -58,7 +59,8 @@ DLSPS read-only at `/models`, then:
   proxy settings, and loads the project's `.env`; it never builds or pulls
   images, so prebuilt-only (`make run-prebuilt`) setups are not changed.
   If the exclusion is missing, it recreates those two containers, interrupting
-  any running ViPPET pipelines. No ViPPET source files are changed;
+  any running ViPPET pipelines. It reloads the running ViPPET UI proxy so it
+  resolves the current backend address. No ViPPET source files are changed;
 - deploys Scenescape with
   [compose.scenescape-override.yml](./compose.scenescape-override.yml): the
   MLOps Flow flag (`ENABLE_MLOPS_FLOW=true`), `VIPPET_URL`,
@@ -160,6 +162,9 @@ enable the MLOps Flow. Enable it with one of:
   `vippet` container. The target detects named volumes and bind mounts
   automatically. Override discovery with `VIPPET_NETWORK`,
   `VIPPET_MODELS_VOLUME`, or an absolute `VIPPET_MODELS_DIR` path.
+- If a ViPPET prerequisite container is stopped, start it with
+  `docker start <container-name>` and retry. If it fails to start, inspect
+  `docker logs <container-name>`.
 - If ViPPET is restarted while the demo is running, restart the demo with
   `make demo-mlops-flow-close` followed by `make demo-mlops-flow` so its
   containers rejoin ViPPET's network.

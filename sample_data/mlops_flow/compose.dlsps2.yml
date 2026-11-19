@@ -54,7 +54,8 @@ services:
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - "/run/udev:/run/udev:ro"
-      - "/dev:/dev"
+      - "/dev/dri:/dev/dri"
+      - "/dev/accel:/dev/accel"
     secrets:
       # The Scenescape MQTT broker only accepts TLS; the publisher trusts this CA.
       - source: root-cert
@@ -72,13 +73,10 @@ services:
       - "c 189:* rmw"
       - "c 209:* rmw"
       - "a 189:* rwm"
+    # GPU and NPU device access.
     devices:
-      # Uncomment these lines to use GPU acceleration
-      # devices:
-      #   - "/dev/dri:/dev/dri"
-      # Uncomment these lines to use NPU acceleration
-      # devices:
-      #   - "/dev/accel:/dev/accel"
+      - "/dev/dri:/dev/dri"
+      - "/dev/accel:/dev/accel"
     healthcheck:
       test:
         [

@@ -971,6 +971,16 @@ check-mlops-flow:
 .PHONY: configure-mlops-vippet
 configure-mlops-vippet: check-mlops-flow
 	@set -e -o pipefail; \
+	for SERVICE in vippet dlstreamer-pipeline-server; do \
+		if ! RUNNING=$$(docker inspect -f '{{.State.Running}}' "$$SERVICE"); then \
+			echo "Error: ViPPET container '$$SERVICE' not found; start the ViPPET stack first."; \
+			exit 1; \
+		fi; \
+		if [ "$$RUNNING" != true ]; then \
+			echo "Error: ViPPET container '$$SERVICE' is not running; start it with 'docker start $$SERVICE'."; \
+			exit 1; \
+		fi; \
+	done; \
 	DIR=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' vippet); \
 	PROJECT=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' vippet); \
 	FILES=$$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' vippet); \
@@ -1002,7 +1012,15 @@ configure-mlops-vippet: check-mlops-flow
 	case "$${VIPPET_IMAGE##*/}" in *:*) export DOCKER_TAG="$${VIPPET_IMAGE##*:}" ;; esac; \
 	export VIPPET_NO_PROXY VIPPET_DLSPS_NO_PROXY; \
 	docker compose -p "$$PROJECT" "$${ARGS[@]}" -f "$$OVERRIDE" \
-		up -d --no-deps --no-build --pull never --wait --wait-timeout 120 vippet dlstreamer-pipeline-server
+		up -d --no-deps --no-build --pull never --wait --wait-timeout 120 vippet dlstreamer-pipeline-server; \
+	UI=$$(docker ps --filter "label=com.docker.compose.project=$$PROJECT" \
+		--filter "label=com.docker.compose.service=vippet-ui" --format '{{.ID}}'); \
+	if [ -n "$$UI" ]; then \
+		echo "Reloading ViPPET's UI proxy to resolve the current backend address..."; \
+		docker exec "$$UI" nginx -s reload; \
+	else \
+		echo "Warning: ViPPET's UI container is not running; start it to use the UI."; \
+	fi
 
 .PHONY: demo-mlops-flow
 demo-mlops-flow: configure-mlops-vippet $(DEMO_BUILD:build=build-core)
