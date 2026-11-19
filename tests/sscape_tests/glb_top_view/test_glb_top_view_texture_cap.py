@@ -145,6 +145,38 @@ def test_upgrade_backfills_origin_for_unchanged_existing_glb_scene(tmp_path, set
 
 
 @pytest.mark.django_db
+def test_upgrade_backfill_warns_about_shapes_drawn_without_origin(tmp_path, settings, caplog):
+  import trimesh
+  from django.core.files.base import ContentFile
+  from django.core.files.storage import default_storage
+  from manager.models import Region, Scene, SingletonSensor, Tripwire
+  settings.MEDIA_ROOT = str(tmp_path)
+  glb = trimesh.creation.box(extents=(2, 4, 6)).export(file_type="glb")
+  shapes = Scene.objects.create(name="with-shapes")
+  empty = Scene.objects.create(name="no-shapes")
+  for scene in (shapes, empty):
+    Scene.objects.filter(pk=scene.pk).update(
+      map=default_storage.save("box.glb", ContentFile(glb)), rotation_z=90,
+      translation_x=10, translation_y=20, scale_x=2, scale_y=3, scale_z=4)
+  Region.objects.create(scene=shapes, name="r")
+  Tripwire.objects.create(scene=shapes, name="t")
+  SingletonSensor.objects.create(scene=shapes, sensor_id="circle", name="circle", type="generic", area="circle")
+  SingletonSensor.objects.create(scene=shapes, sensor_id="whole", name="whole", type="generic", area="scene")
+  SingletonSensor.objects.create(scene=empty, sensor_id="whole2", name="whole2", type="generic", area="scene")
+  with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
+    renderer = _mock_offscreen_renderer()
+    renderer.render_to_image.return_value = np.full((768, 1024, 3), 255, dtype=np.uint8)
+    renderer_class.return_value = renderer
+    with caplog.at_level("WARNING", logger="manager.migrations.0012_scene_map_origin"):
+      _run_map_origin_backfill()
+  warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+  assert len(warnings) == 1
+  assert f"Scene {shapes.pk} (with-shapes)" in warnings[0]
+  assert "(4.000, 15.500)" in warnings[0]
+  assert "1 region(s), 1 tripwire(s) and 1 sensor area(s)" in warnings[0]
+
+
+@pytest.mark.django_db
 def test_upgrade_backfill_skips_scene_with_missing_glb(tmp_path, settings):
   from manager.models import Scene
   settings.MEDIA_ROOT = str(tmp_path)
