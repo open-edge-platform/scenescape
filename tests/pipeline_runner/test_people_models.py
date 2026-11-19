@@ -40,7 +40,6 @@ def _apply_marks(scenario: PipelineScenario):
   marks = [getattr(pytest.mark, m) for m in scenario.marks]
   return pytest.param(scenario, marks=marks, id=scenario.id)
 
-@pytest.mark.usefixtures("install_shared_models")
 class TestPeoplePipelines:
   """Integration tests for people-detection model chains on qcam1.ts."""
 
