@@ -200,6 +200,7 @@ class _ReadyContext:
     self.registration_results = {
       _REJECTED_SCENE: {"status": "error", "message": _TOO_FEW_TAGS},
     }
+    self.pending_registrations = set()
     self.calibration_thread_lock = _ViewLock({_CAM_BUSY})
     self.calibration_results = _Results({
       _CAM_SUCCESS: {
@@ -413,12 +414,15 @@ def test_registration_retry_does_not_rerun_active_scene(monkeypatch):
 
 
 def test_registration_retry_keeps_worker_error_when_busy(monkeypatch):
-  """A retry that cannot start a worker must not erase the last error."""
+  """A refused retry keeps the last error but GET reports the retry as waiting."""
   error = {"status": "error", "message": _TOO_FEW_TAGS}
+  monkeypatch.setattr(_api.calibrationContext, "pending_registrations", set())
   monkeypatch.setitem(_api.calibrationContext.registration_results, _BUSY_SCENE, error)
   with _api.app.test_client() as client:
     response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
+    status = client.get(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration")
   assert response.get_json()["status"] == "busy"
+  assert status.get_json()["status"] == "busy"
   assert _api.calibrationContext.registration_results[_BUSY_SCENE] == error
 
 

@@ -50,6 +50,8 @@ class CameraCalibrationContext:
 
     self.calibration_results = {}
     self.registration_results = {}
+    # Scenes whose registration request was refused while another scene registered.
+    self.pending_registrations = set()
     self.socket_clients = {}
     self.socket_scene_clients = {}
     self.socketio = None
@@ -82,6 +84,7 @@ class CameraCalibrationContext:
     if not self.register_thread_lock.acquire(blocking=False):
       return False
     self.current_processing_scene = sceneobj.id
+    self.pending_registrations.discard(sceneobj.id)
     self.registration_results.pop(sceneobj.id, None)
     try:
       thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))

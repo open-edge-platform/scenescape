@@ -415,6 +415,7 @@ class CameraCalibrationApi:
       outcome, message = status.REGISTERING, "Registration is in progress"
     else:
       outcome, message = status.BUSY, "Registration is currently busy"
+      context.pending_registrations.add(scene.id)
     response = {
         self.OpenApi.STATUS: outcome,
         self.OpenApi.SCENE_ID: scene_id,
@@ -429,6 +430,10 @@ class CameraCalibrationApi:
     context = self.calibrationContext
     if context.current_processing_scene == scene.id:
       return status.REGISTERING, "Registration is in progress"
+    if scene.id in context.pending_registrations:
+      if context.register_thread_lock.locked():
+        return status.BUSY, "Registration is currently busy"
+      return status.REGISTERING, "Registration is waiting to start"
     # map_processed can be saved before validation fails, so map freshness is not proof of success.
     result = context.registration_results.get(scene.id)
     if result and result["status"] != status.SUCCESS:
