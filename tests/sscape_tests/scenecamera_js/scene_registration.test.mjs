@@ -113,13 +113,14 @@ test("the 3D view waits for another scene, then registers this scene", async (co
   await view.poll();
   assert.equal(
     view.requests.filter(([, method]) => method === "POST").length,
-    1,
+    2,
+    "a busy status re-submits the waiting scene",
   );
-  await view.poll();
-  assert.equal(view.camera.enabled, false);
   assert.deepEqual(view.notifications.slice(1), [
     ["update", TOAST_ID, PROCESSING],
   ]);
+  await view.poll();
+  assert.equal(view.camera.enabled, false);
 
   await view.poll();
   await view.done;

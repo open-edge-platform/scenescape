@@ -402,7 +402,14 @@ class CameraCalibrationApi:
     # The worker may save map_processed before it finishes, so check the active scene first.
     if self.calibrationContext.current_processing_scene == scene.id:
       return True
+    if scene.id in self.calibrationContext.pending_registrations:
+      return True
     return strategy.is_map_updated(scene)
+
+  def _request_scene_update(self, scene):
+    context = self.calibrationContext
+    if not context.scene_update_thread_wrapper(scene, map_update=True):
+      context.pending_registrations.add(scene.id)
 
   def _request_scene_registration(self, scene_id: str, scene) -> dict:
     status = self.OpenApi.Status
@@ -433,7 +440,7 @@ class CameraCalibrationApi:
     if scene.id in context.pending_registrations:
       if context.register_thread_lock.locked():
         return status.BUSY, "Registration is currently busy"
-      return status.REGISTERING, "Registration is waiting to start"
+      return status.BUSY, "Registration is waiting to start"
     # map_processed can be saved before validation fails, so map freshness is not proof of success.
     result = context.registration_results.get(scene.id)
     if result and result["status"] != status.SUCCESS:
@@ -441,7 +448,7 @@ class CameraCalibrationApi:
     if strategy.is_map_updated(scene):
       if context.register_thread_lock.locked():
         return status.BUSY, "Registration is currently busy"
-      return status.REGISTERING, "Registration is in progress"
+      return status.BUSY, "Registration is waiting to start"
     return status.SUCCESS, "Registration is complete"
 
   def _register_socket_events(self):
@@ -598,8 +605,7 @@ class CameraCalibrationApi:
 
       if strategy.is_map_updated(scene):
         strategy.reset_scene(scene)
-        self.calibrationContext.registration_results.pop(scene.id, None)
-        self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
+        self._request_scene_update(scene)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202
       else:

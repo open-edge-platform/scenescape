@@ -432,6 +432,9 @@ paths:
         Checks the status of scene registration. When the last registration
         attempt for the scene failed (for example, too few AprilTags), returns
         `error` with the failure reason even if the map was processed.
+        Returns `registering` only while this scene's registration runs, and
+        `busy` when the scene still needs registration but none is running for
+        it; POST again to start it.
       operationId: getSceneRegistrationStatus
       parameters:
         - name: sceneId

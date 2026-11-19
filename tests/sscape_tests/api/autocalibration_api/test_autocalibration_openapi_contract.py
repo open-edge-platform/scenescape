@@ -426,6 +426,20 @@ def test_registration_retry_keeps_worker_error_when_busy(monkeypatch):
   assert _api.calibrationContext.registration_results[_BUSY_SCENE] == error
 
 
+def test_refused_scene_update_keeps_error_and_waits(monkeypatch):
+  """A PATCH that cannot start a worker must not erase the last error or report success."""
+  context = _api.calibrationContext
+  error = {"status": "error", "message": _TOO_FEW_TAGS}
+  monkeypatch.setattr(context, "pending_registrations", set())
+  monkeypatch.setitem(context.registration_results, _BUSY_SCENE, error)
+  with _api.app.test_client() as client:
+    client.patch(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
+    monkeypatch.setattr(context.scene_strategies[_MARKERLESS], "_map_updated", False)
+    status = client.get(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration")
+  assert context.registration_results[_BUSY_SCENE] == error
+  assert status.get_json()["status"] == "busy"
+
+
 def test_registration_status_prefers_pending_map_over_stale_success(monkeypatch):
   """A newer map must not be reported as registered from an older success."""
   monkeypatch.setitem(
