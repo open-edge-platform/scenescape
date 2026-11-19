@@ -274,6 +274,10 @@ function main() {
   const sceneBoundingBox = new THREE.Box3();
 
   let assetManager, client;
+  let resolveMqttConnected;
+  const mqttConnected = new Promise((resolve) => {
+    resolveMqttConnected = resolve;
+  });
   let isVARunning = false;
   async function loadThings() {
     let things = Object.keys(sceneThingManagers["things"]);
@@ -301,7 +305,7 @@ function main() {
     }
 
     connectMQTT();
-    autoCalibrationSetup(sceneThingManagers.things.camera.obj);
+    autoCalibrationSetup(sceneThingManagers.things.camera.obj, mqttConnected);
 
     refreshGlobalCameraPanelControls();
 
@@ -441,6 +445,7 @@ function main() {
             cameraManager.sceneCameras[key].setMQTTClient(client, appName);
           }
         }
+        resolveMqttConnected();
       });
     }
 
@@ -539,7 +544,7 @@ function main() {
     }
   }
 
-  function autoCalibrationSetup(cameraManager) {
+  function autoCalibrationSetup(cameraManager, mqttReady) {
     if (!isStaff) return;
     if (document.getElementById("camera_calib_strategy").value == "Manual") {
       for (const key in cameraManager.sceneCameras) {
@@ -550,7 +555,12 @@ function main() {
       return;
     }
 
-    registerSceneFor3DView(sceneID, cameraManager.sceneCameras, toast);
+    registerSceneFor3DView(
+      sceneID,
+      cameraManager.sceneCameras,
+      toast,
+      mqttReady,
+    );
   }
 
   function handleMQTTMessage(topic, data) {

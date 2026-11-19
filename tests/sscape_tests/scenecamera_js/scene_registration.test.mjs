@@ -21,7 +21,7 @@ const PROCESSING = "Processing the scene data to enable auto calibration";
 const WAITING =
   "Another scene is being registered. Waiting to register this scene.";
 
-function startRegistration(context, responses) {
+function startRegistration(context, responses, mqttConnected) {
   const requests = [];
   const polls = [];
   const notifications = [];
@@ -47,7 +47,12 @@ function startRegistration(context, responses) {
     polls.push(callback);
   });
 
-  const done = registerSceneFor3DView(SCENE_ID, { camera }, toast);
+  const done = registerSceneFor3DView(
+    SCENE_ID,
+    { camera },
+    toast,
+    mqttConnected,
+  );
   return {
     camera,
     done,
@@ -147,6 +152,26 @@ test("a failed registration result leaves Auto Calibrate disabled", async (conte
       10000,
     ],
   ]);
+});
+
+test("Auto Calibrate stays disabled after registration until MQTT connects", async (context) => {
+  let connectMqtt;
+  const mqttConnected = new Promise((resolve) => {
+    connectMqtt = resolve;
+  });
+  const view = startRegistration(
+    context,
+    ["registering", "success"],
+    mqttConnected,
+  );
+  await setImmediate();
+  await view.poll();
+  assert.equal(view.notifications.at(-1)[1], "Dataset registered");
+  assert.equal(view.camera.enabled, false);
+
+  connectMqtt();
+  await view.done;
+  assert.equal(view.camera.enabled, true);
 });
 
 test("persistent toasts disable autohide without passing a null Bootstrap delay", (context) => {

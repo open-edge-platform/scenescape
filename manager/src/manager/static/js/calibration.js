@@ -103,7 +103,12 @@ async function getSceneRegistrationStatus(sceneId) {
   return response.json();
 }
 
-export async function registerSceneFor3DView(sceneId, sceneCameras, toast) {
+export async function registerSceneFor3DView(
+  sceneId,
+  sceneCameras,
+  toast,
+  mqttConnected = Promise.resolve(),
+) {
   const toastId = "scene-registration-toast";
   const resultToastDelay = 10000;
   let progressStatus;
@@ -138,9 +143,6 @@ export async function registerSceneFor3DView(sceneId, sceneCameras, toast) {
     if (registration.status !== "success") {
       throw new Error(registration.message || "Scene registration failed");
     }
-    for (const [key, camera] of Object.entries(sceneCameras)) {
-      if (key !== "undefined") camera.enableAutoCalibration(true);
-    }
     if (progressStatus) {
       document.getElementById(toastId)?.remove();
       toast.showToast(
@@ -149,6 +151,11 @@ export async function registerSceneFor3DView(sceneId, sceneCameras, toast) {
         "None",
         resultToastDelay,
       );
+    }
+    // Calibration requests its frame over MQTT, so the button waits for the client.
+    await mqttConnected;
+    for (const [key, camera] of Object.entries(sceneCameras)) {
+      if (key !== "undefined") camera.enableAutoCalibration(true);
     }
   } catch (error) {
     console.warn("Scene registration failed:", error);
