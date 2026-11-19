@@ -280,6 +280,20 @@ REID_CORE = ServiceProfile(
   },
 )
 
+# REID_CORE plus two more controllers (scene, scene-b, scene-c) sharing one
+# broker, scene configuration and VDMS, for ReID schema-sharing tests.
+REID_MULTI_CONTROLLER = ServiceProfile(
+  name="reid_multi_controller",
+  compose_files=REID_CORE.compose_files + (
+    f"{COMPOSE}/compose.scene-reid-peers.yml",
+  ),
+  wait_for={
+    **REID_CORE.wait_for,
+    "scene-b": _SCENE,
+    "scene-c": _SCENE,
+  },
+)
+
 REID_QDRANT = ServiceProfile(
   name="reid_qdrant",
   compose_files=(
@@ -606,6 +620,7 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
     REID,
     REID_CORE,
+    REID_MULTI_CONTROLLER,
     REID_QDRANT,
     REID_CORE_QDRANT,
     REID_HIER_SHARED,
