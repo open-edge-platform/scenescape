@@ -61,8 +61,8 @@ rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200
 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR
 ! sscape_timestamp_capture name=timesync ntp-server=ntpserv
 ! gvadetect
-  model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml
-  model-proc=/home/pipeline-server/model-proc-files/person-detection-retail-0013.json
+  model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml
+  threshold=0.9
 ! gvametaconvert add-tensor-data=true name=metaconvert
 ! sscape_post_inference_data_publish name=datapublisher
 ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true
@@ -101,7 +101,7 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
 
 ## Notes
 
-- Model: `person-detection-retail-0013` via `scripts/download_model.py`
+- Model: `OpenVINO/yolox_s-int8-ov` via `scripts/download_model.py`
 - External RTSP sources must be reachable from the SceneScape Docker network
 - GPU/WSL2 segfaults with dual pipelines: see repo `queuing-config-gpu.json` / sample compose
 - Local video files (folder or explicit list) instead of live RTSP cameras: see
@@ -112,7 +112,7 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
   `docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md`
 - `scripts/download_model.py` fetches the model via the **Model Download Microservice**
   (`intel/model-download` container REST API). The model name/hub
-  (`person-detection-retail-0013`/`omz`) is still hardcoded; making it configurable via a
+  (`OpenVINO/yolox_s-int8-ov`/`huggingface`) is still hardcoded; making it configurable via a
   `model_id`/`model_hub` deploy input is tracked in
   `.github/plans/plan-modelDownloaderMigration.prompt.md`.
 
