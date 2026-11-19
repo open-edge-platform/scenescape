@@ -3,6 +3,7 @@
 
 import struct
 import base64
+import json
 
 ## Policies to post process data
 
@@ -75,6 +76,29 @@ def _extractKeypoints(item):
   # Format 2: keypoints from gvametaconvert (yolo11-pose and similar)
   return _extractKeypointsFromGvametaconvert(item)
 
+def _extractAprilTagAttributes(item):
+  """Pull tag_id/tag_family back out of the apriltag detector's extra_params.
+
+  sscape_apriltag_detector publishes every tag under one GVA category and
+  carries the tag's own identity via add_region(extra_params=...), which
+  gvametaconvert serializes as a JSON string on the detection tensor.
+  """
+  extra = item.get('extra_params')
+  if not isinstance(extra, dict):
+    extra = None
+    for tensor in item.get('tensors', []):
+      name = tensor.get('name', '') or tensor.get('tensor_name', '')
+      if name == 'detection' and tensor.get('extra_params_json'):
+        try:
+          extra = json.loads(tensor['extra_params_json'])
+        except (TypeError, ValueError):
+          extra = None
+        break
+  if not isinstance(extra, dict) or 'tag_id' not in extra:
+    return {}
+  return {'tag_id': extra.get('tag_id'), 'tag_family': extra.get('tag_family')}
+
+
 def detectionPolicy(pobj, item, fw, fh):
   if not _isDetection(item):
     return
@@ -89,6 +113,7 @@ def detectionPolicy(pobj, item, fw, fh):
     'bounding_box_px': {'x': item['x'], 'y': item['y'], 'width': item['w'], 'height': item['h']}
   })
   pobj.update(_extractKeypoints(item))
+  pobj.update(_extractAprilTagAttributes(item))
   return
 
 def detection3DPolicy(pobj, item, fw, fh):
