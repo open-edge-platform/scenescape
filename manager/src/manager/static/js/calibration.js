@@ -134,8 +134,8 @@ export async function registerSceneFor3DView(
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
       registration = await getSceneRegistrationStatus(sceneId);
-      // POST is idempotent while this scene registers and restarts it when idle.
-      if (registration.status === "registering") {
+      // Only a scene that was waiting needs a new POST; otherwise a retry could repeat failed work.
+      if (status === "busy" && registration.status === "registering") {
         registration = await registerScene(sceneId);
       }
     }

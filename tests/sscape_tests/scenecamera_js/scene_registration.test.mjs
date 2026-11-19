@@ -70,7 +70,6 @@ test("the 3D view shows registration progress and enables the same camera when r
   const view = startRegistration(context, [
     "registering",
     "registering",
-    "registering",
     "success",
   ]);
   await setImmediate();
@@ -94,7 +93,6 @@ test("the 3D view shows registration progress and enables the same camera when r
     [`${API}/status`, "GET"],
     [REGISTRATION, "POST"],
     [REGISTRATION, "GET"],
-    [REGISTRATION, "POST"],
     [REGISTRATION, "GET"],
   ]);
 });
@@ -137,11 +135,21 @@ test("the 3D view waits for another scene, then registers this scene", async (co
 
 test("a failed registration result leaves Auto Calibrate disabled", async (context) => {
   context.mock.method(console, "warn", () => {});
-  const view = startRegistration(context, ["registering", "error"]);
+  const view = startRegistration(context, [
+    "registering",
+    "registering",
+    "error",
+  ]);
   await setImmediate();
+  await view.poll();
   await view.poll();
   await view.done;
   assert.equal(view.camera.enabled, false);
+  assert.equal(
+    view.requests.filter(([, method]) => method === "POST").length,
+    1,
+    "a failed registration is reported, not retried",
+  );
   assert.deepEqual(view.notifications.slice(1), [
     ["remove", TOAST_ID],
     [
