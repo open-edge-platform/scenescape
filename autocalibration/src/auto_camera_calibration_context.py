@@ -50,6 +50,8 @@ class CameraCalibrationContext:
 
     self.calibration_results = {}
     self.registration_results = {}
+    # Bumped on worker start and finish so a stale synchronous result is dropped.
+    self.registration_generations = {}
     # Scenes whose registration request was refused while another scene registered.
     self.pending_registrations = set()
     self.socket_clients = {}
@@ -89,6 +91,7 @@ class CameraCalibrationContext:
       self.current_processing_scene = sceneobj.id
       self.pending_registrations.discard(sceneobj.id)
       self.registration_results.pop(sceneobj.id, None)
+      self._bump_registration_generation(sceneobj.id)
       try:
         thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
         thread.start()
@@ -135,8 +138,28 @@ class CameraCalibrationContext:
       try:
         self.record_registration_result(scene_id, result)
       finally:
+        self._bump_registration_generation(scene_id)
         self.current_processing_scene = None
         self.register_thread_lock.release()
+
+  def _bump_registration_generation(self, scene_id):
+    self.registration_generations[scene_id] = self.registration_generations.get(scene_id, 0) + 1
+
+  def begin_sync_registration(self, scene_id):
+    """! Snapshot the scene's generation before an in-request registration."""
+    with self.registration_state_lock:
+      return self.registration_generations.get(scene_id, 0)
+
+  def finish_sync_registration(self, scene_id, generation, result):
+    """! Record an in-request result unless a worker started or finished meanwhile.
+
+    @return  True if the result was recorded.
+    """
+    with self.registration_state_lock:
+      if self.registration_generations.get(scene_id, 0) != generation:
+        return False
+      self.record_registration_result(scene_id, result)
+      return True
 
   def record_registration_result(self, scene_id, result):
     """! Store a scene's terminal registration result as success or error."""

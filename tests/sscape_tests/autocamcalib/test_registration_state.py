@@ -34,6 +34,7 @@ def _context():
   context.current_processing_scene = None
   context.pending_registrations = _BlockingPendingSet()
   context.registration_results = {}
+  context.registration_generations = {}
   context.process_scene = lambda scene, map_update: None
   return context
 
@@ -63,3 +64,24 @@ def test_late_queue_cannot_overwrite_a_started_worker():
   assert outcomes == {"first": "busy", "second": "started"}
   assert "B" not in context.pending_registrations
   assert context.current_processing_scene == "B"
+
+
+def test_stale_sync_result_cannot_overwrite_worker_error():
+  """A cached-map POST that outlives a map-update worker must keep the worker's error."""
+  context = _context()
+  scene = SimpleNamespace(id="A")
+  generation = context.begin_sync_registration(scene.id)
+
+  assert context.request_scene_registration(scene) == "started"
+  context.finish_registration(scene.id, {"status": "error", "message": "too few tags"})
+
+  assert not context.finish_sync_registration(scene.id, generation, {"status": "success"})
+  assert context.registration_results[scene.id] == {"status": "error", "message": "too few tags"}
+
+
+def test_sync_result_is_recorded_without_concurrent_worker():
+  context = _context()
+  generation = context.begin_sync_registration("A")
+
+  assert context.finish_sync_registration("A", generation, {"status": "success"})
+  assert context.registration_results["A"] == {"status": "success"}

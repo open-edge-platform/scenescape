@@ -238,9 +238,14 @@ class _ReadyContext:
     self.pending_registrations.add(scene.id)
     return "busy"
 
-  def record_registration_result(self, scene_id, result):
+  def begin_sync_registration(self, scene_id):
+    """No concurrent workers are simulated, so any generation works."""
+    return 0
+
+  def finish_sync_registration(self, scene_id, generation, result):
     """Store the synchronous registration result."""
     self.registration_results[scene_id] = result
+    return True
 
   def calibrate_camera_thread_wrapper(self, scene, camera_id, intrinsics, frame):
     """Accept calibration, or fail for the camera that must return 500."""

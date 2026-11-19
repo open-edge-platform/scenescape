@@ -553,8 +553,9 @@ class CameraCalibrationApi:
         register_response = self._request_scene_registration(sceneId, scene)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
+        generation = self.calibrationContext.begin_sync_registration(scene.id)
         result = strategy.process_scene_for_calibration(scene)
-        self.calibrationContext.record_registration_result(scene.id, result)
+        self.calibrationContext.finish_sync_registration(scene.id, generation, result)
         status = result.get(self.OpenApi.STATUS, self.OpenApi.Status.ERROR) if result else self.OpenApi.Status.ERROR
 
         if status == self.OpenApi.Status.SUCCESS:
