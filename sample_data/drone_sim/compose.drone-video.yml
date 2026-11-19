@@ -60,7 +60,7 @@ services:
     pids_limit: 1000
 
   drone-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261020-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc1
     networks:
       scenescape:
     tty: true
