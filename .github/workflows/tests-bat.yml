@@ -212,7 +212,8 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests -m basic_acceptance --junitxml=reports/bat_results.xml --log-level=ERROR
+          pytest tests/functional/test_roi_mqtt.py --junitxml=reports/roi_mqtt.xml --log-level=ERROR
+          pytest tests/functional/test_tripwire_mqtt.py --junitxml=reports/tripwire_mqtt.xml --log-level=ERROR
 
       - name: "Run Unit Tests"
         if: always() && steps.setup-test-env.outcome == 'success'
