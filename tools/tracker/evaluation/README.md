@@ -208,20 +208,21 @@ Use `--output` to override, and `--dataset` to choose the config set (default `u
 ```bash
 python -m run_black_box_evaluation --output /custom/output/path
 python -m run_black_box_evaluation --dataset wildtrack
+python -m run_black_box_evaluation --dataset rolling_terrain
 python -m run_black_box_evaluation --association mahalanobis
 python -m run_black_box_evaluation --association both
 ```
 
-**Experimental observation processor** (disabled by default): every black-box YAML (euclidean and
-mahalanobis) has a `harness.config.observation_processor` block with `enabled: false`. Set
-`enabled: true` in a YAML, or pass `--observation-processor` to enable it for all configs of the
-session (run names get the suffix `-ObservationProcessor`); it combines with `--association`. The
-harness then starts the service container next to the tracker/controller, waits until it is SERVING and sets the experimental client flag, so the
-results can be compared with a legacy run of the same dataset. Both datasets have no scene
-mesh, so the service runs frustum-only (`mode: auto`).
+**Experimental observation processor**: every black-box YAML (euclidean and mahalanobis) has a
+`harness.config.observation_processor` block. The runner uses the YAML setting
+unless `--observation-processor` / `--no-observation-processor` overrides it for all configs of the
+session; it combines with `--association`. When enabled, the harness starts the service container
+next to the tracker/controller, waits until it is SERVING and sets the experimental client flag.
+The effective config of each run is stored in its `config/` folder.
 
 ```bash
 python -m run_black_box_evaluation --observation-processor
+python -m run_black_box_evaluation --dataset rolling_terrain --no-observation-processor
 ```
 
 Extra prerequisite: the `intel/scenescape-observation-processor` image (built from the
