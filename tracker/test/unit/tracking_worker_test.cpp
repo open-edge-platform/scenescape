@@ -117,13 +117,13 @@ TEST(VelocityRotationTest, UsesConfiguredFallbackOnlyWhenOrientationWasNeverObse
     track.vy = 1.1;
     VelocityRotationState state;
 
-    const auto inferred = select_track_rotation(track, true, state);
+    const auto inferred = select_track_rotation(track, true, state).value;
     EXPECT_TRUE(state.active);
     EXPECT_NEAR(inferred[2], std::sin(std::numbers::pi / 4.0), 1e-12);
     EXPECT_NEAR(inferred[3], std::cos(std::numbers::pi / 4.0), 1e-12);
 
     state = {};
-    const auto identity = select_track_rotation(track, false, state);
+    const auto identity = select_track_rotation(track, false, state).value;
     EXPECT_FALSE(state.active);
     EXPECT_EQ(identity, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
 }
@@ -135,7 +135,7 @@ TEST(VelocityRotationTest, UsesKalmanYawForObservedTrackBelowSpeedGate) {
     rv::tracking::orientation::setHasOrientation(track, true);
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, true, state);
+    const auto rotation = select_track_rotation(track, true, state).value;
     const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
 
     EXPECT_EQ(rotation, expected);
@@ -150,7 +150,7 @@ TEST(VelocityRotationTest, UsesKalmanYawAtYawResidualThreshold) {
         rv::tracking::orientation::TRUE_VALUE;
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, true, state);
+    const auto rotation = select_track_rotation(track, true, state).value;
     const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
 
     EXPECT_NEAR(rotation[2], expected[2], 1e-12);
@@ -165,7 +165,7 @@ TEST(VelocityRotationTest, UsesVelocityHeadingWhenObservedYawDisagrees) {
     rv::tracking::orientation::setHasOrientation(track, true);
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, false, state);
+    const auto rotation = select_track_rotation(track, false, state).value;
 
     EXPECT_DOUBLE_EQ(rotation[0], 0.0);
     EXPECT_DOUBLE_EQ(rotation[1], 0.0);
@@ -182,29 +182,38 @@ TEST(VelocityRotationTest, WrapsYawResidualAcrossPi) {
     rv::tracking::orientation::setHasOrientation(track, true);
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, false, state);
+    const auto rotation = select_track_rotation(track, false, state).value;
     const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
 
     EXPECT_NEAR(rotation[2], expected[2], 1e-12);
     EXPECT_NEAR(rotation[3], expected[3], 1e-12);
 }
 
-TEST(VelocityRotationTest, FilterYawIsPublishedOnlyForAnObservedAgreeingTrack) {
+TEST(VelocityRotationTest, ReportsWhetherTheFilterYawIsPublished) {
+    VelocityRotationState state;
+
     rv::tracking::TrackedObject unobserved;
     unobserved.vx = 2.0;
-    EXPECT_FALSE(filter_yaw_published(unobserved));
+    EXPECT_FALSE(select_track_rotation(unobserved, true, state).filter_yaw)
+        << "the velocity fallback is published";
+    EXPECT_FALSE(select_track_rotation(unobserved, false, state).filter_yaw)
+        << "the identity quaternion is published";
 
     rv::tracking::TrackedObject observed;
     observed.yaw = 0.4;
     observed.vx = 0.99;
     rv::tracking::orientation::setHasOrientation(observed, true);
-    EXPECT_TRUE(filter_yaw_published(observed));
+    const auto filter = select_track_rotation(observed, true, state);
+    EXPECT_TRUE(filter.filter_yaw);
+    EXPECT_EQ(filter.value, CoordinateTransformer::yawToQuaternion(observed.yaw));
 
     rv::tracking::TrackedObject disagreeing;
     disagreeing.yaw = 0.0;
     disagreeing.vy = 2.0;
     rv::tracking::orientation::setHasOrientation(disagreeing, true);
-    EXPECT_FALSE(filter_yaw_published(disagreeing)) << "the velocity heading is published";
+    const auto heading = select_track_rotation(disagreeing, true, state);
+    EXPECT_FALSE(heading.filter_yaw) << "the velocity heading is published";
+    EXPECT_EQ(heading.value, CoordinateTransformer::yawToQuaternion(std::numbers::pi / 2.0));
 }
 
 // Test that worker processes chunks and calls publish callback

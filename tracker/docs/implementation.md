@@ -104,7 +104,7 @@ from `TrackedObject::errorCovariance` (P, the IMM-combined posterior), per publi
 - Without measured z (`z_measured`) the z row and column of `translation` and the vz row and column of
   `velocity` are 0.
 - `yaw`: the variance of the filter yaw, only when `select_track_rotation()` published the filter
-  yaw (`filter_yaw_published()`). For the velocity heading or the identity quaternion, the
+  yaw (`TrackRotation::filter_yaw`). For the velocity heading or the identity quaternion, the
   rotation is published and its yaw uncertainty is not.
 - Each block is symmetrized and a block with a non-finite value is omitted. Cross-block terms are not
   published. Workers with `ZReference::FootprintBase` publish no `uncertainty`, so the legacy output

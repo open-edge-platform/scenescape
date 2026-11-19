@@ -134,37 +134,26 @@ std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRot
     return state.rotation;
 }
 
-bool filter_yaw_published(const rv::tracking::TrackedObject& track) {
+TrackRotation select_track_rotation(const rv::tracking::TrackedObject& track,
+                                    bool rotation_from_velocity, VelocityRotationState& state) {
     using rv::tracking::orientation::orientationObserved;
 
-    if (!orientationObserved(track)) {
-        return false;
-    }
-    const double speed = std::hypot(track.vx, track.vy);
-    if (speed < rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE) {
-        return true;
-    }
-    const double velocity_heading = std::atan2(track.vy, track.vx);
-    const double yaw_error = std::abs(rv::angleDifference(velocity_heading, track.yaw));
-    return yaw_error <= rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL;
-}
-
-std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& track,
-                                            bool rotation_from_velocity,
-                                            VelocityRotationState& state) {
-    using rv::tracking::orientation::orientationObserved;
-
-    if (filter_yaw_published(track)) {
-        return CoordinateTransformer::yawToQuaternion(track.yaw);
-    }
     if (orientationObserved(track)) {
-        return CoordinateTransformer::yawToQuaternion(std::atan2(track.vy, track.vx));
+        const double speed = std::hypot(track.vx, track.vy);
+        if (speed >= rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE) {
+            const double velocity_heading = std::atan2(track.vy, track.vx);
+            const double yaw_error = std::abs(rv::angleDifference(velocity_heading, track.yaw));
+            if (yaw_error > rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL) {
+                return {CoordinateTransformer::yawToQuaternion(velocity_heading), false};
+            }
+        }
+        return {CoordinateTransformer::yawToQuaternion(track.yaw), true};
     }
 
     if (!rotation_from_velocity) {
-        return {0.0, 0.0, 0.0, 1.0};
+        return {{0.0, 0.0, 0.0, 1.0}, false};
     }
-    return update_velocity_rotation(track.vx, track.vy, state);
+    return {update_velocity_rotation(track.vx, track.vy, state), false};
 }
 
 TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
@@ -411,7 +400,9 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         if (rotation_from_velocity_) {
             rotation_state = &rotation_states_[rv_track.id];
         }
-        track.rotation = select_track_rotation(rv_track, rotation_from_velocity_, *rotation_state);
+        const auto rotation =
+            select_track_rotation(rv_track, rotation_from_velocity_, *rotation_state);
+        track.rotation = rotation.value;
         track.reid_sighting_json = reid_sightings_.take(rv_track.attributes);
         track.metadata_json = metadataJson(rv_track.attributes);
 
@@ -429,7 +420,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 
         track.association_window = buildAssociationWindow(association_config_, rv_track);
         if (z_reference_ == ZReference::CentreOfMass) {
-            track.uncertainty = buildTrackUncertainty(rv_track, filter_yaw_published(rv_track));
+            track.uncertainty = buildTrackUncertainty(rv_track, rotation.filter_yaw);
         }
 
         tracks.push_back(std::move(track));
