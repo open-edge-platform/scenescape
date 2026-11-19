@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
 import threading
+import traceback
 
 from eventlet import tpool
 
@@ -105,6 +106,9 @@ class CameraCalibrationContext:
     except (FileNotFoundError, KeyError) as e:
       log.error(f"Error in register dataset : {e}")
       response_dict = {"status": "error", "message": f"Error in register dataset: {e}"}
+    except Exception:
+      log.error(f"Unexpected error registering scene {sceneobj.id}:\n{traceback.format_exc()}")
+      response_dict = {"status": "error", "message": "Scene registration failed"}
     finally:
       self.current_processing_scene = {}
       self.register_thread_lock.release()
