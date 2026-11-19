@@ -100,6 +100,61 @@ def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, 
     assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((2.0, 14.0))
     assert scene.thumbnail.storage.exists(scene.thumbnail.name)
 
+
+def _run_map_origin_backfill():
+  import importlib
+  from django.apps import apps
+  from django.db import connection
+  migration = importlib.import_module("manager.migrations.0012_scene_map_origin")
+  migration.backfill_map_origins(apps, SimpleNamespace(connection=connection))
+
+
+@pytest.mark.django_db
+def test_upgrade_backfills_origin_for_unchanged_existing_glb_scene(tmp_path, settings):
+  import trimesh
+  from django.core.files.base import ContentFile
+  from django.core.files.storage import default_storage
+  from manager.models import Scene
+  settings.MEDIA_ROOT = str(tmp_path)
+  map_name = default_storage.save("box.glb", ContentFile(
+    trimesh.creation.box(extents=(2, 4, 6)).export(file_type="glb")))
+  thumb_name = default_storage.save("legacy_2d.png", ContentFile(b"pre-upgrade thumbnail"))
+  scene = Scene.objects.create(name="pre-upgrade")
+  # Pre-upgrade row: rendered thumbnail on disk, origin columns at their migration default.
+  Scene.objects.filter(pk=scene.pk).update(
+    map=map_name, thumbnail=thumb_name, scale=1.0, rotation_z=90,
+    translation_x=10, translation_y=20, scale_x=2, scale_y=3, scale_z=4,
+    map_origin_x=0.0, map_origin_y=0.0)
+  with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
+    renderer = _mock_offscreen_renderer()
+    renderer.render_to_image.return_value = np.full((768, 1024, 3), 255, dtype=np.uint8)
+    renderer_class.return_value = renderer
+    _run_map_origin_backfill()
+  scene.refresh_from_db()
+  assert scene.thumbnail.name == thumb_name
+  with default_storage.open(thumb_name, "rb") as f:
+    assert f.read(8) == b"\x89PNG\r\n\x1a\n"
+  assert scene.scale == pytest.approx(1024 / 12)
+  assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((4.0, 15.5))
+
+  # Opening and saving the unchanged scene keeps the backfilled origin.
+  scene = Scene.objects.get(pk=scene.pk)
+  scene.save(send_update_command=False)
+  scene.refresh_from_db()
+  assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((4.0, 15.5))
+
+
+@pytest.mark.django_db
+def test_upgrade_backfill_skips_scene_with_missing_glb(tmp_path, settings):
+  from manager.models import Scene
+  settings.MEDIA_ROOT = str(tmp_path)
+  scene = Scene.objects.create(name="missing-map")
+  Scene.objects.filter(pk=scene.pk).update(map="gone.glb", scale=50.0)
+  _run_map_origin_backfill()
+  scene.refresh_from_db()
+  assert scene.scale == 50.0
+  assert (scene.map_origin_x, scene.map_origin_y) == (0.0, 0.0)
+
 # Wide atlas mirrors the multi-mesh GLB that triggered the crash; tall covers
 # the rows > columns orientation of the same longest-side cap.
 _WIDE_COLUMNS = 8192
