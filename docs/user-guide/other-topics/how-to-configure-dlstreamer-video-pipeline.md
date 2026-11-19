@@ -53,18 +53,18 @@ By default, only a limited number of models is downloaded during helm chart inst
 
 Use the following short names to refer to each model in the chain:
 
-| Category             | Full Model Name                              | Short Name | Description                               |
-| -------------------- | -------------------------------------------- | ---------- | ----------------------------------------- |
-| **Person Detection** | yolox_s-fp16-ov                              | yolox_s-fp16 | General person detection                |
-|                      | yolox_s-int8-ov                              | yolox_s-int8 | General person detection                |
-|                      | person-detection-retail-0013                 | retail     | Legacy general person detection           |
-|                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16 | Crossroad multi-class detection           |
-| **Person Analysis**  | person-reidentification-retail-0277          | reid       | Person re-identification                  |
-|                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
-|                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
-| **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
-| **Pose Estimation**  | yolo11n-pose                                 | pose       | Person pose estimation with keypoints     |
-| **ReID (Public)**    | mars-small128                                | marsreid   | Lightweight person re-identification      |
+| Category             | Full Model Name                              | Short Name   | Description                               |
+| -------------------- | -------------------------------------------- | ------------ | ----------------------------------------- |
+| **Person Detection** | yolox_s-fp16-ov                              | yolox_s-fp16 | General person detection                  |
+|                      | yolox_s-int8-ov                              | yolox_s-int8 | General person detection                  |
+|                      | person-detection-retail-0013                 | retail       | Legacy general person detection           |
+|                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16   | Crossroad multi-class detection           |
+| **Person Analysis**  | person-reidentification-retail-0277          | reid         | Person re-identification                  |
+|                      | person-attributes-recognition-crossroad-0238 | personattr   | Person attributes (age, gender, clothing) |
+|                      | age-gender-recognition-retail-0013           | agegender    | Age and gender classification             |
+| **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr      | Vehicle attributes (color, type)          |
+| **Pose Estimation**  | yolo11n-pose                                 | pose         | Person pose estimation with keypoints     |
+| **ReID (Public)**    | mars-small128                                | marsreid     | Lightweight person re-identification      |
 
 ##### Common Chaining Patterns
 
