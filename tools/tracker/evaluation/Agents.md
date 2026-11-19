@@ -22,7 +22,7 @@ SPDX-License-Identifier: Apache-2.0
 - Main tracker evaluation README (canonical formats, usage, CLI): [README.md](README.md)
 - ADR context: [docs/adr/0009-tracking-evaluation.md](../../../docs/adr/0009-tracking-evaluation.md)
 - Example configurations:
-  - Black-box suite (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
+  - Black-box suite (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/); Rolling Terrain variant (observation processor enabled): [pipeline_configs/black_box_rolling_terrain/](pipeline_configs/black_box_rolling_terrain/)
   - Association variants: euclidean baseline YAMLs plus `*_mahalanobis.yaml` companions (`run_black_box_evaluation.py --association mahalanobis|both`) exercise HPHt + R
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
 
@@ -90,7 +90,7 @@ Check `datasets/README.md` for more details
   - **Observation processor (optional, experimental)**: `observation_processor` config block (`enabled` defaults to `false`; `image`, `mode`, `timeout_ms`, `ready_timeout_s`). When enabled, the service container starts after the broker/collector, the harness waits for its readiness service (`docker exec` probe) and only then starts the tracker/controller with `{CONTROLLER,TRACKER}_EXPERIMENTAL_OBSERVATION_PROCESSOR` and `…_OBSERVATION_PROCESSOR_{HOST,PORT,INSECURE,MODE,TIMEOUT_MS}` env vars (`_observation_processor_envs()`). The service loads scenes, cameras and assets from the mock Manager (`/api/v1/cameras?scene=<uid>` returns cameras with flat pose keys) and shares `manager_auth.json` (`_write_manager_auth()`) with the Tracker Service. Keep it disabled in shipped configs; `run_black_box_evaluation.py --observation-processor` enables it for a whole session. Datasets have no scene mesh: use `mode: auto` (frustum only). Writes `observation_processor_logs.txt` and `config/observation_processor.json`.
   - After the run, writes `inputs.json` and `outputs.json` to the output folder (if `set_output_folder()` was called), creating the directory automatically if it does not exist.
   - Also copies the source tracker configuration file into `<output_folder>/config/` (both container types), preserving the original filename. For the Tracker Service the effective `config.json` is derived from this file by the harness (MQTT/Manager endpoints, `max_lag_s=1e15`, optional OTLP/metrics), so the copy captures the source config, not the fully-resolved runtime config.
-  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box_unity/` (default) or `pipeline_configs/black_box_wildtrack/`.
+  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box_*/` (Unity is the default).
 
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.

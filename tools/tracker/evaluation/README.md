@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 Create a YAML configuration file (see `pipeline_configs/` directory):
 
-**Full tracker evaluation** (black-box suite under [`pipeline_configs/black_box_unity/`](pipeline_configs/black_box_unity/); Wildtrack under [`pipeline_configs/black_box_wildtrack/`](pipeline_configs/black_box_wildtrack/)):
+**Full tracker evaluation** (black-box suite under [`pipeline_configs/black_box_unity/`](pipeline_configs/black_box_unity/); other datasets under `pipeline_configs/black_box_*/`):
 
 Example pipeline shape (see the YAML files in those directories for complete, runnable configs):
 
@@ -162,10 +162,11 @@ against the same tracker outputs independently.
 ### Black-Box Evaluation Suite
 
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
-production container types in a single timestamped session. Two config sets are
-available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
-and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
-`--dataset wildtrack`).
+production container types in a single timestamped session. Three config sets are
+available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default),
+the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, `--dataset wildtrack`) and
+the Rolling Terrain dataset (`pipeline_configs/black_box_rolling_terrain/`,
+`--dataset rolling_terrain`).
 
 **Association.** The default suite uses the euclidean meter gate (legacy baseline). Pass
 `--association mahalanobis` to run the companion jobs that use `position_mahalanobis`
