@@ -5,8 +5,11 @@
 
 import threading
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
-from auto_camera_calibration_context import CameraCalibrationContext
+from conftest import import_calibration_context
+
+CameraCalibrationContext = import_calibration_context().CameraCalibrationContext
 
 _WAIT = 5
 
@@ -35,6 +38,7 @@ def _context():
   context.pending_registrations = _BlockingPendingSet()
   context.registration_results = {}
   context.registration_generations = {}
+  context.socketio = MagicMock()
   context.process_scene = lambda scene, map_update: None
   return context
 
