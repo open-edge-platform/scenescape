@@ -113,8 +113,6 @@ instance and will not match yours.
 
 #### Troubleshooting
 
-- `permission denied`, exit code 126: the runner script is not executable.
-  Run `chmod +x run_*.sh`.
 - `command not found`, exit code 127: pass the script as an absolute path in the
   container (`/workspace/run_mapping_fuzzing.sh`), as in the examples.
 - Low coverage in `test` mode: see `coverage_failures_to_investigate.txt` in
