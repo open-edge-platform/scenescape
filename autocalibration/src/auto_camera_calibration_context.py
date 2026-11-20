@@ -3,6 +3,9 @@
 
 import json
 import threading
+import traceback
+
+from eventlet import tpool
 
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 from auto_camera_calibration_model import CameraCalibrationModel
@@ -55,7 +58,6 @@ class CameraCalibrationContext:
     # Scenes whose registration request was refused while another scene registered.
     self.pending_registrations = set()
     self.socket_clients = {}
-    self.socket_scene_clients = {}
     self.socketio = None
 
     self.register_thread_lock = threading.Lock()
@@ -65,6 +67,10 @@ class CameraCalibrationContext:
     self.current_processing_scene = None
 
     return
+
+  @staticmethod
+  def scene_room(scene_id):
+    return f"scene:{scene_id}"
 
   def preprocess_scenes(self):
     """! For all scenes in database, preprocess the scene map and store/update results
@@ -93,8 +99,8 @@ class CameraCalibrationContext:
       self.registration_results.pop(sceneobj.id, None)
       self._bump_registration_generation(sceneobj.id)
       try:
-        thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
-        thread.start()
+        # Emits from a plain OS thread are never flushed by the eventlet Socket.IO server.
+        self.socketio.start_background_task(self.process_scene, sceneobj, map_update)
       except Exception:
         self.current_processing_scene = None
         self.register_thread_lock.release()
@@ -122,15 +128,35 @@ class CameraCalibrationContext:
 
     @return  None
     """
+    # Pages already open for the scene must show the spinner while it re-registers.
+    self.notify_scene_registration(sceneobj, {"status": "registering"})
     result = None
     try:
       strategy = self.scene_strategies[sceneobj.camera_calibration]
-      result = strategy.process_scene_for_calibration(sceneobj, map_update)
+      # CPU-heavy work runs in a native thread so the Socket.IO hub keeps serving.
+      result = tpool.execute(strategy.process_scene_for_calibration, sceneobj, map_update)
     except (FileNotFoundError, KeyError) as e:
       log.error(f"Error in register dataset : {e}")
       result = {"status": "error", "message": str(e)}
+    except Exception:
+      log.error(f"Unexpected error registering scene {sceneobj.id}:\n{traceback.format_exc()}")
+      result = {"status": "error", "message": "Scene registration failed"}
     finally:
       self.finish_registration(sceneobj.id, result)
+    self.notify_scene_registration(sceneobj, result)
+    return
+
+  def notify_scene_registration(self, sceneobj, response):
+    # Every page open for the scene joins its room, so no page misses the result.
+    room = self.scene_room(sceneobj.id)
+    # The calibration type may have changed since the page loaded.
+    self.socketio.emit("register_result", {
+        "scene_id": sceneobj.id,
+        "camera_calibration": sceneobj.camera_calibration,
+        "data": response,
+    }, to=room)
+    log.info(f"Sent WebSocket result to room {room}")
+    return
 
   def finish_registration(self, scene_id, result):
     """! Record the worker result and free the worker slot in one step."""
