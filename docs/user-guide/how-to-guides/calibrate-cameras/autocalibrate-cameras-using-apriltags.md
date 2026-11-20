@@ -131,7 +131,7 @@ _Figure 5: Auto Calibrate using AprilTags._
 ### 6. (Optional) Add 3D Map to Scene
 
 1. Edit scene and upload the `.glb` to the **Map 3d** field.
-2. Set **X Rotation** to `90.0` to convert Y-up to Z-up.
+2. Uploaded `.glb` files are expected to be Y-up, the glTF standard, and are rotated by `90.0` on **X Rotation** to convert Y-up to Z-up. This is applied automatically when the map is uploaded.
 3. Adjust scale manually.
 
 > **Tips**:

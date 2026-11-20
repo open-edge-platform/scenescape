@@ -2133,12 +2133,24 @@ function setupGenerateMesh() {
 
       alert("Mesh generated successfully! The scene map has been updated.");
 
-      $("#id_rotation_x").val(0);
-      $("#id_rotation_y").val(0);
-      $("#id_rotation_z").val(0);
-      $("#id_translation_x").val(0);
-      $("#id_translation_y").val(0);
-      $("#id_translation_z").val(0);
+      // Browsers can restore stale form values on reload; match the server-side generated-map transform.
+      // Y/Z rotation and translations mirror MeshGenerator._saveMeshToScene (resetRotation, resetTranslation).
+      const generatedTransform = {
+        rotation_y: 0,
+        rotation_z: 0,
+        translation_x: 0,
+        translation_y: 0,
+        translation_z: 0,
+      };
+      const rotationX = parseFloat(
+        document.getElementById("generatedMeshRotationX")?.value,
+      );
+      if (Number.isFinite(rotationX)) generatedTransform.rotation_x = rotationX;
+      Object.entries(generatedTransform).forEach(([name, value]) => {
+        const field = document.getElementById("id_" + name);
+        if (field) field.value = value;
+      });
+
       window.location.reload();
     } catch (err) {
       console.error(err);

@@ -149,6 +149,8 @@ The mesh generation process will:
 
 > **Note**: Mesh generation typically takes 2-5 minutes depending on scene complexity and the number of cameras.
 
+> **Note**: The generated mesh is stored as a Y-up `.glb`, the same orientation as every uploaded `.glb`, with **X Rotation** set to `90.0` to bring it into the Z-up scene frame. A downloaded generated map can be uploaded to another scene as is.
+
 ---
 
 ## Step 6: Save Settings
