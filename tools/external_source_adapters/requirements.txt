@@ -3,3 +3,4 @@
 
 pymavlink>=2.4.41
 paho-mqtt==2.1.0
+remoteid>=0.3.2,<0.4

@@ -34,7 +34,8 @@ publishes the vehicle as a tracked object at the source local origin
 pip install -r tools/external_source_adapters/requirements.txt
 ```
 
-Installs `pymavlink` and `paho-mqtt` (required by `scene_common.mqtt.PubSub`).
+Installs `pymavlink`, `remoteid` and `paho-mqtt` (required by
+`scene_common.mqtt.PubSub`).
 The PX4 demo script (`tools/px4_sih_demo/run_demo.sh adapter`) uses an isolated
 venv and installs these automatically.
 
@@ -95,3 +96,70 @@ adapter), see [`tools/px4_sih_demo/README.md`](../px4_sih_demo/README.md).
 - Scene discovery / multi-scene fan-out
 - Detecting other objects from onboard vision (only the vehicle pose/self)
 - NMEA (use a separate adapter; MAVLink already carries GNSS in a richer form)
+
+## Remote ID → external_source
+
+[`remoteid_to_external_source.py`](./remoteid_to_external_source.py) listens
+for drones broadcasting ASTM F3411 / ASD-STAN EN 4709-002 Remote ID over Wi-Fi
+(Beacon and NAN) and publishes each aircraft it hears as its own external
+source with a `reference_frame: wgs84` pose, the same contract the MAVLink
+adapter uses for its own vehicle. Unlike MAVLink, these are third-party
+aircraft: the adapter needs no link to the drone, only a Wi-Fi card in monitor
+mode near the scene.
+
+- The publisher id is `SCENESCAPE_SOURCE_PREFIX` plus the transmitter MAC
+  address (for example `rid-ae996eb0ee1f`), so one radio is one scene object.
+- The pose uses the broadcast geodetic altitude (WGS84 ellipsoid). Aircraft that
+  have not broadcast a position with geodetic altitude yet are not published.
+- Decoding and trust checks come from the
+  [`remoteid`](https://github.com/Mattbusel/remoteid) package (MIT, Rust with
+  abi3 wheels). The object `metadata` carries `remote_id_trust` (`label` is
+  `authenticated`, `plausible`, `suspicious` or `spoofed`, `confidence` is the
+  0 to 1 score), `remote_id_reasons` (for example `teleport`, `known_spoofer`)
+  and `remote_id_uas_id` (the broadcast serial number or registration ID).
+  Remote ID is unauthenticated on most aircraft and can be spoofed from a
+  laptop, so treat `spoofed` and `suspicious` objects accordingly.
+
+Bluetooth Remote ID is not read by this script; the `remoteid` package decodes
+it (`remoteid.decode(adv_data, "ble_adv")`) if you feed it from a BLE scanner.
+
+### Configuration (environment)
+
+Uses the same `SCENESCAPE_MQTT_AUTH`, `SCENESCAPE_ROOT_CERT`,
+`SCENESCAPE_BROKER`, `SCENESCAPE_BROKER_PORT`, `SCENESCAPE_THING_TYPE`,
+`SCENESCAPE_OBJECT_CATEGORY`, `SCENESCAPE_OBJECT_SIZE` and `LOG_LEVEL`
+variables as the MAVLink adapter, plus:
+
+| Variable                   | Required | Description                                                              |
+| -------------------------- | :------: | ------------------------------------------------------------------------ |
+| `SCENESCAPE_SOURCE_PREFIX` |    No    | Prefix for each aircraft's publisher id (default `rid-`)                 |
+| `REMOTEID_INTERFACE`       | One of ① | Linux Wi-Fi interface in monitor mode (`--interface`)                    |
+| `REMOTEID_PCAP`            | One of ① | Classic pcap (802.11 or radiotap) to replay at recorded speed (`--pcap`) |
+| `PUBLISH_HZ`               |    No    | Maximum publish rate per aircraft (default `1`)                          |
+| `REMOTEID_SYSTEM_CLOCK`    |    No    | `true` to use the UTC clock for timestamp and DRIP signature checks      |
+
+① Give exactly one. Only enable `REMOTEID_SYSTEM_CLOCK` on an NTP- or
+GNSS-synced host; without it no aircraft can be `authenticated`, and an
+unsynced clock would mark every aircraft with clock-drift reasons.
+
+### Usage
+
+```bash
+export SCENESCAPE_MQTT_AUTH="user:password"
+export SCENESCAPE_ROOT_CERT="/path/to/scenescape-ca.pem"
+
+# Live (Linux, needs root or CAP_NET_RAW). Wi-Fi NAN Remote ID uses 2.4 GHz
+# channel 6; Beacon may use any channel, channel 6 is the common one.
+sudo ip link set wlan0 down
+sudo iw dev wlan0 set type monitor
+sudo ip link set wlan0 up
+sudo iw dev wlan0 set channel 6
+sudo -E python tools/external_source_adapters/remoteid_to_external_source.py --interface wlan0
+
+# Replay a capture (tcpdump -i wlan0 -w drones.pcap)
+python tools/external_source_adapters/remoteid_to_external_source.py --pcap drones.pcap
+```
+
+Validate as for the MAVLink adapter: each aircraft appears on
+`scenescape/external/rid-<mac>/{thing_type}` and, once a geo-calibrated scene
+covers its position, as an object with that `id` in the scene output.
