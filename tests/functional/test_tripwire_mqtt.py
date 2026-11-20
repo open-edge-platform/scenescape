@@ -9,6 +9,7 @@ import json
 
 import pytest
 
+from tests.functional import apply_demo_sweep_box
 from tests.functional.test_roi_mqtt import SceneObjectMqtt
 from tests.functional.event_asserts import check_event_contains_data
 from scene_common.mqtt import PubSub
@@ -189,7 +190,7 @@ class WillOurShipGo(SceneObjectMqtt):
       log.info(f"tripwire points: {tripwirePoints}")
       objLocation = self.getLocations()
       objData = self.objData()
-      objData['objects'][PERSON][0]['bounding_box']['y'] = objLocation[0]
+      apply_demo_sweep_box(objData, objLocation[0], PERSON)
       waitTopic = PubSub.formatTopic(PubSub.DATA_SCENE,
                                    scene_id=self.sceneUID, thing_type=PERSON)
       publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])
@@ -199,7 +200,7 @@ class WillOurShipGo(SceneObjectMqtt):
       for yLoc in objLocation:
         id = objData["id"]
         objData["timestamp"] = get_iso_time()
-        objData["objects"][PERSON][0]["bounding_box"]["y"] = yLoc
+        apply_demo_sweep_box(objData, yLoc, PERSON)
         line = json.dumps(objData)
         message_received = False
         self.client.publish(publishTopic, line)
