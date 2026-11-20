@@ -2017,8 +2017,15 @@ function drawSensor(sensor, index, type) {
         areaTag,
       );
       replacement.classList.add("area");
-      areaElement?.replaceWith(replacement);
+      if (areaElement) {
+        areaElement.replaceWith(replacement);
+      } else {
+        document.getElementById(i).appendChild(replacement);
+      }
       areaElement = replacement;
+    } else if (sensor.area === "scene") {
+      areaElement?.remove();
+      areaElement = null;
     }
 
     if (sensor.area === "circle") {

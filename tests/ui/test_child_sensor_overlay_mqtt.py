@@ -63,8 +63,8 @@ def test_child_sensor_overlay_refresh_mqtt(
       overlay_id,
     ))
 
-    browser.find_element(By.ID, "connect").click()
-    wait.until(
+    mqtt_wait = WebDriverWait(browser, 60)
+    mqtt_wait.until(
       lambda driver: "connected" in (
         driver.find_element(By.ID, "mqtt_status").get_attribute("class") or ""
       ).split()
@@ -90,6 +90,28 @@ def test_child_sensor_overlay_refresh_mqtt(
     wait.until(lambda driver: driver.execute_script(
       """const group = document.getElementById(arguments[0]);
       return group?.querySelector('.area')?.tagName.toLowerCase() === 'polygon'
+        && group.querySelector('.sensor') !== null;""",
+      overlay_id,
+    ))
+
+    update = rest.updateSensor(sensor_uid, {
+      "area": "circle",
+      "center": [0.0, 2.0],
+      "radius": 0.75,
+    })
+    assert update.statusCode == 200, update.errors
+    wait.until(lambda driver: driver.execute_script(
+      """const group = document.getElementById(arguments[0]);
+      return group?.querySelector('.area')?.tagName.toLowerCase() === 'circle'
+        && group.querySelector('.sensor') !== null;""",
+      overlay_id,
+    ))
+
+    update = rest.updateSensor(sensor_uid, {"area": "scene"})
+    assert update.statusCode == 200, update.errors
+    wait.until(lambda driver: driver.execute_script(
+      """const group = document.getElementById(arguments[0]);
+      return group && group.querySelector('.area') === null
         && group.querySelector('.sensor') !== null;""",
       overlay_id,
     ))
