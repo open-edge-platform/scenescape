@@ -48,12 +48,68 @@ def _parse_max_radius_m(value, default_max_radius_m):
   try:
     max_radius_m = float(value)
   except (TypeError, ValueError):
-    log.error("Invalid association max_radius_m %r; using %s", value, default_label)
+    log.error(f"Invalid association max_radius_m {value!r}; using {default_label}")
     return default_max_radius_m
   if not math.isfinite(max_radius_m) or max_radius_m < 0.0:
-    log.error("Association max_radius_m %s must be finite and >= 0; using %s", max_radius_m, default_label)
+    log.error(f"Association max_radius_m {max_radius_m} must be finite and >= 0; using {default_label}")
     return default_max_radius_m
   return max_radius_m
+
+
+FILTER_CONFIG_KEYS = ("process_noise", "base_measurement_noise", "init_state_covariance")
+
+
+def default_filter_config():
+  """The filter settings of robot_vision's production constants, shared with the Tracker service."""
+  return {
+    "process_noise": rv.tracking.PRODUCTION_PROCESS_NOISE,
+    "base_measurement_noise": rv.tracking.PRODUCTION_MEASUREMENT_NOISE,
+    "init_state_covariance": rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE,
+  }
+
+
+def _parse_number(value, valid):
+  """Return ``value`` as a float when it is a JSON number (not a bool) that passes ``valid``, else None."""
+  if isinstance(value, bool) or not isinstance(value, (int, float)):
+    return None
+  try:
+    number = float(value)
+  except OverflowError:  # an int beyond the float range
+    return None
+  if not math.isfinite(number) or not valid(number):
+    return None
+  return number
+
+
+def normalize_filter_config(filter_config=None):
+  """Return a validated ``filter`` config dict: process_noise (q), base_measurement_noise (r) and
+  init_state_covariance (P0), each a finite number > 0.
+
+  An absent field takes robot_vision's production constant itself (not a parsed copy), so the defaults are
+  bit-identical to the constants. An invalid field is logged and takes its default; a block that is not an object
+  takes all defaults; unknown fields are dropped with a warning.
+  """
+  defaults = default_filter_config()
+  if filter_config is None:
+    return defaults
+  if not isinstance(filter_config, dict):
+    log.error(f"Invalid filter config in tracker config file: expected an object, got {filter_config!r}; "
+              "using the defaults")
+    return defaults
+  unknown = sorted(str(key) for key in filter_config if key not in FILTER_CONFIG_KEYS)
+  if unknown:
+    log.warning(f"Ignoring unknown filter config fields: {', '.join(unknown)}")
+  config = {}
+  for key in FILTER_CONFIG_KEYS:
+    if key not in filter_config:
+      config[key] = defaults[key]
+      continue
+    value = _parse_number(filter_config[key], lambda number: number > 0.0)
+    if value is None:
+      log.error(f"Invalid filter {key} {filter_config[key]!r}: expected a finite number > 0; using {defaults[key]}")
+      value = defaults[key]
+    config[key] = value
+  return config
 
 
 def normalize_association_config(association_config=None):
@@ -81,20 +137,28 @@ def normalize_association_config(association_config=None):
   try:
     gate_probability = float(config.get("gate_probability", DEFAULT_ASSOCIATION_GATE_PROBABILITY))
   except (TypeError, ValueError):
-    log.error("Invalid association gate_probability %r; using %s",
-              config.get("gate_probability"), DEFAULT_ASSOCIATION_GATE_PROBABILITY)
+    log.error(f"Invalid association gate_probability {config.get('gate_probability')!r}; "
+              f"using {DEFAULT_ASSOCIATION_GATE_PROBABILITY}")
     gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
   if not 0.0 < gate_probability <= 1.0:
-    log.error(
-      "Association gate_probability %s out of range (0, 1]; using %s",
-      gate_probability,
-      DEFAULT_ASSOCIATION_GATE_PROBABILITY,
-    )
+    log.error(f"Association gate_probability {gate_probability} out of range (0, 1]; "
+              f"using {DEFAULT_ASSOCIATION_GATE_PROBABILITY}")
     gate_probability = DEFAULT_ASSOCIATION_GATE_PROBABILITY
   config["gate_probability"] = gate_probability
 
   max_radius_m = _parse_max_radius_m(config.get("max_radius_m"), default_max_radius_m)
   config["max_radius_m"] = max_radius_m
+
+  # Absent: each service keeps its own birth-clustering radius (see IntelLabsTracking._birth_cluster_radius).
+  # Invalid: keep the key and use robot_vision's default, so euclidean without max_radius_m does not fall
+  # through to the objects' tracking_radius.
+  if "birth_cluster_radius_m" in config:
+    birth_cluster_radius_m = _parse_number(config["birth_cluster_radius_m"], lambda number: number >= 0.0)
+    if birth_cluster_radius_m is None:
+      birth_cluster_radius_m = rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M
+      log.error(f"Invalid association birth_cluster_radius_m {config['birth_cluster_radius_m']!r}: "
+                f"expected a finite number >= 0; using {birth_cluster_radius_m}")
+    config["birth_cluster_radius_m"] = birth_cluster_radius_m
   return config
 
 
@@ -104,12 +168,9 @@ def warn_association_config(association_config):
   if (association_config["method"] == ASSOCIATION_METHOD_POSITION_MAHALANOBIS
       and max_radius_m <= DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M + 1e-6):
     log.warning(
-      "association.method is position_mahalanobis with max_radius_m=%s; "
-      "ADR-0019 recommends raising max_radius_m (e.g. %s) so the chi-squared "
-      "gate can widen with predicted uncertainty",
-      max_radius_m,
-      DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,
-    )
+      f"association.method is position_mahalanobis with max_radius_m={max_radius_m}; "
+      f"ADR-0019 recommends raising max_radius_m (e.g. {DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M}) "
+      "so the chi-squared gate can widen with predicted uncertainty")
 
 
 def uses_tracking_radius(association_config):
@@ -262,24 +323,105 @@ def _kalman_yaw_disagrees_with_velocity(tracked_object,
   return abs(_wrap_angle(velocity_heading - tracked_object.yaw)) > max_agree_rad
 
 
+# Indices into robot_vision's state vector (rv::tracking::StateIndex):
+# [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
+_STATE_X, _STATE_Y, _STATE_VX, _STATE_VY, _STATE_Z, _STATE_VZ = 0, 1, 2, 3, 6, 7
+_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT = 8, 9, 10
+_STATE_SIZE = 13
+
+
+def _finite_block(block):
+  """Row-major list of a finite covariance block, ``None`` when any value is not finite."""
+  if not np.all(np.isfinite(block)):
+    return None
+  return block.reshape(-1).tolist()
+
+
+def build_track_uncertainty(error_covariance, z_measured):
+  """Covariance of the published track state (MQTT ``uncertainty``), from the filter's P.
+
+  Only for a centre-of-mass track (experimental observation processor). Each value is a row-major
+  3x3 block of P as 9 numbers; cross-block terms are not published and a block with a non-finite
+  value is absent. With the observation processor the Controller publishes the filter's size, so
+  ``size`` is included the same way as on the Tracker service.
+
+  - ``translation`` [m²]: x, y and the published z, the footprint base z - height / 2, so the z
+    entries are J P Jᵀ with J(z_pub) = [1 on z, -1/2 on height].
+  - ``velocity`` [m²/s²]: vx, vy, vz.
+  - ``size`` [m²]: length, width, height.
+  - Without measured z the z row and column of translation and velocity are 0.
+
+  Yaw variance is deferred; see the probabilistic-tracking plan.
+
+  Returns ``None`` when no value is finite.
+  """
+  covariance = np.asarray(error_covariance, dtype=float)
+  if covariance.shape != (_STATE_SIZE, _STATE_SIZE):
+    return None
+  covariance = 0.5 * (covariance + covariance.T)
+
+  # Only the states of a block enter it: a non-finite value elsewhere in P must not leak into it.
+  if z_measured:
+    position_index = [_STATE_X, _STATE_Y, _STATE_Z, _STATE_HEIGHT]
+    to_published = np.array([[1.0, 0.0, 0.0, 0.0],
+                             [0.0, 1.0, 0.0, 0.0],
+                             [0.0, 0.0, 1.0, -0.5]])
+    translation = to_published @ covariance[np.ix_(position_index, position_index)] @ to_published.T
+  else:
+    # The z row and column are 0, so the unused z and height variances must not enter the block
+    # (a non-finite one would spread into x and y through 0 * nan).
+    translation = np.zeros((3, 3))
+    translation[:2, :2] = covariance[np.ix_([_STATE_X, _STATE_Y], [_STATE_X, _STATE_Y])]
+  velocity_index = [_STATE_VX, _STATE_VY, _STATE_VZ]
+  size_index = [_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT]
+  blocks = {
+    "translation": translation,
+    "velocity": covariance[np.ix_(velocity_index, velocity_index)].copy(),
+    "size": covariance[np.ix_(size_index, size_index)].copy(),
+  }
+
+  uncertainty = {}
+  for name, block in blocks.items():
+    if not z_measured and name in ("translation", "velocity"):
+      block[2, :] = 0.0
+      block[:, 2] = 0.0
+    values = _finite_block(block)
+    if values is not None:
+      uncertainty[name] = values
+  return uncertainty or None
+
+
+def _uses_kalman_yaw(tracked_object, sscape_object):
+  """True when the track's yaw comes from an orienting sensor, so the filter yaw is published
+  (unless it disagrees with the velocity heading)."""
+  attrs = tracked_object.attributes or {}
+  return (
+    attrs.get('orientation_observed') == 'true'
+    or attrs.get('has_orientation') == 'true'
+    or sscape_object.has_detection_rotation
+  )
+
+
 class IntelLabsTracking(Tracking):
   # The last frame's gate when association gates on tracking_radius; also the drawn association window.
   tracking_radius_m = DEFAULT_TRACKING_RADIUS
   # The ignored tracking_radius warning is logged once per tracker and association config, not every frame.
   _ignored_tracking_radius_warned = False
 
-  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None, association_config=None):
+  def __init__(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, effective_object_update_rate, suspended_track_timeout_secs=DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS, reid_config_data=None, name=None, association_config=None, filter_config=None):
     """Initialize the tracker with tracker configuration parameters"""
     super().__init__(reid_config_data=reid_config_data)
     self.name = name if name is not None else "IntelLabsTracking"
     self.association_config = normalize_association_config(association_config)
+    # Startup-only: read once here, kept for the category trackers this tracker creates.
+    self.filter_config = normalize_filter_config(filter_config)
     # ref_camera_frame_rate is used to determine the frame-based param values
     self.ref_camera_frame_rate = effective_object_update_rate
     tracker_config = rv.tracking.TrackManagerConfig()
 
-    tracker_config.default_process_noise = rv.tracking.PRODUCTION_PROCESS_NOISE
-    tracker_config.default_measurement_noise = rv.tracking.PRODUCTION_MEASUREMENT_NOISE
-    tracker_config.init_state_covariance = rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE
+    tracker_config.default_process_noise = self.filter_config["process_noise"]
+    tracker_config.default_measurement_noise = self.filter_config["base_measurement_noise"]
+    tracker_config.init_state_covariance = self.filter_config["init_state_covariance"]
     tracker_config.motion_models = list(rv.tracking.PRODUCTION_MOTION_MODELS)
 
     if self.check_valid_time_parameters(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
@@ -299,6 +441,7 @@ class IntelLabsTracking(Tracking):
     log.info(f"Multiple Object Tracker {self.__str__()} initialized")
     log.info("Tracker config: {}".format(tracker_config))
     log.info("Association config: {}".format(self.association_config))
+    log.info("Filter config: {}".format(self.filter_config))
     self.tracker.update_tracker_params(self.ref_camera_frame_rate)
     return
 
@@ -387,6 +530,48 @@ class IntelLabsTracking(Tracking):
     rv_object.attributes = attributes
     return rv_object
 
+  def _toTrackerReference(self, objects_per_camera, rv_objects_per_camera):
+    """Experimental observation processor: apply valid measurements (position, size, z_measured
+    and noise covariance; yaw stays as detected), then raise every input without measured z from
+    its footprint base to its centre of mass. Without an observation processor the inputs are
+    unchanged.
+    """
+    processor = getattr(self, 'observation_processor', None)
+    if processor is None:
+      return
+    processor.process(objects_per_camera, rv_objects_per_camera)
+    for rv_objects in rv_objects_per_camera:
+      for rv_object in rv_objects:
+        if not rv_object.z_measured:
+          rv_object.z += rv_object.height / 2.0
+
+  def _publishedPoint(self, tracked_object):
+    """Track location to publish: the footprint base of the centre-of-mass track with an
+    observation processor, the tracked point otherwise.
+    """
+    z = tracked_object.z
+    if getattr(self, 'observation_processor', None) is not None:
+      z -= tracked_object.height / 2.0
+    return Point(tracked_object.x, tracked_object.y, z)
+
+  def _publishFilterSize(self, sscape_object, tracked_object):
+    """With an observation processor, publish the filter's size so it matches ``uncertainty.size``.
+
+    Legacy output keeps the detection's or object-class size.
+    """
+    if getattr(self, 'observation_processor', None) is None:
+      return
+    sscape_object.size = [tracked_object.length, tracked_object.width, tracked_object.height]
+
+  def _publishedUncertainty(self, tracked_object):
+    """Covariance of the published state with an observation processor, ``None`` otherwise (legacy
+    output carries no uncertainty).
+    """
+    if getattr(self, 'observation_processor', None) is None:
+      return None
+    return build_track_uncertainty(tracked_object.error_covariance,
+                                   bool(getattr(tracked_object, "z_measured", False)))
+
   def _warn_ignored_tracking_radius(self, objects):
     if self._ignored_tracking_radius_warned:
       return
@@ -394,11 +579,8 @@ class IntelLabsTracking(Tracking):
       radius = getattr(obj, 'tracking_radius', DEFAULT_TRACKING_RADIUS)
       if abs(radius - DEFAULT_TRACKING_RADIUS) > 1e-6:
         log.warning(
-          "Object tracking_radius %s is ignored: association.method is %s with max_radius_m %s",
-          radius,
-          self.association_config["method"],
-          self.association_config["max_radius_m"],
-        )
+          f"Object tracking_radius {radius} is ignored: association.method is "
+          f"{self.association_config['method']} with max_radius_m {self.association_config['max_radius_m']}")
         self._ignored_tracking_radius_warned = True
         return
 
@@ -417,13 +599,18 @@ class IntelLabsTracking(Tracking):
     }
 
   def _birth_cluster_radius(self):
-    """Radius that groups new detections of different cameras: the tracking_radius gate when association uses it."""
+    """Radius that groups new detections of different cameras: the configured ``birth_cluster_radius_m`` when set,
+    else the tracking_radius gate when association uses it, else the default."""
+    configured = self.association_config.get("birth_cluster_radius_m")
+    if configured is not None:
+      return configured
     if uses_tracking_radius(self.association_config):
       return self.tracking_radius_m
     return rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M
 
   def update_tracks(self, objects, timestamp):
     rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
+    self._toTrackerReference([objects], [rv_objects])
     self.tracker.track(rv_objects, timestamp, **self._association_kwargs(objects))
     return
 
@@ -444,13 +631,19 @@ class IntelLabsTracking(Tracking):
             self.tracking_radius_m,
             z_measured=bool(getattr(tracked_object, "z_measured", False)),
           )
+          # The object keeps its previously published rotation, so its yaw provenance is kept too.
+          self._publishFilterSize(obj, tracked_object)
+          obj.angular_velocity = [0.0, 0.0, float(tracked_object.w)]
+          obj.uncertainty = self._publishedUncertainty(tracked_object)
           return obj
 
     sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
 
-    sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
-                                            tracked_object.z)
+    sscape_object.location[0].point = self._publishedPoint(tracked_object)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
+    # Filter estimates yaw rate about world Z only; ωx and ωy stay 0.
+    sscape_object.angular_velocity = [0.0, 0.0, float(tracked_object.w)]
+    self._publishFilterSize(sscape_object, tracked_object)
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
     # update (sticky orientation_observed), even if this frame's linked
@@ -460,12 +653,7 @@ class IntelLabsTracking(Tracking):
     #
     # If motion heading disagrees with Kalman yaw while moving, publish
     # velocity heading (covers stale/frozen detector yaw on any modality).
-    attrs = tracked_object.attributes or {}
-    use_kalman_yaw = (
-      attrs.get('orientation_observed') == 'true'
-      or attrs.get('has_orientation') == 'true'
-      or sscape_object.has_detection_rotation
-    )
+    use_kalman_yaw = _uses_kalman_yaw(tracked_object, sscape_object)
 
     sscape_object.rv_id = tracked_object.id
     found = False
@@ -477,12 +665,14 @@ class IntelLabsTracking(Tracking):
     if not found:
       sscape_object.setGID(object_uuid)
 
+    sscape_object.filter_yaw_published = False
     if use_kalman_yaw:
       if _kalman_yaw_disagrees_with_velocity(tracked_object):
         heading = math.atan2(tracked_object.vy, tracked_object.vx)
         sscape_object.rotation = _yaw_to_quaternion(heading)
       else:
         sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
+        sscape_object.filter_yaw_published = True
     else:
       sscape_object.inferRotationFromVelocity()
 
@@ -494,6 +684,7 @@ class IntelLabsTracking(Tracking):
       self.tracking_radius_m,
       z_measured=bool(getattr(tracked_object, "z_measured", False)),
     )
+    sscape_object.uncertainty = self._publishedUncertainty(tracked_object)
 
     return sscape_object
 
@@ -576,6 +767,7 @@ class IntelLabsTracking(Tracking):
       rv_objects_per_camera.append(rv_camera_objects)
       flat_objects.extend(camera_objects)
 
+    self._toTrackerReference(objects_per_camera, rv_objects_per_camera)
     self.tracker.track(
       rv_objects_per_camera,
       timestamp,
