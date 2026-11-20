@@ -251,9 +251,9 @@ async function manageCalibrationState(msg, scene_id) {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
       clearRegistrationRetry(btn);
       btn.disabled = true;
-      // REST uses sceneId; older socket payloads may still send scene_id.
-      const busySceneId = msg?.sceneId ?? msg?.scene_id;
-      const busySceneName = msg?.sceneName ?? msg?.scene_name;
+      // REST sceneId is the requested scene; registeringSceneId is the one holding the worker.
+      const busySceneId = msg?.registeringSceneId ?? msg?.scene_id;
+      const busySceneName = msg?.registeringSceneName ?? msg?.scene_name;
       var button_message =
         busySceneId == scene_id
           ? "Scene updated, Registering the scene"

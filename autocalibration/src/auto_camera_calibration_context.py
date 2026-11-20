@@ -110,15 +110,15 @@ class CameraCalibrationContext:
   def request_scene_registration(self, sceneobj):
     """! Start registering a scene, or queue it while another scene registers.
 
-    @return  "active", "started", or "busy".
+    @return  ("active" | "started" | "busy", id of the scene being registered).
     """
     with self.registration_state_lock:
       if self.current_processing_scene == sceneobj.id:
-        return "active"
+        return "active", sceneobj.id
       if self.scene_update_thread_wrapper(sceneobj, map_update=True):
-        return "started"
+        return "started", sceneobj.id
       self.pending_registrations.add(sceneobj.id)
-      return "busy"
+      return "busy", self.current_processing_scene
 
   def process_scene(self, sceneobj, map_update):
     """! function processes the uploaded scene(image/glb) and publish back the

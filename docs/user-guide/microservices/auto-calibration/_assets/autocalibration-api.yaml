@@ -66,6 +66,13 @@ components:
           type: string
           format: uuid
           description: Unique identifier of the scene
+        registeringSceneId:
+          type: string
+          format: uuid
+          description: When status is busy, the scene currently being registered
+        registeringSceneName:
+          type: string
+          description: When status is busy, the name of the scene currently being registered
         message:
           type: string
           description: Additional information
@@ -396,6 +403,8 @@ paths:
                   value:
                     status: "busy"
                     sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
+                    registeringSceneId: "8c1b4f2e-5d3a-4e6b-9f7c-2a1d0e3b4c5d"
+                    registeringSceneName: "Queuing"
                     message: "Registration is currently busy"
         "202":
           description: Registration started asynchronously or is already in progress for this scene
