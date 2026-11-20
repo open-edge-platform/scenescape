@@ -29,7 +29,6 @@ def test_invalidated_source_rebuilds_cached_mesh_and_replaces_markers():
   data_iface.calibration_markers_with_scene_id.side_effect = lambda scene_id: {
     "results": [{"apriltag_id": tag, "dims": dims} for tag, dims in stored_markers.items()]}
   controller = ApriltagCameraCalibrationController(calibration_data_interface=data_iface)
-  controller.notify_scene_registration = MagicMock()
   scene = MagicMock(id="scene-1", map="/media/activated.glb", map_processed=None)
   previous = MagicMock(result_data_3d=old_markers)
   controller.cam_calib_objs[scene.id] = previous

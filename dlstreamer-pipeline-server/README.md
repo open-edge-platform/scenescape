@@ -16,7 +16,7 @@
 Below are step-by-step instructions for enabling out-of-the-box scenes in Scenescape to leverage DL Streamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
-   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `omz/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
+   Ensure the models `OpenVINO_yolox_s-fp16-ov` and `OpenVINO_yolox_s-int8-ov` are present in the Models Volume in the `huggingface/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
 2. **Start Scenescape DL Streamer-based demo:**
 
@@ -219,7 +219,7 @@ docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.r
   -f sample_data/compose/compose.reid-pipeline-override.yml up -d
 ```
 
-Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
+Ensure the `mars-small128` model (installed by `make -C model_download install-models`) is available in the `ultralytics/public/mars-small128/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/ultralytics/public/mars-small128`. The same folder holds `mars-small128.json`, the model-proc that feeds the model RGB frames.
 
 ## Enable Pose Estimation
 
