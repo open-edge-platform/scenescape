@@ -208,6 +208,17 @@ def sceneDetail(request, scene_id):
                                                      'child_tripwires': child_trips, 'child_sensors': child_sensors,
                                                      'osm_roi_disabled_reason': osm_roi_disabled_reason})
 
+@login_required(login_url="sign_in")
+def child_scene_metadata(request, scene_id):
+  """Return the current transformed child overlays for a parent scene."""
+  scene = get_object_or_404(Scene, pk=scene_id)
+  rois, tripwires, sensors = getAllChildrenMetaData(scene.id)
+  return JsonResponse({
+    'rois': json.loads(rois),
+    'tripwires': json.loads(tripwires),
+    'sensors': json.loads(sensors),
+  })
+
 @superuser_required
 def saveROI(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
