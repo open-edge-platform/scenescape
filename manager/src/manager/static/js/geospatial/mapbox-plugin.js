@@ -293,6 +293,17 @@ class MapboxPlugin extends MapInterface {
     return { lat: ll.lat, lng: ll.lng };
   }
 
+  latLngToPoint(lat, lng) {
+    const p = this.map.project([lng, lat]);
+    return { x: p.x, y: p.y };
+  }
+
+  onViewChange(callback) {
+    const events = ["move", "zoom", "resize"];
+    events.forEach((name) => this.map.on(name, callback));
+    return () => events.forEach((name) => this.map.off(name, callback));
+  }
+
   _cornersToMapboxCoordinates(corners) {
     // corners: [SW, SE, NE, NW] with {lat, lng}
     // Mapbox order: top-left (NW), top-right (NE), bottom-right (SE), bottom-left (SW)

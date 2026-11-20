@@ -218,15 +218,27 @@ SPDX-License-Identifier: Apache-2.0
             >3D model (GLB)</label
           >
           <div class="col-sm-10">
-            <div id="glbFileWrap">
-              <input
-                type="file"
-                id="glbFileInput"
-                class="form-control-file"
-                accept=".glb"
-              />
+            <div class="d-flex align-items-center">
+              <div id="glbFileWrap">
+                <input
+                  type="file"
+                  id="glbFileInput"
+                  class="form-control-file"
+                  accept=".glb"
+                />
+              </div>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary ml-2"
+                id="glbCancel"
+                style="display:none;"
+                title="Discard the uploaded 3D model"
+              >
+                Cancel
+              </button>
             </div>
             <small id="glbAlignHint" class="form-text text-muted"></small>
+            <small id="glbFootprint" class="form-text text-muted"></small>
             <div
               id="glbAlignStatus"
               role="status"
@@ -273,52 +285,6 @@ SPDX-License-Identifier: Apache-2.0
                 <label class="form-check-label" for="glbUse"
                   >Show saved 3D model on scene map</label
                 >
-              </div>
-            </div>
-            <div
-              id="glbAlignControls"
-              style="display:none;"
-              class="mt-3 p-3 border rounded bg-light"
-            >
-              <div class="form-group">
-                <label
-                  for="glbHeadingNumber"
-                  title="Rotates the 3D model on the map, in degrees clockwise from north (0 to 359.9). Type a value or use the slider."
-                  >Heading (degrees clockwise from north)</label
-                >
-                <div
-                  class="d-flex align-items-center"
-                  title="Rotates the 3D model on the map, in degrees clockwise from north (0 to 359.9). Type a value or use the slider."
-                >
-                  <input
-                    type="number"
-                    class="form-control mr-3"
-                    style="width: 7rem;"
-                    id="glbHeadingNumber"
-                    min="0"
-                    max="359.9"
-                    step="0.1"
-                  />
-                  <input
-                    type="range"
-                    id="glbHeadingRange"
-                    min="0"
-                    max="359"
-                    step="1"
-                    aria-label="Heading slider"
-                  />
-                </div>
-              </div>
-              <div class="form-group">
-                <span id="glbFootprint"></span>
-              </div>
-              <div class="form-group">
-                <button type="button" class="btn btn-secondary" id="glbReset">
-                  Reset
-                </button>
-                <button type="button" class="btn btn-secondary" id="glbCancel">
-                  Cancel
-                </button>
               </div>
             </div>
           </div>

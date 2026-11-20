@@ -52,6 +52,16 @@ class MapInterface {
     throw new Error("Method 'pointToLatLng' must be implemented");
   }
 
+  // Inverse of pointToLatLng: lat/lng to {x, y} in map container px.
+  latLngToPoint(lat, lng) {
+    throw new Error("Method 'latLngToPoint' must be implemented");
+  }
+
+  // Calls `callback` as the map pans, zooms or resizes; returns a function that unsubscribes.
+  onViewChange(callback) {
+    throw new Error("Method 'onViewChange' must be implemented");
+  }
+
   setOverlay(imageUrl, corners, opacity) {
     throw new Error("Method 'setOverlay' must be implemented");
   }

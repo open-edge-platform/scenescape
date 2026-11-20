@@ -69,6 +69,28 @@ try {
     case "distanceKm":
       result = glbExports.distanceKm(args.a, args.b);
       break;
+    case "angleFromPointer":
+      result = glbExports.angleFromPointer(args.center, args.pt);
+      break;
+    case "angleDelta":
+      result = glbExports.angleDelta(args.a, args.b);
+      break;
+    case "snapToCardinal":
+      result = glbExports.snapToCardinal(args.heading);
+      break;
+    case "dragHeading":
+      result = glbExports.dragHeading(args.raw, args.delta, args.fine);
+      break;
+    case "dialRadius":
+      result = glbExports.dialRadius(args.width, args.height);
+      break;
+    case "opacityConstants":
+      result = {
+        moving: glbExports.MOVING_OPACITY,
+        staged: glbExports.DEFAULT_OPACITY,
+        saved: glbExports.SAVED_OPACITY,
+      };
+      break;
     default:
       throw new Error(`Unknown test: ${testName}`);
   }

@@ -34,6 +34,33 @@ class FakeEl {
     this.dataset = {};
     this.files = [];
     this.listeners = {};
+    this.attrs = {};
+    this.parentNode = null;
+    this.captured = null;
+    const classes = new Set();
+    this.classList = {
+      toggle: (name, force) => {
+        if (force) classes.add(name);
+        else classes.delete(name);
+      },
+      contains: (name) => classes.has(name),
+    };
+  }
+
+  setAttribute(name, value) {
+    this.attrs[name] = String(value);
+  }
+
+  getAttribute(name) {
+    return this.attrs[name] ?? null;
+  }
+
+  contains(el) {
+    return el === this || this.children.some((c) => c.contains(el));
+  }
+
+  setPointerCapture(id) {
+    this.captured = id;
   }
 
   get textContent() {
@@ -47,6 +74,7 @@ class FakeEl {
 
   appendChild(el) {
     el.parent = this;
+    el.parentNode = this;
     this.children.push(el);
     return el;
   }
@@ -108,7 +136,7 @@ function load(args) {
         fakeEls[id].closest = () => fakeForm;
       }
       if (id === "glbSavePosition") fakeEls[id].style.display = "none";
-      if (id === "glbAlignControls") fakeEls[id].style.display = "none";
+      if (id === "glbCancel") fakeEls[id].style.display = "none";
       if (id === "mapProvider") fakeEls[id].value = args.provider ?? "google";
       if (id === "id_map_type")
         fakeEls[id].value = args.mapType ?? "geospatial_map";
@@ -167,6 +195,24 @@ function load(args) {
   const strategy = {
     pointToLatLng(x, y) {
       return { lat: 37 - y * 1e-5, lng: -122 + x * 1e-5 };
+    },
+    // Inverse of pointToLatLng under the current pan/zoom `view`.
+    view: { scale: 1, dx: 0, dy: 0 },
+    viewCallbacks: new Set(),
+    latLngToPoint(lat, lng) {
+      if (this.view.notReady) throw new Error("Map overlay is not ready");
+      return {
+        x: ((lng + 122) / 1e-5) * this.view.scale + this.view.dx,
+        y: ((37 - lat) / 1e-5) * this.view.scale + this.view.dy,
+      };
+    },
+    onViewChange(cb) {
+      this.viewCallbacks.add(cb);
+      return () => this.viewCallbacks.delete(cb);
+    },
+    setView(view) {
+      Object.assign(this.view, view);
+      this.viewCallbacks.forEach((cb) => cb());
     },
     calls: [],
     frame: null,
@@ -311,11 +357,65 @@ const scenarios = {
         ctx.window.fire("pointerup", {});
       }
     };
+    const dialState = () =>
+      a.dial && {
+        display: a.dial.root.style.display,
+        left: a.dial.root.style.left,
+        top: a.dial.root.style.top,
+        width: a.dial.root.style.width,
+        height: a.dial.root.style.height,
+        knobLeft: a.dial.knob.style.left,
+        knobTop: a.dial.knob.style.top,
+        attrs: a.dial.knob.attrs,
+        attached: a.dial.root.parentNode === fakeEls["map"],
+        captured: a.dial.knob.captured,
+        active: a.dial.root.classList.contains("glb-rot-dial--active"),
+      };
+    const dialTrail = [];
+    const dialEvents = [];
+    const lastOpacity = () =>
+      strategy.calls.filter((c) => c[0] === "setOverlayOpacity").at(-1)?.[1];
+    const dialPointer = (type, pt, opts = {}) => ({
+      type,
+      clientX: pt[0],
+      clientY: pt[1],
+      pointerId: 7,
+      button: 0,
+      shiftKey: !!opts.shift,
+      target: a.dial.knob,
+      preventDefault() {
+        this.prevented = true;
+      },
+      stopPropagation() {
+        this.stopped = true;
+      },
+    });
+    // Grabs the dial at `from` and moves to `to`; opts.hold keeps the pointer down.
+    const dialDrag = (from, to, opts = {}) => {
+      const down = dialPointer("pointerdown", from, opts);
+      a.dial.root.fire("pointerdown", down);
+      const rec = {
+        prevented: !!down.prevented,
+        stopped: !!down.stopped,
+        opacityOnGrab: lastOpacity(),
+      };
+      // `to` is one point, or a list of points whose optional third value is the Shift state.
+      const path = Array.isArray(to[0]) ? to : [to];
+      for (const pt of path)
+        ctx.window.fire(
+          "pointermove",
+          dialPointer("pointermove", pt, { shift: pt[2] ?? opts.shift }),
+        );
+      rec.opacityOnMove = lastOpacity();
+      if (!opts.hold) ctx.window.fire("pointerup", {});
+      dialEvents.push(rec);
+    };
 
     await new Promise((r) => setImmediate(r));
     savePosTrail.push(savePosShown());
     frameTrail.push(frameState());
     sceneFormTrail.push(sceneForm());
+    dialTrail.push(dialState()?.display ?? null);
     {
       for (const step of args.steps || []) {
         if (step[0] === "upload") {
@@ -346,19 +446,57 @@ const scenarios = {
           fakeEls["glbUse"].checked = step[1];
           await a._toggleUse?.();
         } else if (step[0] === "heading") {
-          const headEl = fakeEls["glbHeadingNumber"];
-          headEl.value = step[1];
-          headEl.fire("input", { target: headEl });
-        } else if (step[0] === "headingBlur") {
-          fakeEls["glbHeadingNumber"].fire("change", {});
-        } else if (step[0] === "reset") {
-          a._reset?.();
+          // The dial is the only heading control, so tests set a heading through its code path.
+          a._setHeading(ctx.__api.clampHeading(Number(step[1])));
+        } else if (step[0] === "cancelClick") {
+          fakeEls["glbCancel"].fire("click", {});
         } else if (step[0] === "cancel") {
           a._cancel?.();
         } else if (step[0] === "press") {
           press(step[1]);
         } else if (step[0] === "release") {
           ctx.window.fire("pointerup", {});
+        } else if (step[0] === "dialDrag") {
+          dialDrag(step[1], step[2], step[3]);
+        } else if (step[0] === "dialLegacy") {
+          const ev = dialPointer(step[1], [0, 0]);
+          a.dial.root.fire(step[1], ev);
+          dialEvents.push({ stopped: !!ev.stopped, prevented: !!ev.prevented });
+        } else if (step[0] === "dialKey") {
+          const ev = {
+            key: step[1],
+            shiftKey: !!step[2],
+            preventDefault() {
+              this.prevented = true;
+            },
+          };
+          a.dial.knob.fire("keydown", ev);
+          dialEvents.push({ prevented: !!ev.prevented });
+        } else if (step[0] === "view") {
+          strategy.setView(step[1]);
+        } else if (step[0] === "detachDial") {
+          a.dial.root.parentNode.children = [];
+          a.dial.root.parentNode = null;
+        } else if (step[0] === "mapPressOnDial") {
+          const ev = dialPointer("pointerdown", step[1]);
+          fakeEls["map"].fire("pointerdown", ev);
+          dialEvents.push({ prevented: !!ev.prevented, stopped: !!ev.stopped });
+        } else if (step[0] === "geomapReady") {
+          ctx.window.fire("geomap-ready", {});
+        } else if (step[0] === "hover") {
+          fakeEls["map"].fire("pointermove", {
+            clientX: step[1][0],
+            clientY: step[1][1],
+          });
+        } else if (step[0] === "leave") {
+          fakeEls["map"].fire("pointerleave", {});
+        } else if (step[0] === "dialFocus") {
+          a.dial.knob.fire("focus", {});
+        } else if (step[0] === "dialBlur") {
+          a.dial.knob.fire("blur", {});
+        } else if (step[0] === "mapType") {
+          fakeEls["id_map_type"].value = step[1];
+          fakeEls["id_map_type"].fire("change", {});
         } else if (step[0] === "submit") {
           submit();
         } else if (step[0] === "saveAndSubmit") {
@@ -370,6 +508,7 @@ const scenarios = {
         savePosTrail.push(savePosShown());
         frameTrail.push(frameState());
         sceneFormTrail.push(sceneForm());
+        dialTrail.push(dialState()?.display ?? null);
       }
     }
 
@@ -393,9 +532,12 @@ const scenarios = {
       savedAnchor: a.saved?.anchor ?? null,
       status: fakeEls["glbAlignStatus"]?.textContent || "",
       statusList: statusListOf(fakeEls["glbAlignStatus"]),
-      controlsDisplay: fakeEls["glbAlignControls"]?.style?.display ?? "none",
-      headingValue: fakeEls["glbHeadingNumber"]?.value ?? null,
-      headingRangeValue: fakeEls["glbHeadingRange"]?.value ?? null,
+      cancelDisplay: fakeEls["glbCancel"]?.style?.display ?? "none",
+      footprintText: fakeEls["glbFootprint"]?.textContent ?? "",
+      dial: dialState(),
+      dialTrail,
+      dialEvents,
+      viewSubscribers: strategy.viewCallbacks.size,
       fileDisabled: fakeEls["glbFileInput"]?.disabled ?? false,
       filePointerEvents: fakeEls["glbFileInput"]?.style?.pointerEvents ?? "",
       fileTitle: fakeEls["glbFileWrap"]?.title ?? "",

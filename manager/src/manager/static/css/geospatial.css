@@ -1,12 +1,97 @@
 /*
- * SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+ * SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #map {
+  position: relative;
   width: 1280px;
   height: 1280px;
   margin-bottom: 10px;
+}
+
+/* GLB rotation dial: only the ring stroke and the knob take pointer input. */
+.glb-rot-dial {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* Shown while hovering the preview, rotating, or keyboard-focused; hidden otherwise. */
+.glb-rot-dial--active {
+  opacity: 1;
+}
+
+/* Hidden but still focusable, so keyboard users can reach the knob; it must not catch the pointer. */
+.glb-rot-dial:not(.glb-rot-dial--active) .glb-rot-hit,
+.glb-rot-dial:not(.glb-rot-dial--active) .glb-rot-knob {
+  pointer-events: none;
+}
+
+.glb-rot-dial,
+.glb-rot-dial * {
+  outline: none;
+}
+
+.glb-rot-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  pointer-events: none;
+}
+
+.glb-rot-ring circle,
+.glb-rot-ring path {
+  vector-effect: non-scaling-stroke;
+}
+
+.glb-rot-hit {
+  stroke: transparent;
+  stroke-width: 18px;
+  pointer-events: stroke;
+  cursor: grab;
+}
+
+/* The white halo keeps the blue ring visible on dark and on light imagery. */
+.glb-rot-halo {
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 8px;
+}
+
+.glb-rot-line {
+  stroke: var(--primary, #007bff);
+  stroke-width: 4px;
+}
+
+.glb-rot-tick {
+  stroke: #fff;
+  stroke-width: 4px;
+  stroke-linecap: round;
+}
+
+.glb-rot-knob {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--primary, #007bff);
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.glb-rot-knob:focus-visible {
+  box-shadow: 0 0 0 3px var(--primary, #007bff);
 }
 
 #map[style*="display: none"] {

@@ -102,7 +102,7 @@ For scenes that use a 3D model (GLB file) as the map:
 The position of the model on the map is stored as an anchor:
 
 - **Anchor** (`lat`, `lng`): the latitude and longitude of the centre of the model's footprint (its bounding rectangle on the ground plane). A new model starts at the scene's saved map centre. The anchor must be within 50 km of the map centre; the UI warns about a farther position and the API rejects it with `400`.
-- **Heading** (`heading_deg`): the clockwise rotation of the model's +Y axis from true north, in degrees. `0` points north and `90` points east. The UI limits the slider to 0-359.9; the API normalises any value to the range 0 to below 360.
+- **Heading** (`heading_deg`): the clockwise rotation of the model's +Y axis from true north, in degrees. `0` points north and `90` points east. The UI limits the heading to 0-359.9; the API normalises any value to the range 0 to below 360.
 
 The saved anchor is also reported by `GET /api/v1/scene/<scene_uid>/geospatial-glb`.
 
@@ -126,19 +126,19 @@ When a model is shown on the scene map, Scenescape keeps the scene's flat map im
 1. Click the **Edit** button on the scene.
 1. Scroll to the **3D model (GLB)** section.
 1. Click **Browse** and select a `.glb` file to upload. If a model is already staged or saved, you are first asked to confirm replacing it; declining keeps the current model, and a saved model stays in place until you save the new one.
-1. Once the preview appears, use the **Heading** slider and text input to adjust the 3D model's rotation (degrees clockwise from north). The map view does not move when the model is uploaded; pan or zoom the map to find the preview if it sits outside the current view.
+1. Once the preview appears, set the 3D model's rotation (degrees clockwise from north) by dragging the knob of the rotation dial at the center of the preview. The dial appears when you hover over the preview (or tap it, or focus the knob with the keyboard) and while you rotate; it is hidden while you press or drag the preview, and it never grows beyond 75% of the preview's size when you zoom out. Dragging snaps lightly to 0, 90, 180 and 270 degrees (within 5 degrees); hold **Shift** while dragging to turn snapping off and rotate at a quarter of the speed for fine adjustment. With the knob focused, the arrow keys change the heading by 1 degree (15 with **Shift**). The preview is semi-transparent, so the map beneath stays visible while you match colors and boundaries. The map view does not move when the model is uploaded; pan or zoom the map to find the preview if it sits outside the current view.
 1. Drag the model's preview on the map to reposition it as needed.
 1. Press and hold the model, or drag it, to make it transparent so the map underneath shows through; it returns to its normal opacity when you release.
-1. Click **Save Scene Updates** to store the 3D model and its position with the scene, in the same save as the other scene fields; if that save fails validation, the model is not stored. If the scene has a flat base map image, the model is also applied to the scene map at once; a scene without one keeps the model stored but not applied. You can unapply and reapply the model with the **Show saved 3D model on scene map** checkbox (see below). **Reset** returns the staged model to its initial position and heading, and **Cancel** discards it.
+1. Click **Save Scene Updates** to store the 3D model and its position with the scene, in the same save as the other scene fields; if that save fails validation, the model is not stored. If the scene has a flat base map image, the model is also applied to the scene map at once; a scene without one keeps the model stored but not applied. You can unapply and reapply the model with the **Show saved 3D model on scene map** checkbox (see below). **Cancel**, next to the file picker, discards the staged model.
 
 ### Managing Saved 3D Models
 
 Once a 3D model is saved to a scene:
 
 - The **Saved 3D model** block displays the model filename with **Download** and **Remove** options.
-- The model's top-down preview is drawn on the map as an overlay whenever the scene page loads, whether or not the model is applied to the scene. The same preview image is used in both states; only the outline colour changes. It is drawn at full opacity so it stands apart from the semi-transparent preview shown while staging, and becomes transparent while you press or drag it. The overlay is drawn at the scene's saved map view, so pan the map to find it if the model sits outside that view. If the preview cannot be generated, a message appears in the 3D model section instead of the overlay.
+- The model's top-down preview is drawn on the map as an overlay whenever the scene page loads, whether or not the model is applied to the scene. The same preview image is used in both states; only the outline colour changes. It is drawn semi-transparent, a little less so than the preview shown while staging, so the map underneath stays visible, and it becomes more transparent while you press, drag or rotate it. The overlay is drawn at the scene's saved map view, so pan the map to find it if the model sits outside that view. If the preview cannot be generated, a message appears in the 3D model section instead of the overlay.
 - The **Show saved 3D model on scene map** checkbox controls whether the model is shown on the scene map over the base map image (checked) or shown as a reference overlay only (unchecked). See [Hybrid View](#hybrid-view). A newly saved model starts checked when the scene has a flat base map image. Unchecking the checkbox unapplies the model, and checking it again applies it from the saved state. Changing the checkbox takes effect immediately. The checkbox does not change the model's position. The model's overlay on the map has a green dashed outline while the model is applied and a red dashed outline when it is not applied. While you stage a replacement model, the **Saved 3D model** block and the outline are hidden until you save or cancel.
-- To move or rotate a saved model, drag its overlay on the map or use the **Heading** slider and text input. Cancel discards unsaved changes and Reset restores the saved position and heading.
+- To move or rotate a saved model, drag its overlay on the map and rotate it with the rotation dial on the overlay. To discard unsaved changes to a saved model, reload the page.
 - After the overlay is moved or rotated, a **Save position** button appears next to **Download** and **Remove**. Click it to persist the new position and heading. The button hides again once the saved position matches the overlay. Saving a position while the model is applied also moves the scene map to the new position.
 - **Save Scene Updates** also persists a moved or rotated model. Use it when you are changing other scene settings at the same time: the new position is saved in the same request as those settings. If the save fails validation, nothing is saved, including the moved position. Fix the error, then move the model again.
 - Click **Remove** to delete the saved 3D model (a confirmation dialog appears first). This cannot be undone.
@@ -159,8 +159,8 @@ The following table describes what each action changes. Cameras, regions, sensor
 
 To replace a saved 3D model:
 
-1. Upload a new file using the file picker; the staging controls appear with the new model.
-1. Adjust the heading and position as needed (the controls inherit the saved model's position).
+1. Upload a new file using the file picker; the new model appears as a preview on the map, with a **Cancel** button next to the picker.
+1. Adjust the heading and position as needed (the preview starts at the saved model's position).
 1. Click **Save Scene Updates** to replace the saved model. If the scene has a flat base map image, the new model is applied at the new position, as with a first save. Otherwise the scene map is unchanged and the new model stays unapplied. If the save fails, the saved model is kept unchanged.
 1. Click **Cancel** to discard the staged file and return to the saved model.
 

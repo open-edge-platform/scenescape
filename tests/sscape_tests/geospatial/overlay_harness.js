@@ -74,6 +74,67 @@ function load(files, extra = {}) {
   return ctx;
 }
 
+const GOOGLE_CORNERS = [
+  { lat: 10, lng: 20 },
+  { lat: 10, lng: 30 },
+  { lat: 20, lng: 30 },
+  { lat: 20, lng: 20 },
+];
+
+// Google fake whose projection offers both div and container pixels, and that draws on setMap.
+function loadGooglePlugin(noGoogle = false) {
+  const googleMaps = {
+    OverlayView: class {
+      setMap(map) {
+        this.map = map;
+        if (map) {
+          this.panes = { overlayLayer: { appendChild() {}, removeChild() {} } };
+          this.proj = {
+            fromLatLngToDivPixel(ll) {
+              return { x: (ll.lng() - 10) * 1000, y: (50 - ll.lat()) * 1000 };
+            },
+            fromLatLngToContainerPixel(ll) {
+              return {
+                x: (ll.lng() + 100) / 0.001,
+                y: (40 - ll.lat()) / 0.001,
+              };
+            },
+          };
+          this.onAdd?.();
+          this.draw?.();
+        } else {
+          this.onRemove?.();
+        }
+      }
+      getPanes() {
+        return this.panes;
+      }
+      getProjection() {
+        return this.proj;
+      }
+    },
+    LatLng: class {
+      constructor(lat, lng) {
+        this._lat = lat;
+        this._lng = lng;
+      }
+      lat() {
+        return this._lat;
+      }
+      lng() {
+        return this._lng;
+      }
+    },
+  };
+  const ctx = load(
+    ["map-interface.js", "geo-overlay-math.js", "google-maps-plugin.js"],
+    { google: noGoogle ? undefined : { maps: googleMaps } },
+  );
+  const plugin = new ctx.__exports.GoogleMapsPlugin();
+  plugin.map = {};
+  return { ctx, plugin };
+}
+
 const scenarios = {
   corners(args) {
     const ctx = load(["geo-overlay-math.js"]);
@@ -286,6 +347,101 @@ const scenarios = {
       calls,
       sources: Object.keys(sources),
       layers: Object.keys(layers),
+      opacity: layers["glb-overlay"]?.paint["raster-opacity"] ?? null,
+    };
+  },
+
+  mapboxLatLngToPoint(steps) {
+    const ctx = load([
+      "map-interface.js",
+      "geo-overlay-math.js",
+      "mapbox-plugin.js",
+    ]);
+    const { MapboxPlugin } = ctx.__exports;
+    const plugin = new MapboxPlugin();
+    plugin.map = {
+      project([lng, lat]) {
+        return { x: (lng + 100) / 0.001, y: (40 - lat) / 0.001, extra: 1 };
+      },
+    };
+    return {
+      ok: true,
+      points: steps.map(([lat, lng]) => plugin.latLngToPoint(lat, lng)),
+    };
+  },
+
+  mapboxViewChange() {
+    const ctx = load([
+      "map-interface.js",
+      "geo-overlay-math.js",
+      "mapbox-plugin.js",
+    ]);
+    const { MapboxPlugin } = ctx.__exports;
+    const handlers = {};
+    const plugin = new MapboxPlugin();
+    plugin.map = {
+      on(name, cb) {
+        (handlers[name] ||= new Set()).add(cb);
+      },
+      off(name, cb) {
+        handlers[name]?.delete(cb);
+      },
+    };
+    let calls = 0;
+    const off = plugin.onViewChange(() => calls++);
+    const registered = Object.keys(handlers).sort();
+    const fire = (name) => handlers[name].forEach((cb) => cb());
+    fire("move");
+    fire("zoom");
+    fire("resize");
+    const whileSubscribed = calls;
+    off();
+    const remaining = Object.values(handlers).reduce((n, s) => n + s.size, 0);
+    return { ok: true, registered, whileSubscribed, remaining };
+  },
+
+  googleLatLngToPoint(args) {
+    const { plugin } = loadGooglePlugin(args.noGoogle);
+    if (!args.noOverlay) plugin.setOverlay("test.jpg", GOOGLE_CORNERS, 0.5);
+    return {
+      ok: true,
+      points: args.steps.map(([lat, lng]) => plugin.latLngToPoint(lat, lng)),
+    };
+  },
+
+  googleViewChange() {
+    const { plugin } = loadGooglePlugin();
+    const listeners = [];
+    plugin.map = {
+      addListener(name, cb) {
+        const l = {
+          name,
+          cb,
+          removed: false,
+          remove() {
+            this.removed = true;
+          },
+        };
+        listeners.push(l);
+        return l;
+      },
+    };
+    let calls = 0;
+    const off = plugin.onViewChange(() => calls++);
+    const registered = listeners.map((l) => l.name).sort();
+    listeners.forEach((l) => l.cb());
+    const afterMapEvents = calls;
+    plugin.setOverlay("test.jpg", GOOGLE_CORNERS, 0.5);
+    const afterDraw = calls;
+    off();
+    plugin.setOverlay("test.jpg", GOOGLE_CORNERS, 0.5);
+    return {
+      ok: true,
+      registered,
+      afterMapEvents,
+      afterDraw,
+      afterOff: calls,
+      allRemoved: listeners.every((l) => l.removed),
     };
   },
 

@@ -118,7 +118,7 @@ class TestMatrix:
 class TestAbstract:
   """Test MapInterface abstract methods throw."""
 
-  @pytest.mark.parametrize("method", ["setOverlay", "updateOverlay", "setOverlayOpacity", "setOverlayFrameColor", "removeOverlay", "pointToLatLng"])
+  @pytest.mark.parametrize("method", ["setOverlay", "updateOverlay", "setOverlayOpacity", "setOverlayFrameColor", "removeOverlay", "pointToLatLng", "latLngToPoint", "onViewChange"])
   def test_throws(self, method):
     """Unimplemented abstract method throws."""
     res = run_js("abstract", method)
@@ -183,6 +183,41 @@ class TestMapbox:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+class TestMapboxView:
+  """MapboxPlugin pixel projection, view subscription and overlay opacity."""
+
+  def test_lat_lng_to_point(self):
+    """latLngToPoint projects lat/lng to container px using map.project (lng, lat order)."""
+    res = run_js("mapboxLatLngToPoint", [[40, -100], [39.8, -99.9]])
+    assert res["points"][0] == {"x": 0, "y": 0}
+    assert res["points"][1]["x"] == pytest.approx(100)
+    assert res["points"][1]["y"] == pytest.approx(200)
+    assert set(res["points"][1]) == {"x", "y"}
+
+  def test_on_view_change_subscribes_to_move_zoom_and_resize_and_unsubscribes(self):
+    """The callback runs on move, zoom and resize events and stops after the returned unsubscribe."""
+    res = run_js("mapboxViewChange", {})
+    assert res["registered"] == ["move", "resize", "zoom"]
+    assert res["whileSubscribed"] == 3
+    assert res["remaining"] == 0
+
+  CORNERS = [{"lat": 10, "lng": 20}, {"lat": 10, "lng": 30}, {"lat": 20, "lng": 30}, {"lat": 20, "lng": 20}]
+
+  @pytest.mark.parametrize("opacity", [0.2, 0.4, 0.6])
+  def test_set_overlay_applies_opacity_to_raster_layer(self, opacity):
+    """The raster layer is created with the given opacity."""
+    res = run_js("mapbox", [["setOverlay", "test.jpg", self.CORNERS, opacity]])
+    assert res["opacity"] == opacity
+
+  def test_rerun_set_overlay_and_set_opacity_update_the_layer(self):
+    """Re-running setOverlay (as after the apply toggle) takes the new opacity; setOverlayOpacity changes it in place."""
+    redraw = run_js("mapbox", [["setOverlay", "a.png", self.CORNERS, 0.4], ["setOverlay", "a.png", self.CORNERS, 0.6]])
+    assert redraw["opacity"] == 0.6
+    faded = run_js("mapbox", [["setOverlay", "a.png", self.CORNERS, 0.6], ["setOverlayOpacity", 0.2]])
+    assert faded["opacity"] == 0.2
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
 class TestGoogle:
   """Test GoogleMapsPlugin."""
 
@@ -232,6 +267,44 @@ class TestGoogle:
     """pointToLatLng throws when no google.maps."""
     res = run_js("googlePointToLatLng", {"noGoogle": True, "steps": [[100, 200]]})
     assert not res["ok"] or len(res["points"]) == 0
+
+  def test_lat_lng_to_point(self):
+    """latLngToPoint projects lat/lng to container px using the overlay projection."""
+    res = run_js("googleLatLngToPoint", {"steps": [[40, -100], [39.8, -99.9]]})
+    assert res["points"][0] == {"x": 0, "y": 0}
+    assert res["points"][1]["x"] == pytest.approx(100)
+    assert res["points"][1]["y"] == pytest.approx(200)
+
+  @pytest.mark.parametrize("args", [{"noOverlay": True}, {"noGoogle": True}])
+  def test_lat_lng_to_point_throws_until_projection_is_ready(self, args):
+    """Without an overlay (or without the Google API) there is no projection, so latLngToPoint throws."""
+    res = run_js("googleLatLngToPoint", {**args, "steps": [[40, -100]]})
+    assert not res["ok"]
+    assert "Map overlay is not ready" in res["error"]
+
+  def test_on_view_change_follows_map_events_and_overlay_draws_until_unsubscribed(self):
+    """The callback runs on map events and on every overlay draw (when the projection becomes ready), then stops."""
+    res = run_js("googleViewChange", {})
+    assert res["registered"] == ["bounds_changed", "center_changed", "zoom_changed"]
+    assert res["afterMapEvents"] == 3
+    assert res["afterDraw"] == 4
+    assert res["allRemoved"] is True
+    assert res["afterOff"] == 4
+
+  @pytest.mark.parametrize("opacity", [0.2, 0.4, 0.6])
+  def test_set_overlay_applies_opacity_to_image(self, opacity):
+    """The overlay image is created with the given opacity."""
+    corners = [{"lat": 10, "lng": 20}, {"lat": 10, "lng": 30}, {"lat": 20, "lng": 30}, {"lat": 20, "lng": 20}]
+    res = run_js("google", {"steps": [["setOverlay", "test.jpg", corners, opacity]]})
+    assert [c["style"]["opacity"] for c in res["layer"]["children"]] == [opacity]
+
+  def test_rerun_set_overlay_and_set_opacity_update_the_image(self):
+    """Re-running setOverlay (as after the apply toggle) leaves one image with the new opacity; setOverlayOpacity changes it in place."""
+    corners = [{"lat": 10, "lng": 20}, {"lat": 10, "lng": 30}, {"lat": 20, "lng": 30}, {"lat": 20, "lng": 20}]
+    redraw = run_js("google", {"steps": [["setOverlay", "a.png", corners, 0.4], ["setOverlay", "a.png", corners, 0.6]]})
+    assert [c["style"]["opacity"] for c in redraw["layer"]["children"]] == [0.6]
+    faded = run_js("google", {"steps": [["setOverlay", "a.png", corners, 0.6], ["setOverlayOpacity", 0.2]]})
+    assert [c["style"]["opacity"] for c in faded["layer"]["children"]] == [0.2]
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")

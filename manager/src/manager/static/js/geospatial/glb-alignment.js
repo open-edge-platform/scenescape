@@ -5,9 +5,30 @@
 
 "use strict";
 
-const MOVING_OPACITY = 0.25;
-const DEFAULT_OPACITY = 0.6;
-const SAVED_OPACITY = 1;
+// Kept below 1 so the map stays visible through the overlay; order must be MOVING < DEFAULT < SAVED.
+const MOVING_OPACITY = 0.3;
+const DEFAULT_OPACITY = 0.7;
+const SAVED_OPACITY = 0.7;
+const DIAL_COARSE_KEY_DEG = 15;
+// A drag within this many degrees of 0/90/180/270 lands on it; Shift turns snapping off.
+const DIAL_CARDINAL_SNAP_DEG = 5;
+// Shift-drag rotates the model by this fraction of the pointer's rotation.
+const DIAL_FINE_RATIO = 0.25;
+const DIAL_MIN_RADIUS_PX = 30;
+const DIAL_MAX_RADIUS_PX = 70;
+// The ring's diameter stays within 75% of the preview's shorter side, even when zoomed far out.
+const DIAL_MAX_BOX_FRACTION = 0.375;
+// Ring geometry and colors live in geospatial.css; the viewBox keeps the ring circular at any size.
+const DIAL_RING_SVG =
+  '<svg class="glb-rot-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">' +
+  '<circle class="glb-rot-hit" cx="50" cy="50" r="50"></circle>' +
+  '<circle class="glb-rot-halo" cx="50" cy="50" r="50"></circle>' +
+  '<circle class="glb-rot-line" cx="50" cy="50" r="50"></circle>' +
+  '<path class="glb-rot-tick" d="M50 -5 V9"></path>' +
+  '<path class="glb-rot-tick" d="M100 50 H92"></path>' +
+  '<path class="glb-rot-tick" d="M50 100 V92"></path>' +
+  '<path class="glb-rot-tick" d="M0 50 H8"></path>' +
+  "</svg>";
 const FRAME_APPLIED = "#2e7d32";
 const FRAME_UNAPPLIED = "#c62828";
 const MAP_EMPTY_HINT =
@@ -35,10 +56,52 @@ function pointInPolygon(pt, corners) {
   return inside;
 }
 
-// Capped below 360 so the heading never wraps to 0 at the slider end.
+// Capped below 360 so the heading never wraps to 0 at the top of the range.
 function clampHeading(v) {
   const num = Number(v);
   return isFinite(num) ? Math.min(359.9, Math.max(0, num)) : null;
+}
+
+function wrapHeading(deg) {
+  return ((deg % 360) + 360) % 360;
+}
+
+// Clockwise from north (screen up), in [0, 360); center and pt are screen px.
+function angleFromPointer(center, pt) {
+  const rad = Math.atan2(pt.x - center.x, center.y - pt.y);
+  return wrapHeading((rad * 180) / Math.PI);
+}
+
+// Signed shortest rotation from angle a to angle b, in (-180, 180].
+function angleDelta(a, b) {
+  const d = wrapHeading(b - a);
+  return d > 180 ? d - 360 : d;
+}
+
+function snapToCardinal(heading, threshold = DIAL_CARDINAL_SNAP_DEG) {
+  const nearest = Math.round(heading / 90) * 90;
+  return Math.abs(heading - nearest) <= threshold
+    ? wrapHeading(nearest)
+    : heading;
+}
+
+// `raw` stays unsnapped between moves, so the snap never makes the dial sticky.
+function dragHeading(raw, delta, fine) {
+  const next = wrapHeading(raw + delta * (fine ? DIAL_FINE_RATIO : 1));
+  return {
+    raw: next,
+    heading: clampHeading(fine ? next : snapToCardinal(next)),
+  };
+}
+
+function dialRadius(widthPx, heightPx) {
+  const size = Math.min(widthPx, heightPx);
+  if (!isFinite(size)) return DIAL_MIN_RADIUS_PX;
+  const radius = Math.min(
+    DIAL_MAX_RADIUS_PX,
+    Math.max(DIAL_MIN_RADIUS_PX, size * 0.3),
+  );
+  return Math.min(radius, size * DIAL_MAX_BOX_FRACTION);
 }
 
 function dragAnchor(anchor, grab, cur) {
@@ -89,6 +152,9 @@ class GlbAlignment {
     this.staged = null;
     this.saved = null;
     this.anchor = null;
+    this.dial = null;
+    this._unwatchMap = null;
+    this._overlayDragging = false;
     this.dirty = false;
     this._isMoving = false;
     this.uploading = false;
@@ -100,12 +166,8 @@ class GlbAlignment {
       hint: byId("glbAlignHint"),
       file: byId("glbFileInput"),
       fileWrap: byId("glbFileWrap"),
-      controls: byId("glbAlignControls"),
-      headingNumber: byId("glbHeadingNumber"),
-      headingRange: byId("glbHeadingRange"),
       footprint: byId("glbFootprint"),
       status: byId("glbAlignStatus"),
-      reset: byId("glbReset"),
       cancel: byId("glbCancel"),
       map: byId("map"),
       mapType: byId("id_map_type"),
@@ -124,6 +186,7 @@ class GlbAlignment {
     window.addEventListener("geomap-ready", () => {
       this.mapReady = true;
       this._drawSavedOverlay();
+      this._watchMap();
     });
     this._loadSavedAlignment();
     this._updateVisibility();
@@ -137,27 +200,6 @@ class GlbAlignment {
     on(this.ui.file, "click", (e) => this._confirmReplaceStaged(e));
     on(this.ui.file, "change", (e) => this._handleFileUpload(e));
 
-    // The edited control is not rewritten while typing; the number field is normalized on change.
-    const updateHeading = (e) => {
-      const h = e.target.value === "" ? null : clampHeading(e.target.value);
-      if (h === null || !this.anchor) return;
-      this.anchor.heading_deg = h;
-      if (e.target === this.ui.headingNumber) this.ui.headingRange.value = h;
-      else this.ui.headingNumber.value = h.toFixed(1);
-      this.dirty = true;
-      this._render();
-    };
-    on(this.ui.headingNumber, "input", updateHeading);
-    on(
-      this.ui.headingNumber,
-      "change",
-      () => this.anchor && this._updateInputs(),
-    );
-    on(this.ui.headingRange, "input", updateHeading);
-    on(this.ui.headingRange, "pointerdown", () => this._beginMove());
-    on(this.ui.headingRange, "pointerup", () => this._endMove());
-
-    on(this.ui.reset, "click", () => this._reset());
     on(this.ui.cancel, "click", () => this._cancel());
 
     if (this.ui.savePosBtn)
@@ -168,6 +210,8 @@ class GlbAlignment {
 
     for (const type of ["pointerdown", "mousedown", "touchstart"])
       on(this.ui.map, type, (e) => this._handleMapPointerDown(e), true);
+    on(this.ui.map, "pointermove", (e) => this._trackHover(e));
+    on(this.ui.map, "pointerleave", () => this._setHover(false));
 
     window.addEventListener("beforeunload", (e) => {
       if (this.dirty) {
@@ -193,6 +237,7 @@ class GlbAlignment {
   _updateVisibility() {
     const isGeo = this.ui.mapType.value === "geospatial_map";
     this.ui.row.style.display = isGeo ? "" : "none";
+    this._syncDial();
     if (!isGeo) return;
 
     this._updateLocks();
@@ -264,7 +309,7 @@ class GlbAlignment {
     if (this.ui.useCheckbox) {
       this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
     }
-    this._updateInputs();
+    this._updateFarAnchorHint();
     this._updateSavedBlockVisibility();
     this._updateControlsVisibility();
   }
@@ -279,13 +324,185 @@ class GlbAlignment {
     return this.saved?.use_glb_map ? FRAME_APPLIED : FRAME_UNAPPLIED;
   }
 
-  // Heading is available for a staged or saved GLB.
+  // Cancel and the footprint belong to a staged GLB; Save position to a moved saved GLB.
   _updateControlsVisibility() {
-    if (this.ui.controls)
-      this.ui.controls.style.display = this.staged || this.saved ? "" : "none";
+    this._syncDial();
+    const footprint = this.staged?.footprint;
+    this.ui.footprint.textContent = footprint
+      ? `Footprint: ${footprint.width.toFixed(1)} × ${footprint.height.toFixed(1)} m`
+      : "";
+    this.ui.cancel.style.display = this.staged ? "" : "none";
     if (!this.ui.savePosBtn) return;
     const show = !this.staged && !!this.saved && this.dirty;
     this.ui.savePosBtn.style.display = show ? "" : "none";
+  }
+
+  _dialWanted() {
+    return (
+      !!this.anchor &&
+      !this._overlayDragging &&
+      !!(this.staged || this.saved) &&
+      this.ui.mapType.value === "geospatial_map"
+    );
+  }
+
+  _watchMap() {
+    this._unwatchMap?.();
+    this._unwatchMap = this._strategy().onViewChange(() => this._syncDial());
+    this._syncDial();
+  }
+
+  // Dial center and ring radius in map-container px.
+  _dialLayout() {
+    const strategy = this._strategy();
+    const corners = this._corners();
+    if (corners.length < 3) return null;
+    const [sw, se, ne] = corners.map((c) =>
+      strategy.latLngToPoint(c.lat, c.lng),
+    );
+    const center = strategy.latLngToPoint(this.anchor.lat, this.anchor.lng);
+    const radius = dialRadius(
+      Math.hypot(se.x - sw.x, se.y - sw.y),
+      Math.hypot(ne.x - se.x, ne.y - se.y),
+    );
+    return { x: center.x, y: center.y, radius };
+  }
+
+  _ensureDial() {
+    if (!this.dial) {
+      const root = document.createElement("div");
+      root.className = "glb-rot-dial";
+      root.innerHTML = DIAL_RING_SVG;
+      const knob = document.createElement("div");
+      knob.className = "glb-rot-knob";
+      knob.tabIndex = 0;
+      knob.setAttribute("role", "slider");
+      knob.setAttribute("aria-label", "3D model heading");
+      knob.setAttribute("aria-valuemin", "0");
+      knob.setAttribute("aria-valuemax", "359.9");
+      root.appendChild(knob);
+      for (const type of ["pointerdown", "mousedown", "touchstart"])
+        on(root, type, (e) => this._handleDialPointerDown(e));
+      on(knob, "keydown", (e) => this._handleDialKey(e));
+      on(knob, "focus", () => this._setDialFocused(true));
+      on(knob, "blur", () => this._setDialFocused(false));
+      this.dial = { root, knob };
+    }
+    // Switching map provider empties the map container, which detaches the dial.
+    if (this.dial.root.parentNode !== this.ui.map)
+      this.ui.map.appendChild(this.dial.root);
+    return this.dial;
+  }
+
+  _syncDial() {
+    let layout = null;
+    if (this._dialWanted()) {
+      try {
+        layout = this._dialLayout();
+      } catch {
+        // The map or its projection is not ready; a later map view change redraws the dial.
+      }
+    }
+    if (!layout) {
+      if (this.dial) this.dial.root.style.display = "none";
+      return;
+    }
+
+    const { root, knob } = this._ensureDial();
+    const { x, y, radius } = layout;
+    const heading = this.anchor.heading_deg;
+    const rad = (heading * Math.PI) / 180;
+    root.style.display = "";
+    root.style.left = `${x - radius}px`;
+    root.style.top = `${y - radius}px`;
+    root.style.width = `${2 * radius}px`;
+    root.style.height = `${2 * radius}px`;
+    knob.style.left = `${radius + radius * Math.sin(rad)}px`;
+    knob.style.top = `${radius - radius * Math.cos(rad)}px`;
+    knob.setAttribute("aria-valuenow", heading.toFixed(1));
+    knob.setAttribute("aria-valuetext", `${heading.toFixed(1)} degrees`);
+    root.classList.toggle(
+      "glb-rot-dial--active",
+      this._hover || this._dialDragging || this._dialFocused,
+    );
+  }
+
+  _setHover(hover) {
+    if (this._hover === hover) return;
+    this._hover = hover;
+    this._syncDial();
+  }
+
+  _setDialFocused(focused) {
+    this._dialFocused = focused;
+    this._syncDial();
+  }
+
+  _trackHover(e) {
+    if (!this.anchor) return;
+    let inside = false;
+    try {
+      inside = pointInPolygon(this._pointerLatLng(e), this._corners());
+    } catch {
+      // The map projection is not ready; the pointer cannot be over the preview yet.
+    }
+    this._setHover(inside);
+  }
+
+  _setHeading(heading) {
+    this.anchor.heading_deg = heading;
+    this.dirty = true;
+    this._render();
+  }
+
+  _handleDialPointerDown(e) {
+    e.stopPropagation();
+    if (e.type !== "pointerdown" || !this.anchor || e.button > 0) return;
+    e.preventDefault();
+
+    let center;
+    try {
+      const rect = this.ui.map.getBoundingClientRect();
+      const p = this._dialLayout();
+      center = { x: rect.left + p.x, y: rect.top + p.y };
+    } catch {
+      return;
+    }
+    e.target.setPointerCapture?.(e.pointerId);
+    const at = (ev) => ({ x: ev.clientX, y: ev.clientY });
+    let raw = this.anchor.heading_deg;
+    let last = angleFromPointer(center, at(e));
+    const move = (ev) => {
+      const angle = angleFromPointer(center, at(ev));
+      const next = dragHeading(raw, angleDelta(last, angle), ev.shiftKey);
+      raw = next.raw;
+      last = angle;
+      this._setHeading(next.heading);
+    };
+    const end = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      this._dialDragging = false;
+      this._endMove();
+    };
+    this._dialDragging = true;
+    this._beginMove();
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+
+  _handleDialKey(e) {
+    const dir = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[
+      e.key
+    ];
+    if (!dir || !this.anchor) return;
+    e.preventDefault();
+    const step = e.shiftKey ? DIAL_COARSE_KEY_DEG : 1;
+    this._setHeading(
+      clampHeading(wrapHeading(this.anchor.heading_deg + dir * step)),
+    );
   }
 
   _drawSavedOverlay() {
@@ -352,10 +569,9 @@ class GlbAlignment {
 
       this.anchor = { ...startAnchor };
       this.dirty = false;
-      this._updateInputs();
+      this._updateFarAnchorHint();
       this._updateSavedBlockVisibility();
       this._updateControlsVisibility();
-      this.ui.footprint.textContent = `Footprint: ${this.staged.footprint.width.toFixed(1)} × ${this.staged.footprint.height.toFixed(1)} m`;
 
       const corners = buildOverlayCorners(this.anchor, this.staged.footprint);
       this._strategy().setOverlay(
@@ -377,12 +593,6 @@ class GlbAlignment {
     if (error.status !== 413 || !(this.maxUploadBytes > 0))
       return error.message;
     return `The 3D model is too large. The upload limit is ${formatMegabytes(this.maxUploadBytes)}.`;
-  }
-
-  _updateInputs() {
-    this.ui.headingNumber.value = this.anchor.heading_deg.toFixed(1);
-    this.ui.headingRange.value = this.anchor.heading_deg;
-    this._updateFarAnchorHint();
   }
 
   _corners() {
@@ -420,8 +630,12 @@ class GlbAlignment {
 
   _handleMapPointerDown(e) {
     if (!this.anchor) return;
+    // The dial sits inside #map, so its drags must not start an overlay drag.
+    if (e.target && this.dial?.root.contains(e.target)) return;
     const grab = this._pointerLatLng(e);
-    if (!pointInPolygon(grab, this._corners())) return;
+    const inside = pointInPolygon(grab, this._corners());
+    this._setHover(inside);
+    if (!inside) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -442,8 +656,11 @@ class GlbAlignment {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
+      this._overlayDragging = false;
       this._endMove();
     };
+    // The dial hides while the overlay is held so it does not cover the map underneath.
+    this._overlayDragging = true;
     this._beginMove();
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end);
@@ -458,18 +675,6 @@ class GlbAlignment {
 
   _endMove() {
     this._isMoving = false;
-    this._render();
-  }
-
-  _reset() {
-    if (!this.staged && !this.saved) return;
-    if (this.staged) {
-      this.anchor = { ...this.staged.anchor };
-    } else if (this.saved) {
-      this.anchor = { ...this.saved.anchor };
-    }
-    this.dirty = false;
-    this._updateInputs();
     this._render();
   }
 
@@ -495,7 +700,6 @@ class GlbAlignment {
       this.anchor = null;
     }
     this.dirty = false;
-    if (this.anchor) this._updateInputs();
     this._updateSavedBlockVisibility();
     this._updateControlsVisibility();
     this._updateFarAnchorHint();
@@ -669,8 +873,16 @@ if (typeof module !== "undefined" && module.exports) {
     GlbAlignment,
     pointInPolygon,
     clampHeading,
+    angleFromPointer,
+    angleDelta,
+    snapToCardinal,
+    dragHeading,
+    dialRadius,
     dragAnchor,
     buildOverlayCorners,
     distanceKm,
+    MOVING_OPACITY,
+    DEFAULT_OPACITY,
+    SAVED_OPACITY,
   };
 }

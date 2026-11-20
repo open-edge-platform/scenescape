@@ -15,6 +15,7 @@ class GoogleMapsPlugin extends MapInterface {
     // Note: Don't show modal in constructor - wait for initialize()
     this.ORTHO_ZOOM_THRESHOLD = 18;
     this.overlay = null;
+    this._drawCallbacks = new Set();
   }
 
   getGoogleMapsApiKey() {
@@ -332,6 +333,29 @@ class GoogleMapsPlugin extends MapInterface {
     return { lat: ll.lat(), lng: ll.lng() };
   }
 
+  latLngToPoint(lat, lng) {
+    const proj = this.overlay && this.overlay.getProjection();
+    const p =
+      proj && proj.fromLatLngToContainerPixel(new google.maps.LatLng(lat, lng));
+    if (!p) {
+      throw new Error("Map overlay is not ready");
+    }
+    return { x: p.x, y: p.y };
+  }
+
+  onViewChange(callback) {
+    const events = ["bounds_changed", "center_changed", "zoom_changed"];
+    const listeners = events.map((name) =>
+      this.map.addListener(name, callback),
+    );
+    // The projection only exists once the overlay's first draw, after the map events above.
+    this._drawCallbacks.add(callback);
+    return () => {
+      listeners.forEach((listener) => listener.remove());
+      this._drawCallbacks.delete(callback);
+    };
+  }
+
   _createOverlayView() {
     const self = this;
     if (typeof google === "undefined" || !google.maps) {
@@ -405,6 +429,7 @@ class GoogleMapsPlugin extends MapInterface {
         this.img.style.width = m.width + "px";
         this.img.style.height = m.height + "px";
         this.img.style.transform = "matrix(" + m.matrix.join(",") + ")";
+        self._drawCallbacks.forEach((callback) => callback());
       }
 
       onRemove() {

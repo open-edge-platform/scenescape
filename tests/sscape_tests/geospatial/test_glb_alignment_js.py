@@ -17,6 +17,9 @@ _SCENE_UPDATE_TEMPLATE = (
 )
 FRAME_APPLIED = "#2e7d32"
 FRAME_UNAPPLIED = "#c62828"
+MOVING_OPACITY = 0.3
+STAGED_OPACITY = 0.7
+SAVED_OPACITY = 0.7
 _NO_SAVED = {"status": 200, "body": {"exists": False}}
 
 SCENE_FIELDS_APPLIED = {
@@ -115,14 +118,14 @@ class TestGlbAlignment:
   def test_upload_success(self):
     """A successful upload shows the controls, draws the overlay and leaves the form unlocked."""
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"]])
-    assert res["controlsDisplay"] == ""
+    assert res["cancelDisplay"] == ""
     assert len(res["fetches"]) == 2
     preview = res["fetches"][1]
     assert preview["url"].endswith("geospatial-glb-preview")
     assert preview["method"] == "POST"
     assert preview["headers"]["X-CSRFToken"] == "tok"
     assert preview["body"]["formData"][0][0] == "file"
-    assert [c[3] for c in res["calls"] if c[0] == "setOverlay"] == [0.6]
+    assert [c[3] for c in res["calls"] if c[0] == "setOverlay"] == [STAGED_OPACITY]
     assert not any("fitToCorners" in str(c) for c in res["calls"])
     assert res["statusList"] is None
     assert (res["fileDisabled"], res["filePointerEvents"], res["fileTitle"]) == (False, "", "")
@@ -141,7 +144,7 @@ class TestGlbAlignment:
     """A rejected file shows its message in an errorlist box, like the scene upload form."""
     res = _align([_NO_SAVED, {"status": 400, "body": {"error": "Invalid GLB"}}], [["upload"]])
     assert res["statusList"] == {"tagName": "UL", "className": "errorlist", "items": ["Invalid GLB"]}
-    assert res["controlsDisplay"] == "none"
+    assert res["cancelDisplay"] == "none"
     assert (res["fileDisabled"], res["filePointerEvents"], res["fileTitle"]) == (False, "", "")
 
   def test_upload_non_json_error_shows_status_code(self):
@@ -229,35 +232,14 @@ class TestGlbAlignment:
     assert res["anchor"]["lng"] == pytest.approx(-121.6)
     assert res["dirty"] is True
 
-  @pytest.mark.parametrize("typed, expected", [("90", 90.0), ("360", 359.9), ("-5", 0)])
-  def test_heading_update_is_clamped_not_wrapped(self, typed, expected):
-    """Typing a heading updates the anchor; out-of-range values clamp instead of wrapping."""
-    res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["heading", typed]])
-    assert res["anchor"]["heading_deg"] == expected
-    assert res["dirty"] is True
-
-  def test_typed_heading_is_not_rewritten_until_blur(self):
-    """The number field keeps what the user typed while typing and is normalized on change."""
-    steps = [["upload"], ["heading", "4"]]
-    res = _align([_NO_SAVED, _preview_resp("tok1")], steps)
-    assert res["headingValue"] == "4"
-    assert float(res["headingRangeValue"]) == 4
-    res = _align([_NO_SAVED, _preview_resp("tok1")], steps + [["headingBlur"]])
-    assert res["headingValue"] == "4.0"
-
-  def test_empty_heading_input_is_ignored(self):
-    """Clearing the field to retype does not reset the heading to 0."""
-    res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["heading", "90"], ["heading", ""]])
-    assert res["anchor"]["heading_deg"] == 90
-
   @pytest.mark.parametrize("responses, steps, resting", [
-    ([_NO_SAVED, _preview_resp("tok1")], [["upload"]], 0.6),
-    ([_saved_model_get()], [], 1),
+    ([_NO_SAVED, _preview_resp("tok1")], [["upload"]], STAGED_OPACITY),
+    ([_saved_model_get()], [], SAVED_OPACITY),
   ])
   def test_hold_without_drag_fades_overlay_and_release_restores_it(self, responses, steps, resting):
     """A press on the model fades it so the map shows through, even without dragging, and release restores it."""
     pressed = _align(responses, steps + [["press", [0, 0]]])
-    assert _last_opacity(pressed) == 0.25
+    assert _last_opacity(pressed) == MOVING_OPACITY
     assert pressed["dirty"] is False
     released = _align(responses, steps + [["press", [0, 0]], ["release"]])
     assert _last_opacity(released) == resting
@@ -267,36 +249,50 @@ class TestGlbAlignment:
     """The overlay stays faded for the whole drag and returns to its resting opacity on release."""
     responses = [_NO_SAVED, _preview_resp("tok1")]
     dragging = _align(responses, [["upload"], ["press", [0, 0]]])
-    assert _last_opacity(dragging) == 0.25
+    assert _last_opacity(dragging) == MOVING_OPACITY
     res = _align(responses, [["upload"], ["drag", [0, 0], [100, 100]]])
-    assert _last_opacity(res) == 0.6
+    assert _last_opacity(res) == STAGED_OPACITY
     assert res["dirty"] is True
 
-  def test_reset_restores_original(self):
-    """Reset restores the staged anchor and clears the unsaved flag."""
-    res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["heading", "90"], ["reset"]])
-    assert res["anchor"]["heading_deg"] == 0.0
-    assert res["dirty"] is False
-
   def test_cancel_removes_overlay(self):
-    """Cancel removes the overlay and hides the controls."""
+    """Cancel removes the overlay and hides the Cancel button and the footprint."""
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["cancel"]])
-    assert res["controlsDisplay"] == "none"
+    assert res["cancelDisplay"] == "none"
+    assert res["footprintText"] == ""
     assert any("removeOverlay" in str(c) for c in res["calls"])
 
-  def test_saved_only_model_shows_heading_controls_with_saved_heading(self):
-    """A saved GLB with no staged replacement still shows the heading control, set to the saved heading."""
+  def test_cancel_button_is_for_a_staged_model_only(self):
+    """The Cancel button, next to the file input, shows for a staged model and not for a saved one."""
+    assert _align(_STAGED, [["upload"]])["cancelDisplay"] == ""
+    assert _align([_saved_model_get()], [])["cancelDisplay"] == "none"
+    assert _align(_STAGED, [])["cancelDisplay"] == "none"
+
+  def test_footprint_is_shown_for_a_staged_model(self):
+    """The staged model's footprint is listed under the file input and cleared on cancel."""
+    staged = _align(_STAGED, [["upload"]])
+    assert staged["footprintText"] == "Footprint: 100.0 \u00d7 60.0 m"
+    assert _align(_STAGED, [["upload"], ["cancel"]])["footprintText"] == ""
+
+  def test_cancel_button_discards_the_staged_model(self):
+    """Clicking Cancel removes the staged overlay, hides itself and the dial, and keeps nothing staged."""
+    res = _align(_STAGED, [["upload"], ["cancelClick"]])
+    assert res["staged"] is None
+    assert res["cancelDisplay"] == "none"
+    assert res["dialTrail"][-1] == "none"
+    assert any("removeOverlay" in str(c) for c in res["calls"])
+
+  def test_saved_only_model_shows_dial_at_saved_heading(self):
+    """A saved GLB with no staged replacement shows the dial with the knob at the saved heading."""
     anchor = {"lat": 37, "lng": -122, "heading_deg": 45}
     res = _align([_saved_model_get(anchor=anchor)], [])
-    assert res["controlsDisplay"] == ""
-    assert res["headingValue"] == "45.0"
+    assert res["dial"]["attrs"]["aria-valuenow"] == "45.0"
 
-  def test_cancel_with_saved_model_keeps_heading_controls(self):
-    """Cancelling a replacement returns to the saved model, so its heading control stays visible and shows the saved heading."""
+  def test_cancel_with_saved_model_returns_to_saved_heading(self):
+    """Cancelling a replacement returns to the saved model and its heading, and hides the Cancel button."""
     anchor = {"lat": 37, "lng": -122, "heading_deg": 45}
     res = _align([_saved_model_get(anchor=anchor), _preview_resp("tok1")], [["upload"], ["heading", "90"], ["cancel"]])
-    assert res["controlsDisplay"] == ""
-    assert res["headingValue"] == "45.0"
+    assert res["cancelDisplay"] == "none"
+    assert res["dial"]["attrs"]["aria-valuenow"] == "45.0"
     assert res["anchor"]["heading_deg"] == 45
 
   def test_choose_file_with_staged_model_confirms_then_replaces(self):
@@ -338,8 +334,8 @@ class TestGlbAlignment:
     assert res["clicks"] == [{"prevented": False}]
 
   @pytest.mark.parametrize("order", ["mapFirst", "fetchFirst"])
-  def test_saved_overlay_drawn_at_full_opacity_once_map_ready(self, order):
-    """A saved model draws after both map ready and saved fetch, in either order."""
+  def test_saved_overlay_drawn_see_through_once_map_ready(self, order):
+    """A saved model draws after both map ready and saved fetch, in either order, without covering the map."""
     res = run_js(
       "savedOverlay",
       {
@@ -352,8 +348,8 @@ class TestGlbAlignment:
     overlays = [c for c in res["calls"] if c[0] == "setOverlay"]
     assert len(overlays) == 1
     assert overlays[0][1] == "/saved.png"
-    assert overlays[0][3] == 1
-    assert res["calls"][-1] == ["setOverlayOpacity", 1]
+    assert overlays[0][3] == SAVED_OPACITY
+    assert res["calls"][-1] == ["setOverlayOpacity", SAVED_OPACITY]
 
   def test_save_position_shown_after_shift_and_hidden_after_save(self):
     """Save position appears once a saved model is shifted and hides after saving."""
@@ -386,7 +382,7 @@ class TestGlbAlignment:
     """Staging a replacement hides Save position even after a shift."""
     res = _align([_saved_model_get(), _preview_resp("tok1")], [["drag", [0, 0], [100, 100]], ["upload"]])
     assert res["savePosTrail"] == ["none", "", "none"]
-    assert res["controlsDisplay"] == ""
+    assert res["cancelDisplay"] == ""
 
   def test_remove_after_shift_clears_unsaved_state(self):
     """Removing a shifted model hides Save position and clears the unsaved flag."""
@@ -508,14 +504,14 @@ class TestGlbAlignment:
     res = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"]], geomapReady=True)
     assert res["frameTrail"] == [FRAME_UNAPPLIED, None]
     assert res["savedBlockDisplay"] == "none"
-    assert res["controlsDisplay"] == ""
+    assert res["cancelDisplay"] == ""
 
   def test_cancel_staging_restores_saved_block_and_frame(self):
     """Cancelling the proposal brings back the saved block and its frame."""
     res = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"], ["cancel"]], geomapReady=True)
     assert res["frameTrail"] == [FRAME_UNAPPLIED, None, FRAME_UNAPPLIED]
     assert res["savedBlockDisplay"] == ""
-    assert res["controlsDisplay"] == ""
+    assert res["cancelDisplay"] == "none"
 
   def test_toggle_use_writes_applied_scene_fields_to_form(self):
     """Applying the GLB writes the server pose, scale and corners into the scene-edit form."""
@@ -604,6 +600,316 @@ class TestGlbAlignment:
     assert res["result"] == pytest.approx(expected, abs=1e-9)
 
 
+def _px(value):
+  """Numeric part of a CSS length such as '12.5px'."""
+  return float(value.removesuffix("px"))
+
+
+def _knob_xy(dial):
+  """Knob position relative to the dial center in units of the ring radius, with y growing downward."""
+  radius = _px(dial["width"]) / 2
+  return (_px(dial["knobLeft"]) - radius) / radius, (_px(dial["knobTop"]) - radius) / radius
+
+
+_STAGED = [_NO_SAVED, _preview_resp("tok1")]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+class TestOverlayOpacity:
+  """The overlay always lets the map show through; only the map layer carries the alpha."""
+
+  def test_staged_is_not_more_opaque_than_saved(self):
+    """A proposal is no more opaque than a saved model, and neither is fully opaque."""
+    staged = _align(_STAGED, [["upload"]])
+    saved = _align([_saved_model_get()], [], geomapReady=True)
+    assert [c[3] for c in staged["calls"] if c[0] == "setOverlay"] == [STAGED_OPACITY]
+    assert [c[3] for c in saved["calls"] if c[0] == "setOverlay"] == [SAVED_OPACITY]
+    assert MOVING_OPACITY < STAGED_OPACITY <= SAVED_OPACITY < 1
+
+  @pytest.mark.parametrize("use_glb_map", [False, True])
+  def test_saved_overlay_redrawn_after_apply_toggle_keeps_opacity(self, use_glb_map):
+    """Re-running setOverlay after the apply toggle passes the saved opacity, applied or not."""
+    responses = [
+      _saved_model_get(use_glb_map=not use_glb_map),
+      {"status": 200, "body": {"use_glb_map": use_glb_map, "preview_url": "/saved.png"}},
+    ]
+    res = _align(responses, [["toggleUse", use_glb_map]], geomapReady=True)
+    assert [c[3] for c in res["calls"] if c[0] == "setOverlay"] == [SAVED_OPACITY, SAVED_OPACITY]
+
+  def test_cancel_redraws_saved_overlay_at_saved_opacity(self):
+    """Cancelling a proposal brings the saved overlay back at its resting opacity."""
+    res = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"], ["cancel"]], geomapReady=True)
+    assert [c[3] for c in res["calls"] if c[0] == "setOverlay"] == [SAVED_OPACITY, STAGED_OPACITY, SAVED_OPACITY]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+class TestRotationDial:
+  """Rotation dial drawn over the overlay on the map."""
+
+  def test_hidden_until_a_model_is_staged_then_shown(self):
+    """No dial exists before a model is staged; staging shows it."""
+    res = _align(_STAGED, [["upload"]])
+    assert res["dialTrail"] == [None, ""]
+    assert res["dial"]["attached"] is True
+
+  def test_shown_for_saved_model(self):
+    """A saved model has a dial as soon as it loads."""
+    res = _align([_saved_model_get()], [])
+    assert res["dialTrail"] == [""]
+
+  def test_cancel_hides_dial_for_unsaved_model_but_keeps_it_for_saved_model(self):
+    """Cancel hides the dial when nothing is saved and keeps it for the saved model."""
+    assert _align(_STAGED, [["upload"], ["cancel"]])["dialTrail"] == [None, "", "none"]
+    saved = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"], ["cancel"]])
+    assert saved["dialTrail"] == ["", "", ""]
+
+  def test_remove_hides_dial(self):
+    """Removing the saved model hides the dial."""
+    res = _align([_saved_model_get(), {"status": 204, "body": {}}], [["remove"]])
+    assert res["dialTrail"] == ["", "none"]
+
+  def test_non_geospatial_scene_never_shows_dial(self):
+    """A scene that is not a geospatial map has no dial."""
+    res = _align([_saved_model_get()], [], mapType="map_upload")
+    assert res["dial"] is None
+
+  def test_switching_away_from_geospatial_hides_dial(self):
+    """Changing the map type to something else hides a visible dial."""
+    res = _align([_saved_model_get()], [["mapType", "map_upload"], ["mapType", "geospatial_map"]])
+    assert res["dialTrail"] == ["", "none", ""]
+
+  def test_not_shown_while_map_is_not_ready(self):
+    """Without a map strategy there is nothing to project onto, so no dial is created."""
+    res = _align([_saved_model_get()], [], mapReady=False)
+    assert res["dial"] is None
+
+  def test_hidden_while_projection_is_not_ready_and_shown_after_view_change(self):
+    """A map whose projection is not ready hides the dial; the next map view change shows it."""
+    steps = [["upload"], ["view", {"notReady": True}], ["view", {"notReady": False}]]
+    res = _align(_STAGED, steps, geomapReady=True)
+    assert res["dialTrail"] == [None, "", "none", ""]
+
+  def test_positioned_at_overlay_center_and_capped_to_the_preview(self):
+    """The dial is centered on the anchor; on a small preview the 75% cap beats the 30 px minimum radius."""
+    dial = _align(_STAGED, [["upload"]])["dial"]
+    radius = _px(dial["width"]) / 2
+    assert (_px(dial["left"]), _px(dial["top"])) == pytest.approx((-radius, -radius))
+    assert _px(dial["width"]) == _px(dial["height"])
+    # the preview is about 54 px on its shorter side here, so the ring is 75% of that
+    assert radius == pytest.approx(0.375 * 54.3, abs=0.5)
+    assert radius < 30
+
+  def test_follows_pan_and_zoom_and_clamps_radius(self):
+    """Map view changes move and resize the dial; the radius stays between 30 and 70 px unless the preview is small."""
+    base = _align(_STAGED, [["upload"]])["dial"]
+    panned = _align(_STAGED, [["upload"], ["view", {"dx": 50, "dy": 20}]], geomapReady=True)["dial"]
+    radius = _px(panned["width"]) / 2
+    assert (_px(panned["left"]), _px(panned["top"])) == pytest.approx((50 - radius, 20 - radius))
+
+    zoomed = _align(_STAGED, [["upload"], ["view", {"scale": 3}]], geomapReady=True)["dial"]
+    assert 30 < _px(zoomed["width"]) / 2 < 70
+    assert _px(zoomed["left"]) == pytest.approx(-_px(zoomed["width"]) / 2)
+
+    far = _align(_STAGED, [["upload"], ["view", {"scale": 10, "dx": 300}]], geomapReady=True)["dial"]
+    assert _px(far["width"]) == 140
+    assert _px(far["left"]) == 230
+
+    out = _align(_STAGED, [["upload"], ["view", {"scale": 0.5}]], geomapReady=True)["dial"]
+    assert _px(out["width"]) == pytest.approx(_px(base["width"]) / 2)
+
+  def test_dial_is_hidden_until_the_preview_is_hovered(self):
+    """The dial is laid out but not shown until the pointer is over the preview, and fades out when it leaves."""
+    assert _align(_STAGED, [["upload"]])["dial"]["active"] is False
+    over = _align(_STAGED, [["upload"], ["hover", [0, 0]]])
+    assert over["dial"]["active"] is True
+    off = _align(_STAGED, [["upload"], ["hover", [0, 0]], ["hover", [100000, 100000]]])
+    assert off["dial"]["active"] is False
+    left = _align(_STAGED, [["upload"], ["hover", [0, 0]], ["leave"]])
+    assert left["dial"]["active"] is False
+
+  def test_dial_is_shown_for_a_saved_model_on_hover(self):
+    """A saved model's dial also appears only on hover."""
+    assert _align([_saved_model_get()], [])["dial"]["active"] is False
+    assert _align([_saved_model_get()], [["hover", [0, 0]]])["dial"]["active"] is True
+
+  def test_dial_stays_visible_while_rotating_even_if_the_pointer_leaves_the_preview(self):
+    """Holding the knob keeps the dial shown wherever the pointer goes; it fades once released away from the preview."""
+    held = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [4000, 0], {"hold": True}]])
+    assert held["dial"]["active"] is True
+    released = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [4000, 0]]])
+    assert released["dial"]["active"] is False
+
+  def test_dial_is_shown_while_the_knob_has_keyboard_focus(self):
+    """Keyboard users can focus the hidden knob, which then shows the dial until focus leaves."""
+    focused = _align(_STAGED, [["upload"], ["dialFocus"]])
+    assert focused["dial"]["active"] is True
+    blurred = _align(_STAGED, [["upload"], ["dialFocus"], ["dialBlur"]])
+    assert blurred["dial"]["active"] is False
+
+  def test_touch_press_on_the_preview_shows_the_dial_and_a_press_elsewhere_hides_it(self):
+    """Without hover, pressing the preview counts as hovering it, and pressing outside it does not."""
+    on = _align(_STAGED, [["upload"], ["press", [0, 0]], ["release"]])
+    assert on["dial"]["active"] is True
+    off = _align(_STAGED, [["upload"], ["press", [0, 0]], ["release"], ["press", [100000, 100000]], ["release"]])
+    assert off["dial"]["active"] is False
+
+  def test_subscribes_once_to_map_view_changes_even_after_provider_switch(self):
+    """Each geomap-ready replaces the previous subscription instead of adding another."""
+    res = _align(_STAGED, [["upload"], ["geomapReady"], ["geomapReady"]], geomapReady=True)
+    assert res["viewSubscribers"] == 1
+
+  def test_reattached_after_map_container_is_emptied(self):
+    """Switching provider empties the map container; the dial is put back on the next geomap-ready."""
+    res = _align(_STAGED, [["upload"], ["detachDial"], ["geomapReady"]])
+    assert res["dial"]["attached"] is True
+
+  @pytest.mark.parametrize("heading, expected_xy", [
+    ("0", (0, -1)), ("90", (1, 0)), ("180", (0, 1)), ("270", (-1, 0)),
+  ])
+  def test_knob_sits_on_ring_at_heading(self, heading, expected_xy):
+    """The knob is on the ring at the heading, measured clockwise from the north tick at the top."""
+    res = _align(_STAGED, [["upload"], ["heading", heading]])
+    x, y = _knob_xy(res["dial"])
+    assert (x, y) == pytest.approx(expected_xy, abs=1e-6)
+    assert res["dial"]["attrs"]["aria-valuenow"] == f"{float(heading):.1f}"
+
+  def test_knob_is_an_accessible_slider(self):
+    """The knob exposes slider semantics over 0 to 359.9."""
+    attrs = _align(_STAGED, [["upload"]])["dial"]["attrs"]
+    assert attrs["role"] == "slider"
+    assert (attrs["aria-valuemin"], attrs["aria-valuemax"], attrs["aria-valuenow"]) == ("0", "359.9", "0.0")
+    assert attrs["aria-label"]
+
+  def test_drag_sets_heading_and_fades_overlay(self):
+    """Dragging the knob from north to east gives heading 90, marks the model moved and fades the overlay while held."""
+    res = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [40, 0]]])
+    assert res["anchor"]["heading_deg"] == pytest.approx(90)
+    assert res["dirty"] is True
+    (event,) = res["dialEvents"]
+    assert event == {"prevented": True, "stopped": True, "opacityOnGrab": MOVING_OPACITY, "opacityOnMove": MOVING_OPACITY}
+    assert res["dial"]["captured"] == 7
+    assert _last_opacity(res) == STAGED_OPACITY
+
+  def test_held_knob_keeps_overlay_faded_until_release(self):
+    """The overlay stays faded while the knob is held and returns to its resting opacity on release."""
+    held = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [40, 0], {"hold": True}]])
+    assert _last_opacity(held) == MOVING_OPACITY
+    released = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [40, 0], {"hold": True}], ["release"]])
+    assert _last_opacity(released) == STAGED_OPACITY
+
+  def test_grab_does_not_jump_the_heading(self):
+    """Grabbing the ring away from the knob keeps the heading until the pointer moves, then rotates relative to the grab."""
+    still = _align(_STAGED, [["upload"], ["heading", "45"], ["dialDrag", [40, 0], [40, 0]]])
+    assert still["anchor"]["heading_deg"] == pytest.approx(45)
+    moved = _align(_STAGED, [["upload"], ["heading", "45"], ["dialDrag", [40, 0], [0, 40]]])
+    assert moved["anchor"]["heading_deg"] == pytest.approx(135)
+
+  def test_drag_snaps_lightly_to_cardinals(self):
+    """A drag within 5 degrees of east lands on 90; further away it is continuous."""
+    near = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [40, 3]]])
+    far = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [40, 10]]])
+    assert near["anchor"]["heading_deg"] == pytest.approx(90)
+    assert far["anchor"]["heading_deg"] == pytest.approx(104.04, abs=0.01)
+
+  def test_shift_turns_snapping_off(self):
+    """Without Shift 88 degrees snaps to 90 on the first move; with Shift it stays at 88."""
+    steps = [["upload"], ["heading", "88"]]
+    snapped = _align(_STAGED, steps + [["dialDrag", [40, 0], [40, 0]]])
+    free = _align(_STAGED, steps + [["dialDrag", [40, 0], [40, 0], {"shift": True}]])
+    assert snapped["anchor"]["heading_deg"] == pytest.approx(90)
+    assert free["anchor"]["heading_deg"] == pytest.approx(88)
+
+  def test_shift_rotates_a_quarter_as_fast(self):
+    """Shift-dragging a quarter turn changes the heading by a quarter of that."""
+    res = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [40, 3], {"shift": True}]])
+    assert res["anchor"]["heading_deg"] == pytest.approx(94.29 / 4, abs=0.01)
+
+  def test_shift_can_be_pressed_and_released_mid_drag_without_a_jump(self):
+    """Switching Shift during a drag continues from the current heading in both directions."""
+    path = [[40, 0, False], [0, 40, True], [-40, 0, False]]
+    res = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], path]])
+    # 0 -> 90 (normal), 90 -> 112.5 (a quarter of the next 90), 112.5 -> 202.5 (normal)
+    assert res["anchor"]["heading_deg"] == pytest.approx(202.5)
+
+  def test_drag_through_north_wraps_and_fine_drag_clamps_to_359_9(self):
+    """Dragging just left of north snaps to 0; the same move with Shift stays below 360 at 359.9."""
+    snapped = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [-0.001, -40]]])
+    fine = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [-0.001, -40], {"shift": True}]])
+    assert snapped["anchor"]["heading_deg"] == 0
+    assert fine["anchor"]["heading_deg"] == 359.9
+
+  @pytest.mark.parametrize("responses, steps", [
+    (_STAGED, [["upload"]]),
+    ([_saved_model_get()], []),
+  ])
+  def test_dial_hides_while_overlay_is_held_or_dragged_and_returns_on_release(self, responses, steps):
+    """Holding or dragging the overlay hides the dial so the map shows undisturbed; releasing brings it back."""
+    held = _align(responses, steps + [["press", [0, 0]]])
+    assert held["dialTrail"][-1] == "none"
+    released = _align(responses, steps + [["press", [0, 0]], ["release"]])
+    assert released["dialTrail"][-2:] == ["none", ""]
+    dragged = _align(responses, steps + [["drag", [0, 0], [100, 100]]])
+    assert dragged["dialTrail"][-1] == ""
+
+  def test_dial_stays_visible_while_it_is_being_rotated(self):
+    """Rotating with the dial fades the overlay but does not hide the dial itself."""
+    res = _align(_STAGED, [["upload"], ["dialDrag", [0, -40], [40, 0], {"hold": True}]])
+    assert res["dialTrail"][-1] == ""
+
+  def test_press_outside_overlay_keeps_dial_visible(self):
+    """A press that does not hit the overlay is a map pan and leaves the dial alone."""
+    res = _align(_STAGED, [["upload"], ["press", [100000, 100000]]])
+    assert res["dialTrail"][-1] == ""
+
+  def test_dial_press_does_not_start_overlay_drag_or_pan(self):
+    """A press on the dial is not claimed by the map handler that drags the overlay, even over the footprint."""
+    res = _align(_STAGED, [["upload"], ["mapPressOnDial", [0, 0]]])
+    assert res["dialEvents"] == [{"prevented": False, "stopped": False}]
+    assert res["dirty"] is False
+
+  @pytest.mark.parametrize("event", ["mousedown", "touchstart"])
+  def test_dial_legacy_events_are_stopped_and_change_nothing(self, event):
+    """Mouse and touch starts on the dial do not reach the map and do not rotate the model."""
+    res = _align(_STAGED, [["upload"], ["dialLegacy", event]])
+    assert res["dialEvents"] == [{"stopped": True, "prevented": False}]
+    assert res["dirty"] is False
+
+  def test_dial_drag_on_saved_model_offers_save_position(self):
+    """Rotating a saved model marks it moved, so Save position appears."""
+    res = _align([_saved_model_get()], [["dialDrag", [0, -40], [40, 0]]])
+    assert res["savePosTrail"] == ["none", ""]
+    assert res["anchor"]["heading_deg"] == pytest.approx(90)
+
+  @pytest.mark.parametrize("key, shift, start, expected", [
+    ("ArrowRight", False, "0", 1), ("ArrowUp", False, "10", 11),
+    ("ArrowLeft", False, "10", 9), ("ArrowDown", False, "10", 9),
+    ("ArrowRight", True, "0", 15), ("ArrowLeft", True, "10", 355),
+    ("ArrowLeft", False, "0", 359),
+    ("ArrowRight", False, "359.9", 0.9),
+  ])
+  def test_arrow_keys_step_heading_and_wrap(self, key, shift, start, expected):
+    """Arrow keys step 1 degree (15 with Shift) and wrap around north."""
+    res = _align(_STAGED, [["upload"], ["heading", start], ["dialKey", key, shift]])
+    assert res["anchor"]["heading_deg"] == pytest.approx(expected)
+    assert res["dialEvents"] == [{"prevented": True}]
+    assert res["dial"]["attrs"]["aria-valuenow"] == f"{expected:.1f}"
+
+  def test_other_keys_are_left_alone(self):
+    """Keys other than the arrows are not captured by the dial."""
+    res = _align(_STAGED, [["upload"], ["dialKey", "Tab"]])
+    assert res["dialEvents"] == [{"prevented": False}]
+    assert res["dirty"] is False
+
+  def test_cancel_restores_knob_to_saved_heading(self):
+    """Cancelling a replacement returns the knob to the saved heading."""
+    anchor = {"lat": 37, "lng": -122, "heading_deg": 90}
+    responses = [_saved_model_get(anchor=anchor), _preview_resp("tok1")]
+    res = _align(responses, [["upload"], ["dialDrag", [40, 0], [0, 40]], ["cancel"]])
+    assert res["anchor"]["heading_deg"] == 90
+    assert _knob_xy(res["dial"]) == pytest.approx((1, 0), abs=1e-6)
+    assert res["dialTrail"][-1] == ""
+
+
 def _assert_form_matches(form, scene_fields):
   """Every scene field returned by the server is written to its scene-edit input."""
   for name, value in scene_fields.items():
@@ -614,30 +920,13 @@ def _assert_form_matches(form, scene_fields):
       assert actual == (value if value is not None else ""), name
 
 
-def _element_classes(html, element_id):
-  """Return the class tokens of the element with the given id in the template."""
-  match = re.search(rf'<div\s[^>]*id="{element_id}"[^>]*>', html)
-  if match is None:
-    raise ValueError(f"element #{element_id} not found")
-  cls = re.search(r'class="([^"]*)"', match.group(0))
-  return set(cls.group(1).split()) if cls else set()
-
-
-def test_proposed_and_saved_panels_share_styling():
-  """Proposed-state controls use the same tinted panel classes as the saved block."""
+def test_template_has_cancel_beside_file_input_and_no_heading_controls():
+  """Cancel sits right after the file input; the heading slider, number input, Reset and the controls box are gone."""
   html = _SCENE_UPDATE_TEMPLATE.read_text()
-  panel = {"p-3", "border", "rounded", "bg-light"}
-  assert panel <= _element_classes(html, "glbSavedBlock")
-  assert panel <= _element_classes(html, "glbAlignControls")
-
-
-def test_template_gives_heading_control_a_tooltip():
-  """The heading control explains its unit and range, and the removed controls are gone."""
-  html = _SCENE_UPDATE_TEMPLATE.read_text()
-  for removed in ("glbFrameLegend", "glbOpacity", "glbAccept"):
+  for removed in ("glbFrameLegend", "glbOpacity", "glbAccept", "glbHeadingRange", "glbHeadingNumber", "glbReset", "glbAlignControls"):
     assert removed not in html
-  label = re.search(r'<label\s[^>]*for="glbHeadingNumber"[^>]*>', html).group(0)
-  assert 'title="' in label
+  assert html.index('id="glbFileInput"') < html.index('id="glbCancel"') < html.index('id="glbAlignHint"')
+  assert 'id="glbFootprint"' in html
 
 
 def test_template_passes_upload_limit_to_row():
