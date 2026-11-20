@@ -7,5 +7,9 @@
   "suspended_track_timeout_secs": 60.0,
   "association": {
     "method": "euclidean"
+  },
+  "filter": {
+    "process_noise": 2.5e-4,
+    "base_measurement_noise": 1.0
   }
 }
