@@ -133,7 +133,7 @@ def select_transform_mode(browser: Browser, mode: str) -> None:
 
 @common.mock_display
 @pytest.mark.test_name("NEX-T10498")
-def test_3d_ui_glb_scene_position_management(params, result_recorder):
+def test_3d_ui_glb_scene_position_management(params, demo_scene, result_recorder):
   """Verify GLB scene rotation, translation, gizmo modes, and saved pose persistence."""
   browser = None
 

@@ -75,7 +75,7 @@ def test_3D_file_upload_visibility(params, demo_scene, result_recorder):
 
   map_url_matches, canvas_changed = check_3D_scene_asset_in_3D_scene(
     params, base_screenshot, file_name, file_path, DEBUG)
-  assert map_url_matches, f"Scene detail #map-url does not reference /media/{file_name}"
+  assert map_url_matches, f"Scene detail #map-url does not reference /media/{file_name} (or its collision-renamed form)"
   assert canvas_changed, f"3D canvas did not render or did not change after uploading {file_name}"
 
   result_recorder.success()
