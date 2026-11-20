@@ -14,7 +14,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from manager.api import ManageThing
 from manager.forms import CamCalibrateForm, CamCreateForm, CamUpdateForm, PipelineForm
-from manager.models import Cam, PendingDLSPSStop, Pipeline, Scene
+from manager.models import Cam, PendingDLSPSStop, Pipeline, PubSubACL, Scene
 from manager.serializers import CamSerializer
 from manager.views import CamUpdateView
 
@@ -216,18 +216,22 @@ class PipelineTests(TestCase):
     self.assertContains(response, '&lt;script&gt;alert(1)&lt;/script&gt;')
     self.assertNotContains(response, '<script>alert(1)</script>')
 
-  def test_reader_can_list_but_cannot_mutate(self):
-    pipeline = Pipeline.objects.create(name='Shared', pipeline='fakesrc ! fakesink')
-    self.client.force_login(self.reader)
-    response = self.client.get(reverse('pipeline_list'))
-    self.assertEqual(response.status_code, 200)
-    self.assertNotContains(response, '+ New Pipeline')
-    for url in (reverse('pipeline_create'),
-                reverse('pipeline_update', args=[pipeline.pk]),
-                reverse('pipeline_delete', args=[pipeline.pk])):
-      for method in (self.client.get, self.client.post):
-        with self.subTest(url=url, method=method.__name__):
-          self.assertEqual(method(url).status_code, 403)
+  def test_non_superusers_cannot_list_or_mutate(self):
+    pipeline = Pipeline.objects.create(name='Shared', pipeline='secret ! fakesink')
+    staff = get_user_model().objects.create_user(username='pipeline-staff', is_staff=True)
+    for user in (self.reader, staff):
+      with self.subTest(user=user):
+        self.client.force_login(user)
+        response = self.client.get(reverse('pipeline_list'))
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn(b'secret ! fakesink', response.content)
+        self.assertNotContains(self.client.get(reverse('cam_list')), 'id="nav-pipelines"')
+        for url in (reverse('pipeline_create'),
+                    reverse('pipeline_update', args=[pipeline.pk]),
+                    reverse('pipeline_delete', args=[pipeline.pk])):
+          for method in (self.client.get, self.client.post):
+            with self.subTest(url=url, method=method.__name__):
+              self.assertEqual(method(url).status_code, 403)
 
   def test_create_update_delete(self):
     response = self.client.post(reverse('pipeline_create'),
@@ -271,15 +275,15 @@ class PipelineTests(TestCase):
     executor = MigrationExecutor(connection)
     self.assertEqual(executor.loader.detect_conflicts(), {})
     self.assertEqual(executor.loader.graph.leaf_nodes('manager'),
-                     [('manager', '0013_pending_stop_retry_cooldown')])
+                     [('manager', '0013_dlsps_pipeline_integration')])
     state = executor.loader.project_state()
     historical = state.apps.get_model('manager', 'Pipeline')
     for name in ('id', 'name', 'pipeline', 'vippet_pipeline_id'):
       self.assertEqual(historical._meta.get_field(name).deconstruct()[1:],
                        Pipeline._meta.get_field(name).deconstruct()[1:])
-    module = import_module('manager.migrations.0012_dlsps_pipeline_integration')
-    self.assertEqual(module.Migration.dependencies, [('manager', '0011_cam_pose_provenance')])
-    self.assertEqual(len(module.Migration.operations), 7)
+    module = import_module('manager.migrations.0013_dlsps_pipeline_integration')
+    self.assertEqual(module.Migration.dependencies, [('manager', '0012_scene_map_origin')])
+    self.assertEqual(len(module.Migration.operations), 8)
     historical_camera = state.apps.get_model('manager', 'Cam')
     for name in ('dlsps_instance_id', 'dlsps_pipeline_digest', 'dlsps_launch_id'):
       self.assertEqual(historical_camera._meta.get_field(name).deconstruct()[1:],
@@ -288,33 +292,16 @@ class PipelineTests(TestCase):
     for field in PendingDLSPSStop._meta.get_fields():
       self.assertEqual(historical_stop._meta.get_field(field.name).deconstruct()[1:],
                        field.deconstruct()[1:])
+    historical_acl = state.apps.get_model('manager', 'PubSubACL')
+    self.assertEqual(historical_acl._meta.get_field('topic').deconstruct()[1:],
+                     PubSubACL._meta.get_field('topic').deconstruct()[1:])
 
 
 class PipelineMigrationTests(TransactionTestCase):
 
-  def test_retry_cooldown_migration_preserves_pending_stops(self):
-    old_target = [('manager', '0012_dlsps_pipeline_integration')]
-    new_target = [('manager', '0013_pending_stop_retry_cooldown')]
-    executor = MigrationExecutor(connection)
-    executor.migrate(old_target)
-    try:
-      old_apps = executor.loader.project_state(old_target).apps
-      instance_id = UUID('3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f')
-      entry = old_apps.get_model('manager', 'PendingDLSPSStop').objects.create(
-        instance_id=instance_id, attempts=9, last_error='unconfirmed')
-      executor = MigrationExecutor(connection)
-      executor.migrate(new_target)
-      apps = executor.loader.project_state(new_target).apps
-      migrated = apps.get_model('manager', 'PendingDLSPSStop').objects.get(pk=entry.pk)
-      self.assertEqual((migrated.instance_id, migrated.attempts, migrated.last_error,
-                        migrated.next_retry_at), (instance_id, 9, 'unconfirmed', None))
-    finally:
-      executor = MigrationExecutor(connection)
-      executor.migrate(executor.loader.graph.leaf_nodes())
-
   def test_upgrade_and_rollback_preserve_camera(self):
-    old_target = [('manager', '0011_cam_pose_provenance')]
-    new_target = [('manager', '0012_dlsps_pipeline_integration')]
+    old_target = [('manager', '0012_scene_map_origin')]
+    new_target = [('manager', '0013_dlsps_pipeline_integration')]
     executor = MigrationExecutor(connection)
     executor.migrate(old_target)
     try:
@@ -322,11 +309,19 @@ class PipelineMigrationTests(TransactionTestCase):
       camera = old_apps.get_model('manager', 'Cam').objects.create(
         sensor_id='migration-camera', name='Existing')
       camera_pk = camera.pk
+      user = old_apps.get_model('auth', 'User').objects.create(username='migration-acl')
+      acl = old_apps.get_model('manager', 'PubSubACL').objects.create(
+        user_id=user.pk, topic='DATA_CAMERA', access=1)
       executor = MigrationExecutor(connection)
       executor.migrate(new_target)
       apps = executor.loader.project_state(new_target).apps
       camera_model = apps.get_model('manager', 'Cam')
       self.assertIsNone(camera_model.objects.get(pk=camera_pk).pipeline_id)
+      self.assertEqual(apps.get_model('manager', 'PubSubACL').objects.get(pk=acl.pk).topic,
+                       'DATA_CAMERA')
+      pending = apps.get_model('manager', 'PendingDLSPSStop').objects.create(
+        instance_id=UUID('3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f'))
+      self.assertIsNone(pending.next_retry_at)
       pipeline = apps.get_model('manager', 'Pipeline').objects.create(
         name='Migrated', pipeline='fakesrc ! fakesink')
       self.assertIsNone(pipeline.vippet_pipeline_id)
@@ -348,6 +343,8 @@ class PipelineMigrationTests(TransactionTestCase):
       executor = MigrationExecutor(connection)
       executor.migrate(old_target)
       self.assertTrue(old_apps.get_model('manager', 'Cam').objects.filter(pk=camera_pk).exists())
+      self.assertEqual(old_apps.get_model('manager', 'PubSubACL').objects.get(pk=acl.pk).topic,
+                       'DATA_CAMERA')
     finally:
       executor = MigrationExecutor(connection)
       executor.migrate(executor.loader.graph.leaf_nodes())

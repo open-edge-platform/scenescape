@@ -443,14 +443,18 @@ def _prepare_reconciliation(
     elif _stop_and_confirm(client, cam.dlsps_instance_id, status):
       _set_runtime(cam, None, None)
     else:
-      return warnings + [
-        f"Camera '{cam.name}': its running DLSPS pipeline has not stopped yet, so the new "
-        "pipeline was not started. Save the camera again to retry."], None
+      return warnings + [_unconfirmed_stop_warning(cam, desired)], None
   if desired is not None:
     launch_id = uuid.uuid4()
     _set_runtime(cam, None, desired[1], launch_id)
     return warnings, launch_id
   return warnings, None
+
+
+def _unconfirmed_stop_warning(cam: Cam, desired: Optional[Tuple[str, str]]) -> str:
+  detail = "The new pipeline was not started. " if desired is not None else ""
+  return (f"Camera '{cam.name}': its running DLSPS pipeline has not stopped yet. "
+          f"{detail}Save the camera again to retry.")
 
 
 def _start_prepared_pipeline(client: DLSPSClient, cam_pk: int, launch_id: uuid.UUID) -> List[str]:

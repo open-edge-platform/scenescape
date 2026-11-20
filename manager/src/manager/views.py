@@ -9,7 +9,7 @@ import time
 import traceback
 import uuid
 from collections import namedtuple
-from functools import partial
+from functools import partial, wraps
 import tempfile
 import subprocess
 from pathlib import Path
@@ -142,6 +142,18 @@ class MlopsFlowSuperUserCheck(SuperUserCheck):
 
   def test_func(self):
     return super().test_func() and settings.ENABLE_MLOPS_FLOW
+
+
+def _mlops_atomic(view):
+  """Keep camera view locking and its transaction exclusive to the MLOps Flow."""
+  @wraps(view)
+  def wrapped(*args, **kwargs):
+    if settings.ENABLE_MLOPS_FLOW:
+      with transaction.atomic():
+        return view(*args, **kwargs)
+    return view(*args, **kwargs)
+  return wrapped
+
 
 def superuser_required(view_func=None, redirect_field_name=REDIRECT_FIELD_NAME,
                    login_url='sign_in'):
@@ -428,7 +440,7 @@ class CamListView(LoginRequiredMixin, ListView):
   model = Cam
   template_name = "cam/cam_list.html"
 
-@method_decorator(transaction.atomic, name='post')
+@method_decorator(_mlops_atomic, name='post')
 class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
   form_class = CamUpdateForm
@@ -613,7 +625,7 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
 PIPELINE_SYNC_SESSION_KEY = 'pipeline_sync_filter'
 
 
-class PipelineListView(LoginRequiredMixin, ListView):
+class PipelineListView(SuperUserCheck, ListView):
   model = Pipeline
   template_name = "pipeline/pipeline_list.html"
 
@@ -646,10 +658,22 @@ class PipelineUpdateView(MlopsFlowSuperUserCheck, UpdateView):
     return response
 
 
+@method_decorator(transaction.atomic, name='post')
 class PipelineDeleteView(MlopsFlowSuperUserCheck, DeleteView):
   model = Pipeline
   template_name = "pipeline/pipeline_delete.html"
   success_url = reverse_lazy('pipeline_list')
+
+  def get_queryset(self):
+    queryset = super().get_queryset()
+    return queryset.select_for_update() if self.request.method == 'POST' else queryset
+
+  def form_valid(self, form):
+    camera_ids = list(self.object.cameras.values_list('pk', flat=True))
+    response = super().form_valid(form)
+    for camera_id in camera_ids:
+      reconcile_camera_pipeline(camera_id, on_warnings=partial(_add_warnings, self.request))
+    return response
 
 
 class PipelineSyncView(MlopsFlowSuperUserCheck, View):
@@ -695,11 +719,12 @@ def _add_warnings(request, warnings):
 def _cameras_for(request):
   """Cameras to load for ``request``.
 
-  A POST holds the loaded camera row until the request's transaction ends, so concurrent saves of
-  one camera apply in turn from the latest state and each reconciles its DLSPS pipeline against
-  what is committed.
+  An MLOps-enabled POST holds the camera row until the transaction ends, so concurrent saves
+  apply in turn from the latest state before reconciling its DLSPS pipeline.
   """
-  return Cam.objects.select_for_update() if request.method == 'POST' else Cam.objects.all()
+  if settings.ENABLE_MLOPS_FLOW and request.method == 'POST':
+    return Cam.objects.select_for_update()
+  return Cam.objects.all()
 
 
 def _reconcile_camera_pipeline(request, cam):
@@ -839,7 +864,7 @@ def account_locked(request):
   return render(request, 'sscape/account_locked.html')
 
 @superuser_required
-@transaction.atomic
+@_mlops_atomic
 def cameraCalibrate(request, sensor_id):
   cam_inst = get_object_or_404(_cameras_for(request), pk=sensor_id)
 

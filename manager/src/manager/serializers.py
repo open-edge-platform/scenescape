@@ -482,6 +482,8 @@ class CamSerializer(NonNullSerializer):
     return self.create_update(validated_data)
 
   def update(self, instance, validated_data):
+    if not settings.ENABLE_MLOPS_FLOW:
+      return self.create_update(validated_data, instance)
     with transaction.atomic():
       self.refresh_locked(instance)
       return self.create_update(validated_data, instance)

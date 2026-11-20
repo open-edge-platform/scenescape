@@ -316,7 +316,7 @@ class PipelineSyncViewTests(MockedClientsMixin, TestCase):
   def test_sync_button_only_for_superuser(self):
     self.assertContains(self.client.get(reverse('pipeline_list')), 'id="pipeline-sync-form"')
     self.client.force_login(self.reader)
-    self.assertNotContains(self.client.get(reverse('pipeline_list')), 'id="pipeline-sync-form"')
+    self.assertEqual(self.client.get(reverse('pipeline_list')).status_code, 403)
 
   def test_sync_reports_summary_on_pipeline_list(self):
     Pipeline.objects.create(name='Clash (CPU)', pipeline='manual')
@@ -972,7 +972,7 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TransactionTestCase):
     self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
     self.assertEqual(self.started_pipelines(), ['second ! fakesink'])
 
-  def test_stale_rest_rename_reports_the_latest_previous_id_and_name(self):
+  def test_stale_rest_rename_uses_locked_snapshot_only_when_enabled(self):
     for enabled in (False, True):
       with self.subTest(mlops_enabled=enabled), override_settings(ENABLE_MLOPS_FLOW=enabled):
         suffix = str(int(enabled))
@@ -988,8 +988,9 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TransactionTestCase):
         updates = [call.kwargs['camera_data'] for call in notify.call_args_list
                    if 'camera_data' in call.kwargs]
         self.assertEqual(len(updates), 1)
-        self.assertEqual((updates[0]['previous_sensor_id'], updates[0]['previous_name']),
-                         (f'middle-{suffix}', f'Middle {suffix}'))
+        previous = (f'middle-{suffix}', f'Middle {suffix}') if enabled else \
+          (f'old-{suffix}', f'Old {suffix}')
+        self.assertEqual((updates[0]['previous_sensor_id'], updates[0]['previous_name']), previous)
         self.assertEqual((updates[0]['sensor_id'], updates[0]['name']),
                          (f'new-{suffix}', f'New {suffix}'))
 
@@ -1007,6 +1008,51 @@ class CameraPipelineRuntimeTests(CameraFixturesMixin, TransactionTestCase):
 
 @override_settings(**RUNTIME_SETTINGS)
 class PipelineLifecycleTests(CameraFixturesMixin, TransactionTestCase):
+
+  def test_deleting_pipeline_stops_assigned_camera_after_commit(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID)
+    other = self.make_camera(pipeline=self.second, instance_id=NEW_ID,
+                             sensor_id='other-cam', name='Other')
+    with transaction.atomic():
+      response = self.client.post(reverse('pipeline_delete', args=[self.first.pk]))
+      self.assertEqual(response.status_code, 302)
+      self.dlsps.delete_pipeline.assert_not_called()
+    camera.refresh_from_db()
+    self.assertIsNone(camera.pipeline_id)
+    self.assertIsNone(camera.dlsps_instance_id)
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+    other.refresh_from_db()
+    self.assertEqual((other.pipeline_id, other.dlsps_instance_id), (self.second.pk, NEW_ID))
+
+  def test_pipeline_deletion_keeps_unconfirmed_instance_and_warns(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID, state=QUEUED)
+    response = self.client.post(reverse('pipeline_delete', args=[self.first.pk]))
+    camera.refresh_from_db()
+    self.assertIsNone(camera.pipeline_id)
+    self.assertEqual(camera.dlsps_instance_id, OLD_ID)
+    self.assertIn('has not stopped yet',
+                  ' '.join(str(message) for message in get_messages(response.wsgi_request)))
+
+  def test_rolled_back_pipeline_deletion_does_not_stop_instance(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID)
+    with self.assertRaisesRegex(RuntimeError, 'rollback'):
+      with transaction.atomic():
+        self.client.post(reverse('pipeline_delete', args=[self.first.pk]))
+        raise RuntimeError('rollback')
+    camera.refresh_from_db()
+    self.assertEqual(camera.pipeline_id, self.first.pk)
+    self.assertTrue(Pipeline.objects.filter(pk=self.first.pk).exists())
+    self.dlsps.delete_pipeline.assert_not_called()
+
+  def test_pipeline_deletion_reconciles_latest_camera_selection(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=OLD_ID)
+    with transaction.atomic():
+      self.client.post(reverse('pipeline_delete', args=[self.first.pk]))
+      Cam.objects.filter(pk=camera.pk).update(pipeline=self.second)
+    camera.refresh_from_db()
+    self.assertEqual((camera.pipeline_id, camera.dlsps_instance_id), (self.second.pk, NEW_ID))
+    self.dlsps.delete_pipeline.assert_called_once_with(OLD_ID)
+    self.assertEqual(self.started_pipelines(), ['second ! fakesink'])
 
   def test_editing_assigned_pipeline_string_restarts_camera(self):
     pipeline = Pipeline.objects.create(name='Edited', pipeline='old ! fakesink')

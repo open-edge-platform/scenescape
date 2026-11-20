@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0011_cam_pose_provenance'),
+    ('manager', '0012_scene_map_origin'),
   ]
 
   operations = [
@@ -64,6 +64,41 @@ class Migration(migrations.Migration):
         ('attempts', models.PositiveIntegerField(default=0)),
         ('last_error', models.TextField(blank=True, default='')),
         ('created_at', models.DateTimeField(auto_now_add=True)),
+        ('next_retry_at', models.DateTimeField(blank=True, null=True)),
       ],
+    ),
+    migrations.AlterField(
+      model_name='pubsubacl',
+      name='topic',
+      field=models.CharField(
+        choices=[
+          ('CHANNEL', 'CHANNEL'),
+          ('CMD_CAMERA', 'CMD_CAMERA'),
+          ('CMD_DATABASE', 'CMD_DATABASE'),
+          ('CMD_KUBECLIENT', 'CMD_KUBECLIENT'),
+          ('CMD_SCENE_UPDATE', 'CMD_SCENE_UPDATE'),
+          ('DATA_AUTOCALIB_CAM_POSE', 'DATA_AUTOCALIB_CAM_POSE'),
+          ('DATA_CAMERA', 'DATA_CAMERA'),
+          ('DATA_EXTERNAL', 'DATA_EXTERNAL'),
+          ('DATA_REGION', 'DATA_REGION'),
+          ('DATA_REID', 'DATA_REID'),
+          ('DATA_REGULATED', 'DATA_REGULATED'),
+          ('DATA_SCENE', 'DATA_SCENE'),
+          ('DATA_SENSOR', 'DATA_SENSOR'),
+          ('EVENT', 'EVENT'),
+          ('IMAGE_CALIBRATE', 'IMAGE_CALIBRATE'),
+          ('IMAGE_CAMERA', 'IMAGE_CAMERA'),
+          ('POINTCLOUD_CAMERA', 'POINTCLOUD_CAMERA'),
+          ('SYS_CHILDSCENE_STATUS', 'SYS_CHILDSCENE_STATUS'),
+          ('ANALYTICS_CLUSTERS', 'ANALYTICS_CLUSTERS'),
+          ('DATA_CHILD_TRIPWIRES', 'DATA_CHILD_TRIPWIRES'),
+          ('DATA_CHILD_ROIS', 'DATA_CHILD_ROIS'),
+          ('DATA_CHILD_SENSORS', 'DATA_CHILD_SENSORS'),
+          ('CMD_CAMERA_CONFIG', 'CMD_CAMERA_CONFIG'),
+          ('POSITIONING_POSE', 'POSITIONING_POSE'),
+          ('POSITIONING_STATUS', 'POSITIONING_STATUS'),
+        ],
+        max_length=50,
+      ),
     ),
   ]

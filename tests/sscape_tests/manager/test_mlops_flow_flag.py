@@ -13,6 +13,7 @@ from django.urls import reverse
 from manager.context_processors import selected_settings
 from manager.forms import CamCalibrateForm, CamCreateForm, CamUpdateForm
 from manager.models import Cam, Pipeline, Scene
+from manager.serializers import CamSerializer
 from manager.pipeline_runtime import (
   PipelineSyncError,
   describe_camera_instance,
@@ -126,12 +127,37 @@ class MlopsFlowDisabledTests(TestCase):
       with self.subTest(input=tag):
         self.assertIn('disabled', tag)
 
-  def test_reader_sees_plain_read_only_list(self):
+  def test_reader_cannot_access_pipeline_list(self):
     self.client.force_login(self.reader)
     response = self.client.get(reverse('pipeline_list'))
-    self.assertEqual(response.status_code, 200)
-    self.assertNotContains(response, 'id="pipeline-actions-disabled"')
-    self.assertNotContains(response, 'id="pipeline-sync"')
+    self.assertEqual(response.status_code, 403)
+    self.assertNotIn(b'first ! fakesink', response.content)
+
+  def test_rest_camera_update_does_not_lock_or_reload_when_disabled(self):
+    camera = self.make_camera(pipeline=self.first, instance_id=INSTANCE_ID)
+    serializer = CamSerializer(camera, data={'name': 'Renamed'}, partial=True)
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    with patch.object(Cam.objects, 'select_for_update') as lock, \
+         patch.object(camera, 'refresh_from_db') as reload:
+      serializer.save()
+    lock.assert_not_called()
+    reload.assert_not_called()
+    self.assertEqual(Cam.objects.get(pk=camera.pk).name, 'Renamed')
+    self.assert_no_external_calls()
+
+  def test_camera_posts_do_not_lock_when_disabled(self):
+    camera = self.make_camera(pipeline=self.first)
+    update_data = {'sensor_id': camera.sensor_id, 'name': camera.name, 'scene': self.scene.pk}
+    form = CamCalibrateForm(instance=camera)
+    calibrate_data = {name: form[name].value() for name in form.fields
+                      if form[name].value() not in (None, False)}
+    with patch.object(Cam.objects, 'select_for_update') as lock:
+      self.assertEqual(self.client.post(reverse('cam_update', args=[camera.pk]),
+                                        update_data).status_code, 302)
+      self.assertEqual(self.client.post(reverse('cam_calibrate', args=[camera.pk]),
+                                        calibrate_data).status_code, 302)
+    lock.assert_not_called()
+    self.assert_no_external_calls()
 
   def test_superuser_cannot_mutate_or_sync(self):
     urls = (reverse('pipeline_create'), reverse('pipeline_update', args=[self.first.pk]),

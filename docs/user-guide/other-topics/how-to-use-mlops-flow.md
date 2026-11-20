@@ -13,9 +13,9 @@ The MLOps Flow is the first stage of the MLOps integration described in
 pipelines are authored in ViPPET (Visual Pipeline and Platform Evaluation
 Tool), and Scenescape runs them on DL Streamer Pipeline Server 2.0 (DLSPS).
 
-The **Pipelines** page stores named GStreamer pipeline strings. Superusers can
-create them by hand or import them from ViPPET. Selecting a stored pipeline on
-a camera runs it on DLSPS.
+The **Pipelines** page is available only to superusers and stores named GStreamer
+pipeline strings. Superusers can create them by hand or import them from ViPPET.
+Selecting a stored pipeline on a camera runs it on DLSPS.
 
 For a ready-to-run setup with an external ViPPET, see the
 [MLOps Flow demo](/sample_data/mlops_flow/README.md).
@@ -23,11 +23,11 @@ For a ready-to-run setup with an external ViPPET, see the
 ## Enabling the MLOps Flow
 
 The MLOps Flow is disabled by default. While it is disabled, the pipelines
-stay visible read-only: **Sync with ViPPET**, **+ New Pipeline**, edit and
-delete, and the camera **Pipeline** selector are greyed out with a tooltip on
-how to enable them. Their URLs return HTTP 403, existing camera selections are
-kept unchanged, and Scenescape never contacts ViPPET or DLSPS. Enable it with
-any of:
+stay visible read-only to superusers: **Sync with ViPPET**, **+ New Pipeline**,
+edit and delete, and the camera **Pipeline** selector are greyed out with a
+tooltip on how to enable them. Their URLs return HTTP 403, existing camera
+selections are kept unchanged, and Scenescape never contacts ViPPET or DLSPS.
+Enable it with any of:
 
 - the `--enable-mlops-flow` option of the Manager `webserver` command,
 - `ENABLE_MLOPS_FLOW=true` in the environment of the `web` service.
@@ -121,8 +121,9 @@ Related events:
 
 - Editing the string of an assigned pipeline restarts that camera's instance.
 - Deleting a camera stops its instance.
-- Deleting a pipeline clears the camera's selection only; the running instance
-  is stopped the next time the camera is saved.
+- Deleting a pipeline clears the camera's selection and attempts to stop its
+  instance after the deletion commits. If the stop cannot be confirmed, the
+  instance remains recorded and a warning asks you to save the camera to retry.
 - Concurrent saves of the same camera, from the camera pages or the REST API, are
   applied one after another, each from the latest saved state.
 
