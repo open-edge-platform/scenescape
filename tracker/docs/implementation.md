@@ -22,6 +22,109 @@ For TYPE_2 objects, the tracker uses the projected bottom corners to calculate
 the base angle, then shifts the foot up within the normalized (undistorted)
 bounding box and projects that shifted point, matching Controller `camLoc`.
 
+Each `TrackingWorker` gets this geometry from an `ObservationProcessor`
+([`observation_processor.hpp`](../inc/observation_processor.hpp)). The default
+`CameraModelProcessor` processes every camera batch with that camera's
+`CoordinateTransformer` and skips batches from unknown cameras. A processor sets
+geometry only: position, size, `z_measured`, measurement noise when known, and
+world yaw from a supplied rotation. Its `ProcessedObservations` hold one object per
+detection plus a `has_geometry` flag, which is 0 for a detection without a
+measurement. `toTrackerInputs` then attaches the detection's own data (id,
+metadata, confidence, ReID sighting token) and drops detections without
+geometry, the same way for every processor.
+
+### Experimental observation processor
+
+With `tracking.experimental_observation_processor` set and
+`infrastructure.observation_processor` defining host and port, the scheduler builds
+each worker's processor with an `ObservationProcessorFactory`
+([`remote_observation_processor.hpp`](../inc/remote_observation_processor.hpp)): a `RemoteObservationProcessor`
+around the worker's `CameraModelProcessor`. All workers share one
+`ObservationProcessorClient` and its gRPC channel
+([`grpc_observation_processor_client.hpp`](../inc/grpc_observation_processor_client.hpp)).
+
+`RemoteObservationProcessor` first processes locally, then sends the pixel boxes of each
+camera frame in one `ProcessDetections` call
+([`observation_processor.proto`](../../observation_processor/proto/observation_processor.proto)); the
+`detection_id` of a box is its index in the request. The calls of one chunk
+run concurrently on a completion queue under one deadline (`timeout_ms`).
+The channel starts connecting at startup, so the first chunk does not spend
+its deadline on name resolution and the handshake.
+Each valid measurement replaces the local position and size, sets
+`z_measured` and `measurementNoiseCov` (R), and keeps the returned z, the
+object's centre of mass (see
+[z reference in experimental mode](#z-reference-in-experimental-mode)). Yaw
+and `has_orientation` stay as set
+locally. Sensor-frame translations, boxes the service would reject, cameras
+the local processor cannot process, unobservable depths and invalid
+measurements keep the local processing. A failed call, a malformed reply or
+an invalid measurement (including an `OK` entry without a measurement and an
+unspecified or unknown status) increments `tracker.observation_processor.failed_calls`
+and logs a warning at most every 10 s per worker; `process()` does not throw
+for remote failures, so the worker never stops on them.
+
+The gRPC C++ code is generated at build time from `observation_processor/proto`
+into the `tracker_observation_processor_proto` library (protobuf and
+`grpc_cpp_plugin` from Conan).
+
+#### z reference in experimental mode
+
+The returned position and its R describe the object's centre of mass, so the
+workers that use a `RemoteObservationProcessor` track the centre of mass
+([`z_reference.hpp`](../inc/z_reference.hpp)):
+
+- After processing, every input without measured z (a pixel box that keeps its local
+  result) is raised by half its height (`toCentreOfMass`). Remote
+  measurements and sensor-frame translations carry measured z and are used
+  unchanged; translations are assumed to be the centre of mass. A track that has
+  measured z keeps it: robot_vision omits z from later planar updates, so a raised
+  pixel box that keeps its local result does not move it.
+- Published tracks report the footprint base: `translation[2]` is the track's
+  z minus half its height (`footprintBaseZ`). x, y, velocity, size and rotation
+  are not converted.
+
+The scheduler passes `ZReference::CentreOfMass` only to workers built by the
+`ObservationProcessorFactory`. Workers built with the camera-model constructor use
+`ZReference::FootprintBase` and convert nothing, so the output without the
+observation processor is unchanged. The factory is fixed at startup, so tracks never mix
+references. A 3D source that reports its footprint base instead of its centre
+is published half its height too low. Pixel-box tracks publish a z that follows
+the per-frame box height instead of 0: in a simulation with production tracker
+settings at 15 fps, about 5–6 cm RMS in z and 3–5 cm/s RMS in `velocity[2]`.
+
+#### Track uncertainty in the output
+
+Workers with `ZReference::CentreOfMass` also publish the covariance of the published state
+(`uncertainty` in the scene output, [`track_uncertainty.hpp`](../inc/track_uncertainty.hpp)). It is built
+from `TrackedObject::errorCovariance` (P, the IMM-combined posterior), per published element:
+
+- `translation`: the 3×3 position block. The filter tracks the centre of mass and the published z is
+  the footprint base z − height / 2, so the z entries are J P Jᵀ with J = [1 on z, −1/2 on height].
+- `velocity`: the 3×3 block of vx, vy, vz. `size`: the 3×3 block of length, width and height.
+- Without measured z (`z_measured`) the z row and column of `translation` and the vz row and column of
+  `velocity` are 0.
+- Yaw variance is deferred; see the probabilistic-tracking plan. `TrackRotation::filter_yaw` from
+  `select_track_rotation()` still records whether the published `rotation` is the filter yaw.
+- Each block is symmetrized and a block with a non-finite value is omitted. Cross-block terms are not
+  published. Workers with `ZReference::FootprintBase` publish no `uncertainty`, so the legacy output
+  is unchanged.
+
+Published tracks also carry `angular_velocity` `[ωx, ωy, ωz]` from `TrackedObject::w` (yaw rate
+about world Z; `ωx` and `ωy` are 0). Always on; not gated on `ZReference`.
+
+#### Why local processing runs on every frame
+
+`RemoteObservationProcessor` processes every frame locally first and replaces a detection's
+geometry only with a validated remote measurement. Every failure path therefore
+keeps the local result with nothing to undo, and the camera check, detector yaw
+and sensor-frame translations still come from the local processor. In a Release
+micro-benchmark with one camera, local processing took about 1 µs for 1
+detection and 0.22–0.37 ms for 1,000. That is under 0.6% of the 66.7 ms chunk
+budget at 15 fps, and 1–10% of the remote path even against an instantly
+replying mock service (0.1–4.0 ms round trip). Processing locally only after a
+failure would save at most about 0.4 ms per frame, comparable to the call's own
+run-to-run variation, which does not justify the extra complexity.
+
 ---
 
 ## Time-Chunk Processing Pipeline
@@ -290,7 +393,7 @@ in RobotVision's `MetadataFusion.hpp` / `MetadataFusion.cpp` (C++17-compatible).
 At ingestion, `parse_detection_metadata` separates `Detection::reid_json` and
 its confidence from semantic `metadata_json`. `ReidSightingIndex` stores a vector
 of pointers to batches/detections owned by the current `Chunk`. Its optional
-`ReidSightingContext` lets coordinate transformation tag bbox detections with a
+`ReidSightingContext` lets `toTrackerInputs` tag bbox detections with a
 `<chunk>:<index>` token, without serializing embeddings or complete sightings.
 After fusion, the worker resolves only published winners and lazily writes the
 sighting directly to a JSON writer. Each index can be consumed once; it is
@@ -316,10 +419,11 @@ RobotVision output in world coordinates. See [`scene-data.schema.json`](../schem
 struct Track {
     std::string id;             // Persistent track ID (UUID v4, mapped from RobotVision int ID)
     std::string category;       // Object category (e.g., person, vehicle)
-    std::array<double, 3> translation;  // World position [x, y, z] meters
-    std::array<double, 3> velocity;     // Velocity [vx, vy, vz] m/s
-    std::array<double, 3> size;         // Object size [length, width, height] meters
-    std::array<double, 4> rotation;     // Orientation quaternion [x, y, z, w]
+    std::array<double, 3> translation;      // World position [x, y, z] meters
+    std::array<double, 3> velocity;         // Velocity [vx, vy, vz] m/s
+    std::array<double, 3> angular_velocity; // [ωx, ωy, ωz] rad/s (only ωz from filter)
+    std::array<double, 3> size;             // Object size [length, width, height] meters
+    std::array<double, 4> rotation;         // Orientation quaternion [x, y, z, w]
     std::string metadata_json;          // Per-field fused detection metadata
     std::string reid_sighting_json;     // Selected current-chunk sighting, if any
 };
@@ -366,7 +470,9 @@ measured z and 2 without. Birth clustering across cameras uses XY distance
 unless both detections have measured z, so stacked 3D detections stay separate
 while a pixel box and a 3D detection of the same object still fuse. Pixel boxes
 report the ground point and 3D detectors usually report the box centre, so a
-track fed by both sources mixes the two z references.
+track fed by both sources mixes the two z references. With observation processor,
+the workers convert pixel boxes to the centre of mass, so the references agree
+(see [z reference in experimental mode](#z-reference-in-experimental-mode)).
 
 ### Rotation publishing
 

@@ -48,6 +48,20 @@ Before You Begin, ensure the following:
 
 6. **Log in to the Web UI** and verify that data and configurations are intact.
 
+## Re-check 2D Regions, Tripwires, and Sensor Areas on GLB Scenes
+
+Starting with 2026.3.0, the 2D view positions content using the world coordinates of the map image's bottom-left corner (the map origin). Before, it assumed this corner was at world `(0, 0)`. The database upgrade regenerates the 2D thumbnail, scale, and origin for every scene whose map is a `.glb` file.
+
+For scenes that get a non-zero origin, regions, tripwires, and singleton sensor areas (circle or polygon) drawn in the 2D view before the upgrade will appear shifted on the 2D map. This is expected. Their stored world coordinates are not modified, and the new position on the map is their true world position. Shapes placed by eye against the old map were placed in the wrong world location, and analytics have been evaluated against that location.
+
+The upgrade logs a warning for each affected scene, for example:
+
+```text
+Scene 3 (Warehouse) now has 2D map origin (-12.400, -8.150) m. Its 4 region(s), 1 tripwire(s) and 0 sensor area(s) keep their stored world coordinates but will appear shifted on the 2D map; re-check them.
+```
+
+For each scene listed, open it in the Web UI, compare the regions, tripwires, and sensor areas with the floor plan and the 3D view, and redraw any that are misplaced.
+
 ## Model Management During Upgrade
 
 Starting from 1.4.0 version, Scenescape stores models in Docker volumes instead of the host filesystem. This provides several benefits:

@@ -111,10 +111,9 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     return
 
 
-@pytest.mark.fresh_stack
 @common.mock_display
 @pytest.mark.test_name("NEX-T10471")
-def test_3d_ui_tripwire(scenescape_env, request, result_recorder):
+def test_3d_ui_tripwire(demo_scene, request, result_recorder):
   """! Test that the 3D UI tripwire control panel's color, show, and height
   controls correctly affect the tripwire's scene-graph node.
   @param    request                 List of test parameters.
@@ -124,12 +123,7 @@ def test_3d_ui_tripwire(scenescape_env, request, result_recorder):
   log.info("Executing: NEX-T10471")
   log.info("Test the 3D UI tripwire color, show, and height controls.")
 
-  scene_uids = getattr(scenescape_env, "scene_uids", None) or {}
-  scene_name = next(
-    (name for name in ("Demo", "Retail", "Queuing") if name in scene_uids),
-    common.TEST_SCENE_NAME,
-  )
-  test = Scene3dTripwireUserInterfaceTest("NEX-T10471", request, scene_name)
+  test = Scene3dTripwireUserInterfaceTest("NEX-T10471", request, common.TEST_SCENE_NAME)
   try:
     test.check_tripwire_controls(result_recorder)
   finally:

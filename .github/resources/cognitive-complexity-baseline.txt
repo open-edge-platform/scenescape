@@ -13,15 +13,14 @@ analytics/src/analytics/sensors.py	update_environmental_sensor_readings	13
 analytics/src/analytics/state.py	AnalyticsStateStore::update_object_id	14
 autocalibration/src/atag_camera_calibration_controller.py	ApriltagCameraCalibrationController::generate_calibration	20
 autocalibration/src/atag_camera_calibration_controller.py	ApriltagCameraCalibrationController::process_scene_for_calibration	19
-autocalibration/src/auto_camera_calibration_api.py	CameraCalibrationApi::_register_routes	89
-autocalibration/src/auto_camera_calibration_api.py	CameraCalibrationApi::_register_routes::register_scene	14
+autocalibration/src/auto_camera_calibration_api.py	CameraCalibrationApi::_register_routes	78
 autocalibration/src/auto_camera_calibration_api.py	CameraCalibrationApi::_register_socket_events	20
 autocalibration/src/auto_camera_calibration_api.py	CameraCalibrationApi::_validate_pose_data	18
 autocalibration/src/markerless_camera_calibration_controller.py	MarkerlessCameraCalibrationController::process_scene_for_calibration	22
 autocalibration/src/polycam_to_images.py	transform_dataset	14
 cluster_analytics/src/cluster_analytics_context.py	ClusterAnalyticsContext::_publishTrackedClusters	15
 cluster_analytics/src/cluster_analytics_context.py	ClusterAnalyticsContext::analyze_object_clusters	33
-controller/src/controller/ilabs_tracking.py	IntelLabsTracking::from_tracked_object	21
+controller/src/controller/ilabs_tracking.py	IntelLabsTracking::from_tracked_object	19
 controller/src/controller/ilabs_tracking.py	IntelLabsTracking::mergeAlreadyTrackedObjects	16
 controller/src/controller/moving_object.py	MovingObject::mapObjectDetectionToWorld	25
 controller/src/controller/moving_object.py	MovingObject::setPersistentAttributes	25
@@ -66,7 +65,6 @@ manager/src/manager/scene_import.py	ImportScene::loadScene	23
 manager/src/manager/serializers.py	ChildSceneSerializer::create_update	18
 manager/src/manager/serializers.py	ChildSceneSerializer::validate	23
 manager/src/manager/serializers.py	SceneSerializer::create_update	30
-manager/src/manager/serializers.py	SceneSerializer::validate	15
 manager/src/manager/serializers.py	SingletonSerializer::validate	17
 manager/src/manager/serializers.py	UserSerializer::validate	19
 manager/src/manager/validators.py	is_polycam_dataset	17
