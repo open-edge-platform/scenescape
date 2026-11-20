@@ -1138,6 +1138,7 @@ class SceneSerializer(NonNullSerializer):
     instance.saveThumbnail()
     Scene.objects.filter(pk=instance.pk).update(
       thumbnail=instance.thumbnail, scale=instance.scale,
+      map_origin_x=instance.map_origin_x, map_origin_y=instance.map_origin_y,
       rotation_x=instance.rotation_x, rotation_y=instance.rotation_y, rotation_z=instance.rotation_z,
       translation_x=instance.translation_x, translation_y=instance.translation_y,
       translation_z=instance.translation_z,

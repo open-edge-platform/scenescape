@@ -152,6 +152,9 @@ class Scene(models.Model):
     related_name="+", editable=False)
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
+  # World coordinates of the map image's bottom-left corner.
+  map_origin_x = models.FloatField("Map image origin X (meters)", default=0.0, editable=False)
+  map_origin_y = models.FloatField("Map image origin Y (meters)", default=0.0, editable=False)
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
   rotation_x = models.FloatField("X Rotation (degrees)", default=0.0, null=True, blank=False)
   rotation_y = models.FloatField("Y Rotation (degrees)", default=0.0, null=True, blank=False)
@@ -331,9 +334,15 @@ class Scene(models.Model):
     self.translation_z = 0.0
     return
 
+  def resetMapOrigin(self):
+    self.map_origin_x = 0.0
+    self.map_origin_y = 0.0
+    return
+
   def saveThumbnail(self):
-    img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
+    img_data, pixels_per_meter, origin = generateOrthoView(self, self.map.path)
     self.scale = pixels_per_meter
+    self.map_origin_x, self.map_origin_y = origin
     img = Image.fromarray(np.uint8(img_data))
     with ContentFile(b'') as imgfile:
       img.save(imgfile, format='PNG')
@@ -392,6 +401,7 @@ class Scene(models.Model):
         if not self.map:
           self.thumbnail = None
           self.map_processed = None
+          self.resetMapOrigin()
         else:
           ext = os.path.splitext(self.map.path)[1].lower()
           if ext == ".ply":
@@ -412,6 +422,7 @@ class Scene(models.Model):
             self.thumbnail = None
             self.resetRotation()
             self.resetTranslation()
+            self.resetMapOrigin()
         super().save(*args, **kwargs)
     except FileNotFoundError as e:
       log.error(f"Failed to save scene , {str(e)}")

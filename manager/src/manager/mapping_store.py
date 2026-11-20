@@ -455,6 +455,7 @@ def _activate_locked(scene, source_map):
   scene.default_source_map = source_map
   Scene.objects.filter(pk=scene.pk).update(
     map=scene.map.name, thumbnail=scene.thumbnail.name, scale=scene.scale,
+    map_origin_x=scene.map_origin_x, map_origin_y=scene.map_origin_y,
     translation_x=tr[0], translation_y=tr[1], translation_z=tr[2],
     rotation_x=rot[0], rotation_y=rot[1], rotation_z=rot[2],
     scale_x=sc[0], scale_y=sc[1], scale_z=sc[2],
