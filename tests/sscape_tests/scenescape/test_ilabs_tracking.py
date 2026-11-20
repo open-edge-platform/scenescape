@@ -451,14 +451,14 @@ def test_yaw_to_quaternion_produces_z_axis_only_quaternion(yaw):
   assert quaternion == pytest.approx([0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)])
 
 
-def _make_tracked_object(uuid_value, yaw=0.0, attributes=None, vx=0.1, vy=0.2, vz=0.0):
+def _make_tracked_object(uuid_value, yaw=0.0, attributes=None, vx=0.1, vy=0.2, vz=0.0, w=0.0):
   attrs = {'info': uuid_value}
   if attributes:
     attrs.update(attributes)
   return SimpleNamespace(
     attributes=attrs,
     x=1.0, y=2.0, z=0.0,
-    vx=vx, vy=vy, vz=vz,
+    vx=vx, vy=vy, vz=vz, w=w,
     yaw=yaw,
     id=42,
     measurement_covariance=np.eye(7) * 0.25,
@@ -526,6 +526,20 @@ def test_from_tracked_object_publishes_vertical_velocity():
   assert result.velocity.x == pytest.approx(0.3)
   assert result.velocity.y == pytest.approx(-0.1)
   assert result.velocity.z == pytest.approx(0.45)
+
+
+def test_from_tracked_object_publishes_angular_velocity():
+  tracked_object = _make_tracked_object("uuid-w", w=0.15)
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+  tracker.association_config = normalize_association_config({'method': 'euclidean'})
+  tracker.tracking_radius_m = 2.0
+
+  result = tracker.from_tracked_object(
+    tracked_object, [_make_sscape_object("uuid-w", has_detection_rotation=False)])
+
+  assert result.angular_velocity == [0.0, 0.0, pytest.approx(0.15)]
 
 
 def test_build_association_window_mahalanobis_is_ellipse():
