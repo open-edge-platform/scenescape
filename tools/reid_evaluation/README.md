@@ -143,8 +143,35 @@ schema fixtures.
 
 #### Recorded Three-Minute Baseline
 
-The 2026-10-22 CPU run of `person-reidentification-retail-0277` produced 3 gallery
-crops and 537 test queries across 3 identities. No queries were skipped.
+The 2026-11-20 CPU run of `mars-small128` FP32 (RGB input; OpenVINO 2026.4.1,
+Pillow 12.3.0) produced 3 gallery crops and 537 test queries across 3 identities.
+No queries were skipped.
+
+| Metric                                           | Result             |
+| ------------------------------------------------ | ------------------ |
+| Rank-1 accuracy                                  | 95.53%             |
+| Mean average precision (mAP)                     | 97.73%             |
+| Correct accepted matches at cosine threshold 0.5 | 513 / 537 (95.53%) |
+| Incorrect accepted matches                       | 24 / 537 (4.47%)   |
+| Rejected known-person queries                    | 0 / 537 (0.00%)    |
+
+Reports are written under `output/physicalai-lab-3min/mars_small128_fp32/`:
+`report.json`, `scorecard.md`, `predictions.csv`, and cached `embeddings.json`. These
+local artifacts record model hashes, preprocessing, dataset provenance, and runtime
+details. Results can differ slightly between OpenVINO/Pillow versions. The 537
+queries are repeated observations of only three synthetic people, not independent
+identities. At cosine threshold 0.5 every query was accepted, including all 24 wrong
+matches, so this threshold does not separate correct from wrong matches for this
+model. There are no unknown-person queries, so unknown false-accept rate is
+**not measured**, not zero. Do not tune the threshold on these test results;
+threshold calibration requires a separate labeled split.
+
+#### Historical Reference: OMZ 0277 Baseline
+
+Before the default changed to `mars-small128`, the baseline was the Open Model Zoo
+`person-reidentification-retail-0277` model (256-dimensional embeddings, evaluated
+with the tool's BGR 0-255 defaults). The table below is the recorded 2026-10-22 CPU
+run on the same 537 queries. It is kept for comparison only.
 
 | Metric                                           | Result             |
 | ------------------------------------------------ | ------------------ |
@@ -154,13 +181,25 @@ crops and 537 test queries across 3 identities. No queries were skipped.
 | Incorrect accepted matches                       | 0 / 537            |
 | Rejected known-person queries                    | 321 / 537 (59.78%) |
 
-Reports are written under `output/physicalai-lab-3min/omz-0277/`: `report.json`,
-`scorecard.md`, `predictions.csv`, and cached `embeddings.json`. These local
-artifacts record model hashes, preprocessing, dataset provenance, and runtime
-details. The 537 queries are repeated observations of only three synthetic
-people, not independent identities. There are no unknown-person queries, so
-unknown false-accept rate is **not measured**, not zero. Do not tune the threshold
-on these test results; threshold calibration requires a separate labeled split.
+The model is no longer installed in the SceneScape models volume. To reproduce it,
+download the IR with the Open Model Zoo downloader and run the evaluator with the
+default preprocessing (no `--color-order` override):
+
+```bash
+omz_downloader --name person-reidentification-retail-0277 --precisions FP32 \
+  -o /tmp/omz
+cp /tmp/omz/intel/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.{xml,bin} \
+  tools/reid_evaluation/output/models/
+tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
+  --manifest tools/reid_evaluation/output/physicalai-lab-3min/manifest.json \
+  --model tools/reid_evaluation/output/models/person-reidentification-retail-0277.xml \
+  --device CPU --metric COSINE --threshold 0.5 \
+  --output tools/reid_evaluation/output/physicalai-lab-3min/omz-0277
+```
+
+A re-run on 2026-11-20 (OpenVINO 2026.4.1, Pillow 12.3.0) reproduced the accept and
+reject counts exactly but gave rank-1 72.44% and mAP 83.24%, so small differences
+across library versions are expected.
 
 #### CLIP-ReID Comparison on the Same Crops
 
@@ -169,7 +208,7 @@ earlier CLIP-ReID experiment. This is the 512-dimensional projection of the
 Market-1501-trained ViT-B/16 model, recorded as
 `occurra-96485fbf439a3dea0f28c1309f087c2044de877e`, not a generic CLIP image encoder.
 The command preserves that experiment's RGB, 0-1 pixel scaling, and mean/std
-0.5 preprocessing rather than the OMZ model's BGR 0-255 defaults:
+0.5 preprocessing rather than the tool's BGR 0-255 defaults:
 
 ```bash
 tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
@@ -180,26 +219,30 @@ tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --device CPU --color-order RGB --layout NCHW \
   --pixel-scale 0.00392156862745098 --mean 0.5 0.5 0.5 --std 0.5 0.5 0.5 \
   --output-name embedding --metric COSINE --threshold 0.5 \
-  --baseline tools/reid_evaluation/output/physicalai-lab-3min/omz-0277/report.json \
+  --baseline tools/reid_evaluation/output/physicalai-lab-3min/mars_small128_fp32/report.json \
   --output tools/reid_evaluation/output/physicalai-lab-3min/clip-reid-512
 ```
 
-The completed CPU run evaluated all 537 queries with no skips. The evaluator
-verified that the baseline and CLIP run share the same crop/exclusion protocol.
+The CPU run evaluated all 537 queries with no skips. The evaluator verifies that the
+baseline and CLIP run share the same crop/exclusion protocol. The CLIP column was
+recorded in the earlier experiment, when the comparison baseline was OMZ 0277; it
+was not re-run after the baseline changed to `mars-small128`.
 
-| Metric                                           | OMZ 0277  | CLIP-ReID |
-| ------------------------------------------------ | --------- | --------- |
-| Rank-1 accuracy                                  | 70.95%    | 65.92%    |
-| Mean average precision (mAP)                     | 82.56%    | 82.71%    |
-| Correct accepted matches at cosine threshold 0.5 | 216 / 537 | 354 / 537 |
-| Incorrect accepted matches                       | 0 / 537   | 183 / 537 |
-| Rejected known-person queries                    | 321 / 537 | 0 / 537   |
+| Metric                                           | mars-small128 | OMZ 0277 (historical) | CLIP-ReID |
+| ------------------------------------------------ | ------------- | --------------------- | --------- |
+| Rank-1 accuracy                                  | 95.53%        | 70.95%                | 65.92%    |
+| Mean average precision (mAP)                     | 97.73%        | 82.56%                | 82.71%    |
+| Correct accepted matches at cosine threshold 0.5 | 513 / 537     | 216 / 537             | 354 / 537 |
+| Incorrect accepted matches                       | 24 / 537      | 0 / 537               | 183 / 537 |
+| Rejected known-person queries                    | 0 / 537       | 321 / 537             | 0 / 537   |
 
-CLIP-ReID rank-1 accuracy was 5.03 percentage points lower. At the fixed threshold,
-it accepted every query, including 183 wrong identities. The same numerical
-threshold does not establish equivalent operating points across models; use a
-separate calibration split before comparing threshold-dependent deployment
-behavior. Unknown-person false-accept rate remains unmeasured for both models.
+CLIP-ReID rank-1 accuracy was 29.61 percentage points lower than `mars-small128`
+(5.03 lower than 0277), and its mAP was 15.02 points lower than `mars-small128`.
+At the fixed threshold, CLIP-ReID accepted every query, including 183 wrong
+identities; `mars-small128` also accepted every query, with 24 wrong. The same
+numerical threshold does not establish equivalent operating points across models;
+use a separate calibration split before comparing threshold-dependent deployment
+behavior. Unknown-person false-accept rate remains unmeasured for all models.
 CLIP mean CPU inference time was about 277 ms per crop (serial, batch one), not
 end-to-end tracking latency. Reports, predictions, model hashes, and cached
 embeddings are saved under `output/physicalai-lab-3min/clip-reid-512/`.
