@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # ReID Model Evaluation
 
 Create a repeatable offline scorecard for SceneScape's default
-`person-reidentification-retail-0277` model and future replacements. This tool
+`mars-small128` model and future replacements. This tool
 evaluates labeled person crops or cached vectors without modifying a live gallery.
 It does not infer person identities from Tracker IDs.
 
@@ -111,9 +111,10 @@ is available as described in step 2, evaluate with:
 ```bash
 tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --manifest tools/reid_evaluation/output/physicalai-lab-3min/manifest.json \
-  --model tools/reid_evaluation/output/models/person-reidentification-retail-0277.xml \
+  --model tools/reid_evaluation/output/models/mars_small128_fp32.xml \
+  --color-order RGB \
   --device CPU --metric COSINE --threshold 0.5 \
-  --output tools/reid_evaluation/output/physicalai-lab-3min/omz-0277
+  --output tools/reid_evaluation/output/physicalai-lab-3min/mars_small128_fp32
 ```
 
 The threshold is fixed, not calibrated on these test images. Camera 0 supplies
@@ -235,9 +236,10 @@ Pass the generated manifest to the existing evaluator with your chosen model:
 ```bash
 tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --manifest tools/reid_evaluation/output/market1501/manifest.json \
-  --model tools/reid_evaluation/output/models/person-reidentification-retail-0277.xml \
+  --model tools/reid_evaluation/output/models/mars_small128_fp32.xml \
+  --color-order RGB \
   --metric COSINE --threshold 0.5 \
-  --output tools/reid_evaluation/output/market1501/omz-0277
+  --output tools/reid_evaluation/output/market1501/mars-small128
 ```
 
 Full datasets can be expensive: the current scorer ranks gallery samples per
@@ -288,26 +290,26 @@ For existing crops without video export, install `requirements-inference.txt` in
 
 This example uses these installed FP32 models:
 
-| Role                  | Model                                 |
-| --------------------- | ------------------------------------- |
-| Person detector       | `person-detection-retail-0013`        |
-| Default ReID baseline | `person-reidentification-retail-0277` |
+| Role                  | Model                          |
+| --------------------- | ------------------------------ |
+| Person detector       | `person-detection-retail-0013` |
+| Default ReID baseline | `mars-small128`                |
 
 Copy XML/BIN pairs from the model volume to an ignored, host-accessible cache.
 The volume is mounted read-only; this does not modify the installed models.
 
 ```bash
-MODEL_VOLUME=scenescape_vol-models
-MODEL_DIR="$PWD/tools/reid_evaluation/output/models"
+export MODEL_VOLUME=scenescape_vol-models
+export MODEL_DIR="$PWD/tools/reid_evaluation/output/models"
 mkdir -p "$MODEL_DIR"
 
 docker volume inspect "$MODEL_VOLUME" >/dev/null && \
-for MODEL_NAME in person-detection-retail-0013 person-reidentification-retail-0277; do
+for MODEL_NAME in omz/person-detection-retail-0013/FP32/person-detection-retail-0013 ultralytics/public/mars-small128/mars_small128_fp32; do
   docker run --rm --user "$(id -u):$(id -g)" \
     -v "$MODEL_VOLUME:/models:ro" -v "$MODEL_DIR:/out" \
     alpine:3.23 cp \
-    "/models/omz/$MODEL_NAME/FP32/$MODEL_NAME.xml" \
-    "/models/omz/$MODEL_NAME/FP32/$MODEL_NAME.bin" /out/
+    "/models/$MODEL_NAME.xml" \
+    "/models/$MODEL_NAME.bin" /out/
 done
 ```
 
@@ -415,8 +417,9 @@ and test identities must still be disjoint when calibrating.
 ```bash
 tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --manifest tools/reid_evaluation/output/queuing-qcam1/manifest.json \
-  --model tools/reid_evaluation/output/models/person-reidentification-retail-0277.xml \
-  --model-version omz-0277-fp32 \
+  --model tools/reid_evaluation/output/models/mars_small128_fp32.xml \
+  --model-version mars-small-fp32 \
+  --color-order RGB \
   --allow-same-camera \
   --metric COSINE --threshold 0.5 \
   --output tools/reid_evaluation/output/queuing-qcam1/baseline-default
@@ -551,17 +554,18 @@ report identities should be pseudonymous; reports contain labels and embeddings.
 ## Establish the Default-Model Baseline
 
 Use the installed OpenVINO IR `.xml` and adjacent `.bin`, for example under the
-models volume's `omz/person-reidentification-retail-0277/FP32/` directory. Mount
+models volume's `ultralytics/public/mars-small128/` directory. Mount
 or copy these read-only to a host-accessible path; this CLI does not manage Docker
 or automatically download a model or dataset.
 
 ```bash
 tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --manifest /data/reid/manifest.json \
-  --model /models/person-reidentification-retail-0277.xml \
-  --model-version omz-0277-fp32 \
+  --model /models/mars_small128_fp32.xml \
+  --model-version mars-small-fp32 \
+  --color-order RGB \
   --metric COSINE --threshold 0.5 \
-  --output /data/reid/results/omz-0277-fixed
+  --output /data/reid/results/mars-small128
 ```
 
 Cosine and `0.5` match the current Controller configuration at tool introduction.
@@ -585,9 +589,10 @@ Choose a threshold on calibration queries only, then freeze it for final tests:
 ```bash
 tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --manifest /data/reid/manifest.json \
-  --model /models/person-reidentification-retail-0277.xml \
+  --model /models/mars_small128_fp32.xml \
+  --color-order RGB \
   --calibrate --target-false-accept-rate 0.01 \
-  --output /data/reid/results/omz-0277-calibrated
+  --output /data/reid/results/mars-small128-calibrated
 ```
 
 Calibration requires both eligible known and unknown queries. It maximizes
@@ -603,7 +608,7 @@ tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --manifest /data/reid/manifest.json --model /models/candidate.xml \
   --model-name candidate --model-version checkpoint-hash-or-release \
   --calibrate --target-false-accept-rate 0.01 \
-  --baseline /data/reid/results/omz-0277-calibrated/report.json \
+  --baseline /data/reid/results/mars-small128-calibrated/report.json \
   --output /data/reid/results/candidate-calibrated
 ```
 
