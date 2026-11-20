@@ -51,6 +51,28 @@ require_command() {
 
 # ── Python with OpenVINO ───────────────────────────────────────────────────────
 
+# DLStreamer images ship OpenVINO under /opt/intel/openvino; the Python module
+# is only importable after sourcing setupvars.sh (adds PYTHONPATH). Same for
+# the cmake package used by ov_extensions/build.sh.
+source_openvino_env() {
+    local setupvars
+    for setupvars in \
+        "${INTEL_OPENVINO_DIR:-}/setupvars.sh" \
+        /opt/intel/openvino/setupvars.sh \
+        /opt/intel/openvino_genai/setupvars.sh; do
+        if [[ -n "${setupvars}" && -f "${setupvars}" ]]; then
+            # setupvars.sh references unset vars; tolerate that under `set -u`.
+            set +u
+            # shellcheck disable=SC1090
+            source "${setupvars}"
+            set -u
+            log "Sourced OpenVINO environment: ${setupvars}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 select_python_with_openvino() {
     local candidates=()
     [[ -n "${PYTHON:-}" ]] && candidates+=("${PYTHON}")
@@ -204,6 +226,9 @@ require_command git
 log "MODELS_PATH=${MODELS_PATH}"
 
 ensure_build_tools
+# Best-effort: required inside DLStreamer images where openvino is not on the
+# default PYTHONPATH. Harmless no-op when openvino is already importable.
+source_openvino_env || true
 resolve_pointpillars_root
 copy_model_files
 build_extension
