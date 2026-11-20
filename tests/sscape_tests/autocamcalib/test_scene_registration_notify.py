@@ -3,35 +3,27 @@
 
 """Scene registration must always notify the open calibration page."""
 
-import importlib
-import sys
 import threading
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from conftest import import_calibration_context
 
-def _import_context_module():
-  # The host test venv lacks the service-only runtime (eventlet, hloc/torch); stub only what is missing.
-  stubs = {}
-  for name in ("eventlet", "markerless_camera_calibration_controller",
-               "point_cloud_calibration_controller"):
-    try:
-      importlib.import_module(name)
-    except ImportError:
-      stubs[name] = MagicMock()
-  with patch.dict(sys.modules, stubs):
-    return importlib.import_module("auto_camera_calibration_context")
-
-
-context_module = _import_context_module()
+context_module = import_calibration_context()
 CameraCalibrationContext = context_module.CameraCalibrationContext
 
 
 def _context(strategy):
   ctx = CameraCalibrationContext.__new__(CameraCalibrationContext)
   ctx.register_thread_lock = threading.Lock()
-  ctx.current_processing_scene = {"id": "scene-1"}
+  ctx.registration_state_lock = threading.RLock()
+  ctx.registration_results = {}
+  ctx.registration_generations = {}
+  ctx.pending_registrations = set()
+  # State as left by scene_update_thread_wrapper, which claims the worker slot.
+  ctx.register_thread_lock.acquire()
+  ctx.current_processing_scene = "scene-1"
   ctx.scene_strategies = {"Markerless": strategy}
   ctx.socketio = MagicMock()
   return ctx
@@ -65,7 +57,8 @@ def test_successful_registration_notifies_client():
   ctx.process_scene(_scene(), True)
   _assert_notified(ctx, {"status": "success"})
   assert not ctx.register_thread_lock.locked()
-  assert ctx.current_processing_scene == {}
+  assert ctx.current_processing_scene is None
+  assert ctx.registration_results["scene-1"] == {"status": "success"}
 
 
 def test_unexpected_registration_failure_notifies_client_with_safe_error():
@@ -75,7 +68,9 @@ def test_unexpected_registration_failure_notifies_client_with_safe_error():
   ctx.process_scene(_scene(), True)
   _assert_notified(ctx, {"status": "error", "message": "Scene registration failed"})
   assert not ctx.register_thread_lock.locked()
-  assert ctx.current_processing_scene == {}
+  assert ctx.current_processing_scene is None
+  assert ctx.registration_results["scene-1"] == {
+    "status": "error", "message": "Scene registration failed"}
 
 
 def test_tpool_failure_notifies_client_with_error():
