@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2020 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2020 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
