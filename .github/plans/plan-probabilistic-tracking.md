@@ -176,7 +176,7 @@ cd tracker && make test-unit-coverage
 | Controller output            | `ilabs_tracking.py`, `scene_common` (`association.py`, `detections_builder.py`)                                       |
 | Analytics pass-through       | `scene_common/ingestion.py`, `analytics/analytics_models.py`, `analytics/event_serializer.py`                         |
 
-Published for the track state that is published already: `translation` (the footprint base), `velocity`, `size` (Tracker Service only) and `yaw` (only when `rotation` is the filter yaw).
+Published for the track state that is published already: `translation` (the footprint base), `velocity`, `size` (filter size with the observation processor) and `yaw` (only when `rotation` is the filter yaw).
 
 ### Exit criteria
 

@@ -224,7 +224,7 @@
         },
         "uncertainty": {
           "type": "object",
-          "description": "Covariance of the published track state, from the filter's posterior covariance. Published only with the experimental observation processor. Each block is row-major, 3x3 as 9 numbers. translation [m^2] is the published point (z is the footprint base) and velocity [m^2/s^2]; both are always 3x3 and their z-related entries are 0 for a track without measured z. size [m^2] is the filter size (absent when the producer publishes the detection's size). yaw [rad^2] is present only when the published rotation is the filter yaw.",
+          "description": "Covariance of the published track state, from the filter's posterior covariance. Published only with the experimental observation processor. Each block is row-major, 3x3 as 9 numbers. translation [m^2] is the published point (z is the footprint base) and velocity [m^2/s^2]; both are always 3x3 and their z-related entries are 0 for a track without measured z. size [m^2] is the published filter size. yaw [rad^2] is present only when the published rotation is the filter yaw.",
           "properties": {
             "translation": {
               "type": "array",

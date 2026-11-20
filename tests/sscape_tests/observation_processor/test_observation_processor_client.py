@@ -793,7 +793,8 @@ class TestTrackerIntegration:
 
 
 # Row/column of the published state in robot_vision's 13-element state vector.
-STATE_X, STATE_Y, STATE_VX, STATE_VY, STATE_Z, STATE_VZ, STATE_HEIGHT, STATE_YAW = 0, 1, 2, 3, 6, 7, 10, 11
+STATE_X, STATE_Y, STATE_VX, STATE_VY, STATE_Z, STATE_VZ = 0, 1, 2, 3, 6, 7
+STATE_LENGTH, STATE_WIDTH, STATE_HEIGHT, STATE_YAW = 8, 9, 10, 11
 
 
 def covariance_with_distinct_entries():
@@ -806,14 +807,16 @@ def covariance_with_distinct_entries():
 
 class TestBuildTrackUncertainty:
 
-  def test_velocity_is_a_row_major_block_of_p(self):
+  def test_velocity_and_size_are_row_major_blocks_of_p(self):
     p = covariance_with_distinct_entries()
 
     uncertainty = build_track_uncertainty(p, z_measured=True, filter_yaw_published=False)
 
-    index = [STATE_VX, STATE_VY, STATE_VZ]
-    np.testing.assert_allclose(uncertainty["velocity"], p[np.ix_(index, index)].reshape(-1))
-    assert "size" not in uncertainty, "the Controller publishes the detection's size, not the filter's"
+    velocity_index = [STATE_VX, STATE_VY, STATE_VZ]
+    size_index = [STATE_LENGTH, STATE_WIDTH, STATE_HEIGHT]
+    np.testing.assert_allclose(
+      uncertainty["velocity"], p[np.ix_(velocity_index, velocity_index)].reshape(-1))
+    np.testing.assert_allclose(uncertainty["size"], p[np.ix_(size_index, size_index)].reshape(-1))
 
   def test_translation_describes_the_published_footprint_base(self):
     p = covariance_with_distinct_entries()
@@ -861,7 +864,7 @@ class TestBuildTrackUncertainty:
     uncertainty = build_track_uncertainty(p, True, True)
 
     assert "velocity" not in uncertainty
-    assert "translation" in uncertainty and "yaw" in uncertainty
+    assert "translation" in uncertainty and "size" in uncertainty and "yaw" in uncertainty
 
   @pytest.mark.parametrize("unused_state", [STATE_Z, STATE_HEIGHT])
   def test_planar_translation_ignores_a_non_finite_z_or_height_variance(self, unused_state):
@@ -896,7 +899,8 @@ class TestPublishedUncertainty:
   def tracked(detection_uuid="detection-uuid", z_measured=True):
     # robot_vision's TrackedObject takes error_covariance only as its own Mat type.
     return SimpleNamespace(
-      id=7, x=1.0, y=2.0, z=1.2, vx=0.1, vy=0.0, vz=0.3, height=1.8, yaw=0.0,
+      id=7, x=1.0, y=2.0, z=1.2, vx=0.1, vy=0.0, vz=0.3,
+      length=0.5, width=0.5, height=1.8, yaw=0.0,
       z_measured=z_measured, error_covariance=covariance_with_distinct_entries(),
       attributes={"info": detection_uuid})
 
@@ -917,14 +921,26 @@ class TestPublishedUncertainty:
     tracker.uuid_manager = Mock()
     return tracker
 
-  def test_experimental_publishes_the_blocks_without_size(self):
+  def test_experimental_publishes_filter_size_and_uncertainty_blocks(self):
     tracked = self.tracked()
+    sscape_object = self.sscape_object()
+    sscape_object.size = [9.0, 9.0, 9.0]
 
-    published = self.tracker(Mock()).from_tracked_object(tracked, [self.sscape_object()])
+    published = self.tracker(Mock()).from_tracked_object(tracked, [sscape_object])
 
     expected = build_track_uncertainty(covariance_with_distinct_entries(), True, False)
     assert published.uncertainty == expected
-    assert set(published.uncertainty) == {"translation", "velocity"}
+    assert set(published.uncertainty) == {"translation", "velocity", "size"}
+    assert published.size == [tracked.length, tracked.width, tracked.height]
+
+  def test_legacy_keeps_detection_size(self):
+    tracked = self.tracked()
+    sscape_object = self.sscape_object()
+    sscape_object.size = [9.0, 9.0, 9.0]
+
+    published = self.tracker(None).from_tracked_object(tracked, [sscape_object])
+
+    assert published.size == [9.0, 9.0, 9.0]
 
   def test_legacy_publishes_no_uncertainty(self):
     published = self.tracker(None).from_tracked_object(self.tracked(), [self.sscape_object()])
@@ -954,12 +970,15 @@ class TestPublishedUncertainty:
   def test_object_outside_the_frame_gets_a_refreshed_uncertainty(self):
     tracker = self.tracker(Mock())
     previous = self.sscape_object()
+    previous.size = [9.0, 9.0, 9.0]
     tracker.all_tracker_objects = [previous]
+    tracked = self.tracked()
 
-    published = tracker.from_tracked_object(self.tracked(), [])
+    published = tracker.from_tracked_object(tracked, [])
 
     assert published is previous
-    assert set(published.uncertainty) == {"translation", "velocity"}
+    assert set(published.uncertainty) == {"translation", "velocity", "size"}
+    assert published.size == [tracked.length, tracked.width, tracked.height]
 
   def test_gap_keeps_the_yaw_provenance_of_the_retained_rotation(self):
     tracker = self.tracker(Mock())

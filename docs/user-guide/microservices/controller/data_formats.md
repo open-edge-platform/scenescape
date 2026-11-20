@@ -794,16 +794,16 @@ subject to the existing identity-collision checks.
 > | ------------- | ----- | -------------------------------------------------------------------------------------- |
 > | `translation` | m²    | `translation` (x, y, z)                                                                |
 > | `velocity`    | m²/s² | `velocity` (x, y, z)                                                                   |
-> | `size`        | m²    | `size` (length, width, height); Tracker service only                                   |
+> | `size`        | m²    | `size` (length, width, height)                                                         |
 > | `yaw`         | rad²  | Variance of the yaw in `rotation` (a number); only when `rotation` is the filter's yaw |
 >
 > - `translation` describes the published point, so its z entries are those of the footprint base
 >   (z of the centre of mass minus half the height), not of the centre of mass.
 > - `translation` and `velocity` are always 3×3. For a track without measured z the z-related
 >   values (the z row and column, the vz row and column) are 0.
-> - `size`: the Tracker service publishes the filter's size, so it carries a block. The Scene
->   Controller publishes the detection's or the object class's size, not the filter's, so it has no
->   `size` block.
+> - `size`: both producers publish the filter's size with the observation processor, so both carry
+>   a block. Without an observation processor the Scene Controller keeps the detection's or the
+>   object class's size and publishes no `uncertainty` at all.
 > - `yaw`: when `rotation` is the velocity heading (the filter yaw disagrees with the heading) or
 >   the identity, `rotation` is still published and `yaw` is absent.
 > - A block with a non-finite value is omitted.

@@ -439,7 +439,8 @@ nothing is published. See the [data formats](data_formats.md) for the keys, unit
 - `translation` describes the published footprint base, not the centre of mass.
 - `translation` and `velocity` are always 3×3; for a track without measured z the z-related values
   are 0.
-- The Scene Controller has no `size` block: it publishes the detection's size, not the filter's.
+- With an observation processor both services publish the filter's `size` and an `uncertainty.size`
+  block; without one the Scene Controller keeps the detection's size and publishes no uncertainty.
 - `yaw` is present only when the published `rotation` is the filter's yaw, not for the velocity
   heading fallback.
 

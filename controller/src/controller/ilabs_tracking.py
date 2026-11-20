@@ -326,7 +326,7 @@ def _kalman_yaw_disagrees_with_velocity(tracked_object,
 # Indices into robot_vision's state vector (rv::tracking::StateIndex):
 # [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
 _STATE_X, _STATE_Y, _STATE_VX, _STATE_VY, _STATE_Z, _STATE_VZ = 0, 1, 2, 3, 6, 7
-_STATE_HEIGHT, _STATE_YAW = 10, 11
+_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT, _STATE_YAW = 8, 9, 10, 11
 _STATE_SIZE = 13
 
 
@@ -342,13 +342,14 @@ def build_track_uncertainty(error_covariance, z_measured, filter_yaw_published):
 
   Only for a centre-of-mass track (experimental observation processor). Each value is a row-major
   3x3 block of P as 9 numbers; cross-block terms are not published and a block with a non-finite
-  value is absent. The Controller publishes the detection's size, not the filter's, so there is no
-  ``size`` block.
+  value is absent. With the observation processor the Controller publishes the filter's size, so
+  ``size`` is included the same way as on the Tracker service.
 
   - ``translation`` [m²]: x, y and the published z, the footprint base z - height / 2, so the z
     entries are J P Jᵀ with J(z_pub) = [1 on z, -1/2 on height].
   - ``velocity`` [m²/s²]: vx, vy, vz.
-  - Without measured z the z row and column of both blocks are 0.
+  - ``size`` [m²]: length, width, height.
+  - Without measured z the z row and column of translation and velocity are 0.
   - ``yaw`` [rad²]: only when the published rotation is the filter yaw.
 
   Returns ``None`` when no value is finite.
@@ -371,14 +372,16 @@ def build_track_uncertainty(error_covariance, z_measured, filter_yaw_published):
     translation = np.zeros((3, 3))
     translation[:2, :2] = covariance[np.ix_([_STATE_X, _STATE_Y], [_STATE_X, _STATE_Y])]
   velocity_index = [_STATE_VX, _STATE_VY, _STATE_VZ]
+  size_index = [_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT]
   blocks = {
     "translation": translation,
     "velocity": covariance[np.ix_(velocity_index, velocity_index)].copy(),
+    "size": covariance[np.ix_(size_index, size_index)].copy(),
   }
 
   uncertainty = {}
   for name, block in blocks.items():
-    if not z_measured:
+    if not z_measured and name in ("translation", "velocity"):
       block[2, :] = 0.0
       block[:, 2] = 0.0
     values = _finite_block(block)
@@ -553,6 +556,15 @@ class IntelLabsTracking(Tracking):
       z -= tracked_object.height / 2.0
     return Point(tracked_object.x, tracked_object.y, z)
 
+  def _publishFilterSize(self, sscape_object, tracked_object):
+    """With an observation processor, publish the filter's size so it matches ``uncertainty.size``.
+
+    Legacy output keeps the detection's or object-class size.
+    """
+    if getattr(self, 'observation_processor', None) is None:
+      return
+    sscape_object.size = [tracked_object.length, tracked_object.width, tracked_object.height]
+
   def _publishedUncertainty(self, tracked_object, filter_yaw_published):
     """Covariance of the published state with an observation processor, ``None`` otherwise (legacy
     output carries no uncertainty). ``filter_yaw_published`` tells whether the published rotation is
@@ -624,6 +636,7 @@ class IntelLabsTracking(Tracking):
             z_measured=bool(getattr(tracked_object, "z_measured", False)),
           )
           # The object keeps its previously published rotation, so its yaw provenance is kept too.
+          self._publishFilterSize(obj, tracked_object)
           obj.uncertainty = self._publishedUncertainty(
             tracked_object, getattr(obj, 'filter_yaw_published', False))
           return obj
@@ -632,6 +645,7 @@ class IntelLabsTracking(Tracking):
 
     sscape_object.location[0].point = self._publishedPoint(tracked_object)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
+    self._publishFilterSize(sscape_object, tracked_object)
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
     # update (sticky orientation_observed), even if this frame's linked
