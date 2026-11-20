@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -49,11 +49,18 @@ class CameraCalibrationContext:
     }
 
     self.calibration_results = {}
+    self.registration_results = {}
+    # Bumped on worker start and finish so a stale synchronous result is dropped.
+    self.registration_generations = {}
+    # Scenes whose registration request was refused while another scene registered.
+    self.pending_registrations = set()
     self.socket_clients = {}
     self.socket_scene_clients = {}
     self.socketio = None
 
     self.register_thread_lock = threading.Lock()
+    # Guards worker start/finish and pending_registrations so they change together.
+    self.registration_state_lock = threading.RLock()
     self.calibration_thread_lock = threading.Lock()
     self.current_processing_scene = None
 
@@ -72,18 +79,40 @@ class CameraCalibrationContext:
     return
 
   def scene_update_thread_wrapper(self, sceneobj, map_update=False):
-    """! function checks if lock is not acquired and processes the
-    scene with updated metadata.
-    status.
+    """! Start processing the scene if no registration is in progress.
     @param   sceneobj      scene object.
     @param   map_update    boolean for re-registering the scene.
 
-    @return  None
+    @return  True if a registration thread started, False if already busy.
     """
-    if not self.register_thread_lock.locked():
-      thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
-      thread.start()
-    return
+    with self.registration_state_lock:
+      if not self.register_thread_lock.acquire(blocking=False):
+        return False
+      self.current_processing_scene = sceneobj.id
+      self.pending_registrations.discard(sceneobj.id)
+      self.registration_results.pop(sceneobj.id, None)
+      self._bump_registration_generation(sceneobj.id)
+      try:
+        thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
+        thread.start()
+      except Exception:
+        self.current_processing_scene = None
+        self.register_thread_lock.release()
+        raise
+      return True
+
+  def request_scene_registration(self, sceneobj):
+    """! Start registering a scene, or queue it while another scene registers.
+
+    @return  "active", "started", or "busy".
+    """
+    with self.registration_state_lock:
+      if self.current_processing_scene == sceneobj.id:
+        return "active"
+      if self.scene_update_thread_wrapper(sceneobj, map_update=True):
+        return "started"
+      self.pending_registrations.add(sceneobj.id)
+      return "busy"
 
   def process_scene(self, sceneobj, map_update):
     """! function processes the uploaded scene(image/glb) and publish back the
@@ -93,13 +122,56 @@ class CameraCalibrationContext:
 
     @return  None
     """
-    with self.register_thread_lock:
+    result = None
+    try:
+      strategy = self.scene_strategies[sceneobj.camera_calibration]
+      result = strategy.process_scene_for_calibration(sceneobj, map_update)
+    except (FileNotFoundError, KeyError) as e:
+      log.error(f"Error in register dataset : {e}")
+      result = {"status": "error", "message": str(e)}
+    finally:
+      self.finish_registration(sceneobj.id, result)
+
+  def finish_registration(self, scene_id, result):
+    """! Record the worker result and free the worker slot in one step."""
+    with self.registration_state_lock:
       try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].process_scene_for_calibration(sceneobj, map_update)
-      except (FileNotFoundError, KeyError) as e:
-        log.error(f"Error in register dataset : {e}")
-    self.current_processing_scene = {}
-    return
+        self.record_registration_result(scene_id, result)
+      finally:
+        self._bump_registration_generation(scene_id)
+        self.current_processing_scene = None
+        self.register_thread_lock.release()
+
+  def _bump_registration_generation(self, scene_id):
+    self.registration_generations[scene_id] = self.registration_generations.get(scene_id, 0) + 1
+
+  def begin_sync_registration(self, scene_id):
+    """! Snapshot the scene's generation before an in-request registration."""
+    with self.registration_state_lock:
+      return self.registration_generations.get(scene_id, 0)
+
+  def finish_sync_registration(self, scene_id, generation, result):
+    """! Record an in-request result unless a worker started or finished meanwhile.
+
+    @return  True if the result was recorded.
+    """
+    with self.registration_state_lock:
+      if self.registration_generations.get(scene_id, 0) != generation:
+        return False
+      self.record_registration_result(scene_id, result)
+      return True
+
+  def record_registration_result(self, scene_id, result):
+    """! Store a scene's terminal registration result as success or error."""
+    status = result.get("status") if isinstance(result, dict) else None
+    if status == "success":
+      self.registration_results[scene_id] = {"status": "success"}
+    else:
+      message = result.get("message", status) if isinstance(result, dict) else None
+      self.registration_results[scene_id] = {
+          "status": "error",
+          "message": message or "Scene registration failed",
+      }
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """
