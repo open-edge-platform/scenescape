@@ -532,9 +532,12 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     with glb_state.discard_files_on_failure(form.instance):
       # glb-alignment.js posts a staged GLB (token + anchor) or a moved saved GLB (anchor);
       # they are persisted in the same transaction as the form, like the Accept and Save position buttons
+      glb_token = self.request.POST.get('glb_token')
       self._save_glb_changes(
-        form, self.request.POST.get('glb_token'), self.request.POST.get('glb_anchor'))
+        form, glb_token, self.request.POST.get('glb_anchor'))
       self.object = form.save()
+      if glb_token:
+        glb_state.apply_new_glb(self.object)
 
   def _render_current_scene(self, notice):
     """Re-render the edit page with the stored values, so a retry does not repost the stale ones."""

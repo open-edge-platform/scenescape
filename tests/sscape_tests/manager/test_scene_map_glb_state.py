@@ -109,7 +109,7 @@ def _put_glb(api, scene):
                  {"name": scene.name, "map": upload}, format="multipart")
 
 
-def _post_form(web, scene):
+def _post_form(web, scene, map_file=True, **extra):
   scene.refresh_from_db()
   data = {
     "name": scene.name,
@@ -123,8 +123,10 @@ def _post_form(web, scene):
     "translation_x": 0.0, "translation_y": 0.0, "translation_z": 0.0,
     "scale_x": 1.0, "scale_y": 1.0, "scale_z": 1.0,
     "use_tracker": "True",
-    "map": SimpleUploadedFile("new_form.glb", _glb_bytes(5.0), content_type="model/gltf-binary"),
   }
+  if map_file:
+    data["map"] = SimpleUploadedFile("new_form.glb", _glb_bytes(5.0), content_type="model/gltf-binary")
+  data.update(extra)
   return web.post(reverse("scene_update", args=[scene.pk]), data=data)
 
 
@@ -257,6 +259,40 @@ def test_apply_succeeds_over_flat_map(scene):
   scene.refresh_from_db()
   assert scene.use_glb_map is True
   assert scene.base_map.name.endswith(".png")
+
+
+def test_apply_new_glb_applies_over_flat_map(scene):
+  _store_glb(scene)
+  _set_map(scene, "flat.png", _png_bytes())
+
+  glb_state.apply_new_glb(scene)
+
+  scene.refresh_from_db()
+  assert scene.use_glb_map is True
+
+
+def test_apply_new_glb_keeps_glb_unapplied_without_flat_map(scene):
+  _store_glb(scene)
+
+  glb_state.apply_new_glb(scene)
+
+  scene.refresh_from_db()
+  assert scene.glb_map
+  assert scene.use_glb_map is False
+
+
+def test_form_glb_commit_applies_new_glb_by_default(web_client, scene):
+  _set_map(scene, "flat.png", _png_bytes())
+  token = glb_staging.stage_glb(
+    SimpleUploadedFile("stored.glb", _glb_bytes(2.0), content_type="model/gltf-binary"))
+
+  resp = _post_form(web_client, scene, map_file=False, glb_token=token,
+                    glb_anchor=json.dumps({"lat": 37.39, "lng": -121.97, "heading_deg": 45.0}))
+
+  assert resp.status_code == 302, resp.content
+  scene.refresh_from_db()
+  assert scene.glb_map
+  assert scene.use_glb_map is True
 
 
 def test_commit_applied_scene_rejects_missing_base_map(scene):

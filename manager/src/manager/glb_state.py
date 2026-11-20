@@ -473,6 +473,20 @@ def set_glb_applied(scene, use_glb):
     unapply_glb_map(scene)
 
 
+def apply_new_glb(scene):
+  """Apply a GLB that was just stored, if the scene has a flat base map to place it over.
+
+  A scene without one keeps the GLB stored but unapplied, so the save still succeeds.
+  """
+  if scene.use_glb_map or not scene.glb_map:
+    return
+  try:
+    require_base_map(scene)
+  except GlbAlignmentError:
+    return
+  apply_glb_map(scene)
+
+
 def remove_glb_map(scene):
   """Remove a stored GLB (delete glb_map and clear glb_anchor).
 

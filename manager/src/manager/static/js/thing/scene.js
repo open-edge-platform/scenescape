@@ -214,11 +214,14 @@ export default class Scene {
               map: tex,
               opacity: 0.8,
               transparent: true,
+              // Push the plane back so the GLB wins depth ties at z = 0.
+              polygonOffset: true,
+              polygonOffsetFactor: 1,
+              polygonOffsetUnits: 1,
             }),
           );
           floor.name = "floor";
-          // Just under the GLB floor at z = 0, so the two do not z-fight.
-          floor.position.set(layout.centerX, layout.centerY, -0.01);
+          floor.position.set(layout.centerX, layout.centerY, 0);
           resolve(floor);
         },
         undefined,
