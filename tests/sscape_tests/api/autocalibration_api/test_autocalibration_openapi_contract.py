@@ -105,8 +105,6 @@ class _Strategy:
   def __init__(self, map_updated, process_result):
     self._map_updated = map_updated
     self._process_result = process_result
-    self.socketio = None
-    self.socket_scene_clients = None
 
   def is_map_updated(self, scene):
     """Return the configured map-update flag."""
@@ -223,7 +221,6 @@ class _ReadyContext:
       },
     })
     self.socket_clients = {}
-    self.socket_scene_clients = {}
 
   def scene_update_thread_wrapper(self, scene, map_update=False):
     """Accept an update trigger only if the simulated worker is idle."""
