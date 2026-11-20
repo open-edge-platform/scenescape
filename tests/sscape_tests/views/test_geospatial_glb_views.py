@@ -23,7 +23,7 @@ import numpy as np
 
 from manager import glb_staging, glb_state
 from manager.forms import SceneUpdateForm
-from manager.models import Scene, Region, RegionPoint, SingletonSensor
+from manager.models import GlbLayer, Scene, Region, RegionPoint, SingletonSensor
 from scene_common.earth_lla import localFootprintCornersLLA
 from scene_common.glb_top_view import getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB
@@ -311,10 +311,14 @@ class CommitBaseSetup(TestCase):
     Scene.objects.filter(pk=self.scene.pk).update(map_corners_lla=frame)
     self.scene.refresh_from_db()
 
+  def _layer(self):
+    """The single stored GLB layer of the scene."""
+    return self.scene.glb_layers.get()
+
   def _apply_glb(self):
     return self.client.put(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps({'use_glb_map': True}), content_type='application/json'
+      reverse('geospatial_glb_layer', kwargs={'scene_uid': self.scene.id, 'layer_id': self._layer().id}),
+      data=json.dumps({'enabled': True}), content_type='application/json'
     )
 
 
@@ -330,7 +334,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
     with self.captureOnCommitCallbacks(execute=True):
       resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
 
@@ -341,14 +345,14 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertIn('preview_url', result)
 
     self.scene.refresh_from_db()
-    self.assertTrue(self.scene.glb_map.name.endswith('.glb'))
+    self.assertTrue(self._layer().file.name.endswith('.glb'))
     self.assertFalse(self.scene.use_glb_map)
     self.assertTrue(self.scene.map.name.endswith('.png'))
     self.assertTrue(os.path.exists(os.path.join(self.media_root, old_map_fn)))
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
 
     # Footprint follows the X/Y extents after the ALIGN_ROTATION_X axis conversion
-    mesh, _ = extractMeshFromGLB(self.scene.glb_map.path, rotation=[glb_staging.ALIGN_ROTATION_X, 0.0, 0.0])
+    mesh, _ = extractMeshFromGLB(self._layer().file.path, rotation=[glb_staging.ALIGN_ROTATION_X, 0.0, 0.0])
     extent_w, extent_h, _ = getMeshSize(mesh)
     self.assertAlmostEqual(result['footprint_m']['width'], extent_w, places=2)
     self.assertAlmostEqual(result['footprint_m']['height'], extent_h, places=2)
@@ -374,7 +378,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
     with self.captureOnCommitCallbacks(execute=True):
       self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
     with patch.object(Scene, "regenerateThumbnail", return_value=False):
@@ -397,30 +401,30 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
     with self.captureOnCommitCallbacks(execute=True):
       resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
     self.assertEqual(resp.status_code, 200)
 
     resp2 = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
+      reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id})
     )
     self.assertEqual(resp2.status_code, 200)
-    result = json.loads(resp2.content)
+    result = json.loads(resp2.content)['layers'][0]
 
     self.assertAlmostEqual(result['anchor']['lat'], posted_lat, places=6)
     self.assertAlmostEqual(result['anchor']['lng'], posted_lng, places=6)
     # heading normalized: 370 % 360 = 10
     self.assertAlmostEqual(result['anchor']['heading_deg'], 10.0, places=2)
 
-  def test_get_on_png_map_reports_no_glb(self):
-    """GET on a scene with only a PNG map returns 200 with exists=false."""
+  def test_get_on_png_map_reports_no_layers(self):
+    """GET on a scene with only a PNG map returns 200 with no layers and the layer limit."""
     self._create_old_map()
     resp = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
+      reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id})
     )
     self.assertEqual(resp.status_code, 200)
-    self.assertFalse(json.loads(resp.content)['exists'])
+    self.assertEqual(json.loads(resp.content), {'max_layers': 1, 'layers': []})
 
   def test_commit_with_sensor_and_region_stores_without_map_change(self):
     """POST succeeds with existing sensors/regions and does not change the applied map."""
@@ -435,18 +439,49 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
     with self.captureOnCommitCallbacks(execute=True):
       resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
     self.assertEqual(resp.status_code, 200)
     self.scene.refresh_from_db()
     self.assertTrue(self.scene.map.name.endswith('.png'))
     self.assertEqual(self.scene.map.name, old_map_fn)
-    self.assertTrue(self.scene.glb_map.name.endswith('.glb'))
+    self.assertTrue(self._layer().file.name.endswith('.glb'))
+
+  @override_settings(GLB_MAX_LAYERS=2)
+  def test_two_layers_are_listed_and_a_third_upload_is_refused(self):
+    """Positive: two uploads are both listed; a third is refused with 409 and stores no row."""
+    self._create_old_map()
+    anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}
+    for _ in range(2):
+      with self.captureOnCommitCallbacks(execute=True):
+        resp = self._post_commit(token=self._stage_glb(), anchor=anchor)
+      self.assertEqual(resp.status_code, 200)
+
+    listing = json.loads(self.client.get(
+      reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id})).content)
+    self.assertEqual((listing['max_layers'], len(listing['layers'])), (2, 2))
+
+    resp = self._post_commit(token=self._stage_glb(), anchor=anchor)
+    self.assertEqual(resp.status_code, 409)
+    self.assertEqual(self.scene.glb_layers.count(), 2)
+
+  def test_layer_of_another_scene_is_not_found(self):
+    """Negative: a layer id from a different scene returns 404 and is not changed."""
+    other = Scene.objects.create(
+      name='other_geo', map_type='geospatial_map',
+      map_center_lat=37.38689, map_center_lng=-121.96411, output_lla=True)
+    foreign = GlbLayer.objects.create(scene=other, order=0, enabled=False, file='glb_maps/other.glb')
+    resp = self.client.put(
+      reverse('geospatial_glb_layer', kwargs={'scene_uid': self.scene.id, 'layer_id': foreign.id}),
+      data=json.dumps({'enabled': True}), content_type='application/json')
+    self.assertEqual(resp.status_code, 404)
+    foreign.refresh_from_db()
+    self.assertFalse(foreign.enabled)
 
   def _post_commit(self, scene_uid=None, **body):
     return self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': scene_uid or self.scene.id}),
+      reverse('geospatial_glbs', kwargs={'scene_uid': scene_uid or self.scene.id}),
       data=json.dumps(body), content_type='application/json'
     )
 
@@ -457,7 +492,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}
     for scene_uid, status in ((unknown, 404), (non_geo.id, 400)):
       with self.subTest(scene_uid=scene_uid, method='GET'):
-        resp = self.client.get(reverse('geospatial_glb', kwargs={'scene_uid': scene_uid}))
+        resp = self.client.get(reverse('geospatial_glbs', kwargs={'scene_uid': scene_uid}))
         self.assertEqual(resp.status_code, status)
       with self.subTest(scene_uid=scene_uid, method='POST'):
         resp = self._post_commit(scene_uid, token=self._stage_glb(), anchor=anchor)
@@ -466,7 +501,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
   def test_get_is_read_only_for_regular_users_and_closed_to_anonymous(self):
     """GET is allowed for a logged-in non-superuser (IsAdminOrReadOnly) and refused when anonymous."""
     self.client.force_login(User.objects.create_user('regular', 'reg@intel.com', 'pass'))
-    url = reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
+    url = reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id})
     self.assertEqual(self.client.get(url).status_code, 200)
     self.client.logout()
     self.assertEqual(self.client.get(url).status_code, 403)
@@ -482,7 +517,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     resp = self._post_commit(token=token, anchor=anchor)
     self.assertEqual(resp.status_code, 403)
     self.scene.refresh_from_db()
-    self.assertFalse(self.scene.glb_map)
+    self.assertFalse(self.scene.glb_layers.exists())
 
   def test_malformed_token_is_rejected(self):
     """Path-like, non-UUID and non-string tokens return 400; an unknown UUID returns 404."""
@@ -509,7 +544,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
         self.assertEqual(self._post_commit(token=token, anchor=bad_anchor).status_code, 400)
     # NaN is not valid JSON; the DRF parser rejects it
     resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+      reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
       data=f'{{"token": "{token}", "anchor": {{"lat": NaN, "lng": -121, "heading_deg": 0}}}}',
       content_type='application/json'
     )
@@ -518,7 +553,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
   def test_post_body_not_json_object_returns_400(self):
     """POST with body as JSON list returns 400."""
     resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+      reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
       data=json.dumps([]), content_type='application/json'
     )
     self.assertEqual(resp.status_code, 400)
@@ -534,7 +569,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
       side_effect=RuntimeError('Alignment failed')
     ):
       resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
 
@@ -562,7 +597,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
       side_effect=RuntimeError('Alignment failed')
     ):
       resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
 
@@ -579,13 +614,13 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
     with self.captureOnCommitCallbacks(execute=True):
       resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
 
     self.assertEqual(resp.status_code, 200)
     self.scene.refresh_from_db()
-    self.assertTrue(self.scene.glb_map.name.endswith('.glb'))
+    self.assertTrue(self._layer().file.name.endswith('.glb'))
     self.assertFalse(self.scene.map)
     self.assertFalse(self.scene.use_glb_map)
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
@@ -593,7 +628,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
 
 class TestSceneUpdateGlbAnchor(CommitBaseSetup):
-  """Save Scene Updates persists a shifted saved-GLB anchor posted as glb_anchor."""
+  """Save Scene Updates persists a shifted stored-GLB anchor posted in glb_changes."""
 
   SHIFTED = {'lat': 37.391, 'lng': -121.969, 'heading_deg': 90.0}
 
@@ -608,11 +643,19 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}}
     with self.captureOnCommitCallbacks(execute=True):
       resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
     self.assertEqual(resp.status_code, 200)
     self.scene.refresh_from_db()
+
+  def _anchor(self):
+    """Anchor of the stored layer."""
+    return self._layer().anchor
+
+  def _move_changes(self, anchor):
+    """glb_changes payload that moves the stored layer to anchor."""
+    return json.dumps([{'layer_id': str(self._layer().id), 'anchor': anchor}])
 
   def _scene_form_data(self, **overrides):
     """Scene update form data built from the stored scene, then overrides.
@@ -645,28 +688,28 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
   def test_form_persists_shifted_anchor_with_other_fields(self):
     """The shifted anchor is saved with the form's own fields, keeping the stored footprint."""
     self._commit_glb()
-    footprint = self.scene.glb_anchor['footprint_m']
+    footprint = self._anchor()['footprint_m']
 
-    resp = self._post_scene_form(name='geo_renamed', glb_anchor=json.dumps(self.SHIFTED))
+    resp = self._post_scene_form(name='geo_renamed', glb_changes=self._move_changes(self.SHIFTED))
 
     self.assertEqual(resp.status_code, 302)
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_renamed')
-    self.assertAlmostEqual(self.scene.glb_anchor['lat'], 37.391, places=6)
-    self.assertAlmostEqual(self.scene.glb_anchor['lng'], -121.969, places=6)
-    self.assertAlmostEqual(self.scene.glb_anchor['heading_deg'], 90.0, places=6)
-    self.assertEqual(self.scene.glb_anchor['footprint_m'], footprint)
+    self.assertAlmostEqual(self._anchor()['lat'], 37.391, places=6)
+    self.assertAlmostEqual(self._anchor()['lng'], -121.969, places=6)
+    self.assertAlmostEqual(self._anchor()['heading_deg'], 90.0, places=6)
+    self.assertEqual(self._anchor()['footprint_m'], footprint)
 
-  def test_form_without_anchor_leaves_glb_untouched(self):
+  def test_form_without_glb_changes_leaves_glb_untouched(self):
     """A plain Save Scene Updates does not move the stored GLB."""
     self._commit_glb()
-    before = self.scene.glb_anchor
+    before = self._anchor()
 
     resp = self._post_scene_form(name='geo_renamed')
 
     self.assertEqual(resp.status_code, 302)
     self.scene.refresh_from_db()
-    self.assertEqual(self.scene.glb_anchor, before)
+    self.assertEqual(self._anchor(), before)
 
   def test_shift_applied_glb_recomputes_pose_over_posted_corners(self):
     """An applied GLB's corners follow the new anchor, not the stale corners the form posted."""
@@ -677,19 +720,19 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     stale_corners = self.scene.map_corners_lla
 
     resp = self._post_scene_form(
-      glb_anchor=json.dumps(self.SHIFTED), map_corners_lla=json.dumps(stale_corners)
+      glb_changes=self._move_changes(self.SHIFTED), map_corners_lla=json.dumps(stale_corners)
     )
 
     self.assertEqual(resp.status_code, 302)
     self.scene.refresh_from_db()
     self.assertTrue(self.scene.use_glb_map)
-    self.assertAlmostEqual(self.scene.glb_anchor['lat'], 37.391, places=6)
+    self.assertAlmostEqual(self._anchor()['lat'], 37.391, places=6)
     self.assertNotEqual(self.scene.map_corners_lla, stale_corners)
 
   def test_stale_form_after_glb_apply_is_rejected_and_state_unchanged(self):
     """Second request posts a form loaded before the first request applied the GLB: 409, state unchanged."""
     self._commit_glb()
-    stale_form = self._scene_form_data(name='geo_renamed', glb_anchor=json.dumps(self.SHIFTED))
+    stale_form = self._scene_form_data(name='geo_renamed', glb_changes=self._move_changes(self.SHIFTED))
 
     # Request 1: apply the stored GLB
     with self.captureOnCommitCallbacks(execute=True):
@@ -698,7 +741,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.assertTrue(self.scene.use_glb_map)
     applied = (
       self.scene.name, self.scene.use_glb_map, self.scene.map.name, self.scene.base_map.name,
-      self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self.scene.glb_anchor,
+      self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self._anchor(),
     )
 
     # Request 2: the stale form still carries the state token of the pre-apply scene
@@ -708,7 +751,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.scene.refresh_from_db()
     self.assertEqual(
       (self.scene.name, self.scene.use_glb_map, self.scene.map.name, self.scene.base_map.name,
-       self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self.scene.glb_anchor),
+       self.scene.rotation_x, self.scene.translation_x, self.scene.map_corners_lla, self._anchor()),
       applied,
     )
 
@@ -770,7 +813,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
   def test_edit_page_repairs_a_missing_preview(self):
     """A saved GLB without a cached preview gets one when the edit page loads."""
     self._commit_glb()
-    preview = glb_staging.glb_preview_path(self.scene.glb_map.path)
+    preview = glb_staging.glb_preview_path(self._layer().file.path)
     if os.path.exists(preview):
       os.remove(preview)
     with patch.object(glb_staging, 'generateOrthoView',
@@ -784,17 +827,19 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     """A failure after the GLB commit and before the form save leaves the row, files and staged GLB as before."""
     self._commit_glb()
     self.mqtt_mock.reset_mock()
-    before_row = (self.scene.name, self.scene.glb_map.name, self.scene.glb_anchor)
+    layer = self._layer()
+    before_row = (self.scene.name, layer.file.name, layer.anchor)
     token = self._stage_glb()
     glb_files_before = self._glb_files()
-    form_data = self._scene_form_data(name='geo_renamed', glb_token=token, glb_anchor=json.dumps(self.SHIFTED))
+    glb_changes = json.dumps([{'layer_id': str(layer.id), 'token': token, 'anchor': self.SHIFTED}])
+    form_data = self._scene_form_data(name='geo_renamed', glb_changes=glb_changes)
 
     with patch.object(SceneUpdateForm, 'save', side_effect=RuntimeError('injected failure')):
       with self.assertRaises(RuntimeError):
         self.client.post(reverse('scene_update', args=[self.scene.id]), data=form_data)
 
     self.scene.refresh_from_db()
-    self.assertEqual((self.scene.name, self.scene.glb_map.name, self.scene.glb_anchor), before_row)
+    self.assertEqual((self.scene.name, self._layer().file.name, self._layer().anchor), before_row)
     # The replacement GLB written by the commit is removed; the staged file is kept for a retry
     self.assertEqual(self._glb_files(), glb_files_before)
     self.assertTrue(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
@@ -806,103 +851,102 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
       os.path.join(d, f) for d, _, files in os.walk(self.media_root) for f in files if f.endswith('.glb')
     )
 
-  def test_invalid_anchor_json_rerenders_with_error_and_keeps_scene(self):
-    """Malformed glb_anchor re-renders the form with an error and saves nothing."""
+  def test_malformed_glb_changes_rerenders_with_error_and_keeps_scene(self):
+    """Malformed glb_changes re-renders the form with an error and saves nothing."""
     self._commit_glb()
-    before = self.scene.glb_anchor
+    before = self._anchor()
 
-    resp = self._post_scene_form(name='geo_renamed', glb_anchor='{not json')
+    resp = self._post_scene_form(name='geo_renamed', glb_changes='{not json')
 
     self.assertEqual(resp.status_code, 200)
-    self.assertIn('Invalid GLB anchor', resp.context['form'].non_field_errors())
+    self.assertIn('Invalid GLB changes', resp.context['form'].non_field_errors())
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_scene')
-    self.assertEqual(self.scene.glb_anchor, before)
+    self.assertEqual(self._anchor(), before)
 
   def test_out_of_range_anchor_rerenders_with_error_and_keeps_scene(self):
     """A latitude outside [-90, 90] is rejected with the same error as the Save position route."""
     self._commit_glb()
-    before = self.scene.glb_anchor
+    before = self._anchor()
     bad = dict(self.SHIFTED, lat=91.0)
 
-    resp = self._post_scene_form(name='geo_renamed', glb_anchor=json.dumps(bad))
+    resp = self._post_scene_form(name='geo_renamed', glb_changes=self._move_changes(bad))
 
     self.assertEqual(resp.status_code, 200)
     self.assertIn('Invalid anchor', resp.context['form'].non_field_errors())
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_scene')
-    self.assertEqual(self.scene.glb_anchor, before)
+    self.assertEqual(self._anchor(), before)
 
-  def test_anchor_without_stored_glb_is_rejected(self):
-    """A shifted anchor with no stored GLB is refused and nothing is saved."""
-    resp = self._post_scene_form(name='geo_renamed', glb_anchor=json.dumps(self.SHIFTED))
+  def test_change_for_unknown_layer_is_rejected(self):
+    """A move of a layer that does not exist in this scene is refused and nothing is saved."""
+    changes = json.dumps([{'layer_id': str(uuid.uuid4()), 'anchor': self.SHIFTED}])
+
+    resp = self._post_scene_form(name='geo_renamed', glb_changes=changes)
 
     self.assertEqual(resp.status_code, 200)
-    self.assertIn('No stored GLB to move', resp.context['form'].non_field_errors())
+    self.assertIn('No such GLB layer', resp.context['form'].non_field_errors())
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_scene')
-    self.assertFalse(self.scene.glb_anchor)
+    self.assertFalse(self.scene.glb_layers.exists())
 
   def test_staged_glb_is_accepted_with_scene_update(self):
     """Save Scene Updates with a staged GLB stores it in the same save as the other scene fields."""
     token = self._stage_glb()
+    changes = json.dumps([{'token': token, 'anchor': self.SHIFTED}])
 
     with self.captureOnCommitCallbacks(execute=True):
-      resp = self._post_scene_form(
-        name='geo_renamed', glb_token=token, glb_anchor=json.dumps(self.SHIFTED)
-      )
+      resp = self._post_scene_form(name='geo_renamed', glb_changes=changes)
 
     self.assertEqual(resp.status_code, 302)
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_renamed')
-    self.assertTrue(self.scene.glb_map)
+    self.assertTrue(self._layer().file.name.endswith('.glb'))
     self.assertFalse(self.scene.use_glb_map)
-    self.assertAlmostEqual(self.scene.glb_anchor['lat'], 37.391, places=6)
-    self.assertAlmostEqual(self.scene.glb_anchor['lng'], -121.969, places=6)
-    self.assertAlmostEqual(self.scene.glb_anchor['heading_deg'], 90.0, places=6)
-    self.assertIn('footprint_m', self.scene.glb_anchor)
+    self.assertAlmostEqual(self._anchor()['lat'], 37.391, places=6)
+    self.assertAlmostEqual(self._anchor()['lng'], -121.969, places=6)
+    self.assertAlmostEqual(self._anchor()['heading_deg'], 90.0, places=6)
+    self.assertIn('footprint_m', self._anchor())
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
 
   def test_staged_glb_with_unknown_token_is_rejected(self):
     """A staged token with no file is refused and nothing is saved."""
-    resp = self._post_scene_form(
-      name='geo_renamed', glb_token=str(uuid.uuid4()), glb_anchor=json.dumps(self.SHIFTED)
-    )
+    changes = json.dumps([{'token': str(uuid.uuid4()), 'anchor': self.SHIFTED}])
+
+    resp = self._post_scene_form(name='geo_renamed', glb_changes=changes)
 
     self.assertEqual(resp.status_code, 200)
     self.assertIn('Staged GLB not found or expired', resp.context['form'].non_field_errors())
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_scene')
-    self.assertFalse(self.scene.glb_map)
+    self.assertFalse(self.scene.glb_layers.exists())
 
   def test_staged_glb_with_invalid_anchor_is_rejected(self):
     """A staged GLB with a malformed anchor is refused and the staged file is kept for retry."""
     token = self._stage_glb()
+    changes = json.dumps([{'token': token, 'anchor': 'not-an-anchor'}])
 
-    resp = self._post_scene_form(
-      name='geo_renamed', glb_token=token, glb_anchor='{not json'
-    )
+    resp = self._post_scene_form(name='geo_renamed', glb_changes=changes)
 
     self.assertEqual(resp.status_code, 200)
-    self.assertIn('Invalid GLB anchor', resp.context['form'].non_field_errors())
+    self.assertIn('Invalid anchor', resp.context['form'].non_field_errors())
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_scene')
-    self.assertFalse(self.scene.glb_map)
+    self.assertFalse(self.scene.glb_layers.exists())
     self.assertTrue(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
 
   def test_staged_glb_on_non_geospatial_scene_is_rejected(self):
     """A staged GLB is not stored when the form switches the scene to another map type."""
     token = self._stage_glb()
+    changes = json.dumps([{'token': token, 'anchor': self.SHIFTED}])
 
-    resp = self._post_scene_form(
-      name='geo_renamed', map_type='map_upload', glb_token=token, glb_anchor=json.dumps(self.SHIFTED)
-    )
+    resp = self._post_scene_form(name='geo_renamed', map_type='map_upload', glb_changes=changes)
 
     self.assertEqual(resp.status_code, 200)
     self.assertIn('Scene map type must be geospatial_map', resp.context['form'].non_field_errors())
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.name, 'geo_scene')
-    self.assertFalse(self.scene.glb_map)
+    self.assertFalse(self.scene.glb_layers.exists())
 
   def test_clearing_map_on_geospatial_scene_is_rejected(self):
     """Ticking Clear on the map of an output_lla scene is refused, not saved as an empty map."""
@@ -944,7 +988,7 @@ class TestGlbApplyOverFlatMap(CommitBaseSetup):
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}}
     with self.captureOnCommitCallbacks(execute=True):
       self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
       self._apply_glb()
@@ -952,8 +996,8 @@ class TestGlbApplyOverFlatMap(CommitBaseSetup):
     self.assertTrue(self.scene.use_glb_map)
 
     resp = self.client.put(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps({'use_glb_map': False}), content_type='application/json'
+      reverse('geospatial_glb_layer', kwargs={'scene_uid': self.scene.id, 'layer_id': self._layer().id}),
+      data=json.dumps({'enabled': False}), content_type='application/json'
     )
 
     self.assertEqual(resp.status_code, 200)
@@ -973,7 +1017,7 @@ class TestGenerateMeshGlbOverride(CommitBaseSetup):
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}}
     with self.captureOnCommitCallbacks(execute=True):
       self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps(body), content_type='application/json'
       )
     with self.captureOnCommitCallbacks(execute=True):

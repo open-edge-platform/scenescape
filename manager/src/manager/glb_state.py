@@ -446,12 +446,22 @@ def _next_order(scene):
   return 0 if highest is None else highest + 1
 
 
-def commit_layer(scene, token, anchor, layer=None, enable=False, save=True):
+def _new_layer_for_commit(scene, enable):
+  """An unsaved layer for a new upload; 409 when the scene already holds GLB_MAX_LAYERS layers."""
+  if scene.glb_layers.count() >= settings.GLB_MAX_LAYERS:
+    raise GlbAlignmentError(409, f'A scene holds at most {settings.GLB_MAX_LAYERS} GLB layers')
+  layer = GlbLayer(scene=scene, order=_next_order(scene))
+  layer.enabled = enable and _has_flat_base(scene)
+  return layer
+
+
+def commit_layer(scene, token, anchor, layer=None, enable=False, save=True, stored_names=None):
   """Store a staged GLB as a layer: a new one (layer None) or a new file for an existing layer.
 
   A new layer is placed when enable is set and the scene has a flat base map; otherwise it is
   stored disabled. An existing layer keeps its enabled state. Caller holds nothing; this locks.
-  Returns the saved_alignment dict of the layer.
+  stored_names, when given, is the enclosing write's list of stored files: the new layer file is
+  added so that a later failure in that write discards it. Returns the saved_alignment dict of the layer.
   """
   if scene.use_glb_map:
     # Re-placing the GLB needs the flat base map; storing alone does not
@@ -463,10 +473,7 @@ def commit_layer(scene, token, anchor, layer=None, enable=False, save=True):
 
   with _failing_as('Failed to store GLB'), locked_scene_write(scene) as created:
     if layer is None:
-      if scene.glb_layers.count() >= settings.GLB_MAX_LAYERS:
-        raise GlbAlignmentError(409, f'A scene holds at most {settings.GLB_MAX_LAYERS} GLB layers')
-      layer = GlbLayer(scene=scene, order=_next_order(scene))
-      layer.enabled = enable and _has_flat_base(scene)
+      layer = _new_layer_for_commit(scene, enable)
     else:
       layer.refresh_from_db()
     old_file = layer.file.name or ''
@@ -474,6 +481,8 @@ def commit_layer(scene, token, anchor, layer=None, enable=False, save=True):
     with open(path, 'rb') as f:
       layer.file.save(f'{scene.name}.glb', File(f), save=False)
     created.append(layer.file.name)
+    if stored_names is not None:
+      stored_names.append(layer.file.name)
     adopt_staged_preview(layer, token)
 
     width, height = _get_aligned_footprint_size_m(layer.file.path)
@@ -522,7 +531,6 @@ def set_layer_enabled(scene, layer, enabled, save=True):
     build_scene_map(scene)
     if save:
       scene.save()
-  return write_response(layer)
 
 
 def move_layer(scene, layer, anchor, save=True):
@@ -546,7 +554,6 @@ def move_layer(scene, layer, anchor, save=True):
       build_scene_map(scene)
     if save:
       scene.save()
-  return write_response(layer)
 
 
 def remove_layer(scene, layer):

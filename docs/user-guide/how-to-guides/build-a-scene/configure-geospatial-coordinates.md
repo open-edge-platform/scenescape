@@ -93,7 +93,7 @@ For scenes that use a 3D model (GLB file) as the map:
 
 - The scene's **Map Type** is **Geospatial Map**. The 3D model section and the REST endpoints reject other map types.
 - The scene has a saved map centre (latitude and longitude). Until the scene is saved with a map centre, the file picker is disabled and the preview request returns `400`. Select a location on the map as described in [Steps to Leverage Built-In Geospatial Map Creation](#steps-to-leverage-built-in-geospatial-map-creation) and click **Save Scene**.
-- The `.glb` file is no larger than the upload limit. The limit is 132 MB by default and is set by the `GLB_UPLOAD_MAX_SIZE_MB` environment variable of the Manager service (value in MB). A larger file is rejected with `413`. The stock `docker-compose.yml` does not forward this variable, so add it to the Manager service's `environment` to change it.
+- The `.glb` file is no larger than the upload limit. The limit is 132 MB by default and is set by the `GLB_UPLOAD_MAX_SIZE_MB` environment variable of the Manager service (value in MB). A larger file is rejected with `413`. The stock `docker-compose.yml` does not forward this variable, so add it to the Manager service's `environment` to change it. The number of 3D models a scene can hold is set the same way by `GLB_MAX_LAYERS` (see [Multiple 3D Models](#multiple-3d-models)).
 - The scene map is a flat image, not a `.glb`. A model can only be shown on the scene map over a flat base map image. If the scene map is a `.glb`, or a model is applied but no base map image is stored, applying or saving the model is rejected with `400`. Replace the scene map with an image first.
 - Saving, applying, moving, or removing a model requires a superuser account.
 
@@ -104,7 +104,7 @@ The position of the model on the map is stored as an anchor:
 - **Anchor** (`lat`, `lng`): the latitude and longitude of the centre of the model's footprint (its bounding rectangle on the ground plane). A new model starts at the scene's saved map centre. The anchor must be within 50 km of the map centre; the UI warns about a farther position and the API rejects it with `400`.
 - **Heading** (`heading_deg`): the clockwise rotation of the model's +Y axis from true north, in degrees. `0` points north and `90` points east. The UI limits the heading to 0-359.9; the API normalises any value to the range 0 to below 360.
 
-The saved anchor is also reported by `GET /api/v1/scene/<scene_uid>/geospatial-glb`.
+The saved anchor of each model is also reported by `GET /api/v1/scene/<scene_uid>/geospatial-glbs` (see [Multiple 3D Models](#multiple-3d-models)).
 
 ### Axis Convention
 
@@ -163,6 +163,27 @@ To replace a saved 3D model:
 1. Adjust the heading and position as needed (the preview starts at the saved model's position).
 1. Click **Save Scene Updates** to replace the saved model. If the scene has a flat base map image, the new model is applied at the new position, as with a first save. Otherwise the scene map is unchanged and the new model stays unapplied. If the save fails, the saved model is kept unchanged.
 1. Click **Cancel** to discard the staged file and return to the saved model.
+
+### Multiple 3D Models
+
+A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The default is `1`, which gives the single-model behaviour described above and leaves existing scenes unchanged. To allow more layers, set `GLB_MAX_LAYERS` in the Manager service's `environment`, as for `GLB_UPLOAD_MAX_SIZE_MB`. The add-layer control in the 3D model section appears only when the limit is above `1`.
+
+- Each layer has its own file, anchor and heading, and applied state.
+- Layers are numbered in upload order. Layers are drawn in that order, and the order cannot be changed.
+- A new layer is placed on the scene map only when it is enabled and the scene has a flat base map image. Otherwise it is stored disabled. The enabled layers are combined into the scene map.
+- Replacing the file of an existing layer does not count toward the limit. Adding a layer to a scene that already holds `GLB_MAX_LAYERS` layers is rejected with `409`.
+- Removing a layer deletes its file and preview. If it was enabled, the scene map is rebuilt without it.
+- The 50 km anchor limit, the file size limit, and the superuser requirement apply to each layer.
+
+The layer endpoints are:
+
+- `GET /api/v1/scene/<scene_uid>/geospatial-glbs`: list the layers and `max_layers`.
+- `POST /api/v1/scene/<scene_uid>/geospatial-glbs`: store a staged file as a new layer, or as the new file of `layer_id`.
+- `PUT /api/v1/scene/<scene_uid>/geospatial-glbs/<layer_id>`: move a layer or place it on the map (`enabled`).
+- `DELETE /api/v1/scene/<scene_uid>/geospatial-glbs/<layer_id>`: remove a layer.
+- `GET /api/v1/scene/<scene_uid>/geospatial-glbs/<layer_id>/download`: download the layer's file.
+
+The single-model routes under `/geospatial-glb` were replaced by these routes. Clients that used them must switch to the layer routes.
 
 ### Effect on Running Services
 

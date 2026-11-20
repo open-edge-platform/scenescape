@@ -1381,18 +1381,16 @@ paths:
           description: GLB file exceeds the maximum upload size (GLB_UPLOAD_MAX_SIZE_MB, default 132 MB)
         "500":
           description: Internal server error
-  /scene/{uid}/geospatial-glb:
+  /scene/{uid}/geospatial-glbs:
     get:
       tags:
         - scene
-      operationId: scene_geospatial_glb_retrieve
-      summary: Get geospatial alignment of a committed GLB
+      operationId: scene_geospatial_glbs_list
+      summary: List the geospatial GLB layers of a scene
       description: >-
-        Retrieve the geospatial alignment (anchor and footprint) of a GLB that has been
-        committed to a geospatial scene. The anchor specifies the footprint centre latitude
-        and longitude, and heading_deg is the clockwise rotation of the GLB's +Y axis from
-        true north. Corners are derived server-side from the anchor and footprint dimensions.
-        The previous map file is not deleted by this operation.
+        Return the GLB layers of a geospatial scene in draw order, which is the upload order. Each layer
+        has its own anchor, footprint, applied state, and file. max_layers is the per-scene limit set by
+        the GLB_MAX_LAYERS environment variable (default 1); with the default a scene holds one layer.
       parameters:
         - in: path
           name: uid
@@ -1405,53 +1403,63 @@ paths:
         - cookieAuth: []
       responses:
         "200":
-          description: Geospatial alignment retrieved successfully
+          description: Layers retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  exists:
-                    type: boolean
-                    description: True if a GLB file is saved for this scene
-                  filename:
-                    type: string
-                    nullable: true
-                    description: The original filename of the saved GLB file
-                  download_url:
-                    type: string
-                    nullable: true
-                    description: Relative URL for downloading the saved GLB file
-                  anchor:
-                    type: object
-                    nullable: true
-                    properties:
-                      lat:
-                        type: number
-                        description: Latitude of footprint centre in degrees
-                      lng:
-                        type: number
-                        description: Longitude of footprint centre in degrees
-                      heading_deg:
-                        type: number
-                        description: Heading in degrees (0 = north, 90 = east), clockwise rotation of GLB +Y from true north
-                  footprint_m:
-                    type: object
-                    nullable: true
-                    properties:
-                      width:
-                        type: number
-                        description: Footprint width in metres (east-west extent)
-                      height:
-                        type: number
-                        description: Footprint height in metres (north-south extent)
-                  use_glb_map:
-                    type: boolean
-                    description: True if the GLB is applied as the scene map; false if overlay only
-                  preview_url:
-                    type: string
-                    nullable: true
-                    description: Relative URL to the top-down preview PNG of the saved GLB
+                  max_layers:
+                    type: integer
+                    description: Maximum number of GLB layers the scene can hold (GLB_MAX_LAYERS)
+                  layers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        order:
+                          type: integer
+                          description: Draw order; layers are numbered in upload order
+                        enabled:
+                          type: boolean
+                          description: True if the layer is applied to the scene map; false if overlay only
+                        filename:
+                          type: string
+                          description: The original filename of the layer's GLB file
+                        download_url:
+                          type: string
+                          nullable: true
+                          description: Relative URL for downloading the layer's GLB file
+                        anchor:
+                          type: object
+                          nullable: true
+                          properties:
+                            lat:
+                              type: number
+                              description: Latitude of footprint centre in degrees
+                            lng:
+                              type: number
+                              description: Longitude of footprint centre in degrees
+                            heading_deg:
+                              type: number
+                              description: Heading in degrees (0 = north, 90 = east), clockwise rotation of GLB +Y from true north
+                        footprint_m:
+                          type: object
+                          nullable: true
+                          properties:
+                            width:
+                              type: number
+                              description: Footprint width in metres (east-west extent)
+                            height:
+                              type: number
+                              description: Footprint height in metres (north-south extent)
+                        preview_url:
+                          type: string
+                          nullable: true
+                          description: Relative URL to the top-down preview PNG of the layer's GLB
         "400":
           description: Scene is not a geospatial_map
         "401":
@@ -1463,19 +1471,19 @@ paths:
     post:
       tags:
         - scene
-      operationId: scene_geospatial_glb_commit
-      summary: Commit a staged GLB to a scene with geospatial anchor
+      operationId: scene_geospatial_glbs_commit
+      summary: Add a GLB layer, or replace the file of a layer, from a staged GLB
       description: >-
-        Store a previously staged GLB file with its geospatial anchor. The GLB is stored but not
-        applied; if use_glb_map is already true, the new GLB is re-applied immediately at the new
-        anchor, otherwise apply it with PUT use_glb_map: true. The anchor specifies the footprint
-        centre latitude and longitude, and heading_deg is the clockwise rotation of the GLB's +Y axis
-        from true north. Server-side, the footprint is measured from the GLB mesh. The previously
-        stored GLB and its preview are deleted after a successful commit. Cameras, regions, and
-        sensors keep their local positions and trs_matrix is unchanged. If the GLB is applied, the
-        map pose and map_corners_lla are recomputed, so the lat/lng reported for objects can change.
-        The anchor must be within 50 km of the scene's map center (map_center_lat, map_center_lng);
-        a farther anchor returns 400.
+        Store a previously staged GLB file as a new layer, or as the new file of the layer given by
+        layer_id, which keeps its enabled state. A new layer is placed on the scene map only when enabled
+        is true and the scene has a flat base map; otherwise it is stored disabled. Adding a layer to a scene
+        that already holds max_layers layers returns 409. The anchor specifies the footprint centre latitude
+        and longitude, and heading_deg is the clockwise rotation of the GLB's +Y axis from true north.
+        Server-side, the footprint is measured from the GLB mesh. The file replaced by layer_id and its
+        preview are deleted after a successful commit. Cameras, regions, and sensors keep their local
+        positions and trs_matrix is unchanged. If the layer is applied, the map pose and map_corners_lla are
+        recomputed, so the lat/lng reported for objects can change. The anchor must be within 50 km of the
+        scene's map center (map_center_lat, map_center_lng); a farther anchor returns 400.
       parameters:
         - in: path
           name: uid
@@ -1509,6 +1517,14 @@ paths:
                     - lat
                     - lng
                     - heading_deg
+                enabled:
+                  type: boolean
+                  default: false
+                  description: Place the new layer on the scene map when it is added; ignored when layer_id is given
+                layer_id:
+                  type: string
+                  format: uuid
+                  description: Layer whose GLB file is replaced; omit to add a new layer
               required:
                 - token
                 - anchor
@@ -1548,41 +1564,53 @@ paths:
                   filename:
                     type: string
                     description: The original filename of the GLB file
-                  use_glb_map:
+                  id:
+                    type: string
+                    format: uuid
+                  order:
+                    type: integer
+                  enabled:
                     type: boolean
-                    description: Whether the GLB is applied as the scene map
+                    description: True if the layer is applied to the scene map
                   preview_url:
                     type: string
                     nullable: true
                     description: Relative URL to the top-down preview PNG
         "400":
-          description: Scene is not a geospatial_map, invalid token, invalid anchor, or the GLB is already applied and the scene has no flat base map
+          description: Scene is not a geospatial_map, invalid token, invalid anchor, or the scene map is a GLB with no flat base map
         "401":
           description: Unauthorized
         "403":
           description: Forbidden (requires superuser)
         "404":
-          description: Scene not found or staged GLB not found/expired
+          description: Scene, layer_id, or staged GLB not found/expired
+        "409":
+          description: The scene already holds max_layers GLB layers
         "500":
           description: Internal server error
+  /scene/{uid}/geospatial-glbs/{layer_id}:
     put:
       tags:
         - scene
-      operationId: scene_geospatial_glb_update
-      summary: Update geospatial alignment of a committed GLB
+      operationId: scene_geospatial_glbs_update
+      summary: Move a GLB layer, place it on the map, or take it off
       description: >-
-        Partially update a committed GLB's position and/or applied state. Both anchor and use_glb_map
-        are optional; omitted fields are not updated. Setting use_glb_map to true snapshots the
-        current scene map and applies the GLB; setting it to false restores that snapshot. Changing
-        anchor while the GLB is applied recomputes the map pose and map_corners_lla, and while it is
-        not applied only the stored anchor changes. Cameras, regions, and sensors keep their local
-        positions and trs_matrix is unchanged, but the lat/lng reported for objects can change.
-        An empty anchor object (`anchor: {}`) returns 400; omit anchor or set it to null to leave it unchanged.
-        The anchor must be within 50 km of the scene's map center (map_center_lat, map_center_lng);
-        a farther anchor returns 400.
+        Partially update one GLB layer. Both anchor and enabled are optional; omitted fields are not
+        updated. A new anchor moves the layer, and if the layer is applied the map pose and map_corners_lla
+        are recomputed. enabled true places the layer on the scene map and false takes it off; the other
+        layers keep their state. Cameras, regions, and sensors keep their local positions and trs_matrix is
+        unchanged, but the lat/lng reported for objects can change. An empty anchor object (`anchor: {}`)
+        returns 400; omit anchor or set it to null to leave it unchanged. The anchor must be within 50 km of
+        the scene's map center (map_center_lat, map_center_lng); a farther anchor returns 400.
       parameters:
         - in: path
           name: uid
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: path
+          name: layer_id
           schema:
             type: string
             format: uuid
@@ -1606,9 +1634,9 @@ paths:
                     heading_deg:
                       type: number
                       description: Heading in degrees (0 = north, 90 = east), clockwise rotation of GLB +Y from true north
-                use_glb_map:
+                enabled:
                   type: boolean
-                  description: True to place GLB over the flat base map (hybrid view); false to restore the base map
+                  description: True to place the layer on the scene map; false to take it off
         required: true
       security:
         - tokenAuth: []
@@ -1637,7 +1665,12 @@ paths:
                         type: number
                       height:
                         type: number
-                  use_glb_map:
+                  id:
+                    type: string
+                    format: uuid
+                  order:
+                    type: integer
+                  enabled:
                     type: boolean
                   preview_url:
                     type: string
@@ -1652,27 +1685,33 @@ paths:
                     type: string
                     description: Digest of the scene map, pose, corners, and GLB state after the change
         "400":
-          description: Scene is not a geospatial_map, invalid anchor provided, or use_glb_map is true and the scene has no flat base map
+          description: Scene is not a geospatial_map, invalid anchor, enabled already matches the current state, or the scene has no flat base map to place the layer on
         "401":
           description: Unauthorized
         "403":
           description: Forbidden (requires superuser)
         "404":
-          description: Scene not found or no GLB file saved
+          description: Scene or GLB layer not found
         "500":
           description: Internal server error
     delete:
       tags:
         - scene
-      operationId: scene_geospatial_glb_destroy
-      summary: Delete a committed GLB from a scene
+      operationId: scene_geospatial_glbs_destroy
+      summary: Delete a GLB layer from a scene
       description: >-
-        Remove the saved GLB file, its preview, and its alignment from a geospatial scene. If the
-        GLB is applied, the scene's original map is restored from the snapshot taken when it was
-        applied first. The request has no body; the response body carries the scene values to mirror.
+        Remove one GLB layer's file, its preview, and its alignment from a geospatial scene. If the layer
+        was applied, the scene map is rebuilt without it. The request has no body; the response body carries
+        the scene values to mirror.
       parameters:
         - in: path
           name: uid
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: path
+          name: layer_id
           schema:
             type: string
             format: uuid
@@ -1705,19 +1744,25 @@ paths:
         "403":
           description: Forbidden (requires superuser)
         "404":
-          description: Scene not found or no GLB file saved
+          description: Scene or GLB layer not found
         "500":
           description: Internal server error
-  /scene/{uid}/geospatial-glb/download:
+  /scene/{uid}/geospatial-glbs/{layer_id}/download:
     get:
       tags:
         - scene
-      operationId: scene_geospatial_glb_download
-      summary: Download a committed GLB file
-      description: Download the saved GLB file associated with a geospatial scene. Requires a logged-in session (cookie auth only).
+      operationId: scene_geospatial_glbs_download
+      summary: Download a GLB layer file
+      description: Download the saved GLB file of one layer of a geospatial scene. Requires a logged-in session (cookie auth only).
       parameters:
         - in: path
           name: uid
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: path
+          name: layer_id
           schema:
             type: string
             format: uuid
@@ -4979,6 +5024,17 @@ components:
           type: string
           nullable: true
           readOnly: true
+        base_map:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+          description: Flat map snapshot kept under an applied GLB; empty when no GLB is applied
+        base_scale:
+          type: number
+          readOnly: true
+          nullable: true
+          description: Pixels per metre of base_map
         name:
           type: string
           description: >

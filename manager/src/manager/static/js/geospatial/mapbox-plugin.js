@@ -12,6 +12,8 @@ class MapboxPlugin extends MapInterface {
     this.map = null;
     this.accessToken = this.getMapboxApiKey();
     // Note: Don't show modal in constructor - wait for initialize()
+    // Overlay id -> corners, so each GLB layer keeps its own frame geometry.
+    this.overlayCorners = new Map();
   }
 
   getMapboxApiKey() {
@@ -315,25 +317,32 @@ class MapboxPlugin extends MapInterface {
     ];
   }
 
-  setOverlay(imageUrl, corners, opacity, frameColor = null) {
-    this.removeOverlay();
-    this.overlayCorners = corners;
+  // `id` names the overlay's source and layers; layers added later draw above earlier ones.
+  setOverlay(
+    imageUrl,
+    corners,
+    opacity,
+    frameColor = null,
+    id = "glb-overlay",
+  ) {
+    this.removeOverlay(id);
+    this.overlayCorners.set(id, corners);
     const coordinates = this._cornersToMapboxCoordinates(corners);
-    this.map.addSource("glb-overlay", {
+    this.map.addSource(id, {
       type: "image",
       url: imageUrl,
       coordinates: coordinates,
     });
     this.map.addLayer({
-      id: "glb-overlay",
+      id: id,
       type: "raster",
-      source: "glb-overlay",
+      source: id,
       paint: {
         "raster-opacity": opacity,
         "raster-fade-duration": 0,
       },
     });
-    this.setOverlayFrameColor(frameColor);
+    this.setOverlayFrameColor(frameColor, id);
   }
 
   _frameFeature(corners) {
@@ -344,17 +353,19 @@ class MapboxPlugin extends MapInterface {
     };
   }
 
-  setOverlayFrameColor(color) {
-    this._removeOverlayFrame();
-    if (!color || !this.overlayCorners) return;
-    this.map.addSource("glb-overlay-frame", {
+  setOverlayFrameColor(color, id = "glb-overlay") {
+    this._removeOverlayFrame(id);
+    const corners = this.overlayCorners.get(id);
+    if (!color || !corners) return;
+    const frameId = `${id}-frame`;
+    this.map.addSource(frameId, {
       type: "geojson",
-      data: this._frameFeature(this.overlayCorners),
+      data: this._frameFeature(corners),
     });
     this.map.addLayer({
-      id: "glb-overlay-frame",
+      id: frameId,
       type: "line",
-      source: "glb-overlay-frame",
+      source: frameId,
       paint: {
         "line-color": color,
         "line-width": 3,
@@ -363,41 +374,40 @@ class MapboxPlugin extends MapInterface {
     });
   }
 
-  _removeOverlayFrame() {
-    if (this.map.getLayer("glb-overlay-frame")) {
-      this.map.removeLayer("glb-overlay-frame");
+  _removeOverlayFrame(id) {
+    const frameId = `${id}-frame`;
+    if (this.map.getLayer(frameId)) {
+      this.map.removeLayer(frameId);
     }
-    if (this.map.getSource("glb-overlay-frame")) {
-      this.map.removeSource("glb-overlay-frame");
+    if (this.map.getSource(frameId)) {
+      this.map.removeSource(frameId);
     }
   }
 
-  updateOverlay(corners) {
-    const source = this.map.getSource("glb-overlay");
+  updateOverlay(corners, id = "glb-overlay") {
+    const source = this.map.getSource(id);
     if (source) {
-      this.overlayCorners = corners;
+      this.overlayCorners.set(id, corners);
       const coordinates = this._cornersToMapboxCoordinates(corners);
       source.setCoordinates(coordinates);
-      this.map
-        .getSource("glb-overlay-frame")
-        ?.setData(this._frameFeature(corners));
+      this.map.getSource(`${id}-frame`)?.setData(this._frameFeature(corners));
     }
   }
 
-  setOverlayOpacity(opacity) {
-    if (this.map.getLayer("glb-overlay")) {
-      this.map.setPaintProperty("glb-overlay", "raster-opacity", opacity);
+  setOverlayOpacity(opacity, id = "glb-overlay") {
+    if (this.map.getLayer(id)) {
+      this.map.setPaintProperty(id, "raster-opacity", opacity);
     }
   }
 
-  removeOverlay() {
-    this._removeOverlayFrame();
-    this.overlayCorners = null;
-    if (this.map.getLayer("glb-overlay")) {
-      this.map.removeLayer("glb-overlay");
+  removeOverlay(id = "glb-overlay") {
+    this._removeOverlayFrame(id);
+    this.overlayCorners.delete(id);
+    if (this.map.getLayer(id)) {
+      this.map.removeLayer(id);
     }
-    if (this.map.getSource("glb-overlay")) {
-      this.map.removeSource("glb-overlay");
+    if (this.map.getSource(id)) {
+      this.map.removeSource(id);
     }
   }
 

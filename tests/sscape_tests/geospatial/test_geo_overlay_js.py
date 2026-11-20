@@ -172,6 +172,25 @@ class TestMapbox:
     assert len(r["sources"]) == 1
     assert len(r["layers"]) == 1
 
+  def test_non_default_overlay_ids_are_independent(self):
+    """Overlays keyed by different ids coexist, and the default id is left alone."""
+    corners = [{"lat": 10, "lng": 20}, {"lat": 10, "lng": 30}, {"lat": 20, "lng": 30}, {"lat": 20, "lng": 20}]
+    res = run_js("mapbox", [["setOverlay", "a.png", corners, 0.5, "glb-overlay-1"], ["setOverlay", "b.png", corners, 0.7]])
+    assert res["ok"]
+    assert sorted(res["sources"]) == ["glb-overlay", "glb-overlay-1"]
+    assert sorted(res["layers"]) == ["glb-overlay", "glb-overlay-1"]
+
+  def test_remove_only_its_own_overlay(self):
+    """removeOverlay with an id drops that overlay's source and layer only."""
+    corners = [{"lat": 10, "lng": 20}, {"lat": 10, "lng": 30}, {"lat": 20, "lng": 30}, {"lat": 20, "lng": 20}]
+    res = run_js(
+      "mapbox",
+      [["setOverlay", "a.png", corners, 0.5, "glb-overlay-1"], ["setOverlay", "b.png", corners, 0.7], ["removeOverlay", "glb-overlay-1"]],
+    )
+    assert res["ok"]
+    assert res["sources"] == ["glb-overlay"]
+    assert res["layers"] == ["glb-overlay"]
+
   def test_point_to_lat_lng(self):
     """pointToLatLng converts pixel to lat/lng."""
     res = run_js("mapboxPointToLatLng", [[100, 200], [0, 0], [-50, 150]])
@@ -290,6 +309,20 @@ class TestGoogle:
     assert res["afterDraw"] == 4
     assert res["allRemoved"] is True
     assert res["afterOff"] == 4
+
+  def test_non_default_overlay_ids_are_independent(self):
+    """Overlays keyed by different ids are both kept; removing one leaves the other."""
+    corners = [{"lat": 10, "lng": 20}, {"lat": 10, "lng": 30}, {"lat": 20, "lng": 30}, {"lat": 20, "lng": 20}]
+    res = run_js("google", {"steps": [["setOverlay", "a.png", corners, 0.5, "glb-overlay-1"], ["setOverlay", "b.png", corners, 0.7]]})
+    assert res["ok"]
+    assert sorted(res["overlayIds"]) == ["glb-overlay", "glb-overlay-1"]
+
+    res = run_js(
+      "google",
+      {"steps": [["setOverlay", "a.png", corners, 0.5, "glb-overlay-1"], ["setOverlay", "b.png", corners, 0.7], ["removeOverlay", "glb-overlay-1"]]},
+    )
+    assert res["ok"]
+    assert res["overlayIds"] == ["glb-overlay"]
 
   @pytest.mark.parametrize("opacity", [0.2, 0.4, 0.6])
   def test_set_overlay_applies_opacity_to_image(self, opacity):

@@ -62,24 +62,31 @@ class MapInterface {
     throw new Error("Method 'onViewChange' must be implemented");
   }
 
-  setOverlay(imageUrl, corners, opacity) {
+  // `id` keys one overlay; the default is the single-layer overlay.
+  setOverlay(
+    imageUrl,
+    corners,
+    opacity,
+    frameColor = null,
+    id = "glb-overlay",
+  ) {
     throw new Error("Method 'setOverlay' must be implemented");
   }
 
-  updateOverlay(corners) {
+  updateOverlay(corners, id = "glb-overlay") {
     throw new Error("Method 'updateOverlay' must be implemented");
   }
 
-  setOverlayOpacity(opacity) {
+  setOverlayOpacity(opacity, id = "glb-overlay") {
     throw new Error("Method 'setOverlayOpacity' must be implemented");
   }
 
   // A dashed outline of the given colour around the overlay; null removes it.
-  setOverlayFrameColor(color) {
+  setOverlayFrameColor(color, id = "glb-overlay") {
     throw new Error("Method 'setOverlayFrameColor' must be implemented");
   }
 
-  removeOverlay() {
+  removeOverlay(id = "glb-overlay") {
     throw new Error("Method 'removeOverlay' must be implemented");
   }
 

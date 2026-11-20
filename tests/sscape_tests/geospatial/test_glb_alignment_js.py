@@ -20,7 +20,7 @@ FRAME_UNAPPLIED = "#c62828"
 MOVING_OPACITY = 0.3
 STAGED_OPACITY = 0.7
 SAVED_OPACITY = 0.7
-_NO_SAVED = {"status": 200, "body": {"exists": False}}
+_NO_SAVED = {"status": 200, "body": {"max_layers": 1, "layers": []}}
 
 SCENE_FIELDS_APPLIED = {
   "scale": 2.5,
@@ -65,20 +65,20 @@ def _align(responses, steps, **extra):
 
 
 def _saved_model_get(**overrides):
-  """Saved GLB response at the default test anchor."""
-  return {
-    "status": 200,
-    "body": {
-      "exists": True,
-      "filename": "model.glb",
-      "download_url": "/media/model.glb",
-      "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
-      "footprint_m": {"width": 100, "height": 60},
-      "use_glb_map": False,
-      "preview_url": "/saved.png",
-      **overrides,
-    },
+  """GLB list response with one saved layer at the default test anchor."""
+  layer = {
+    "id": "layer-1",
+    "order": 0,
+    "enabled": False,
+    "filename": "model.glb",
+    "download_url": "/media/model.glb",
+    "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+    "footprint_m": {"width": 100, "height": 60},
+    "preview_url": "/saved.png",
   }
+  if "use_glb_map" in overrides:
+    overrides["enabled"] = overrides.pop("use_glb_map")
+  return {"status": 200, "body": {"max_layers": 1, "layers": [{**layer, **overrides}]}}
 
 
 def _preview_resp(token):
@@ -183,7 +183,7 @@ class TestGlbAlignment:
     """Applying a saved model goes straight to the PUT with no confirm dialog."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png"}},
+      {"status": 200, "body": {"enabled": True, "preview_url": "/saved.png"}},
     ]
     res = _align(responses, [["toggleUse", True]], confirm=False)
     assert res["confirms"] == []
@@ -194,7 +194,7 @@ class TestGlbAlignment:
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["submit"]])
     (submit,) = res["submits"]
     assert submit["prevented"] is False
-    assert [(i["name"], i["value"]) for i in res["formInputs"]][0] == ("glb_token", "tok1")
+    assert res["glbChanges"] == [{"token": "tok1", "anchor": {"lat": 37, "lng": -122, "heading_deg": 0}}]
     assert [f["method"] for f in res["fetches"]] == ["GET", "POST"]
 
   def test_upload_without_map_location_is_refused(self):
@@ -349,7 +349,7 @@ class TestGlbAlignment:
     assert len(overlays) == 1
     assert overlays[0][1] == "/saved.png"
     assert overlays[0][3] == SAVED_OPACITY
-    assert res["calls"][-1] == ["setOverlayOpacity", SAVED_OPACITY]
+    assert res["calls"][-1] == ["setOverlayOpacity", SAVED_OPACITY, "glb-overlay"]
 
   def test_save_position_shown_after_shift_and_hidden_after_save(self):
     """Save position appears once a saved model is shifted and hides after saving."""
@@ -393,10 +393,7 @@ class TestGlbAlignment:
   def test_save_scene_posts_shifted_anchor(self):
     """Save Scene Updates carries a shifted saved anchor and clears the unsaved prompt."""
     res = _align([_saved_model_get()], [["drag", [0, 0], [100, 100]], ["submit"]])
-    (glb_anchor,) = res["formInputs"]
-    assert glb_anchor["name"] == "glb_anchor"
-    assert glb_anchor["type"] == "hidden"
-    assert json.loads(glb_anchor["value"]) == res["anchor"]
+    assert res["glbChanges"] == [{"layer_id": "layer-1", "anchor": res["anchor"]}]
     assert res["dirty"] is False
 
   def test_save_scene_without_shift_posts_nothing(self):
@@ -413,25 +410,22 @@ class TestGlbAlignment:
     """A staged GLB is posted with its token and staged anchor (not the saved one), even if never dragged."""
     steps = [["drag", [0, 0], [100, 100]], ["upload"], ["drag", [0, 0], [100, 100]], ["submit"]]
     res = _align([_saved_model_get(), _preview_resp("tok1")], steps)
-    inputs = {i["name"]: i for i in res["formInputs"]}
-    assert set(inputs) == {"glb_token", "glb_anchor"}
-    assert inputs["glb_token"]["type"] == "hidden"
-    assert inputs["glb_token"]["value"] == "tok1"
-    assert json.loads(inputs["glb_anchor"]["value"]) == res["anchor"]
+    assert res["glbChanges"] == [
+      {"token": "tok1", "anchor": res["anchor"], "layer_id": "layer-1", "enabled": False}
+    ]
     assert res["dirty"] is False
 
     res = _align([_saved_model_get(), _preview_resp("tok1")], [["upload"], ["submit"]])
-    inputs = {i["name"]: i for i in res["formInputs"]}
-    assert inputs["glb_token"]["value"] == "tok1"
-    assert json.loads(inputs["glb_anchor"]["value"]) == {"lat": 37, "lng": -122, "heading_deg": 0}
+    assert res["glbChanges"] == [
+      {"token": "tok1", "anchor": {"lat": 37, "lng": -122, "heading_deg": 0}, "layer_id": "layer-1", "enabled": False}
+    ]
 
   def test_save_scene_replaces_stale_inputs(self):
     """A second submit replaces the earlier token and anchor inputs instead of posting duplicates."""
     steps = [["upload"], ["submit"], ["drag", [0, 0], [100, 100]], ["submit"]]
     res = _align([_saved_model_get(), _preview_resp("tok1")], steps)
-    assert sorted(i["name"] for i in res["formInputs"]) == ["glb_anchor", "glb_token"]
-    inputs = {i["name"]: i for i in res["formInputs"]}
-    assert json.loads(inputs["glb_anchor"]["value"]) == res["anchor"]
+    assert len(res["glbChanges"]) == 1
+    assert res["glbChanges"][0]["anchor"] == res["anchor"]
 
   @pytest.mark.parametrize("use_glb_map, color", [(False, FRAME_UNAPPLIED), (True, FRAME_APPLIED)])
   def test_overlay_frame_color_follows_applied_state(self, use_glb_map, color):
@@ -448,8 +442,8 @@ class TestGlbAlignment:
     """The frame turns green when the model is applied and red again when it is unapplied."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png"}},
-      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png"}},
+      {"status": 200, "body": {"enabled": True, "preview_url": "/applied.png"}},
+      {"status": 200, "body": {"enabled": False, "preview_url": "/saved.png"}},
     ]
     res = _align(responses, [["toggleUse", True], ["toggleUse", False]], geomapReady=True)
     assert res["frameTrail"] == [FRAME_UNAPPLIED, FRAME_APPLIED, FRAME_UNAPPLIED]
@@ -458,8 +452,8 @@ class TestGlbAlignment:
     """Toggling the GLB redraws the overlay from the response; the preview is the same in both states."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png"}},
-      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png"}},
+      {"status": 200, "body": {"enabled": True, "preview_url": "/saved.png"}},
+      {"status": 200, "body": {"enabled": False, "preview_url": "/saved.png"}},
     ]
     res = _align(responses, [["toggleUse", True], ["toggleUse", False]], geomapReady=True)
     urls = [c[1] for c in res["calls"] if c[0] == "setOverlay"]
@@ -475,7 +469,7 @@ class TestGlbAlignment:
     """Applying the GLB writes the server's state token into the form, so the next save is not stale."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/saved.png", "state_token": "tok-applied"}},
+      {"status": 200, "body": {"enabled": True, "preview_url": "/saved.png", "state_token": "tok-applied"}},
     ]
     res = _align(responses, [["toggleUse", True]])
     assert res["stateToken"] == "tok-applied"
@@ -516,7 +510,7 @@ class TestGlbAlignment:
   def test_toggle_use_writes_applied_scene_fields_to_form(self):
     """Applying the GLB writes the server pose, scale and corners into the scene-edit form."""
     res = _align(
-      [_saved_model_get(), {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}}],
+      [_saved_model_get(), {"status": 200, "body": {"enabled": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}}],
       [["toggleUse", True]],
     )
     _assert_form_matches(res["sceneForm"], SCENE_FIELDS_APPLIED)
@@ -525,8 +519,8 @@ class TestGlbAlignment:
     """Toggling the GLB on then off moves the scene-edit form from the applied to the base values."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
-      {"status": 200, "body": {"use_glb_map": False, "preview_url": "/saved.png", "scene_fields": SCENE_FIELDS_BASE}},
+      {"status": 200, "body": {"enabled": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"enabled": False, "preview_url": "/saved.png", "scene_fields": SCENE_FIELDS_BASE}},
     ]
     res = _align(responses, [["toggleUse", True], ["toggleUse", False]])
     _assert_form_matches(res["sceneFormTrail"][1], SCENE_FIELDS_APPLIED)
@@ -545,7 +539,7 @@ class TestGlbAlignment:
     """Removing an applied GLB writes the server's unapplied scene fields into the form."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"enabled": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
       {"status": 200, "body": {"success": True, "scene_fields": SCENE_FIELDS_BASE}},
     ]
     res = _align(responses, [["toggleUse", True], ["remove"]])
@@ -557,7 +551,7 @@ class TestGlbAlignment:
     """A DELETE response without scene_fields keeps the form as it was and still clears the saved model."""
     responses = [
       _saved_model_get(),
-      {"status": 200, "body": {"use_glb_map": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
+      {"status": 200, "body": {"enabled": True, "preview_url": "/applied.png", "scene_fields": SCENE_FIELDS_APPLIED}},
       {"status": 204, "body": {}},
     ]
     res = _align(responses, [["toggleUse", True], ["remove"]])
@@ -631,7 +625,7 @@ class TestOverlayOpacity:
     """Re-running setOverlay after the apply toggle passes the saved opacity, applied or not."""
     responses = [
       _saved_model_get(use_glb_map=not use_glb_map),
-      {"status": 200, "body": {"use_glb_map": use_glb_map, "preview_url": "/saved.png"}},
+      {"status": 200, "body": {"enabled": use_glb_map, "preview_url": "/saved.png"}},
     ]
     res = _align(responses, [["toggleUse", use_glb_map]], geomapReady=True)
     assert [c[3] for c in res["calls"] if c[0] == "setOverlay"] == [SAVED_OPACITY, SAVED_OPACITY]
@@ -925,7 +919,7 @@ def test_template_has_cancel_beside_file_input_and_no_heading_controls():
   html = _SCENE_UPDATE_TEMPLATE.read_text()
   for removed in ("glbFrameLegend", "glbOpacity", "glbAccept", "glbHeadingRange", "glbHeadingNumber", "glbReset", "glbAlignControls"):
     assert removed not in html
-  assert html.index('id="glbFileInput"') < html.index('id="glbCancel"') < html.index('id="glbAlignHint"')
+  assert html.index('id="glbFileInput"') < html.index('id="glbCancel"') < html.index('id="glbFootprint"')
   assert 'id="glbFootprint"' in html
 
 
@@ -934,3 +928,92 @@ def test_template_passes_upload_limit_to_row():
   html = _SCENE_UPDATE_TEMPLATE.read_text()
   row = re.search(r'<div\s[^>]*id="glbAlignRow"[^>]*>', html).group(0)
   assert "data-max-upload-bytes=" in row
+  assert "data-max-layers=" in row
+
+
+def _layer(layer_id, order, anchor=None):
+  """One saved GLB layer as the list endpoint returns it."""
+  return {
+    "id": layer_id,
+    "order": order,
+    "enabled": False,
+    "filename": f"{layer_id}.glb",
+    "download_url": f"/media/{layer_id}.glb",
+    "anchor": anchor or {"lat": 37, "lng": -122, "heading_deg": 0},
+    "footprint_m": {"width": 100, "height": 60},
+    "preview_url": f"/{layer_id}.png",
+  }
+
+
+def _layers_get(*layers, max_layers=2):
+  """GLB list response holding the given layers under the given limit."""
+  return {"status": 200, "body": {"max_layers": max_layers, "layers": list(layers)}}
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+class TestMultipleLayers:
+  """Panels per saved layer: the Add button, per-panel dirty flags, one save payload, and hit-testing."""
+
+  def test_add_button_hidden_under_single_layer_limit(self):
+    """With a limit of one the Add button stays hidden and only panel 0 exists."""
+    res = _align([_layers_get(max_layers=1)], [], maxLayers=1)
+    assert res["panelCount"] == 1
+    assert res["addDisplay"] == "none"
+
+  def test_add_button_shown_under_higher_limit(self):
+    """With room left under the limit the Add button is visible and enabled."""
+    res = _align([_layers_get(max_layers=3)], [], maxLayers=3)
+    assert res["addDisplay"] == ""
+    assert res["addDisabled"] is False
+
+  def test_add_button_disabled_at_the_limit(self):
+    """Once every allowed layer has a panel the Add button is disabled."""
+    res = _align([_layers_get(_layer("layer-1", 0), _layer("layer-2", 1), max_layers=2)], [])
+    assert res["panelCount"] == 2
+    assert res["addDisabled"] is True
+
+  def test_dirty_flags_are_kept_per_panel(self):
+    """Changing one layer marks only that layer's panel dirty."""
+    res = _align([_layers_get(_layer("layer-1", 0), _layer("layer-2", 1))], [["markDirty", 1]])
+    assert res["panelDirty"] == [False, True]
+
+  def test_save_posts_one_payload_with_only_dirty_layers(self):
+    """Save Scene Updates posts a single glb_changes array holding just the changed layer."""
+    res = _align(
+      [_layers_get(_layer("layer-1", 0), _layer("layer-2", 1))],
+      [["markDirty", 1], ["submit"]],
+    )
+    assert res["submits"][0]["prevented"] is False
+    assert res["glbChanges"] == [
+      {"layer_id": "layer-2", "anchor": {"lat": 37, "lng": -122, "heading_deg": 0}},
+    ]
+
+  def test_submit_clears_the_dirty_flags_it_sent(self):
+    """After the form posts the pending changes no panel is left dirty."""
+    res = _align(
+      [_layers_get(_layer("layer-1", 0), _layer("layer-2", 1))],
+      [["markDirty", 1], ["submit"]],
+    )
+    assert res["panelDirty"] == [False, False]
+
+  def test_topmost_hit_is_the_later_overlapping_panel(self):
+    """Layers draw in panel order, so where footprints overlap the later layer is hit."""
+    same = {"lat": 37, "lng": -122, "heading_deg": 0}
+    res = run_js(
+      "panelHits",
+      {
+        "responses": [_layers_get(_layer("layer-1", 0, same), _layer("layer-2", 1, same))],
+        "points": [[37, -122], [37.1, -122]],
+      },
+    )
+    assert res["ok"]
+    assert res["panelCount"] == 2
+    assert res["hits"] == [1, -1]
+
+  def test_hit_on_single_layer_returns_it(self):
+    """A point inside the only layer hits panel 0; a point outside hits nothing."""
+    res = run_js(
+      "panelHits",
+      {"responses": [_layers_get(_layer("layer-1", 0))], "points": [[37, -122], [37.1, -122]]},
+    )
+    assert res["hits"] == [0, -1]

@@ -337,10 +337,18 @@ const scenarios = {
     plugin.map = fakeMap;
     for (const step of steps) {
       const op = step[0];
-      if (op === "setOverlay") plugin.setOverlay(step[1], step[2], step[3]);
+      if (op === "setOverlay")
+        plugin.setOverlay(
+          step[1],
+          step[2],
+          step[3],
+          null,
+          step[4] ?? "glb-overlay",
+        );
       else if (op === "updateOverlay") plugin.updateOverlay(step[1]);
       else if (op === "setOverlayOpacity") plugin.setOverlayOpacity(step[1]);
-      else if (op === "removeOverlay") plugin.removeOverlay();
+      else if (op === "removeOverlay")
+        plugin.removeOverlay(step[1] ?? "glb-overlay");
     }
     return {
       ok: true,
@@ -520,16 +528,25 @@ const scenarios = {
     const { GoogleMapsPlugin } = ctx.__exports;
     const plugin = new GoogleMapsPlugin();
     plugin.map = {};
+    const firstOverlay = () => plugin.overlays.values().next().value;
     for (const step of steps) {
       const op = step[0];
-      if (op === "setOverlay") plugin.setOverlay(step[1], step[2], step[3]);
+      if (op === "setOverlay")
+        plugin.setOverlay(
+          step[1],
+          step[2],
+          step[3],
+          null,
+          step[4] ?? "glb-overlay",
+        );
       else if (op === "updateOverlay") plugin.updateOverlay(step[1]);
       else if (op === "setOverlayOpacity") plugin.setOverlayOpacity(step[1]);
-      else if (op === "removeOverlay") plugin.removeOverlay();
-      const layer = plugin.overlay?.getPanes?.()?.overlayLayer;
+      else if (op === "removeOverlay")
+        plugin.removeOverlay(step[1] ?? "glb-overlay");
+      const layer = firstOverlay()?.getPanes?.()?.overlayLayer;
       snapshots.push({ len: layer?.children.length || 0, created });
     }
-    const layer = plugin.overlay?.getPanes?.()?.overlayLayer;
+    const layer = firstOverlay()?.getPanes?.()?.overlayLayer;
     const children =
       layer?.children.map((img) => ({
         src: img.src,
@@ -547,7 +564,8 @@ const scenarios = {
       );
     return {
       ok: true,
-      hasOverlay: plugin.overlay !== null,
+      hasOverlay: plugin.overlays.size > 0,
+      overlayIds: [...plugin.overlays.keys()],
       layer: { children },
       sameImg,
       created,

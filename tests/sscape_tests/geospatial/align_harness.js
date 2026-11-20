@@ -102,6 +102,14 @@ class FakeEl {
   getBoundingClientRect() {
     return { left: 0, top: 0 };
   }
+
+  querySelectorAll() {
+    return [];
+  }
+
+  cloneNode() {
+    return new FakeEl();
+  }
 }
 
 class FakeForm extends FakeEl {
@@ -131,10 +139,13 @@ function load(args) {
       fakeEls[id] = new FakeEl();
       if (id === "glbAlignRow") {
         fakeEls[id].dataset.sceneId = "scene-1";
+        fakeEls[id].dataset.maxLayers = String(args.maxLayers ?? 1);
         if (args.maxUploadBytes)
           fakeEls[id].dataset.maxUploadBytes = String(args.maxUploadBytes);
         fakeEls[id].closest = () => fakeForm;
       }
+      if (id === "glbPanelTemplate")
+        fakeEls[id].content = { firstElementChild: new FakeEl() };
       if (id === "glbSavePosition") fakeEls[id].style.display = "none";
       if (id === "glbCancel") fakeEls[id].style.display = "none";
       if (id === "mapProvider") fakeEls[id].value = args.provider ?? "google";
@@ -307,7 +318,8 @@ function statusListOf(statusEl) {
 const scenarios = {
   async align(args) {
     const { ctx, fakeEls, fakeForm, fetches, strategy, confirms } = load(args);
-    const a = new ctx.__api.GlbAlignment();
+    const ctl = new ctx.__api.GlbAlignment();
+    const a = ctl.panels[0];
     if (args.geomapReady) ctx.window.fire("geomap-ready", {});
     const events = [];
     const clicks = [];
@@ -497,6 +509,10 @@ const scenarios = {
         } else if (step[0] === "mapType") {
           fakeEls["id_map_type"].value = step[1];
           fakeEls["id_map_type"].fire("change", {});
+        } else if (step[0] === "addPanel") {
+          ctl._addPanel();
+        } else if (step[0] === "markDirty") {
+          ctl.panels[step[1]].dirty = true;
         } else if (step[0] === "submit") {
           submit();
         } else if (step[0] === "saveAndSubmit") {
@@ -550,12 +566,34 @@ const scenarios = {
         type: c.type,
         value: c.value,
       })),
+      glbChanges: fakeForm.children
+        .filter((c) => c.name === "glb_changes")
+        .flatMap((c) => JSON.parse(c.value)),
+      panelCount: ctl.panels.length,
+      panelDirty: ctl.panels.map((p) => p.dirty),
+      addDisplay: fakeEls["glbAddLayer"]?.style?.display ?? null,
+      addDisabled: fakeEls["glbAddLayer"]?.disabled ?? null,
+    };
+  },
+
+  // Panel index of the topmost layer under each [lat, lng] point, or -1 for none.
+  async panelHits(args) {
+    const { ctx } = load(args);
+    const ctl = new ctx.__api.GlbAlignment();
+    await new Promise((r) => setImmediate(r));
+    return {
+      ok: true,
+      panelCount: ctl.panels.length,
+      hits: args.points.map(([lat, lng]) => {
+        const hit = ctl._topmostAt({ lat, lng });
+        return hit ? ctl.panels.indexOf(hit) : -1;
+      }),
     };
   },
 
   async savedOverlay(args) {
     const { ctx, strategy } = load({ ...args, mapReady: false });
-    const a = new ctx.__api.GlbAlignment();
+    const ctl = new ctx.__api.GlbAlignment();
     const flush = () => new Promise((r) => setImmediate(r));
     const becomeReady = () => {
       ctx.window.mapManager = { getMapStrategy: () => strategy };
@@ -568,7 +606,7 @@ const scenarios = {
       await flush();
       becomeReady();
     }
-    a._render();
+    ctl.panels[0]._render();
     return { ok: true, calls: strategy.calls };
   },
 

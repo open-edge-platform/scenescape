@@ -129,9 +129,10 @@ class TestGlbStateMachine(_MediaRootTestCase):
     GlbLayer.objects.filter(pk=layer.pk).update(anchor={**layer.anchor, 'heading_deg': 45.0})
     scene = Scene.objects.get(pk=scene.pk)
 
-    result = glb_state.set_layer_enabled(scene, layer, True)
+    glb_state.set_layer_enabled(scene, layer, True)
 
-    self.assertTrue(result['enabled'])
+    layer.refresh_from_db()
+    self.assertTrue(layer.enabled)
     self.assertTrue(scene.map.name.endswith('.glb'))
     self.assertTrue(scene.base_map)
     self.assertNotEqual(scene.rotation_z, 0.0)
@@ -148,7 +149,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     self.assertEqual(scene.map_corners_lla, snapshot_corners)
     self.assertTrue(GlbLayer.objects.filter(pk=layer.pk).exists())
     self.assertEqual(scene.trs_matrix, trs)
-    self.assertEqual(self._stored_files(), ['test_glb.glb', 'test_glb_preview.png', 'test_scene.png'])
+    self.assertEqual(self._stored_files(), ['test_glb.glb', 'test_scene.png'])
 
   def test_apply_twice_raises_error(self):
     scene = self._create_scene()
@@ -372,6 +373,76 @@ class TestGlbStateMachine(_MediaRootTestCase):
     self.assertFalse(os.path.exists(preview))
     self.assertIsNotNone(glb_state.write_response(layer)['preview_url'])
     self.assertTrue(os.path.exists(preview))
+
+  def _add_layer(self, scene, name, order):
+    """A second stored layer with its own GLB file, not applied."""
+    self._write_test_glb(name)
+    return GlbLayer.objects.create(scene=scene, order=order, enabled=False, file=name,
+                                   anchor={**ANCHOR, 'footprint_m': {'width': 10.0, 'height': 10.0}})
+
+  def test_two_layers_keep_use_glb_map_equal_to_any_enabled(self):
+    """Positive: with two layers the scene stays a GLB map until the last enabled layer is taken off."""
+    scene = self._create_scene()
+    first = scene.glb_layers.get()
+    second = self._add_layer(scene, 'second_glb.glb', order=1)
+
+    def toggle(layer, enabled):
+      fresh = Scene.objects.get(pk=scene.pk)
+      glb_state.set_layer_enabled(fresh, layer, enabled)
+      return Scene.objects.get(pk=scene.pk)
+
+    for layer, enabled, expected in ((first, True, True), (second, True, True),
+                                     (first, False, True), (second, False, False)):
+      with self.subTest(layer=layer.order, enabled=enabled):
+        scene = toggle(layer, enabled)
+        self.assertEqual(scene.use_glb_map, expected)
+        self.assertEqual(scene.use_glb_map, scene.glb_layers.filter(enabled=True).exists())
+
+    self.assertFalse(scene.base_map)
+
+  def test_removing_one_of_two_layers_keeps_the_other_applied(self):
+    """Positive: removing a stored layer leaves the applied layer's row and file in place."""
+    scene = self._create_scene()
+    first = scene.glb_layers.get()
+    second = self._add_layer(scene, 'second_glb.glb', order=1)
+    glb_state.set_layer_enabled(scene, first, True)
+    scene = Scene.objects.get(pk=scene.pk)
+
+    glb_state.remove_layer(scene, second)
+
+    first.refresh_from_db()
+    self.assertTrue(first.enabled)
+    self.assertFalse(GlbLayer.objects.filter(pk=second.pk).exists())
+    self.assertTrue(scene.use_glb_map)
+    self.assertNotIn('second_glb.glb', self._stored_files())
+
+  @override_settings(GLB_MAX_LAYERS=1)
+  def test_new_layer_past_the_limit_is_refused_and_stores_nothing(self):
+    """Negative: at the default limit of one layer a new upload is refused with 409 and no file is written."""
+    scene = self._create_scene()
+    token = self._stage_glb()
+    before = self._stored_files()
+
+    with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
+      self._commit(scene, token)
+
+    self.assertEqual(ctx.exception.status, 409)
+    self.assertEqual(scene.glb_layers.count(), 1)
+    self.assertEqual(self._stored_files(), before)
+
+  @override_settings(GLB_MAX_LAYERS=1)
+  def test_replacing_a_layer_file_keeps_the_row_at_the_limit(self):
+    """Positive: with a layer stored, committing with layer= replaces its file and keeps one row."""
+    scene = self._create_scene()
+    layer = scene.glb_layers.get()
+    old_path = os.path.join(self.media_root, 'test_glb.glb')
+
+    self._commit(scene, self._stage_glb(), layer=layer)
+
+    self.assertEqual(scene.glb_layers.count(), 1)
+    self.assertFalse(os.path.exists(old_path))
+    layer.refresh_from_db()
+    self.assertTrue(os.path.exists(layer.file.path))
 
 
 class TestMigration0012CornerOrder(_MediaRootTestCase):

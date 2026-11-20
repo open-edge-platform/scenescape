@@ -142,106 +142,70 @@ function formatMegabytes(bytes) {
 const byId = (id) => document.getElementById(id);
 const on = (el, type, fn, cap) => el.addEventListener(type, fn, cap === true);
 
-class GlbAlignment {
-  constructor() {
-    const row = byId("glbAlignRow");
-    if (!row) return;
-
-    this.sceneId = row.dataset.sceneId;
-    this.maxUploadBytes = Number(row.dataset.maxUploadBytes) || 0;
+// One GLB layer of a scene: its file, saved state, anchor, heading dial and overlay.
+// The GlbAlignment controller owns the map and the form and routes map input to the panels.
+class GlbLayerPanel {
+  constructor(controller, root, suffix) {
+    this.controller = controller;
+    this.root = root;
+    this.sceneId = controller.sceneId;
+    this.maxUploadBytes = controller.maxUploadBytes;
+    this.overlayId = `glb-overlay${suffix}`;
     this.staged = null;
     this.saved = null;
     this.anchor = null;
     this.dial = null;
-    this._unwatchMap = null;
+    this._hover = false;
+    this._dialDragging = false;
+    this._dialFocused = false;
     this._overlayDragging = false;
     this.dirty = false;
     this._isMoving = false;
     this.uploading = false;
     this.saving = false;
-    this.mapReady = false;
 
+    // Panel ids carry the suffix; layer 0 has none, so its ids match the single-layer page.
+    const el = (id) => byId(`${id}${suffix}`);
     this.ui = {
-      row,
-      hint: byId("glbAlignHint"),
-      file: byId("glbFileInput"),
-      fileWrap: byId("glbFileWrap"),
-      footprint: byId("glbFootprint"),
-      status: byId("glbAlignStatus"),
-      cancel: byId("glbCancel"),
-      map: byId("map"),
-      mapType: byId("id_map_type"),
-      mapCenterLat: byId("id_map_center_lat"),
-      mapCenterLng: byId("id_map_center_lng"),
-      mapProvider: byId("mapProvider"),
-      savedBlock: byId("glbSavedBlock"),
-      savedFilename: byId("glbSavedFilename"),
-      downloadLink: byId("glbDownloadLink"),
-      removeBtn: byId("glbRemoveBtn"),
-      useCheckbox: byId("glbUse"),
-      savePosBtn: byId("glbSavePosition"),
-      savePosWrap: byId("glbSavePositionWrap"),
+      hint: controller.ui.hint,
+      map: controller.ui.map,
+      mapType: controller.ui.mapType,
+      mapCenterLat: controller.ui.mapCenterLat,
+      mapCenterLng: controller.ui.mapCenterLng,
+      file: el("glbFileInput"),
+      fileWrap: el("glbFileWrap"),
+      footprint: el("glbFootprint"),
+      status: el("glbAlignStatus"),
+      cancel: el("glbCancel"),
+      savedBlock: el("glbSavedBlock"),
+      savedFilename: el("glbSavedFilename"),
+      downloadLink: el("glbDownloadLink"),
+      removeBtn: el("glbRemoveBtn"),
+      useCheckbox: el("glbUse"),
+      savePosBtn: el("glbSavePosition"),
+      savePosWrap: el("glbSavePositionWrap"),
     };
-
-    window.addEventListener("geomap-ready", () => {
-      this.mapReady = true;
-      this._drawSavedOverlay();
-      this._watchMap();
-    });
-    this._loadSavedAlignment();
-    this._updateVisibility();
-
-    on(this.ui.mapType, "change", () => this._updateVisibility());
-    on(this.ui.mapProvider, "change", () => {
-      if (this.staged)
-        this._cancel("Map provider changed; upload the 3D model again.");
-    });
 
     on(this.ui.file, "click", (e) => this._confirmReplaceStaged(e));
     on(this.ui.file, "change", (e) => this._handleFileUpload(e));
-
     on(this.ui.cancel, "click", () => this._cancel());
-
     if (this.ui.savePosBtn)
       on(this.ui.savePosBtn, "click", () => this._savePosition());
     if (this.ui.removeBtn) on(this.ui.removeBtn, "click", () => this._remove());
     if (this.ui.useCheckbox)
       on(this.ui.useCheckbox, "change", () => this._toggleUse());
-
-    for (const type of ["pointerdown", "mousedown", "touchstart"])
-      on(this.ui.map, type, (e) => this._handleMapPointerDown(e), true);
-    on(this.ui.map, "pointermove", (e) => this._trackHover(e));
-    on(this.ui.map, "pointerleave", () => this._setHover(false));
-
-    window.addEventListener("beforeunload", (e) => {
-      if (this.dirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    });
-    const form = row.closest("form");
-    if (form)
-      on(form, "submit", (event) => this._attachGlbChanges(form, event));
   }
 
   _strategy() {
-    const m = window.mapManager?.getMapStrategy();
-    if (!m) throw new Error("Map is not ready yet");
-    return m;
+    return this.controller._strategy();
   }
 
   _mapEmpty() {
-    return !this.ui.mapCenterLat.value || !this.ui.mapCenterLng.value;
+    return this.controller._mapEmpty();
   }
 
-  _updateVisibility() {
-    const isGeo = this.ui.mapType.value === "geospatial_map";
-    this.ui.row.style.display = isGeo ? "" : "none";
-    this._syncDial();
-    if (!isGeo) return;
-
-    this._updateLocks();
-    this.ui.hint.textContent = this._mapEmpty() ? MAP_EMPTY_HINT : "";
+  _layerUrl() {
+    return `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glbs/${this.saved.id}`;
   }
 
   _updateLocks() {
@@ -267,23 +231,13 @@ class GlbAlignment {
     }
   }
 
-  async _loadSavedAlignment() {
-    try {
-      const data = await requestJson(
-        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
-        { method: "GET" },
-      );
-      if (data.exists) {
-        this.saved = data;
-        this.anchor = { ...data.anchor };
-        this._renderSavedBlock();
-        this._drawSavedOverlay();
-        this._updateFarAnchorHint();
-      }
-    } catch (e) {
-      console.error("Failed to load the saved 3D model:", e);
-      this._showError(`Could not load the saved 3D model: ${e.message}`);
-    }
+  // Shows a layer saved on the server; the controller calls this once per stored layer.
+  setSaved(layer) {
+    this.saved = layer;
+    this.anchor = { ...layer.anchor };
+    this._renderSavedBlock();
+    this._drawSavedOverlay();
+    this._updateFarAnchorHint();
   }
 
   _isFarFromCenter(anchor) {
@@ -307,7 +261,7 @@ class GlbAlignment {
     this.ui.savedFilename.textContent = this.saved.filename || "3D model";
     this.ui.downloadLink.href = this.saved.download_url;
     if (this.ui.useCheckbox) {
-      this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
+      this.ui.useCheckbox.checked = this.saved.enabled || false;
     }
     this._updateFarAnchorHint();
     this._updateSavedBlockVisibility();
@@ -321,7 +275,7 @@ class GlbAlignment {
   }
 
   _frameColor() {
-    return this.saved?.use_glb_map ? FRAME_APPLIED : FRAME_UNAPPLIED;
+    return this.saved?.enabled ? FRAME_APPLIED : FRAME_UNAPPLIED;
   }
 
   // Cancel and the footprint belong to a staged GLB; Save position to a moved saved GLB.
@@ -344,12 +298,6 @@ class GlbAlignment {
       !!(this.staged || this.saved) &&
       this.ui.mapType.value === "geospatial_map"
     );
-  }
-
-  _watchMap() {
-    this._unwatchMap?.();
-    this._unwatchMap = this._strategy().onViewChange(() => this._syncDial());
-    this._syncDial();
   }
 
   // Dial center and ring radius in map-container px.
@@ -438,17 +386,6 @@ class GlbAlignment {
     this._syncDial();
   }
 
-  _trackHover(e) {
-    if (!this.anchor) return;
-    let inside = false;
-    try {
-      inside = pointInPolygon(this._pointerLatLng(e), this._corners());
-    } catch {
-      // The map projection is not ready; the pointer cannot be over the preview yet.
-    }
-    this._setHover(inside);
-  }
-
   _setHeading(heading) {
     this.anchor.heading_deg = heading;
     this.dirty = true;
@@ -506,7 +443,7 @@ class GlbAlignment {
   }
 
   _drawSavedOverlay() {
-    if (!this.mapReady || this.staged) return;
+    if (!this.controller.mapReady || this.staged) return;
     if (!this.saved || !this.saved.anchor || !this.saved.footprint_m) return;
     if (!this.saved.preview_url) {
       this.ui.status.textContent = PREVIEW_MISSING_HINT;
@@ -522,6 +459,7 @@ class GlbAlignment {
         corners,
         SAVED_OPACITY,
         this._frameColor(),
+        this.overlayId,
       );
     } catch (e) {
       console.error("Failed to draw saved overlay:", e);
@@ -578,6 +516,8 @@ class GlbAlignment {
         this.staged.imageUrl,
         corners,
         DEFAULT_OPACITY,
+        null,
+        this.overlayId,
       );
       e.target.value = "";
     } catch (error) {
@@ -612,35 +552,19 @@ class GlbAlignment {
       const corners = this._corners();
       const base = this.staged ? DEFAULT_OPACITY : SAVED_OPACITY;
       const opacity = this._isMoving ? Math.min(base, MOVING_OPACITY) : base;
-      strategy.updateOverlay(corners);
-      strategy.setOverlayOpacity(opacity);
+      strategy.updateOverlay(corners, this.overlayId);
+      strategy.setOverlayOpacity(opacity, this.overlayId);
     } catch (e) {
       console.error("Render failed:", e);
     }
   }
 
   _pointerLatLng(e) {
-    const rect = this.ui.map.getBoundingClientRect();
-    const p = e.touches?.[0] ?? e;
-    return this._strategy().pointToLatLng(
-      p.clientX - rect.left,
-      p.clientY - rect.top,
-    );
+    return this.controller._pointerLatLng(e);
   }
 
-  _handleMapPointerDown(e) {
-    if (!this.anchor) return;
-    // The dial sits inside #map, so its drags must not start an overlay drag.
-    if (e.target && this.dial?.root.contains(e.target)) return;
-    const grab = this._pointerLatLng(e);
-    const inside = pointInPolygon(grab, this._corners());
-    this._setHover(inside);
-    if (!inside) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type !== "pointerdown") return;
-
+  // Drags the footprint from the press point `grab`; the dial hides while the overlay is held.
+  _startOverlayDrag(grab) {
     const anchor0 = { ...this.anchor };
     const move = (ev) => {
       const next = dragAnchor(anchor0, grab, this._pointerLatLng(ev));
@@ -690,7 +614,7 @@ class GlbAlignment {
 
   _cancel(status = "") {
     try {
-      this._strategy().removeOverlay();
+      this._strategy().removeOverlay(this.overlayId);
     } catch (e) {}
     this.staged = null;
     if (this.saved) {
@@ -704,6 +628,7 @@ class GlbAlignment {
     this._updateControlsVisibility();
     this._updateFarAnchorHint();
     this.ui.status.textContent = status;
+    if (!this.saved) this.controller._dropPanel(this);
   }
 
   async _savePosition() {
@@ -715,13 +640,10 @@ class GlbAlignment {
 
     try {
       const sent = { ...this.anchor };
-      const response = await requestJson(
-        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
-        {
-          method: "PUT",
-          body: { anchor: sent },
-        },
-      );
+      const response = await requestJson(this._layerUrl(), {
+        method: "PUT",
+        body: { anchor: sent },
+      });
 
       this.saved.anchor = sent;
       this.saved.preview_url = response.preview_url ?? null;
@@ -760,37 +682,22 @@ class GlbAlignment {
     }
   }
 
-  // Save Scene Updates carries a staged GLB (token + anchor) or a shifted saved anchor;
-  // SceneUpdateView.form_valid persists them.
-  _attachGlbChanges(form, event) {
-    if (this.saving) {
-      // A GLB request is in flight; submitting now would post pre-change values.
-      event.preventDefault();
-      this.ui.status.textContent =
-        "Wait for the 3D model change to finish, then save.";
-      return;
-    }
-    form.querySelector('input[name="glb_token"]')?.remove();
-    form.querySelector('input[name="glb_anchor"]')?.remove();
-    if (!this.anchor || this.ui.mapType.value !== "geospatial_map") return;
-
-    const fields = [];
+  // The change Save Scene Updates posts for this layer, or null when nothing changed.
+  // A staged file replaces the layer's file (or adds a layer); a moved saved layer only moves.
+  pendingChange() {
+    if (!this.anchor) return null;
     if (this.staged) {
-      fields.push(["glb_token", this.staged.token]);
-    } else if (!this.saved || !this.dirty) {
-      return;
+      const change = { token: this.staged.token, anchor: this.anchor };
+      if (this.saved)
+        Object.assign(change, {
+          layer_id: this.saved.id,
+          enabled: this.saved.enabled,
+        });
+      return change;
     }
-    fields.push(["glb_anchor", JSON.stringify(this.anchor)]);
-
-    for (const [name, value] of fields) {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
-    }
-    // The submit navigates away, so the unsaved-changes prompt must not fire.
-    this.dirty = false;
+    if (this.saved && this.dirty)
+      return { layer_id: this.saved.id, anchor: this.anchor };
+    return null;
   }
 
   async _toggleUse() {
@@ -801,24 +708,21 @@ class GlbAlignment {
     this._updateLocks();
 
     try {
-      const response = await requestJson(
-        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
-        {
-          method: "PUT",
-          body: { use_glb_map: this.ui.useCheckbox.checked },
-        },
-      );
+      const response = await requestJson(this._layerUrl(), {
+        method: "PUT",
+        body: { enabled: this.ui.useCheckbox.checked },
+      });
 
-      this.saved.use_glb_map = response.use_glb_map;
+      this.saved.enabled = response.enabled;
       this.saved.preview_url = response.preview_url ?? null;
       this._applyServerState(response);
       // The overlay is redrawn from the response so its frame always matches the applied state.
       this._drawSavedOverlay();
-      this.ui.status.textContent = this.saved.use_glb_map
+      this.ui.status.textContent = this.saved.enabled
         ? "3D model shown on scene map"
         : "3D model overlay only";
     } catch (error) {
-      this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
+      this.ui.useCheckbox.checked = this.saved.enabled || false;
       this._showError(error.message);
     } finally {
       this.saving = false;
@@ -837,10 +741,9 @@ class GlbAlignment {
     this._updateLocks();
 
     try {
-      const response = await requestJson(
-        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
-        { method: "DELETE" },
-      );
+      const response = await requestJson(this._layerUrl(), {
+        method: "DELETE",
+      });
 
       this._applyServerState(response);
       this.saved = null;
@@ -849,7 +752,8 @@ class GlbAlignment {
       this._updateControlsVisibility();
       this._updateFarAnchorHint();
       this._updateSavedBlockVisibility();
-      this._strategy().removeOverlay();
+      this._strategy().removeOverlay(this.overlayId);
+      this.controller._dropPanel(this);
       this.ui.status.textContent = "3D model removed";
     } catch (error) {
       this._showError(error.message);
@@ -857,6 +761,224 @@ class GlbAlignment {
       this.saving = false;
       this._updateLocks();
     }
+  }
+}
+
+// Scene-level controller: owns the map, the scene form and the layer list, and routes map input
+// to the topmost layer under the pointer. Panel 0 is the page's static markup; more layers are
+// cloned from the template with suffixed ids.
+class GlbAlignment {
+  constructor() {
+    const row = byId("glbAlignRow");
+    if (!row) return;
+
+    this.sceneId = row.dataset.sceneId;
+    this.maxUploadBytes = Number(row.dataset.maxUploadBytes) || 0;
+    this.maxLayers = Number(row.dataset.maxLayers) || 1;
+    this.mapReady = false;
+    this._unwatchMap = null;
+    this._panelSeq = 0;
+
+    this.ui = {
+      row,
+      hint: byId("glbAlignHint"),
+      map: byId("map"),
+      mapType: byId("id_map_type"),
+      mapCenterLat: byId("id_map_center_lat"),
+      mapCenterLng: byId("id_map_center_lng"),
+      mapProvider: byId("mapProvider"),
+      panelsBox: byId("glbPanels"),
+      template: byId("glbPanelTemplate"),
+      addBtn: byId("glbAddLayer"),
+    };
+    this.panels = [new GlbLayerPanel(this, byId("glbLayerPanel"), "")];
+
+    window.addEventListener("geomap-ready", () => {
+      this.mapReady = true;
+      for (const p of this.panels) p._drawSavedOverlay();
+      this._watchMap();
+    });
+    this._loadLayers();
+    this._updateVisibility();
+
+    on(this.ui.mapType, "change", () => this._updateVisibility());
+    on(this.ui.mapProvider, "change", () => {
+      for (const p of [...this.panels]) {
+        if (p.staged)
+          p._cancel("Map provider changed; upload the 3D model again.");
+      }
+    });
+    on(this.ui.addBtn, "click", () => this._addPanel());
+
+    for (const type of ["pointerdown", "mousedown", "touchstart"])
+      on(this.ui.map, type, (e) => this._handleMapPointerDown(e), true);
+    on(this.ui.map, "pointermove", (e) => this._trackHover(e));
+    on(this.ui.map, "pointerleave", () => this._setHoverPanel(null));
+
+    window.addEventListener("beforeunload", (e) => {
+      if (this.panels.some((p) => p.dirty)) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
+    const form = row.closest("form");
+    if (form)
+      on(form, "submit", (event) => this._attachGlbChanges(form, event));
+    this._renderAddButton();
+  }
+
+  _strategy() {
+    const m = window.mapManager?.getMapStrategy();
+    if (!m) throw new Error("Map is not ready yet");
+    return m;
+  }
+
+  _mapEmpty() {
+    return !this.ui.mapCenterLat.value || !this.ui.mapCenterLng.value;
+  }
+
+  _updateVisibility() {
+    const isGeo = this.ui.mapType.value === "geospatial_map";
+    this.ui.row.style.display = isGeo ? "" : "none";
+    for (const p of this.panels) p._syncDial();
+    if (!isGeo) return;
+
+    for (const p of this.panels) p._updateLocks();
+    this.ui.hint.textContent = this._mapEmpty() ? MAP_EMPTY_HINT : "";
+  }
+
+  _watchMap() {
+    this._unwatchMap?.();
+    this._unwatchMap = this._strategy().onViewChange(() =>
+      this.panels.forEach((p) => p._syncDial()),
+    );
+    for (const p of this.panels) p._syncDial();
+  }
+
+  // Layers in saved order; the first saved layer fills panel 0, the rest get new panels.
+  async _loadLayers() {
+    try {
+      const data = await requestJson(
+        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glbs`,
+        { method: "GET" },
+      );
+      this.maxLayers = data.max_layers || this.maxLayers;
+      (data.layers || []).forEach((layer, i) => {
+        const panel = i === 0 ? this.panels[0] : this._addPanel();
+        panel.setSaved(layer);
+      });
+    } catch (e) {
+      console.error("Failed to load the saved 3D models:", e);
+      this.panels[0]._showError(
+        `Could not load the saved 3D model: ${e.message}`,
+      );
+    }
+    this._renderAddButton();
+  }
+
+  _renderAddButton() {
+    const addBtn = this.ui.addBtn;
+    addBtn.style.display = this.maxLayers > 1 ? "" : "none";
+    addBtn.disabled = this.panels.length >= this.maxLayers;
+  }
+
+  _addPanel() {
+    this._panelSeq += 1;
+    const suffix = `-${this._panelSeq}`;
+    const root = this.ui.template.content.firstElementChild.cloneNode(true);
+    for (const el of root.querySelectorAll("[id]")) el.id = `${el.id}${suffix}`;
+    for (const el of root.querySelectorAll("[for]"))
+      el.setAttribute("for", `${el.getAttribute("for")}${suffix}`);
+    this.ui.panelsBox.appendChild(root);
+    const panel = new GlbLayerPanel(this, root, suffix);
+    this.panels.push(panel);
+    this._renderAddButton();
+    return panel;
+  }
+
+  // Layer 0 is the page's static panel and is never removed; its state is cleared instead.
+  _dropPanel(panel) {
+    if (panel === this.panels[0]) return;
+    this.panels = this.panels.filter((p) => p !== panel);
+    panel.root.remove();
+    this._renderAddButton();
+  }
+
+  _pointerLatLng(e) {
+    const rect = this.ui.map.getBoundingClientRect();
+    const p = e.touches?.[0] ?? e;
+    return this._strategy().pointToLatLng(
+      p.clientX - rect.left,
+      p.clientY - rect.top,
+    );
+  }
+
+  // Layers draw in panel order, so the last panel whose footprint holds the point is on top.
+  _topmostAt(latLng) {
+    for (let i = this.panels.length - 1; i >= 0; i--) {
+      const panel = this.panels[i];
+      if (panel.anchor && pointInPolygon(latLng, panel._corners()))
+        return panel;
+    }
+    return null;
+  }
+
+  _setHoverPanel(hovered) {
+    for (const p of this.panels) p._setHover(p === hovered);
+  }
+
+  _trackHover(e) {
+    let hovered = null;
+    try {
+      hovered = this._topmostAt(this._pointerLatLng(e));
+    } catch {
+      // The map projection is not ready; the pointer cannot be over a preview yet.
+    }
+    this._setHoverPanel(hovered);
+  }
+
+  _handleMapPointerDown(e) {
+    // The dials sit inside #map, so their drags must not start an overlay drag.
+    if (e.target && this.panels.some((p) => p.dial?.root.contains(e.target)))
+      return;
+    if (!this.panels.some((p) => p.anchor)) return;
+    const grab = this._pointerLatLng(e);
+    const hit = this._topmostAt(grab);
+    this._setHoverPanel(hit);
+    if (!hit) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type !== "pointerdown") return;
+    hit._startOverlayDrag(grab);
+  }
+
+  // Save Scene Updates carries every layer's pending change in one glb_changes JSON field;
+  // SceneUpdateView.form_valid applies them in one transaction.
+  _attachGlbChanges(form, event) {
+    const busy = this.panels.find((p) => p.saving);
+    if (busy) {
+      // A GLB request is in flight; submitting now would post pre-change values.
+      event.preventDefault();
+      busy.ui.status.textContent =
+        "Wait for the 3D model change to finish, then save.";
+      return;
+    }
+    form.querySelector('input[name="glb_changes"]')?.remove();
+    if (this.ui.mapType.value !== "geospatial_map") return;
+
+    const pending = this.panels
+      .map((p) => [p, p.pendingChange()])
+      .filter(([, change]) => change);
+    if (!pending.length) return;
+
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "glb_changes";
+    input.value = JSON.stringify(pending.map(([, change]) => change));
+    form.appendChild(input);
+    // The submit navigates away, so the unsaved-changes prompt must not fire.
+    for (const [panel] of pending) panel.dirty = false;
   }
 }
 
@@ -871,6 +993,7 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     GlbAlignment,
+    GlbLayerPanel,
     pointInPolygon,
     clampHeading,
     angleFromPointer,

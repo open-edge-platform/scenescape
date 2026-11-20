@@ -14,8 +14,14 @@ class GoogleMapsPlugin extends MapInterface {
     this.apiKey = this.getGoogleMapsApiKey();
     // Note: Don't show modal in constructor - wait for initialize()
     this.ORTHO_ZOOM_THRESHOLD = 18;
-    this.overlay = null;
+    this.overlays = new Map();
     this._drawCallbacks = new Set();
+  }
+
+  // Any overlay gives the map projection; the overlays share one map.
+  _projection() {
+    const overlay = this.overlays.values().next().value;
+    return overlay && overlay.getProjection();
   }
 
   getGoogleMapsApiKey() {
@@ -325,7 +331,7 @@ class GoogleMapsPlugin extends MapInterface {
   }
 
   pointToLatLng(x, y) {
-    const proj = this.overlay && this.overlay.getProjection();
+    const proj = this._projection();
     if (!proj) {
       throw new Error("Map overlay is not ready");
     }
@@ -334,7 +340,7 @@ class GoogleMapsPlugin extends MapInterface {
   }
 
   latLngToPoint(lat, lng) {
-    const proj = this.overlay && this.overlay.getProjection();
+    const proj = this._projection();
     const p =
       proj && proj.fromLatLngToContainerPixel(new google.maps.LatLng(lat, lng));
     if (!p) {
@@ -443,43 +449,49 @@ class GoogleMapsPlugin extends MapInterface {
     return new GroundOverlay();
   }
 
-  setOverlay(imageUrl, corners, opacity, frameColor = null) {
-    this.removeOverlay();
+  // `id` keys the overlay so several GLB layers can be drawn at once.
+  setOverlay(
+    imageUrl,
+    corners,
+    opacity,
+    frameColor = null,
+    id = "glb-overlay",
+  ) {
+    this.removeOverlay(id);
     try {
-      this.overlay = this._createOverlayView();
-      this.overlay.setImageUrl(imageUrl);
-      this.overlay.setCorners(corners);
-      this.overlay.setOpacity(opacity);
-      this.overlay.setFrameColor(frameColor);
-      this.overlay.setMap(this.map);
+      const overlay = this._createOverlayView();
+      this.overlays.set(id, overlay);
+      overlay.setImageUrl(imageUrl);
+      overlay.setCorners(corners);
+      overlay.setOpacity(opacity);
+      overlay.setFrameColor(frameColor);
+      overlay.setMap(this.map);
     } catch (error) {
       console.error("Error creating overlay:", error);
     }
   }
 
-  updateOverlay(corners) {
-    if (this.overlay) {
-      this.overlay.setCorners(corners);
-      this.overlay.draw();
+  updateOverlay(corners, id = "glb-overlay") {
+    const overlay = this.overlays.get(id);
+    if (overlay) {
+      overlay.setCorners(corners);
+      overlay.draw();
     }
   }
 
-  setOverlayOpacity(opacity) {
-    if (this.overlay) {
-      this.overlay.setOpacity(opacity);
-    }
+  setOverlayOpacity(opacity, id = "glb-overlay") {
+    this.overlays.get(id)?.setOpacity(opacity);
   }
 
-  setOverlayFrameColor(color) {
-    if (this.overlay) {
-      this.overlay.setFrameColor(color);
-    }
+  setOverlayFrameColor(color, id = "glb-overlay") {
+    this.overlays.get(id)?.setFrameColor(color);
   }
 
-  removeOverlay() {
-    if (this.overlay) {
-      this.overlay.setMap(null);
-      this.overlay = null;
+  removeOverlay(id = "glb-overlay") {
+    const overlay = this.overlays.get(id);
+    if (overlay) {
+      overlay.setMap(null);
+      this.overlays.delete(id);
     }
   }
 

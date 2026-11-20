@@ -513,7 +513,7 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     return changes
 
   @staticmethod
-  def _save_glb_change(scene, change):
+  def _save_glb_change(scene, change, stored_names):
     """Stage one layer change on scene: store or replace a staged GLB, or move and toggle a stored layer."""
     layer = glb_state.get_layer(scene, change['layer_id']) if change.get('layer_id') else None
     if change.get('token'):
@@ -521,7 +521,7 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
         raise glb_staging.GlbAlignmentError(400, 'Scene map type must be geospatial_map')
       glb_state.commit_layer(
         scene, change['token'], change.get('anchor'), layer=layer,
-        enable=change.get('enabled', False), save=False)
+        enable=change.get('enabled', False), save=False, stored_names=stored_names)
       return
     if layer is None:
       raise glb_staging.GlbAlignmentError(400, 'GLB change needs a token or a layer_id')
@@ -530,13 +530,13 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     if 'enabled' in change and change['enabled'] != layer.enabled:
       glb_state.set_layer_enabled(scene, layer, change['enabled'], save=False)
 
-  def _save_glb_changes(self, form):
+  def _save_glb_changes(self, form, stored_names):
     """Stage the GLB layer changes on form.instance; the caller saves it.
 
     Raises GlbAlignmentError on failure.
     """
     for change in self._parse_glb_changes(self.request.POST.get('glb_changes')):
-      self._save_glb_change(form.instance, change)
+      self._save_glb_change(form.instance, change, stored_names)
 
   def _save_form_with_glb(self, form):
     """Save the scene form and its GLB changes with one save; reject an out-of-date form first.
@@ -545,9 +545,9 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     """
     stored = Scene.objects.select_for_update().get(pk=form.instance.pk)
     glb_state.reject_stale_form(stored, self.request.POST.get('glb_state_token'))
-    with glb_state.discard_files_on_failure(form.instance):
+    with glb_state.discard_files_on_failure(form.instance) as stored_names:
       # The GLB changes are persisted in the same transaction as the form, like the Accept and Save position buttons
-      self._save_glb_changes(form)
+      self._save_glb_changes(form, stored_names)
       self.object = form.save()
 
   def _render_current_scene(self, notice):
