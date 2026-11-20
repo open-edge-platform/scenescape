@@ -68,6 +68,22 @@ class WillOurShipGo(SceneObjectMqtt):
     log.info("Connected!")
     return
 
+  def _trackingReceived(self, pahoClient, userdata, message):
+    """Ready only once the probe person is in the scene.
+
+    The controller also publishes empty scene heartbeats. Treating those as
+    ready starts the sweep before a track exists, so the first tripwire
+    crossing is never observed.
+    """
+    data = json.loads(message.payload.decode('utf-8'))
+    objects = data.get('objects') if isinstance(data, dict) else None
+    if not objects:
+      return
+    log.debug(f"Tracking received topic={message.topic} objects={len(objects)}")
+    self._personTracked = True
+    self._sceneReadyEvent.set()
+    return
+
   def on_message(self, mqttc, obj, msg):
     """! Call back function for the MQTT client on receiving messages.
     @param    mqttc     The mqtt client object.
@@ -176,6 +192,10 @@ class WillOurShipGo(SceneObjectMqtt):
     """
     global message_received
     global rightAcross, leftAcross, tripwirePoints
+    message_received = False
+    rightAcross = 0
+    leftAcross = 0
+    self._personTracked = False
     if self.testName and self.recordXMLAttribute:
       self.recordXMLAttribute("name", self.testName)
 
@@ -196,6 +216,17 @@ class WillOurShipGo(SceneObjectMqtt):
       publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])
 
       self.sceneReady(MAX_DELAYS, waitTopic, publishTopic, objData)
+      if not self._personTracked:
+        log.error("Probe person was never published; not starting the sweep")
+        return
+
+      # Stay north of the wire long enough for analytics to record the track
+      # before the first crossing. DEBOUNCE_DELAY is 0.5s.
+      hold_until = time.time() + 1.0
+      while time.time() < hold_until:
+        objData["timestamp"] = get_iso_time()
+        self.client.publish(publishTopic, json.dumps(objData))
+        time.sleep(1 / FRAME_RATE)
 
       for yLoc in objLocation:
         id = objData["id"]
