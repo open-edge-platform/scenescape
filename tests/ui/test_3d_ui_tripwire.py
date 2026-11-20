@@ -30,13 +30,16 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
 
   def create_tripwire(self):
     """! Creates a tripwire on the 2D scene page so it appears in the 3D control panel."""
-    assert common.navigate_to_scene(self.browser, self.scene_name)
+    assert common.navigate_to_scene(self.browser, self.scene_name), (
+      f"Scene '{self.scene_name}' was not found on the Scenes page"
+    )
     tripwire_points = common.create_tripwire(self.browser, TRIPWIRE_NAME)
-    assert tripwire_points, "Failed to create tripwire"
+    assert tripwire_points, f"Failed to create tripwire '{TRIPWIRE_NAME}'"
+    log.info(f"Created tripwire '{TRIPWIRE_NAME}' with points {tripwire_points}")
     return
 
   def check_tripwire_controls(self, result_recorder):
-    assert self.login()
+    assert self.login(), "Failed to log in to the web UI"
 
     log.info("1. Create a tripwire via the 2D scene page so it renders in the 3D control panel.")
     self.create_tripwire()
@@ -48,18 +51,23 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     common.expand_3d_control_folder(self.browser, TRIPWIRE_NAME, title_element, PANEL_WAIT_SEC)
 
     initial_state = common.get_3d_scene_object_state(self.browser, TRIPWIRE_NAME)
+    log.info(f"Initial tripwire state: {initial_state}")
     assert initial_state["hooksAvailable"], "Test hooks (window.__testScene) are not exposed"
     assert initial_state["found"], f"Tripwire '{TRIPWIRE_NAME}' was not found in the scene graph"
+    assert initial_state["hasLabel"], (
+      f"Tripwire label 'thingLabel_{TRIPWIRE_NAME}' was not found in the scene graph"
+    )
 
     log.info("3. Change tripwire color via the control panel.")
+    assert initial_state["color"] != NEW_COLOR_HEX.lstrip("#"), (
+      f"Tripwire already has target color {NEW_COLOR_HEX}; the color check would be vacuous"
+    )
     color_input = common.get_3d_control_input(self.browser, TRIPWIRE_NAME, "color", "@type='color'")
     common.set_3d_control_input_value(self.browser, color_input, NEW_COLOR_HEX)
-    state_after_color = common.wait_for_3d_scene_object_state(
+    common.wait_for_3d_scene_object_state(
       self.browser, TRIPWIRE_NAME,
-      lambda state: state.get("color") == NEW_COLOR_HEX.lstrip("#")
-    )
-    assert state_after_color["color"] == NEW_COLOR_HEX.lstrip("#"), (
-      f"Tripwire color did not update: expected {NEW_COLOR_HEX}, got {state_after_color['color']}"
+      lambda state: state.get("color") == NEW_COLOR_HEX.lstrip("#"),
+      description=f"color {NEW_COLOR_HEX}",
     )
     log.info("Tripwire color updated correctly.")
 
@@ -67,43 +75,35 @@ class Scene3dTripwireUserInterfaceTest(UserInterfaceTest):
     was_checked = show_checkbox.is_selected()
     log.info(f"4. Toggle 'show' (currently {was_checked}) and verify the tripwire and its label follow.")
     show_checkbox.click()
-    state_after_toggle = common.wait_for_3d_scene_object_state(
+    common.wait_for_3d_scene_object_state(
       self.browser, TRIPWIRE_NAME,
       lambda state: (
         state.get("visible") is not was_checked
-        and state.get("hasLabel")
         and state.get("labelVisible") is not was_checked
-      )
-    )
-    assert state_after_toggle["visible"] is not was_checked, "Tripwire visibility did not flip after toggling 'show'"
-    assert state_after_toggle["hasLabel"], "Tripwire label was not found in the scene graph"
-    assert state_after_toggle["labelVisible"] is not was_checked, (
-      "Tripwire label visibility did not follow the 'show' toggle"
+      ),
+      description=f"tripwire and label visible={not was_checked} after toggling 'show'",
     )
 
     log.info("5. Toggle 'show' back and verify the tripwire and its label return to the original state.")
     show_checkbox = common.wait_for_3d_control_enabled(self.browser, TRIPWIRE_NAME)
     show_checkbox.click()
-    state_restored = common.wait_for_3d_scene_object_state(
+    common.wait_for_3d_scene_object_state(
       self.browser, TRIPWIRE_NAME,
       lambda state: (
         state.get("visible") is was_checked
         and state.get("labelVisible") is was_checked
-      )
+      ),
+      description=f"tripwire and label visible={was_checked} after re-toggling 'show'",
     )
-    assert state_restored["visible"] is was_checked, "Tripwire visibility did not revert after re-toggling 'show'"
-    assert state_restored["labelVisible"] is was_checked, "Tripwire label visibility did not revert after re-toggling 'show'"
     common.wait_for_3d_control_enabled(self.browser, TRIPWIRE_NAME)
     log.info("Tripwire and label visibility tracked the 'show' toggle correctly.")
 
     log.info("6. Change tripwire height via the control panel.")
     height_input = common.get_3d_control_input(self.browser, TRIPWIRE_NAME, "height", "@type='number'")
     common.set_3d_control_input_value(self.browser, height_input, NEW_HEIGHT)
-    state_after_height = common.wait_for_3d_scene_object_state(
+    common.wait_for_3d_scene_object_state(
       self.browser, TRIPWIRE_NAME, lambda state: state.get("height") == NEW_HEIGHT,
-    )
-    assert state_after_height["height"] == NEW_HEIGHT, (
-      f"Tripwire height did not update: expected {NEW_HEIGHT}, got {state_after_height['height']}"
+      description=f"height {NEW_HEIGHT}",
     )
     log.info("Tripwire height updated correctly.")
 
