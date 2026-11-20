@@ -261,7 +261,7 @@ def test_tracking_produces_reliable_tracks(tls_tracker_service):
 
   Validates:
   - Track id is a UUID string (mapped from RobotVision integer ID)
-  - Track has required fields: translation, velocity, size, rotation
+  - Track has required fields: translation, velocity, angular_velocity, size, rotation
   - Output passes schema validation (UUID string id enforced)
   """
   docker = tls_tracker_service["docker"]
@@ -333,8 +333,11 @@ def test_tracking_produces_reliable_tracks(tls_tracker_service):
     assert track["category"] == "thing", f"Category should be 'thing', got {track['category']}"
     assert len(track["translation"]) == 3, "Translation should have 3 elements"
     assert len(track["velocity"]) == 3, "Velocity should have 3 elements"
+    assert len(track["angular_velocity"]) == 3, "Angular velocity should have 3 elements"
+    assert track["angular_velocity"][0] == 0.0 and track["angular_velocity"][1] == 0.0
     assert len(track["size"]) == 3, "Size should have 3 elements"
     assert len(track["rotation"]) == 4, "Rotation should have 4 elements (quaternion)"
+    assert "uncertainty" not in track, "Uncertainty is published only with the observation processor"
 
     print(f"Track validated: id={track['id']}, position={track['translation']}")
     print("\nTracking test passed")
