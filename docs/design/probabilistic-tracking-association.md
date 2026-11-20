@@ -201,15 +201,25 @@ Default recommendation: **0.99**.
 
 Both services publish the covariance of the track's published state for external consumers, as `uncertainty`, only when the experimental observation processor is enabled (the legacy output is unchanged); `association_window` (§5.2) stays the UI's gate.
 
-| Element   | Design choice                                                                                                                                                                                                                                                         |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quantity  | Blocks of the posterior covariance P after the update (IMM-combined), world axes: `translation` [m²], `velocity` [m²/s²], `size` [m²] and `yaw` [rad²]. Row-major 3×3 blocks (9 numbers) for the first three, a number for `yaw`; cross-block terms are not published |
-| Published | Only the track-state elements that are published already: `translation`, `velocity`, `size` and `rotation`                                                                                                                                                            |
-| z         | `translation` is the published footprint base z − height / 2, so its z entries are J P Jᵀ of the centre-of-mass filter. `translation` and `velocity` are always 3×3; for a track without measured z (`z_measured`) the z-related values are 0                         |
-| `size`    | Both services publish the filter's size with the observation processor, so both have a block. Without an observation processor the Scene Controller keeps the detection's or object class's size and publishes no `uncertainty`                                       |
-| `yaw`     | The variance of the filter yaw, only when the published `rotation` is the filter yaw. For the velocity-heading fallback and the identity quaternion the `rotation` is published and the `yaw` uncertainty is not                                                      |
-| Gating    | Only with the experimental observation processor (the same switch as its centre-of-mass z reference); no new configuration. Independent of `association.method`                                                                                                       |
-| Producers | Tracker Service and Scene Controller, same field in the data formats and the scene-data schema; Analytics passes it through                                                                                                                                           |
+| Element   | Design choice                                                                                                                                                                                                                                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quantity  | Blocks of the posterior covariance P after the update (IMM-combined), world axes: `translation` [m²], `velocity` [m²/s²], `size` [m²]. Row-major 3×3 blocks (9 numbers); cross-block terms are not published                                  |
+| Published | Only the track-state elements that are published already: `translation`, `velocity`, `size` and `rotation`                                                                                                                                    |
+| z         | `translation` is the published footprint base z − height / 2, so its z entries are J P Jᵀ of the centre-of-mass filter. `translation` and `velocity` are always 3×3; for a track without measured z (`z_measured`) the z-related values are 0 |
+| `size`    | Both services publish the filter's size with the observation processor, so both have a block. Without an observation processor the Scene Controller keeps the detection's or object class's size and publishes no `uncertainty`               |
+| Gating    | Only with the experimental observation processor (the same switch as its centre-of-mass z reference); no new configuration. Independent of `association.method`                                                                               |
+| Producers | Tracker Service and Scene Controller, same field in the data formats and the scene-data schema; Analytics passes it through                                                                                                                   |
+
+**Deferred — `uncertainty.yaw`:** variance of the filter yaw (rad²), only when the published
+`rotation` is the filter yaw (not for the velocity-heading fallback or the identity quaternion).
+Tracked in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
+
+### 5.8 Angular velocity in the output
+
+Both services always publish `angular_velocity` `[ωx, ωy, ωz]` in rad/s alongside linear
+`velocity`. The filter estimates yaw rate about world Z (`TrackedObject.w` / `StateIndex::YAW_RATE`);
+`ωx` and `ωy` are 0 until a non-yaw rate model exists. Not gated on the observation processor.
+Covariance of angular velocity is not published yet.
 
 ## 6. Alternatives Considered
 

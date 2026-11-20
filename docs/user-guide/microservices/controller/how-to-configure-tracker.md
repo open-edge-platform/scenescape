@@ -431,18 +431,20 @@ of 0. In a simulation with production tracker settings at 15 fps, the published 
 ### Track Uncertainty in the Output
 
 With an observation processor, each published track also carries `uncertainty`, the covariance of
-the track state that is published (`translation`, `velocity`, and `size` and `yaw` where they come
-from the filter). It is taken from the filter's posterior covariance, so it grows while a track
-coasts and shrinks with measurements that carry a small R. Without an observation processor
-nothing is published. See the [data formats](data_formats.md) for the keys, units and rules:
+the track state that is published (`translation`, `velocity`, and `size` from the filter). It is
+taken from the filter's posterior covariance, so it grows while a track coasts and shrinks with
+measurements that carry a small R. Without an observation processor nothing is published. See the
+[data formats](data_formats.md) for the keys, units and rules:
 
 - `translation` describes the published footprint base, not the centre of mass.
 - `translation` and `velocity` are always 3×3; for a track without measured z the z-related values
   are 0.
 - With an observation processor both services publish the filter's `size` and an `uncertainty.size`
   block; without one the Scene Controller keeps the detection's size and publishes no uncertainty.
-- `yaw` is present only when the published `rotation` is the filter's yaw, not for the velocity
-  heading fallback.
+- Yaw variance (`uncertainty.yaw`) is deferred; see the probabilistic-tracking plan.
+
+Tracks also publish `angular_velocity` `[ωx, ωy, ωz]` in rad/s (always on, not gated on the
+observation processor). Only `ωz` is filter-estimated (yaw rate); `ωx` and `ωy` are 0.
 
 ## Persisting Object Attributes Across Detection Gaps
 

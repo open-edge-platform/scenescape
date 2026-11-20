@@ -326,7 +326,7 @@ def _kalman_yaw_disagrees_with_velocity(tracked_object,
 # Indices into robot_vision's state vector (rv::tracking::StateIndex):
 # [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
 _STATE_X, _STATE_Y, _STATE_VX, _STATE_VY, _STATE_Z, _STATE_VZ = 0, 1, 2, 3, 6, 7
-_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT, _STATE_YAW = 8, 9, 10, 11
+_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT = 8, 9, 10
 _STATE_SIZE = 13
 
 
@@ -337,7 +337,7 @@ def _finite_block(block):
   return block.reshape(-1).tolist()
 
 
-def build_track_uncertainty(error_covariance, z_measured, filter_yaw_published):
+def build_track_uncertainty(error_covariance, z_measured):
   """Covariance of the published track state (MQTT ``uncertainty``), from the filter's P.
 
   Only for a centre-of-mass track (experimental observation processor). Each value is a row-major
@@ -350,7 +350,8 @@ def build_track_uncertainty(error_covariance, z_measured, filter_yaw_published):
   - ``velocity`` [m²/s²]: vx, vy, vz.
   - ``size`` [m²]: length, width, height.
   - Without measured z the z row and column of translation and velocity are 0.
-  - ``yaw`` [rad²]: only when the published rotation is the filter yaw.
+
+  Yaw variance is deferred; see the probabilistic-tracking plan.
 
   Returns ``None`` when no value is finite.
   """
@@ -387,9 +388,6 @@ def build_track_uncertainty(error_covariance, z_measured, filter_yaw_published):
     values = _finite_block(block)
     if values is not None:
       uncertainty[name] = values
-  yaw_variance = covariance[_STATE_YAW, _STATE_YAW]
-  if filter_yaw_published and np.isfinite(yaw_variance):
-    uncertainty["yaw"] = float(yaw_variance)
   return uncertainty or None
 
 
@@ -565,16 +563,14 @@ class IntelLabsTracking(Tracking):
       return
     sscape_object.size = [tracked_object.length, tracked_object.width, tracked_object.height]
 
-  def _publishedUncertainty(self, tracked_object, filter_yaw_published):
+  def _publishedUncertainty(self, tracked_object):
     """Covariance of the published state with an observation processor, ``None`` otherwise (legacy
-    output carries no uncertainty). ``filter_yaw_published`` tells whether the published rotation is
-    the filter yaw (the yaw variance is published only then).
+    output carries no uncertainty).
     """
     if getattr(self, 'observation_processor', None) is None:
       return None
     return build_track_uncertainty(tracked_object.error_covariance,
-                                   bool(getattr(tracked_object, "z_measured", False)),
-                                   filter_yaw_published)
+                                   bool(getattr(tracked_object, "z_measured", False)))
 
   def _warn_ignored_tracking_radius(self, objects):
     if self._ignored_tracking_radius_warned:
@@ -637,14 +633,16 @@ class IntelLabsTracking(Tracking):
           )
           # The object keeps its previously published rotation, so its yaw provenance is kept too.
           self._publishFilterSize(obj, tracked_object)
-          obj.uncertainty = self._publishedUncertainty(
-            tracked_object, getattr(obj, 'filter_yaw_published', False))
+          obj.angular_velocity = [0.0, 0.0, float(tracked_object.w)]
+          obj.uncertainty = self._publishedUncertainty(tracked_object)
           return obj
 
     sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
 
     sscape_object.location[0].point = self._publishedPoint(tracked_object)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
+    # Filter estimates yaw rate about world Z only; ωx and ωy stay 0.
+    sscape_object.angular_velocity = [0.0, 0.0, float(tracked_object.w)]
     self._publishFilterSize(sscape_object, tracked_object)
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
@@ -686,8 +684,7 @@ class IntelLabsTracking(Tracking):
       self.tracking_radius_m,
       z_measured=bool(getattr(tracked_object, "z_measured", False)),
     )
-    sscape_object.uncertainty = self._publishedUncertainty(
-      tracked_object, sscape_object.filter_yaw_published)
+    sscape_object.uncertainty = self._publishedUncertainty(tracked_object)
 
     return sscape_object
 

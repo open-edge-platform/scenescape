@@ -220,7 +220,7 @@ class TestDetectionsBuilder:
 
   def test_prepare_obj_dict_includes_uncertainty(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
-    obj.uncertainty = {'translation': [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], 'yaw': 0.1}
+    obj.uncertainty = {'translation': [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]}
 
     detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
 
@@ -238,12 +238,27 @@ class TestDetectionsBuilder:
   @pytest.mark.parametrize('uncertainty', [None, {}])
   def test_prepare_obj_dict_drops_uncertainty_inherited_from_info(self, uncertainty):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
-    obj.info = {**(obj.info or {}), 'uncertainty': {'yaw': 0.5}}
+    obj.info = {**(obj.info or {}), 'uncertainty': {'translation': [1.0] * 9}}
     obj.uncertainty = uncertainty
 
     detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
 
     assert 'uncertainty' not in detection
+
+  def test_prepare_obj_dict_includes_angular_velocity(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.angular_velocity = [0.0, 0.0, 0.15]
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert detection['angular_velocity'] == [0.0, 0.0, 0.15]
+
+  def test_prepare_obj_dict_omits_missing_angular_velocity(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert 'angular_velocity' not in detection
 
   def test_prepare_obj_dict_handles_chain_data_without_sensor_fields(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)

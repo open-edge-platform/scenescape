@@ -1232,6 +1232,9 @@ TEST_F(TrackingWorkerTest, Tracking_Climbing3DDetectionPublishesHeightAndVertica
     EXPECT_NEAR(published_track->translation[2], last_z, 0.2);
     EXPECT_NEAR(published_track->velocity[2], kClimbRate, 0.2);
     EXPECT_LT(std::hypot(published_track->velocity[0], published_track->velocity[1]), 0.1);
+    // Filter yaw rate about world Z only; ωx and ωy stay 0.
+    EXPECT_EQ(published_track->angular_velocity[0], 0.0);
+    EXPECT_EQ(published_track->angular_velocity[1], 0.0);
 }
 
 TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocityEnabled_PublishesVelocityHeading) {
@@ -2279,7 +2282,8 @@ TEST_F(TrackingWorkerTest, CentreOfMass_PlanarTrackPublishesZeroZRelatedUncertai
         EXPECT_EQ((*uncertainty.velocity)[i], 0.0) << i;
     }
     EXPECT_GT((*uncertainty.size)[0], 0.0);
-    EXPECT_FALSE(uncertainty.yaw.has_value()) << "rotation is the identity";
+    EXPECT_EQ(tracks[0].angular_velocity[0], 0.0);
+    EXPECT_EQ(tracks[0].angular_velocity[1], 0.0);
 }
 
 TEST_F(TrackingWorkerTest, CentreOfMass_MeasuredZTrackPublishesTheFullUncertainty) {
@@ -2300,8 +2304,8 @@ TEST_F(TrackingWorkerTest, CentreOfMass_MeasuredZTrackPublishesTheFullUncertaint
     EXPECT_GT((*uncertainty.translation)[8], 0.0) << "z variance of a measured-z track";
     ASSERT_TRUE(uncertainty.velocity.has_value());
     EXPECT_GT((*uncertainty.velocity)[8], 0.0);
-    ASSERT_TRUE(uncertainty.yaw.has_value()) << "the detector yaw is the published rotation";
-    EXPECT_GT(*uncertainty.yaw, 0.0);
+    EXPECT_EQ(tracks[0].angular_velocity[0], 0.0);
+    EXPECT_EQ(tracks[0].angular_velocity[1], 0.0);
 }
 
 } // namespace

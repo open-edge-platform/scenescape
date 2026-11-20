@@ -194,6 +194,7 @@ class SceneDataIngestion:
     obj.velocity = (
       Point(obj_data['velocity']) if obj_data.get('velocity') else None
     )
+    obj.angular_velocity = obj_data.get('angular_velocity')
     obj.size = obj_data.get('size')
     obj.confidence = obj_data.get('confidence')
     obj.frameCount = obj_data.get('frame_count', 0)

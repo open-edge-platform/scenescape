@@ -29,6 +29,7 @@ protected:
         track.category = category;
         track.translation = {1.0, 2.0, 0.5};
         track.velocity = {0.5, -0.3, 0.0};
+        track.angular_velocity = {0.0, 0.0, 0.0};
         track.size = {0.5, 0.5, 1.8};
         track.rotation = {0.0, 0.0, 0.0, 1.0};
         return track;
@@ -146,6 +147,7 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     track.category = "vehicle";
     track.translation = {10.5, 20.3, 1.25};
     track.velocity = {1.0, 2.0, 0.4};
+    track.angular_velocity = {0.0, 0.0, 0.15};
     track.size = {4.5, 2.0, 1.5};
     track.rotation = {0.0, 0.0, 0.707, 0.707};
 
@@ -172,6 +174,13 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     EXPECT_DOUBLE_EQ(obj["velocity"][0].GetDouble(), 1.0);
     EXPECT_DOUBLE_EQ(obj["velocity"][1].GetDouble(), 2.0);
     EXPECT_DOUBLE_EQ(obj["velocity"][2].GetDouble(), 0.4);
+
+    // Angular velocity [ωx, ωy, ωz] — always published; only ωz from filter yaw rate
+    EXPECT_TRUE(obj["angular_velocity"].IsArray());
+    EXPECT_EQ(obj["angular_velocity"].Size(), 3u);
+    EXPECT_DOUBLE_EQ(obj["angular_velocity"][0].GetDouble(), 0.0);
+    EXPECT_DOUBLE_EQ(obj["angular_velocity"][1].GetDouble(), 0.0);
+    EXPECT_DOUBLE_EQ(obj["angular_velocity"][2].GetDouble(), 0.15);
 
     // Size [length, width, height]
     EXPECT_TRUE(obj["size"].IsArray());
@@ -450,7 +459,7 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithAssociationWindow_IncludesGeometr
     EXPECT_DOUBLE_EQ(assoc["angle_rad"].GetDouble(), 0.25);
 }
 
-TEST_F(TrackPublisherTest, Serialize_Track_WithUncertainty_EmitsBlocksAndYaw) {
+TEST_F(TrackPublisherTest, Serialize_Track_WithUncertainty_EmitsBlocks) {
     auto mock_client = std::make_shared<MockMqttClient>();
     TrackPublisher publisher(mock_client);
 
@@ -465,7 +474,6 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithUncertainty_EmitsBlocksAndYaw) {
     TrackUncertainty uncertainty;
     uncertainty.translation = Covariance3{1, 2, 3, 4, 5, 6, 7, 8, 9};
     uncertainty.velocity = Covariance3{9, 8, 7, 6, 5, 4, 3, 2, 1};
-    uncertainty.yaw = 0.25;
     track.uncertainty = uncertainty;
 
     publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
@@ -482,7 +490,7 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithUncertainty_EmitsBlocksAndYaw) {
     ASSERT_EQ(out["velocity"].Size(), 9u);
     EXPECT_DOUBLE_EQ(out["velocity"][0].GetDouble(), 9.0);
     EXPECT_FALSE(out.HasMember("size")) << "an absent block is not emitted";
-    EXPECT_DOUBLE_EQ(out["yaw"].GetDouble(), 0.25);
+    EXPECT_FALSE(out.HasMember("yaw")) << "yaw variance is deferred";
 }
 
 TEST_F(TrackPublisherTest, Serialize_Track_WithoutUncertainty_OmitsTheField) {

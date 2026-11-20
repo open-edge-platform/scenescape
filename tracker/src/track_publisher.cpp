@@ -74,6 +74,14 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         velocity.PushBack(track.velocity[2], allocator);
         obj.AddMember("velocity", velocity, allocator);
 
+        // Angular velocity [ωx, ωy, ωz]; only ωz is filter-estimated (yaw rate)
+        Value angular_velocity(kArrayType);
+        angular_velocity.Reserve(3, allocator);
+        angular_velocity.PushBack(track.angular_velocity[0], allocator);
+        angular_velocity.PushBack(track.angular_velocity[1], allocator);
+        angular_velocity.PushBack(track.angular_velocity[2], allocator);
+        obj.AddMember("angular_velocity", angular_velocity, allocator);
+
         // Size [length, width, height]
         Value size(kArrayType);
         size.Reserve(3, allocator);
@@ -157,9 +165,6 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
             add_block("translation", uncertainty.translation);
             add_block("velocity", uncertainty.velocity);
             add_block("size", uncertainty.size);
-            if (uncertainty.yaw.has_value()) {
-                out.AddMember("yaw", Value(*uncertainty.yaw), allocator);
-            }
             obj.AddMember("uncertainty", out, allocator);
         }
 

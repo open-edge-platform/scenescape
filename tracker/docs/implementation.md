@@ -103,12 +103,14 @@ from `TrackedObject::errorCovariance` (P, the IMM-combined posterior), per publi
 - `velocity`: the 3×3 block of vx, vy, vz. `size`: the 3×3 block of length, width and height.
 - Without measured z (`z_measured`) the z row and column of `translation` and the vz row and column of
   `velocity` are 0.
-- `yaw`: the variance of the filter yaw, only when `select_track_rotation()` published the filter
-  yaw (`TrackRotation::filter_yaw`). For the velocity heading or the identity quaternion, the
-  rotation is published and its yaw uncertainty is not.
+- Yaw variance is deferred; see the probabilistic-tracking plan. `TrackRotation::filter_yaw` from
+  `select_track_rotation()` still records whether the published `rotation` is the filter yaw.
 - Each block is symmetrized and a block with a non-finite value is omitted. Cross-block terms are not
   published. Workers with `ZReference::FootprintBase` publish no `uncertainty`, so the legacy output
   is unchanged.
+
+Published tracks also carry `angular_velocity` `[ωx, ωy, ωz]` from `TrackedObject::w` (yaw rate
+about world Z; `ωx` and `ωy` are 0). Always on; not gated on `ZReference`.
 
 #### Why local processing runs on every frame
 
@@ -417,10 +419,11 @@ RobotVision output in world coordinates. See [`scene-data.schema.json`](../schem
 struct Track {
     std::string id;             // Persistent track ID (UUID v4, mapped from RobotVision int ID)
     std::string category;       // Object category (e.g., person, vehicle)
-    std::array<double, 3> translation;  // World position [x, y, z] meters
-    std::array<double, 3> velocity;     // Velocity [vx, vy, vz] m/s
-    std::array<double, 3> size;         // Object size [length, width, height] meters
-    std::array<double, 4> rotation;     // Orientation quaternion [x, y, z, w]
+    std::array<double, 3> translation;      // World position [x, y, z] meters
+    std::array<double, 3> velocity;         // Velocity [vx, vy, vz] m/s
+    std::array<double, 3> angular_velocity; // [ωx, ωy, ωz] rad/s (only ωz from filter)
+    std::array<double, 3> size;             // Object size [length, width, height] meters
+    std::array<double, 4> rotation;         // Orientation quaternion [x, y, z, w]
     std::string metadata_json;          // Per-field fused detection metadata
     std::string reid_sighting_json;     // Selected current-chunk sighting, if any
 };

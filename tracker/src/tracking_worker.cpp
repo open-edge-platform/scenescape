@@ -393,6 +393,8 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             z_reference_ == ZReference::CentreOfMass ? footprintBaseZ(rv_track) : rv_track.z;
         track.translation = {rv_track.x, rv_track.y, z};
         track.velocity = {rv_track.vx, rv_track.vy, rv_track.vz};
+        // Filter estimates yaw rate about world Z only; ωx and ωy stay 0.
+        track.angular_velocity = {0.0, 0.0, rv_track.w};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
 
         VelocityRotationState default_rotation_state;
@@ -420,7 +422,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 
         track.association_window = buildAssociationWindow(association_config_, rv_track);
         if (z_reference_ == ZReference::CentreOfMass) {
-            track.uncertainty = buildTrackUncertainty(rv_track, rotation.filter_yaw);
+            track.uncertainty = buildTrackUncertainty(rv_track);
         }
 
         tracks.push_back(std::move(track));

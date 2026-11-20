@@ -129,9 +129,10 @@ def test_retrack_false_promotes_child_uncertainty_onto_object_and_output():
   uncertainty = {
     'translation': [0.25, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0],
     'velocity': [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0],
-    'yaw': 0.05,
   }
+  angular_velocity = [0.0, 0.0, 0.15]
   message['objects'][0]['uncertainty'] = uncertainty
+  message['objects'][0]['angular_velocity'] = angular_velocity
   source = SimpleNamespace(uid='drone-1', name='drone-1', retrack=False)
   pose = CameraPose(dict(message['pose'], scale=[1, 1, 1]), None)
 
@@ -139,12 +140,14 @@ def test_retrack_false_promotes_child_uncertainty_onto_object_and_output():
     message, source, pose, 'unknown', 100)
 
   assert child_objects[0].uncertainty == uncertainty
+  assert child_objects[0].angular_velocity == angular_velocity
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
   tracker.already_tracked_objects = []
   merged = tracker.mergeAlreadyTrackedObjects(child_objects)
   scene._updateVisible(merged)
   output = buildDetectionsList(merged, scene)
   assert output[0]['uncertainty'] == uncertainty
+  assert output[0]['angular_velocity'] == angular_velocity
 
 
 def test_source_identity_and_provenance_survive_merge_and_analytics_output():

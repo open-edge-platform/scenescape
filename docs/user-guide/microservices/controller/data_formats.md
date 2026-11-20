@@ -701,6 +701,7 @@ tracked object contains the following fields:
 | `translation`          | array[3] of number         | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
 | `size`                 | array[3] of number         | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
 | `velocity`             | array[3] of number         | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
+| `angular_velocity`     | array[3] of number         | Angular velocity (`ωx`, `ωy`, `ωz`) in radians per second; only `ωz` is filter-estimated (yaw rate), `ωx` and `ωy` are 0                                                                                                                                         |
 | `rotation`             | array[4] of number         | Orientation quaternion                                                                                                                                                                                                                                           |
 | `visibility`           | array of string            | Camera IDs currently observing this object                                                                                                                                                                                                                       |
 | `source_ids`           | array of strings, optional | External publishers that have contributed observations during this active track's lifetime. Retained until the track expires; this is provenance, not camera visibility                                                                                          |
@@ -790,12 +791,11 @@ subject to the existing identity-collision checks.
 > after the update (or the coast prediction). Each block is row-major: a 3×3 covariance matrix as
 > 9 numbers. Cross-block terms are not published.
 >
-> | Key           | Unit  | Describes                                                                              |
-> | ------------- | ----- | -------------------------------------------------------------------------------------- |
-> | `translation` | m²    | `translation` (x, y, z)                                                                |
-> | `velocity`    | m²/s² | `velocity` (x, y, z)                                                                   |
-> | `size`        | m²    | `size` (length, width, height)                                                         |
-> | `yaw`         | rad²  | Variance of the yaw in `rotation` (a number); only when `rotation` is the filter's yaw |
+> | Key           | Unit  | Describes                      |
+> | ------------- | ----- | ------------------------------ |
+> | `translation` | m²    | `translation` (x, y, z)        |
+> | `velocity`    | m²/s² | `velocity` (x, y, z)           |
+> | `size`        | m²    | `size` (length, width, height) |
 >
 > - `translation` describes the published point, so its z entries are those of the footprint base
 >   (z of the centre of mass minus half the height), not of the centre of mass.
@@ -804,8 +804,7 @@ subject to the existing identity-collision checks.
 > - `size`: both producers publish the filter's size with the observation processor, so both carry
 >   a block. Without an observation processor the Scene Controller keeps the detection's or the
 >   object class's size and publishes no `uncertainty` at all.
-> - `yaw`: when `rotation` is the velocity heading (the filter yaw disagrees with the heading) or
->   the identity, `rotation` is still published and `yaw` is absent.
+> - Yaw variance (`uncertainty.yaw`) is deferred; see the probabilistic-tracking plan.
 > - A block with a non-finite value is omitted.
 > - Analytics passes the field through on regulated scene output when present.
 
@@ -854,6 +853,7 @@ by `source_ids`.
       "translation": [2.463, 3.61, 0.0],
       "size": [0.5, 0.5, 1.85],
       "velocity": [-0.045, 0.012, 0.0],
+      "angular_velocity": [0.0, 0.0, 0.02],
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "metadata": {

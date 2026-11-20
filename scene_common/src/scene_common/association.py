@@ -39,6 +39,15 @@ def add_uncertainty(obj_dict, obj):
     obj_dict.pop('uncertainty', None)
 
 
+def add_angular_velocity(obj_dict, obj):
+  """Copy ``angular_velocity`` from ``obj`` into ``obj_dict``, or remove a stale ``info`` copy."""
+  angular_velocity = getattr(obj, 'angular_velocity', None)
+  if angular_velocity is not None:
+    obj_dict['angular_velocity'] = angular_velocity
+  else:
+    obj_dict.pop('angular_velocity', None)
+
+
 def add_association_window(obj_dict, obj):
   """Copy the tracker's ``association_window`` of ``obj`` into ``obj_dict`` when it has one."""
   association_window = getattr(obj, 'association_window', None)

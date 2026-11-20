@@ -30,6 +30,7 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
     bbMeters=getattr(obj, 'bbMeters', None),
     size=getattr(obj, 'size', None),
     velocity=getattr(obj, 'velocity', None),
+    angular_velocity=getattr(obj, 'angular_velocity', None),
     info=getattr(obj, 'info', None),
     rotation=getattr(obj, 'rotation', None),
     metadata=getattr(obj, 'metadata', None),
@@ -74,6 +75,7 @@ class AnalyticsObject:
   # Publishing fields — copied from the source object so AnalyticsObject is
   # self-contained for serialisation (no unwrapping needed).
   velocity: Optional[Any] = None
+  angular_velocity: Optional[Any] = None
   info: Optional[Any] = None
   rotation: Optional[Any] = None
   metadata: Optional[Any] = None

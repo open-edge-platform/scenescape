@@ -79,7 +79,7 @@ def test_ingest_explicit_visibility_is_preserved():
 
 
 def test_ingest_preserves_uncertainty():
-  uncertainty = {'translation': [1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0], 'yaw': 0.1}
+  uncertainty = {'translation': [1.0, 0, 0, 0, 1.0, 0, 0, 0, 1.0]}
   ingestion = SceneDataIngestion()
   ingestion.ingest('person', [_person(uncertainty=uncertainty)], {})
   assert ingestion._objects['obj-1'].uncertainty == uncertainty
@@ -89,6 +89,19 @@ def test_ingest_omitted_uncertainty_is_none():
   ingestion = SceneDataIngestion()
   ingestion.ingest('person', [_person()], {})
   assert ingestion._objects['obj-1'].uncertainty is None
+
+
+def test_ingest_preserves_angular_velocity():
+  angular_velocity = [0.0, 0.0, 0.15]
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person(angular_velocity=angular_velocity)], {})
+  assert ingestion._objects['obj-1'].angular_velocity == angular_velocity
+
+
+def test_ingest_omitted_angular_velocity_is_none():
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person()], {})
+  assert ingestion._objects['obj-1'].angular_velocity is None
 
 
 def test_ingest_explicit_empty_visibility_is_preserved():

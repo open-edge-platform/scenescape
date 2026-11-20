@@ -27,13 +27,13 @@ using Covariance3 = std::array<double, 9>;
  * 0.
  *  - velocity [m²/s²]: vx, vy, vz. For a track without measured z the vz row and column are 0.
  *  - size [m²]: length, width, height.
- *  - yaw [rad²]: only when the published rotation is the filter yaw.
+ *
+ * Yaw variance is deferred; see the probabilistic-tracking plan.
  */
 struct TrackUncertainty {
     std::optional<Covariance3> translation;
     std::optional<Covariance3> velocity;
     std::optional<Covariance3> size;
-    std::optional<double> yaw;
 };
 
 namespace detail {
@@ -83,11 +83,9 @@ inline std::optional<Covariance3> covarianceBlock(const rv::tracking::TrackedObj
  * @brief Build the uncertainty of a centre-of-mass track's published state.
  *
  * @param track Track of the filter, with the centre-of-mass z.
- * @param filter_yaw_published True when the published rotation is the filter yaw.
  * @return The uncertainty, or no value when every block is absent.
  */
-inline std::optional<TrackUncertainty>
-buildTrackUncertainty(const rv::tracking::TrackedObject& track, bool filter_yaw_published) {
+inline std::optional<TrackUncertainty> buildTrackUncertainty(const rv::tracking::TrackedObject& track) {
     using detail::StateCombination;
     using rv::tracking::StateIndex;
     const bool zero_z = !track.z_measured;
@@ -111,15 +109,8 @@ buildTrackUncertainty(const rv::tracking::TrackedObject& track, bool filter_yaw_
          StateCombination{StateIndex::WIDTH, 1.0, StateIndex::WIDTH, 0.0},
          StateCombination{StateIndex::HEIGHT, 1.0, StateIndex::HEIGHT, 0.0}},
         false);
-    if (filter_yaw_published) {
-        const double yaw_variance = track.errorCovariance(StateIndex::YAW, StateIndex::YAW);
-        if (std::isfinite(yaw_variance)) {
-            uncertainty.yaw = yaw_variance;
-        }
-    }
 
-    if (!uncertainty.translation && !uncertainty.velocity && !uncertainty.size &&
-        !uncertainty.yaw) {
+    if (!uncertainty.translation && !uncertainty.velocity && !uncertainty.size) {
         return std::nullopt;
     }
     return uncertainty;

@@ -176,11 +176,9 @@ def last_message(received, category=CATEGORY):
 def assert_uncertainty(track, z_measured):
   """The published state's covariance: 3x3 blocks, z-related values 0 without measured z."""
   uncertainty = track["uncertainty"]
-  assert set(uncertainty) <= {"translation", "velocity", "size", "yaw"}, uncertainty
+  assert set(uncertainty) <= {"translation", "velocity", "size"}, uncertainty
   for name in ("translation", "velocity", "size"):
     assert len(uncertainty[name]) == 9, uncertainty
-  # A planar or remote track carries no orientation: the rotation is the identity.
-  assert "yaw" not in uncertainty, uncertainty
   for name in ("translation", "velocity"):
     block = uncertainty[name]
     assert block[0] > 0 and block[4] > 0, block

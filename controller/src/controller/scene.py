@@ -406,11 +406,14 @@ class Scene(SceneModel):
   def _promoteTrustedChildState(mobj, info):
     """Promote child-published fields that prepareObjDict reads from the object attribute.
 
-    retrack=False trusts the child's state, including filter covariances. add_uncertainty only
-    emits ``uncertainty`` from the attribute (not from ``info``), so promote it with rotation.
+    retrack=False trusts the child's state, including filter covariances and angular velocity.
+    add_uncertainty / add_angular_velocity only emit from the object attribute (not from ``info``),
+    so promote them with rotation.
     """
     if 'rotation' in info:
       mobj.rotation = info['rotation']
+    if 'angular_velocity' in info:
+      mobj.angular_velocity = info['angular_velocity']
     if 'uncertainty' in info:
       mobj.uncertainty = info['uncertainty']
 
