@@ -61,7 +61,7 @@ def test_late_queue_cannot_overwrite_a_started_worker():
   context.pending_registrations.proceed.set()
   first.join(_WAIT)
   second.join(_WAIT)
-  assert outcomes == {"first": "busy", "second": "started"}
+  assert outcomes == {"first": ("busy", "A"), "second": ("started", "B")}
   assert "B" not in context.pending_registrations
   assert context.current_processing_scene == "B"
 
@@ -72,7 +72,7 @@ def test_stale_sync_result_cannot_overwrite_worker_error():
   scene = SimpleNamespace(id="A")
   generation = context.begin_sync_registration(scene.id)
 
-  assert context.request_scene_registration(scene) == "started"
+  assert context.request_scene_registration(scene) == ("started", "A")
   context.finish_registration(scene.id, {"status": "error", "message": "too few tags"})
 
   assert not context.finish_sync_registration(scene.id, generation, {"status": "success"})
@@ -85,3 +85,17 @@ def test_sync_result_is_recorded_without_concurrent_worker():
 
   assert context.finish_sync_registration("A", generation, {"status": "success"})
   assert context.registration_results["A"] == {"status": "success"}
+
+
+def test_busy_request_reports_the_registering_scene():
+  """Requesting B while A registers must report A, not B, as the registering scene."""
+  context = _context()
+  context.pending_registrations = set()
+  scene_a, scene_b = SimpleNamespace(id="A"), SimpleNamespace(id="B")
+
+  assert context.request_scene_registration(scene_a) == ("started", "A")
+  assert context.request_scene_registration(scene_b) == ("busy", "A")
+  assert context.request_scene_registration(scene_a) == ("active", "A")
+
+  context.finish_registration("A", {"status": "success"})
+  assert context.request_scene_registration(scene_b) == ("started", "B")
