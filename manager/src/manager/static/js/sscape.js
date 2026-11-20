@@ -1991,7 +1991,7 @@ function drawSensor(sensor, index, type) {
   if (type === "child_sensor" && document.getElementById(i)) {
     var name_text = document.getElementById(i).querySelector("#name");
     var hierarchy_text = document.getElementById(i).querySelector("#hierarchy");
-    if (sensor.x && sensor.y) {
+    if (Number.isFinite(sensor.x) && Number.isFinite(sensor.y)) {
       var p = metersToPixels([sensor.x, sensor.y], scale, scene_y_max);
       sensor.x = p[0];
       sensor.y = p[1];
@@ -2003,11 +2003,28 @@ function drawSensor(sensor, index, type) {
       hierarchy_text.setAttribute("x", sensor?.x);
       hierarchy_text.setAttribute("y", sensor?.y + 15);
     }
+
+    const areaTag =
+      sensor.area === "circle"
+        ? "circle"
+        : sensor.area === "poly"
+          ? "polygon"
+          : null;
+    let areaElement = document.querySelector("#" + i + " > .area");
+    if (areaTag && areaElement?.tagName.toLowerCase() !== areaTag) {
+      const replacement = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        areaTag,
+      );
+      replacement.classList.add("area");
+      areaElement?.replaceWith(replacement);
+      areaElement = replacement;
+    }
+
     if (sensor.area === "circle") {
-      var outer_circle = document.querySelector("#" + i + " > .area");
-      outer_circle.setAttribute("cx", sensor.x);
-      outer_circle.setAttribute("cy", sensor.y);
-      outer_circle.setAttribute("r", sensor.radius * scale);
+      areaElement.setAttribute("cx", sensor.x);
+      areaElement.setAttribute("cy", sensor.y);
+      areaElement.setAttribute("r", sensor.radius * scale);
     } else if (sensor.area === "poly") {
       let area_points = [];
       sensor.points.forEach(function (m) {
@@ -2015,9 +2032,8 @@ function drawSensor(sensor, index, type) {
         area_points.push(p[0], p[1]);
       });
       var points_string = area_points.join(",");
-      var polygon = document.querySelector("#" + i + " > .area");
-      if (polygon.getAttribute("points") != points_string) {
-        polygon.setAttribute("points", points_string);
+      if (areaElement.getAttribute("points") != points_string) {
+        areaElement.setAttribute("points", points_string);
       }
     }
   } else if (document.getElementById("sensor_" + index) === null && svgCanvas) {
