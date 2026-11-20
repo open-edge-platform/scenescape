@@ -85,7 +85,8 @@ inline std::optional<Covariance3> covarianceBlock(const rv::tracking::TrackedObj
  * @param track Track of the filter, with the centre-of-mass z.
  * @return The uncertainty, or no value when every block is absent.
  */
-inline std::optional<TrackUncertainty> buildTrackUncertainty(const rv::tracking::TrackedObject& track) {
+inline std::optional<TrackUncertainty>
+buildTrackUncertainty(const rv::tracking::TrackedObject& track) {
     using detail::StateCombination;
     using rv::tracking::StateIndex;
     const bool zero_z = !track.z_measured;

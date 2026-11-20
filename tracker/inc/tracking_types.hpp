@@ -96,11 +96,12 @@ struct Chunk {
 struct Track {
     std::string id;       ///< Persistent track ID (UUID v4, mapped from RobotVision ID)
     std::string category; ///< Object category (e.g., person, vehicle)
-    std::array<double, 3> translation;      ///< World position [x, y, z] meters
-    std::array<double, 3> velocity;         ///< Velocity [vx, vy, vz] m/s
-    std::array<double, 3> angular_velocity; ///< Angular velocity [ωx, ωy, ωz] rad/s (only ωz from filter)
-    std::array<double, 3> size;             ///< Object size [length, width, height] meters
-    std::array<double, 4> rotation;         ///< Orientation quaternion [x, y, z, w]
+    std::array<double, 3> translation; ///< World position [x, y, z] meters
+    std::array<double, 3> velocity;    ///< Velocity [vx, vy, vz] m/s
+    std::array<double, 3>
+        angular_velocity;           ///< Angular velocity [ωx, ωy, ωz] rad/s (only ωz from filter)
+    std::array<double, 3> size;     ///< Object size [length, width, height] meters
+    std::array<double, 4> rotation; ///< Orientation quaternion [x, y, z, w]
     std::string
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>
