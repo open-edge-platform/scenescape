@@ -1,5 +1,11 @@
 # Release Notes: Scenescape
 
+## Version 2026.3.0
+
+**Upgrade Notes:**
+
+- **2D map origin for GLB scenes:** The 2D view now places objects using the world position of the map image's bottom-left corner. Previously, it assumed this corner was at world `(0, 0)`, so objects were drawn offset from the floor plan for most GLB scene maps. During the database upgrade, existing GLB scenes have their 2D thumbnail, scale, and origin regenerated. Regions, tripwires, and singleton sensor areas that were drawn in the 2D view before the upgrade will appear shifted on the 2D map. Their stored world coordinates are unchanged, and the new position is where they actually are in the world. Re-check them and redraw any that you placed by eye against the old map. The upgrade logs a warning for each affected scene. See [How to Upgrade](./additional-resources/how-to-upgrade.md#re-check-2d-regions-tripwires-and-sensor-areas-on-glb-scenes).
+
 ## Version 2026.2.0
 
 **Release Date:** September 9, 2026
