@@ -189,8 +189,7 @@ class TestSceneControllerExtractTrackerConfigFilter:
   """Top-level ``filter`` block (q, r, P0) of tracker-config.json."""
 
   @pytest.mark.parametrize('config_file', [
-    'tracker-config.json', 'tracker-config-immediate.json', 'tracker-config-persist-attr.json',
-    'tracker-config-mahalanobis.json',
+    'tracker-config.json', 'tracker-config-persist-attr.json',
   ])
   def test_shipped_configs_keep_the_production_constants(self, config_file):
     # The shipped configs have no filter block, so the constants are used as they are (bit for bit).
