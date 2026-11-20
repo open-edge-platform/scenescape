@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+import requests
 from flask import has_request_context, request
 
 from auto_camera_calibration_api import CameraCalibrationApi
@@ -411,17 +412,39 @@ def test_busy_registration_names_the_registering_scene(monkeypatch):
   assert "sceneName" not in body
 
 
-def test_busy_registration_omits_name_of_unknown_registering_scene(monkeypatch):
-  """A registering scene that cannot be looked up is reported by ID only."""
-  monkeypatch.setattr(_api.calibrationContext, "pending_registrations", set())
-  monkeypatch.setattr(_api.calibrationContext, "current_processing_scene", _MISSING_SCENE)
-  monkeypatch.setattr(_api.calibrationContext, "register_thread_lock", _ViewLock({_BUSY_SCENE}))
+def _unreachable_lookup(lookup, unreachable_id, error):
+  """Wrap a scene lookup so one scene ID fails at the transport layer."""
+  def scene_with_id(scene_id):
+    if scene_id == unreachable_id:
+      raise error
+    return lookup(scene_id)
+  return scene_with_id
+
+
+@pytest.mark.parametrize("registering_id,lookup_error", [
+  (_MISSING_SCENE, None),
+  (_ACTIVE_SCENE, requests.exceptions.ConnectionError("manager unreachable")),
+  (_ACTIVE_SCENE, requests.exceptions.Timeout("manager timed out")),
+], ids=["missing-scene", "connection-error", "timeout"])
+def test_busy_registration_omits_name_when_lookup_fails(
+    monkeypatch, registering_id, lookup_error):
+  """A registering scene that cannot be looked up is reported by ID only, not as a 500."""
+  context = _api.calibrationContext
+  monkeypatch.setattr(context, "pending_registrations", set())
+  monkeypatch.setattr(context, "current_processing_scene", registering_id)
+  monkeypatch.setattr(context, "register_thread_lock", _ViewLock({_BUSY_SCENE}))
+  if lookup_error:
+    data_interface = context.calibration_data_interface
+    monkeypatch.setattr(data_interface, "scene_with_id", _unreachable_lookup(
+      data_interface.scene_with_id, registering_id, lookup_error))
   with _api.app.test_client() as client:
     response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
   body = response.get_json()
+  assert response.status_code == 200
   assert body["status"] == "busy"
-  assert body["registeringSceneId"] == _MISSING_SCENE
+  assert body["registeringSceneId"] == registering_id
   assert "registeringSceneName" not in body
+  assert _BUSY_SCENE in context.pending_registrations
 
 
 @pytest.mark.parametrize("scene_id", [_REGISTERING_SCENE, _ACTIVE_SCENE, _SUCCESS_SCENE])
