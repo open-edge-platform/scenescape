@@ -90,27 +90,6 @@ Both service runners read `instance_ip`, `restler_mode`, and
 for a one-off run (pass them with `docker run -e`). `SPEC_SOURCE` overrides the
 spec file used.
 
-#### Auto Calibration identifiers
-
-The Auto Calibration endpoints take a scene ID and a camera ID that must exist
-on the instance under test. The runner pins them in the compiled grammar, so
-with unknown IDs the scene registration and localization requests return `404`
-and coverage drops. Set the IDs of a scene and of a camera in that scene
-(`GET /api/v1/autocalibration/cameras/<camera id>/calibration` returns the
-camera's scene ID):
-
-```bash
-docker run --rm \
-   -e AUTOCAL_SCENE_ID=<scene uuid> \
-   -e AUTOCAL_CAMERA_ID=<camera id> \
-   -v "$(pwd)":/workspace \
-   -v "$(git rev-parse --show-toplevel)":/repo:ro \
-   restler /workspace/run_autocalibration_fuzzing.sh
-```
-
-The defaults in `run_autocalibration_fuzzing.sh` belong to one development
-instance and will not match yours.
-
 You can configure the identifiers in `.env` or override them for a single run:
 
 - **Camera:** Set `autocal_camera_id` in `.env` or pass
@@ -125,6 +104,7 @@ For example, set the camera ID in `.env`:
 
 ```bash
 autocal_camera_id=your-camera-id
+autocal_scene_id=your-scene-id #optional
 ```
 
 #### Troubleshooting
@@ -149,16 +129,19 @@ sends `POST /reconstruction` without any upload and the service rejects it with
 - After RESTler finishes, it runs `mapping_upload_fuzzing.py`, which sends
   malformed uploads (corrupt images and video, hostile filenames, invalid
   `camera_ids` and `camera_locations`, broken multipart framing, size limits)
-  and checks that the service answers without `5xx`, stays healthy, and never
-  completes a job built from invalid media. Results are written to
+  and checks that the service stays healthy and returns no `5xx`. Accepted
+  uploads are polled until their jobs reach `failed`; a `complete`, `processing`,
+  or unresolvable job status is reported as a finding. Results are written to
   `<test mode>/mapping/UploadFuzzing/upload_fuzzing_report.json`, and the runner
   exits non-zero when there are findings.
 
-The script sends no valid media, so it never starts model inference. RESTler
-coverage for Mapping therefore reaches 3 of 4 operations: `POST
-/reconstruction` only ever returns `400` to RESTler. The upload campaign runs
-once after RESTler finishes and is not limited by `time_budget_hours`; the
-oversized uploads take the longest. The size limit cases upload about 170 MB;
+The script sends no known-valid media, but some malformed uploads are accepted
+with `200` and start background jobs; the script polls those jobs and requires
+them to fail. RESTler cannot exercise the actual multipart upload path, so
+`POST /reconstruction` coverage only reflects the `400` response to an empty
+request. The upload campaign runs once after RESTler finishes and is not
+limited by `time_budget_hours`; oversized uploads take the longest. The size
+limit cases upload about 170 MB;
 pass `-e MAPPING_UPLOAD_SKIP_LARGE=1` to `docker run` to skip them.
 
 The script uses only the Python standard library, so it can also be run
