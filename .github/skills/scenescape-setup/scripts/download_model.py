@@ -6,7 +6,7 @@
 """Download the detection model used by this skill's pipeline via the Model Download
 microservice (https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/model-download).
 
-Scoped to the single OMZ model (`person-detection-retail-0013`) this skill's generated pipeline
+Scoped to the single huggingface model [OpenVINO/yolox_s-int8-ov](https://huggingface.co/OpenVINO/yolox_s-int8-ov) this skill's generated pipeline
 config references, so the skill can run standalone without a full repo checkout or a
 `model_download/` folder on disk.
 
@@ -23,9 +23,9 @@ import sys
 import time
 from urllib import error, request
 
-MODEL_NAME = "person-detection-retail-0013"
-MODEL_HUB = "omz"
-MODEL_XML = f"{MODEL_HUB}/{MODEL_NAME}/FP32/{MODEL_NAME}.xml"
+MODEL_NAME = "OpenVINO/yolox_s-int8-ov"
+MODEL_HUB = "huggingface"
+MODEL_XML = "huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml"
 
 # Pin the same image/tag used by model_download/Makefile's MODEL_DOWNLOADER_IMAGE.
 DOWNLOADER_IMAGE = "intel/model-download:2026.2.0-ww32"

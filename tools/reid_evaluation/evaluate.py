@@ -18,7 +18,7 @@ import time
 
 import numpy as np
 
-DEFAULT_MODEL = "person-reidentification-retail-0277"
+DEFAULT_MODEL = "mars-small128"
 SPLITS = {"gallery", "calibration", "test"}
 
 
