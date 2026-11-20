@@ -10,7 +10,7 @@ import threading
 import time
 
 from scene_common import log
-from scene_common.mqtt import PubSub
+from scene_common.mqtt import PubSub, _Topic
 from scene_common.rest_client import RESTClient
 
 
@@ -180,9 +180,12 @@ class RemoteHierarchySetup:
     if template is None:
       template = demo_cams["results"][0]
 
+    # A scene change drops the camera pose unless the update re-supplies it.
     moved = rest.updateCamera(template["uid"], {
       "name": template.get("name", "camera1"),
       "scene": scene_uid,
+      "transform_type": template["transform_type"],
+      "transforms": template["transforms"],
     })
     assert moved.statusCode in (200, 201), \
       f"move camera1 onto {scene_name} failed: {moved.statusCode} " \
@@ -194,6 +197,7 @@ class RemoteHierarchySetup:
                    translation=(0.0, 0.0, 0.0)):
     # Euler layout stores translation in transform1..3 (see ChildScene.update paths).
     tx, ty, tz = translation
+    assert self._rest_parent is not None, "setup() must run before linking"
     res = self._rest_parent.createChildScene({
       "child_type": "remote",
       "parent": self.parent_id,
@@ -224,7 +228,7 @@ class RemoteHierarchySetup:
     return res["uid"]
 
   def _wait_child_status(self, remote_child_id):
-    topic = PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=remote_child_id)
+    topic = PubSub.formatTopic(_Topic.SYS_CHILDSCENE_STATUS, scene_id=remote_child_id)
     connected = threading.Event()
 
     def _on_msg(mqttc, obj, msg):
@@ -252,6 +256,7 @@ class RemoteHierarchySetup:
       client.loopStop()
 
   def set_retrack(self, link_id, value):
+    assert self._rest_parent is not None, "setup() must run before set_retrack"
     res = self._rest_parent.updateChildScene(link_id, {"retrack": value})
     assert res.statusCode == 200, \
       f"set retrack failed: {res.statusCode} {getattr(res, 'errors', None)}"
@@ -274,7 +279,7 @@ class RemoteHierarchySetup:
 
   def make_parent_client(self):
     """Subscribe to parent DATA_REGULATED and accumulate object messages."""
-    topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=self.parent_id)
+    topic = PubSub.formatTopic(_Topic.DATA_REGULATED, scene_id=self.parent_id)
     return make_mqtt_client(
       self.params_parent, topics=[topic], on_message=self.on_parent_regulated)
 
