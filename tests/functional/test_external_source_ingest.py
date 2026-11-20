@@ -18,7 +18,6 @@ Publishes at a fixed 10 Hz. Variable-rate coverage is deferred.
 """
 
 import json
-import os
 import time
 import uuid
 
@@ -32,7 +31,6 @@ from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
-import pytest
 
 log = get_logger(__name__)
 
@@ -48,7 +46,10 @@ FRAMES_PER_SECOND = 10
 MAX_WAIT_TIMEOUT_S = 30
 CONTROLLER_SETTLE_S = 2.0
 GEO_CALIBRATION_TIMEOUT_S = 60.0
+REJECTION_WINDOW_S = 5.0
 AGENT_SOURCE_ID = "drone-1"
+# Fresh source with no cached intrinsics (drone-1 caches them for 30 s).
+NO_INTRINSICS_SOURCE_ID = "drone-no-intrinsics"
 UNTRUSTED_POSITIONING_SOURCE_ID = "positioning-service-untrusted"
 OBJECT_ID = "agent-track-1"
 
@@ -88,6 +89,7 @@ class ExternalSourceIngest(FunctionalTest):
     self.pubsub.loopStart()
     self.lastObjects = None
     self.seenObjectIds = set()
+    self.seenObjects = []
     return
 
   def pubsubConnected(self, client, userdata, flags, rc):
@@ -99,10 +101,34 @@ class ExternalSourceIngest(FunctionalTest):
     if data.get('objects'):
       self.lastObjects = data['objects']
       self.outputReceived = True
+      self.seenObjects.extend(data['objects'])
       for obj in data['objects']:
         if 'id' in obj:
           self.seenObjectIds.add(obj['id'])
     return
+
+  def cleanup(self):
+    try:
+      self.pubsub.loopStop()
+    except Exception as e:
+      log.warning("MQTT loopStop failed during cleanup: %s", e)
+    return
+
+  def _lastIds(self):
+    return [o.get('id') for o in (self.lastObjects or [])]
+
+  @staticmethod
+  def _isUUID(value):
+    try:
+      uuid.UUID(str(value))
+    except ValueError:
+      return False
+    return True
+
+  @staticmethod
+  def _hasMarker(objects, marker):
+    return any(
+      obj.get("metadata", {}).get("test_marker") == marker for obj in objects)
 
   def prepareScene(self):
     """Enable geospatial calibration on the demo scene.
@@ -208,31 +234,38 @@ class ExternalSourceIngest(FunctionalTest):
     self.lastObjects = None
     topic = self.externalSourceTopic(jdata.get('source_id', AGENT_SOURCE_ID))
     start = time.time()
+    count = 0
     while time.time() - start < timeout:
       jdata['timestamp'] = get_iso_time()
       self.pubsub.publish(topic, json.dumps(jdata))
+      count += 1
       time.sleep(1 / FRAMES_PER_SECOND)
       if predicate(self.lastObjects or []):
         return True
+    log.warning(
+      "Predicate not satisfied after %d publishes on %s in %.1fs; "
+      "last scene snapshot ids=%s", count, topic, timeout, self._lastIds())
     return False
 
-  def publishAndCheckIdAbsent(self, jdata, forbidden_id, timeout):
-    """Publish for the full duration of timeout (unlike publishAndWait, this
-    does not stop early on the first received message) and assert that
-    forbidden_id never appears in any scene output observed during the
-    window. The scene may legitimately keep republishing other, previously
-    admitted, still-active tracks on every incoming message regardless of
-    whether that message's own payload was accepted, so checking for total
-    topic silence is not a valid test for rejection of one specific object.
+  def publishForWindow(self, jdata, timeout, topic_publisher=None):
+    """Publish for the full window, collecting every scene object observed.
+
+    The scene may keep republishing previously admitted, still-active tracks
+    on every incoming message, so topic silence is not a valid rejection
+    signal; callers inspect seenObjectIds/seenObjects instead.
     """
     self.seenObjectIds = set()
-    topic = self.externalSourceTopic(jdata.get('source_id', AGENT_SOURCE_ID))
+    self.seenObjects = []
+    publisher = topic_publisher or jdata.get('source_id', AGENT_SOURCE_ID)
+    topic = self.externalSourceTopic(publisher)
     start = time.time()
     while time.time() - start < timeout:
       jdata['timestamp'] = get_iso_time()
       self.pubsub.publish(topic, json.dumps(jdata))
       time.sleep(1 / FRAMES_PER_SECOND)
-    return forbidden_id not in self.seenObjectIds
+    log.debug("Window on %s (%.1fs) saw ids=%s",
+              topic, timeout, sorted(map(str, self.seenObjectIds)))
+    return
 
   def _findObject(self, object_id):
     assert self.lastObjects, "No scene objects received"
@@ -243,30 +276,24 @@ class ExternalSourceIngest(FunctionalTest):
       f"Object id={object_id} not found in scene output: "
       f"{[o.get('id') for o in self.lastObjects]}")
 
-  def _findNonSourceObjectId(self, forbidden_ids):
+  def _findControllerTrackedObject(self):
+    """Return the first object with a controller-assigned UUID id.
+
+    The synthesized platform object (id == source_id) shares the body-origin
+    location, so it must not be mistaken for the tracked observation.
+    """
     assert self.lastObjects, "No scene objects received"
     for obj in self.lastObjects:
-      obj_id = obj.get('id')
-      if obj_id not in forbidden_ids:
-        return obj_id, obj
+      if self._isUUID(obj.get('id')):
+        return obj['id'], obj
     raise AssertionError(
-      f"No tracked object id outside forbidden ids {sorted(forbidden_ids)} found in "
-      f"{[o.get('id') for o in self.lastObjects]}")
+      f"No controller-assigned (UUID) track found in scene output: {self._lastIds()}")
 
-  def _verifyUUIDFormat(self, assigned_id):
-    """Verify that a controller-assigned ID has valid UUID format.
-
-    UUID format example: 74d6cf68-c714-4d7f-a6b2-1c2b0aa65c0b
-
-    @param assigned_id  The ID assigned by the controller
-    """
-    try:
-      uuid.UUID(assigned_id)
-      log.info("✓ Controller-assigned ID has valid UUID format: %s", assigned_id)
-      return
-    except ValueError as e:
-      raise AssertionError(
-        f"Invalid UUID format in ID: '{assigned_id}' - {str(e)}")
+  def _waitForControllerTrackedObject(self, jdata, failure_msg):
+    found = self.publishAndWaitForObjects(
+      jdata, lambda objects: any(self._isUUID(o.get('id')) for o in objects))
+    assert found, f"{failure_msg}; last scene snapshot ids={self._lastIds()}"
+    return self._findControllerTrackedObject()
 
   def verifyWgs84PoseIngestAndLocationAccuracy(self):
     """A wgs84-frame agent pose plus an object at the source origin is
@@ -288,10 +315,10 @@ class ExternalSourceIngest(FunctionalTest):
         },
       ],
     }
-    count = self.publishAndWait(jdata)
-    assert count, "External source (wgs84 pose) message did not produce tracked output"
-    published_id, obj = self._findNonSourceObjectId({OBJECT_ID})
-    assert published_id != OBJECT_ID
+    published_id, obj = self._waitForControllerTrackedObject(
+      jdata, "External source (wgs84 pose) message did not produce tracked output")
+    assert published_id not in (OBJECT_ID, AGENT_SOURCE_ID), (
+      f"Tracked object kept source-provided id: {published_id}")
     assert "translation" in obj, f"Scene object missing translation: {obj}"
     np.testing.assert_allclose(
       obj["translation"], EXPECTED_SCENE_XYZ, atol=SCENE_XYZ_ATOL_M,
@@ -305,8 +332,8 @@ class ExternalSourceIngest(FunctionalTest):
         f"External-source scene LLA inaccurate: got {obj['lat_long_alt']}, "
         f"expected {AGENT_LAT_LONG_ALT}"))
     log.info(
-      "PASS: wgs84 external-source location accuracy xyz=%s lla=%s",
-      obj["translation"], obj["lat_long_alt"])
+      "PASS: wgs84 external-source location accuracy id=%s xyz=%s lla=%s",
+      published_id, obj["translation"], obj["lat_long_alt"])
     return
 
   def verifyPoseReuseFromCache(self):
@@ -324,6 +351,7 @@ class ExternalSourceIngest(FunctionalTest):
     }
     count = self.publishAndWait(jdata)
     assert count, "External source message without pose (cache reuse) did not produce output"
+    log.info("PASS: pose-less message reused cached pose; ids=%s", self._lastIds())
     return
 
   def verifyTrackedObjectWithoutIdGetsControllerAssignedId(self):
@@ -342,14 +370,14 @@ class ExternalSourceIngest(FunctionalTest):
         },
       ],
     }
-    count = self.publishAndWait(jdata)
-    assert count, "Tracked external source object without id did not produce output"
-    published_id, obj = self._findNonSourceObjectId({OBJECT_ID})
-    assert published_id is not None
-    assert published_id != OBJECT_ID
+    published_id, obj = self._waitForControllerTrackedObject(
+      jdata, "Tracked external source object without id did not produce output")
     np.testing.assert_allclose(
       obj["translation"], EXPECTED_SCENE_XYZ, atol=SCENE_XYZ_ATOL_M,
-      err_msg="Tracked external object without id was not localized correctly")
+      err_msg=(
+        f"Tracked external object without id was not localized correctly: "
+        f"id={published_id} got {obj['translation']}, expected {EXPECTED_SCENE_XYZ}"))
+    log.info("PASS: id-less tracked object got controller id=%s", published_id)
     return
 
   def verifyUntrackedObjectPreservesId(self):
@@ -372,9 +400,11 @@ class ExternalSourceIngest(FunctionalTest):
       "track": False,
     }
     assert self.publishAndWaitForIds(jdata, {untracked_id}), (
-      "Untracked external source object did not produce output")
+      f"Untracked external source object id={untracked_id} did not produce output; "
+      f"last scene snapshot ids={self._lastIds()}")
     obj = self._findObject(untracked_id)
     assert obj["id"] == untracked_id
+    log.info("PASS: track=false object preserved id=%s", untracked_id)
     return
 
   def verifySourceTrackFalseAppliesToAllObjects(self):
@@ -403,13 +433,21 @@ class ExternalSourceIngest(FunctionalTest):
       ],
     }
     assert self.publishAndWaitForIds(jdata, source_ids), (
-      "Source-level track=false objects did not produce output")
+      f"Source-level track=false objects {source_ids} did not produce output; "
+      f"last scene snapshot ids={self._lastIds()}")
     for source_id in source_ids:
       assert self._findObject(source_id)["id"] == source_id
+    log.info("PASS: source-level track=false preserved ids=%s", source_ids)
     return
 
-  def verifyPixelBoundingBoxPreservesIdWhenTrackFalse(self):
+  def verifyPixelBoundingBoxDiscardedWhenTrackFalse(self):
+    """track=false pixel detections are discarded (data_formats.md, ITEP-97980);
+    the message itself is still accepted, so the platform keeps publishing."""
     source_object_id = "pixel-source-1"
+    pixel_marker = {
+      "label": "pixel-track-false",
+      "model_name": "external-source-functional-test",
+    }
     jdata = {
       "source_id": AGENT_SOURCE_ID,
       "track": False,
@@ -428,6 +466,7 @@ class ExternalSourceIngest(FunctionalTest):
         {
           "id": source_object_id,
           "category": THING_TYPE,
+          "metadata": {"test_marker": pixel_marker},
           "bounding_box_px": {
             "x": 221,
             "y": 157,
@@ -437,11 +476,18 @@ class ExternalSourceIngest(FunctionalTest):
         },
       ],
     }
-    assert self.publishAndWaitForIds(jdata, {source_object_id}), (
-      "External source pixel detection with track=false did not produce output")
-    obj = self._findObject(source_object_id)
-    assert obj["id"] == source_object_id
-    assert "translation" in obj
+    self.publishForWindow(jdata, REJECTION_WINDOW_S)
+    seen_ids = sorted(map(str, self.seenObjectIds))
+    assert AGENT_SOURCE_ID in self.seenObjectIds, (
+      f"track=false pixel message was not accepted: platform id={AGENT_SOURCE_ID} "
+      f"missing from scene output; seen ids={seen_ids}")
+    assert source_object_id not in self.seenObjectIds, (
+      f"track=false pixel detection id={source_object_id} was published; "
+      f"expected it to be discarded. seen ids={seen_ids}")
+    assert not self._hasMarker(self.seenObjects, pixel_marker), (
+      f"track=false pixel detection was published under another id; "
+      f"expected it to be discarded. seen ids={seen_ids}")
+    log.info("PASS: track=false pixel detection discarded; seen ids=%s", seen_ids)
     return
 
   def verifyPixelBoundingBoxWithRotationDerivedFromPose(self):
@@ -490,13 +536,21 @@ class ExternalSourceIngest(FunctionalTest):
       )
 
     assert self.publishAndWaitForObjects(jdata, _containsRotatedPixel), (
-      "Pixel detection with rotated source pose did not produce tracked output")
+      f"Pixel detection with rotated source pose did not produce tracked output; "
+      f"last scene snapshot ids={self._lastIds()}")
+    log.info("PASS: rotated-pose pixel detection localized and tracked")
     return
 
   def verifyPixelBoundingBoxWithoutIntrinsicsRejected(self):
+    """Uses a fresh source_id: drone-1 still has live cached intrinsics from
+    earlier pixel sub-tests, which would legitimately satisfy this message."""
     pixel_object_id = "pixel-missing-intrinsics"
+    pixel_marker = {
+      "label": "pixel-missing-intrinsics",
+      "model_name": "external-source-functional-test",
+    }
     jdata = {
-      "source_id": AGENT_SOURCE_ID,
+      "source_id": NO_INTRINSICS_SOURCE_ID,
       "pose": {
         "reference_frame": "wgs84",
         "lat_long_alt": AGENT_LAT_LONG_ALT,
@@ -506,6 +560,7 @@ class ExternalSourceIngest(FunctionalTest):
         {
           "id": pixel_object_id,
           "category": THING_TYPE,
+          "metadata": {"test_marker": pixel_marker},
           "bounding_box_px": {
             "x": 221,
             "y": 157,
@@ -515,14 +570,20 @@ class ExternalSourceIngest(FunctionalTest):
         },
       ],
     }
-    is_absent = self.publishAndCheckIdAbsent(jdata, pixel_object_id, timeout=5)
-    assert is_absent, (
-      "External source pixel detection without intrinsics unexpectedly produced output "
-      f"for id={pixel_object_id}"
-    )
+    self.publishForWindow(jdata, REJECTION_WINDOW_S)
+    seen_ids = sorted(map(str, self.seenObjectIds))
+    # Whole message is dropped, so neither the platform nor the pixel object appears.
+    assert NO_INTRINSICS_SOURCE_ID not in self.seenObjectIds, (
+      f"Pixel message without intrinsics was accepted: platform "
+      f"id={NO_INTRINSICS_SOURCE_ID} published; seen ids={seen_ids}")
+    assert not self._hasMarker(self.seenObjects, pixel_marker), (
+      f"Pixel detection without intrinsics was published; seen ids={seen_ids}")
+    log.info("PASS: pixel message without intrinsics rejected; seen ids=%s", seen_ids)
     return
 
   def verifyMixedTranslationAndPixelObjects(self):
+    """With track=false, Cartesian objects keep their ids while co-packaged
+    pixel detections are discarded without dropping the whole message."""
     translation_source_id = "mixed-untracked-1"
     pixel_source_id = "mixed-pixel-1"
     pixel_marker = {
@@ -563,26 +624,19 @@ class ExternalSourceIngest(FunctionalTest):
         },
       ],
     }
-    def _containsMixedObjects(objects):
-      ids = {obj.get("id") for obj in objects}
-      has_pixel_marker = any(
-        obj.get("metadata", {}).get("test_marker") == pixel_marker
-        for obj in objects
-      )
-      return translation_source_id in ids and has_pixel_marker
-
-    assert self.publishAndWaitForObjects(jdata, _containsMixedObjects), (
-      "Mixed translation and pixel objects did not appear in one scene snapshot")
-    published_ids = {obj.get("id") for obj in (self.lastObjects or [])}
-    assert translation_source_id in published_ids
-    assert pixel_source_id in published_ids
-    pixel_objects = [
-      obj for obj in (self.lastObjects or [])
-      if obj.get("metadata", {}).get("test_marker") == pixel_marker
-    ]
-    assert pixel_objects, "Pixel object missing from mixed scene output"
-    assert pixel_objects[0]["id"] == pixel_source_id
-    assert "translation" in pixel_objects[0]
+    self.publishForWindow(jdata, REJECTION_WINDOW_S)
+    seen_ids = sorted(map(str, self.seenObjectIds))
+    assert translation_source_id in self.seenObjectIds, (
+      f"track=false Cartesian object id={translation_source_id} missing from mixed "
+      f"message output; seen ids={seen_ids}")
+    assert pixel_source_id not in self.seenObjectIds, (
+      f"track=false pixel detection id={pixel_source_id} was published from mixed "
+      f"message; expected it to be discarded. seen ids={seen_ids}")
+    assert not self._hasMarker(self.seenObjects, pixel_marker), (
+      f"track=false pixel detection from mixed message was published under another "
+      f"id; seen ids={seen_ids}")
+    log.info("PASS: mixed track=false message kept %s, discarded pixel; seen ids=%s",
+             translation_source_id, seen_ids)
     return
 
   def verifyUntrustedScenePoseRejected(self):
@@ -592,8 +646,10 @@ class ExternalSourceIngest(FunctionalTest):
     republish other, already-admitted, still-active tracks (e.g. agent-track-1
     from the earlier sub-tests) on every message it receives."""
     untrusted_object_id = "positioning-track-1"
+    # track=false keeps the source id if wrongly accepted, so the id check is meaningful.
     jdata = {
       "source_id": UNTRUSTED_POSITIONING_SOURCE_ID,
+      "track": False,
       "pose": {
         "reference_frame": "scene",
         "translation": [1.0, 1.0, 0.0],
@@ -603,18 +659,23 @@ class ExternalSourceIngest(FunctionalTest):
         {"id": untrusted_object_id, "category": THING_TYPE, "translation": [0.0, 0.0, 0.0], "size": [0.5, 0.5, 1.8]},
       ],
     }
-    is_absent = self.publishAndCheckIdAbsent(jdata, untrusted_object_id, timeout=5)
-    assert is_absent, (
-      "Untrusted scene-frame pose unexpectedly produced tracked output "
-      f"for id={untrusted_object_id}"
-    )
+    self.publishForWindow(jdata, REJECTION_WINDOW_S)
+    seen_ids = sorted(map(str, self.seenObjectIds))
+    for forbidden in (untrusted_object_id, UNTRUSTED_POSITIONING_SOURCE_ID):
+      assert forbidden not in self.seenObjectIds, (
+        f"Untrusted scene-frame pose unexpectedly produced output for id={forbidden}; "
+        f"seen ids={seen_ids}")
+    log.info("PASS: untrusted scene-frame pose rejected; seen ids=%s", seen_ids)
     return
 
   def verifySourceIdTopicMismatchRejected(self):
     """Payload source_id must match the publisher id in the MQTT topic path."""
     mismatched_id = "mismatch-track-1"
+    mismatched_source = "not-the-topic-publisher"
+    # track=false keeps the source id if wrongly accepted, so the id check is meaningful.
     jdata = {
-      "source_id": "not-the-topic-publisher",
+      "source_id": mismatched_source,
+      "track": False,
       "pose": {
         "reference_frame": "wgs84",
         "lat_long_alt": AGENT_LAT_LONG_ALT,
@@ -630,17 +691,13 @@ class ExternalSourceIngest(FunctionalTest):
       ],
     }
     # Publish on AGENT_SOURCE_ID topic while claiming a different source_id.
-    topic = self.externalSourceTopic(AGENT_SOURCE_ID)
-    self.seenObjectIds = set()
-    start = time.time()
-    while time.time() - start < 5.0:
-      jdata['timestamp'] = get_iso_time()
-      self.pubsub.publish(topic, json.dumps(jdata))
-      time.sleep(1 / FRAMES_PER_SECOND)
-    assert mismatched_id not in self.seenObjectIds, (
-      "source_id/topic mismatch unexpectedly produced tracked output "
-      f"for id={mismatched_id}"
-    )
+    self.publishForWindow(jdata, REJECTION_WINDOW_S, topic_publisher=AGENT_SOURCE_ID)
+    seen_ids = sorted(map(str, self.seenObjectIds))
+    for forbidden in (mismatched_id, mismatched_source):
+      assert forbidden not in self.seenObjectIds, (
+        f"source_id/topic mismatch unexpectedly produced output for id={forbidden}; "
+        f"seen ids={seen_ids}")
+    log.info("PASS: source_id/topic mismatch rejected; seen ids=%s", seen_ids)
     return
 
   def verifyIdentityCollisionDropsSecondSource(self):
@@ -666,7 +723,8 @@ class ExternalSourceIngest(FunctionalTest):
       ],
     }
     assert self.publishAndWaitForIds(first_source_data, {colliding_id}), (
-      "First untracked source did not establish an identity claim")
+      f"First untracked source did not establish an identity claim for "
+      f"id={colliding_id}; last scene snapshot ids={self._lastIds()}")
     jdata = {
       "source_id": other_source,
       "track": False,
@@ -702,25 +760,30 @@ class ExternalSourceIngest(FunctionalTest):
       if unique_id in ids:
         # Colliding id may still appear from the first publisher's live track;
         # presence of unique_id shows the batch was not fail-closed on collision.
+        log.info("PASS: identity collision kept non-colliding id=%s; ids=%s",
+                 unique_id, sorted(map(str, ids)))
         return
     raise AssertionError(
       f"Non-colliding id missing from scene output after {MAX_WAIT_TIMEOUT_S}s: {ids}")
 
   def verifyFunction(self):
-    self.prepareScene()
-    self.verifyWgs84PoseIngestAndLocationAccuracy()
-    self.verifyTrackedObjectWithoutIdGetsControllerAssignedId()
-    self.verifyPoseReuseFromCache()
-    self.verifyUntrackedObjectPreservesId()
-    self.verifySourceTrackFalseAppliesToAllObjects()
-    self.verifyPixelBoundingBoxPreservesIdWhenTrackFalse()
-    self.verifyPixelBoundingBoxWithRotationDerivedFromPose()
-    self.verifyPixelBoundingBoxWithoutIntrinsicsRejected()
-    self.verifyMixedTranslationAndPixelObjects()
-    self.verifySourceIdTopicMismatchRejected()
-    self.verifyIdentityCollisionDropsSecondSource()
-    self.verifyUntrustedScenePoseRejected()
-    self.exitCode = 0
+    try:
+      self.prepareScene()
+      self.verifyWgs84PoseIngestAndLocationAccuracy()
+      self.verifyTrackedObjectWithoutIdGetsControllerAssignedId()
+      self.verifyPoseReuseFromCache()
+      self.verifyUntrackedObjectPreservesId()
+      self.verifySourceTrackFalseAppliesToAllObjects()
+      self.verifyPixelBoundingBoxDiscardedWhenTrackFalse()
+      self.verifyPixelBoundingBoxWithRotationDerivedFromPose()
+      self.verifyPixelBoundingBoxWithoutIntrinsicsRejected()
+      self.verifyMixedTranslationAndPixelObjects()
+      self.verifySourceIdTopicMismatchRejected()
+      self.verifyIdentityCollisionDropsSecondSource()
+      self.verifyUntrustedScenePoseRejected()
+      self.exitCode = 0
+    finally:
+      self.cleanup()
     return
 
 
@@ -730,9 +793,3 @@ def test_external_source_ingest(scenescape_env, demo_scene, request, repo_root, 
   test.verifyFunction()
   result_recorder.success()
   return
-
-def main():
-  return test_external_source_ingest(None, None)
-
-if __name__ == '__main__':
-  os._exit(main() or 0)
