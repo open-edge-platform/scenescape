@@ -21,7 +21,7 @@ from django.test import TransactionTestCase, override_settings
 from PIL import Image
 
 from manager import glb_staging, glb_state
-from manager.models import Scene, SceneSourceMap
+from manager.models import GlbLayer, Scene, SceneSourceMap
 from scene_common.earth_lla import localFootprintCornersLLA
 
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / "mesh_util" / "test_data" / "scene.glb"
@@ -89,10 +89,9 @@ class TestGlbStateMachine(_MediaRootTestCase):
     ).tolist()
     scene.save()
 
-    scene = Scene.objects.get(pk=scene.pk)
-    scene.glb_map = self._write_test_glb("test_glb.glb")
-    scene.glb_anchor = {**ANCHOR, 'footprint_m': {'width': 10.0, 'height': 10.0}}
-    scene.save()
+    self._write_test_glb("test_glb.glb")
+    GlbLayer.objects.create(scene=scene, order=0, enabled=False, file="test_glb.glb",
+                            anchor={**ANCHOR, 'footprint_m': {'width': 10.0, 'height': 10.0}})
     return Scene.objects.get(pk=scene.pk)
 
   def _stage_glb(self):
@@ -116,22 +115,23 @@ class TestGlbStateMachine(_MediaRootTestCase):
     with open(os.path.join(self.media_root, 'test_glb_preview.png'), 'wb') as f:
       f.write(b'png')
 
-  def _commit(self, scene, token):
+  def _commit(self, scene, token, layer=None, enable=False):
     with patch.object(glb_state, '_get_aligned_footprint_size_m', return_value=(10.0, 10.0)):
-      return glb_state.commit_glb(scene, token, ANCHOR)
+      return glb_state.commit_layer(scene, token, ANCHOR, layer=layer, enable=enable)
 
   def test_apply_then_unapply_restores_state_and_leaves_only_expected_files(self):
     """Apply poses the GLB without the upload auto-align and keeps trs_matrix; unapply restores the snapshot."""
     scene = self._create_scene()
     snapshot_corners = scene.map_corners_lla
     trs = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
-    Scene.objects.filter(pk=scene.pk).update(
-      trs_matrix=trs, glb_anchor={**scene.glb_anchor, 'heading_deg': 45.0})
+    Scene.objects.filter(pk=scene.pk).update(trs_matrix=trs)
+    layer = scene.glb_layers.get()
+    GlbLayer.objects.filter(pk=layer.pk).update(anchor={**layer.anchor, 'heading_deg': 45.0})
     scene = Scene.objects.get(pk=scene.pk)
 
-    result = glb_state.apply_glb_map(scene)
+    result = glb_state.set_layer_enabled(scene, layer, True)
 
-    self.assertTrue(result['use_glb_map'])
+    self.assertTrue(result['enabled'])
     self.assertTrue(scene.map.name.endswith('.glb'))
     self.assertTrue(scene.base_map)
     self.assertNotEqual(scene.rotation_z, 0.0)
@@ -139,68 +139,72 @@ class TestGlbStateMachine(_MediaRootTestCase):
     self.assertEqual(scene.trs_matrix, trs)
 
     scene = Scene.objects.get(pk=scene.pk)
-    glb_state.unapply_glb_map(scene)
+    glb_state.set_layer_enabled(scene, layer, False)
 
     self.assertFalse(scene.use_glb_map)
     self.assertEqual((scene.rotation_x, scene.rotation_z, scene.translation_x), (0.0, 0.0, 0.0))
     self.assertFalse(scene.base_map)
     self.assertIsNone(scene.base_scale)
     self.assertEqual(scene.map_corners_lla, snapshot_corners)
-    self.assertTrue(scene.glb_map)
-    self.assertTrue(scene.glb_anchor)
+    self.assertTrue(GlbLayer.objects.filter(pk=layer.pk).exists())
     self.assertEqual(scene.trs_matrix, trs)
-    self.assertEqual(self._stored_files(), ['test_glb.glb', 'test_scene.png'])
+    self.assertEqual(self._stored_files(), ['test_glb.glb', 'test_glb_preview.png', 'test_scene.png'])
 
   def test_apply_twice_raises_error(self):
     scene = self._create_scene()
-    glb_state.apply_glb_map(scene)
+    layer = scene.glb_layers.get()
+    glb_state.set_layer_enabled(scene, layer, True)
 
     with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
-      glb_state.apply_glb_map(scene)
+      glb_state.set_layer_enabled(scene, layer, True)
     self.assertEqual(ctx.exception.status, 400)
 
-  def test_apply_without_stored_anchor_raises_error(self):
+  def test_move_enabled_layer_without_footprint_raises_error(self):
     scene = self._create_scene()
-    scene.glb_anchor = None
+    layer = scene.glb_layers.get()
+    glb_state.set_layer_enabled(scene, layer, True)
+    GlbLayer.objects.filter(pk=layer.pk).update(anchor={**ANCHOR, 'footprint_m': {}})
+    layer.refresh_from_db()
 
     with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
-      glb_state.apply_glb_map(scene)
+      glb_state.move_layer(scene, layer, {'lat': 37.40, 'lng': -121.95, 'heading_deg': 0.0})
     self.assertEqual(ctx.exception.status, 400)
 
   def test_unapply_when_not_applied_raises_error(self):
     scene = self._create_scene()
 
     with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
-      glb_state.unapply_glb_map(scene)
+      glb_state.set_layer_enabled(scene, scene.glb_layers.get(), False)
     self.assertEqual(ctx.exception.status, 400)
 
   def test_move_when_not_applied_updates_anchor_only(self):
     scene = self._create_scene()
-    old_footprint = scene.glb_anchor['footprint_m']
+    layer = scene.glb_layers.get()
+    old_footprint = layer.anchor['footprint_m']
 
-    glb_state.move_glb_anchor(scene, {'lat': 37.40, 'lng': -121.95, 'heading_deg': 45.0})
+    glb_state.move_layer(scene, layer, {'lat': 37.40, 'lng': -121.95, 'heading_deg': 45.0})
 
+    layer.refresh_from_db()
     self.assertEqual(
-      (scene.glb_anchor['lat'], scene.glb_anchor['lng'], scene.glb_anchor['heading_deg']),
+      (layer.anchor['lat'], layer.anchor['lng'], layer.anchor['heading_deg']),
       (37.40, -121.95, 45.0))
-    self.assertEqual(scene.glb_anchor['footprint_m'], old_footprint)
+    self.assertEqual(layer.anchor['footprint_m'], old_footprint)
 
   def test_move_with_invalid_anchor_raises_error(self):
     scene = self._create_scene()
 
     with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
-      glb_state.move_glb_anchor(scene, {'lat': float('nan'), 'lng': -121.96, 'heading_deg': 0.0})
+      glb_state.move_layer(scene, scene.glb_layers.get(), {'lat': float('nan'), 'lng': -121.96, 'heading_deg': 0.0})
     self.assertEqual(ctx.exception.status, 400)
 
   def test_remove_deletes_glb_and_preview_on_commit(self):
-    """Positive: removing a GLB clears the row fields and deletes the file and its cached preview."""
+    """Positive: removing a layer deletes its row, its file and its cached preview."""
     scene = self._create_scene()
     self._write_preview()
 
-    glb_state.remove_glb_map(scene)
+    glb_state.remove_layer(scene, scene.glb_layers.get())
 
-    self.assertFalse(scene.glb_map)
-    self.assertIsNone(scene.glb_anchor)
+    self.assertFalse(scene.glb_layers.exists())
     self.assertEqual(self._stored_files(), ['snap.png'])
 
   def test_failed_remove_keeps_glb_and_preview(self):
@@ -208,41 +212,47 @@ class TestGlbStateMachine(_MediaRootTestCase):
     scene = self._create_scene()
     self._write_preview()
     before = self._stored_files()
+    layer = scene.glb_layers.get()
+    layer_id = layer.pk
 
     with patch.object(Scene, 'save', side_effect=RuntimeError('save failed')):
       with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
-        glb_state.remove_glb_map(scene)
+        glb_state.remove_layer(scene, layer)
 
     self.assertEqual(ctx.exception.status, 500)
     self.assertEqual(self._stored_files(), before)
-    self.assertTrue(Scene.objects.get(pk=scene.pk).glb_map)
+    self.assertTrue(GlbLayer.objects.filter(pk=layer_id).exists())
 
   def test_commit_while_applied_removes_previous_applied_map(self):
-    """Positive: re-applying a new GLB deletes the previously applied map file."""
+    """Positive: replacing an applied layer's file deletes the previously applied map file."""
     scene = self._create_scene()
-    glb_state.apply_glb_map(scene)
+    layer = scene.glb_layers.get()
+    glb_state.set_layer_enabled(scene, layer, True)
     scene = Scene.objects.get(pk=scene.pk)
     previous_map = os.path.join(self.media_root, scene.map.name)
 
-    self._commit(scene, self._stage_glb())
+    self._commit(scene, self._stage_glb(), layer=layer)
 
     scene = Scene.objects.get(pk=scene.pk)
+    layer.refresh_from_db()
     self.assertFalse(os.path.exists(previous_map))
     self.assertEqual(
       self._stored_files(),
-      sorted([scene.base_map.name, scene.glb_map.name, scene.map.name]))
+      sorted([scene.base_map.name, layer.file.name, scene.map.name,
+              os.path.splitext(layer.file.name)[0] + '_preview.png']))
 
   def test_commit_adopts_the_staged_preview(self):
     """Positive: the staged top view becomes the cached preview; nothing is rendered again."""
     scene = self._create_scene()
+    layer = scene.glb_layers.get()
     token = self._stage_glb()
     staged_png = self._stage_preview(token)
 
-    result = self._commit(scene, token)
+    result = self._commit(scene, token, layer=layer)
 
-    self.assertEqual(scene.glb_anchor['lat'], ANCHOR['lat'])
-    self.assertTrue(result['exists'])
-    with open(glb_staging.glb_preview_path(scene.glb_map.path), 'rb') as f:
+    layer.refresh_from_db()
+    self.assertEqual(layer.anchor['lat'], ANCHOR['lat'])
+    with open(glb_staging.glb_preview_path(layer.file.path), 'rb') as f:
       self.assertEqual(f.read(), b'staged')
     self.assertTrue(result['preview_url'].endswith('_preview.png'))
     self.assertFalse(os.path.exists(staged_png))
@@ -253,11 +263,14 @@ class TestGlbStateMachine(_MediaRootTestCase):
     token = self._stage_glb()
     self._stage_preview(token)
     before = self._stored_files()
+    layer = scene.glb_layers.get()
 
     with patch.object(glb_state, '_get_aligned_footprint_size_m',
                       side_effect=RuntimeError('measure failed')):
-      with self.assertRaises(RuntimeError):
-        glb_state.commit_glb(scene, token, ANCHOR)
+      with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
+        glb_state.commit_layer(scene, token, ANCHOR, layer=layer)
+
+    self.assertEqual(ctx.exception.status, 500)
 
     self.assertEqual(self._stored_files(), before)
 
@@ -274,7 +287,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     old = time.time() - 2 * glb_staging.STAGING_TTL_SECONDS
     os.utime(stale, (old, old))
 
-    self._commit(scene, self._stage_glb())
+    self._commit(scene, self._stage_glb(), layer=scene.glb_layers.get())
 
     self.assertFalse(os.path.exists(stale))
     self.assertTrue(os.path.exists(fresh))
@@ -292,7 +305,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
         scene = Scene.objects.get(pk=scene.pk)
         with patch.object(glb_state, 'compute_glb_pose_and_corners', side_effect=error):
           with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
-            glb_state.apply_glb_map(scene)
+            glb_state.set_layer_enabled(scene, scene.glb_layers.get(), True)
         self.assertEqual(ctx.exception.status, status)
         self.assertEqual(self._stored_files(), before)
         stored = Scene.objects.get(pk=scene.pk)
@@ -304,7 +317,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     scene = self._create_scene()
     SceneSourceMap.objects.create(scene=scene, method='user', file='snap.png')
 
-    glb_state.apply_glb_map(scene)
+    glb_state.set_layer_enabled(scene, scene.glb_layers.get(), True)
 
     self.assertIn('snap.png', self._stored_files())
 
@@ -318,10 +331,11 @@ class TestGlbStateMachine(_MediaRootTestCase):
     with patch.object(Scene, 'saveThumbnail', REAL_SAVE_THUMBNAIL), \
          patch('manager.models.generateOrthoView',
                return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 10.0)):
-      glb_state.apply_glb_map(scene)
+      layer = scene.glb_layers.get()
+      glb_state.set_layer_enabled(scene, layer, True)
       applied = thumbnails()
       scene = Scene.objects.get(pk=scene.pk)
-      glb_state.unapply_glb_map(scene)
+      glb_state.set_layer_enabled(scene, layer, False)
 
     self.assertEqual(len(applied), 1)
     self.assertEqual(thumbnails(), [])
@@ -339,22 +353,24 @@ class TestGlbStateMachine(_MediaRootTestCase):
     """Positive: the overlay preview is the GLB top view in both states, not the posed thumbnail."""
     scene = self._create_scene()
     self._write_preview()
-    glb_state.apply_glb_map(scene)
+    layer = scene.glb_layers.get()
+    glb_state.set_layer_enabled(scene, layer, True)
     scene = Scene.objects.get(pk=scene.pk)
     scene.thumbnail = 'applied_2d.png'
 
-    preview_url = glb_state.saved_alignment(scene)['preview_url']
+    preview_url = glb_state.saved_alignment(layer)['preview_url']
 
     self.assertTrue(preview_url.endswith('test_glb_preview.png'))
 
   def test_write_response_renders_a_missing_preview_but_saved_alignment_does_not(self):
     """Positive: only write_response repairs a missing preview; the read path never writes."""
     scene = self._create_scene()
-    preview = glb_staging.glb_preview_path(scene.glb_map.path)
+    layer = scene.glb_layers.get()
+    preview = glb_staging.glb_preview_path(layer.file.path)
 
-    self.assertIsNone(glb_state.saved_alignment(scene)['preview_url'])
+    self.assertIsNone(glb_state.saved_alignment(layer)['preview_url'])
     self.assertFalse(os.path.exists(preview))
-    self.assertIsNotNone(glb_state.write_response(scene)['preview_url'])
+    self.assertIsNotNone(glb_state.write_response(layer)['preview_url'])
     self.assertTrue(os.path.exists(preview))
 
 
@@ -388,8 +404,9 @@ class TestMigration0012CornerOrder(_MediaRootTestCase):
       migration.migrate_existing_glb_maps(apps, None)
     scene.refresh_from_db()
 
-    heading = scene.glb_anchor['heading_deg']
+    layer = scene.glb_layers.get()
+    heading = layer.anchor['heading_deg']
     assert min(heading, 360.0 - heading) < 1e-6
-    assert scene.glb_anchor['footprint_m']['width'] == pytest.approx(300.0, rel=1e-6)
-    assert scene.glb_anchor['footprint_m']['height'] == pytest.approx(200.0, rel=1e-6)
+    assert layer.anchor['footprint_m']['width'] == pytest.approx(300.0, rel=1e-6)
+    assert layer.anchor['footprint_m']['height'] == pytest.approx(200.0, rel=1e-6)
     assert scene.use_glb_map is True

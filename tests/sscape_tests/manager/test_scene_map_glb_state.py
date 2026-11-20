@@ -26,7 +26,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from manager import glb_staging, glb_state, mapping_store
-from manager.models import Scene, SceneSourceMap
+from manager.models import GlbLayer, Scene, SceneSourceMap
 from manager.serializers import SceneSerializer
 from scene_common.earth_lla import localFootprintCornersLLA
 
@@ -91,14 +91,22 @@ def _upload_source(scene, method, size=1.0):
   return mapping_store.record_glb_source_map(scene, method, "tester")
 
 
+def _store_glb(scene, enabled=False, size=2.0):
+  """Store a GLB as a layer of scene; returns the layer."""
+  layer = GlbLayer(scene=scene, enabled=enabled, anchor=ANCHOR, order=scene.glb_layers.count())
+  layer.file.save("stored.glb", ContentFile(_glb_bytes(size)), save=False)
+  layer.save()
+  return layer
+
+
 def _apply_glb_state(scene):
-  """Put the scene in the GLB-applied state: base snapshot, stored GLB, applied map."""
+  """Put the scene in the GLB-applied state: base snapshot, enabled GLB layer, applied map."""
   base = _write(scene.base_map, "base.glb", 1.0)
-  glb = _write(scene.glb_map, "stored.glb", 2.0)
   applied = _write(scene.map, "applied.glb", 3.0)
   Scene.objects.filter(pk=scene.pk).update(
-    base_map=base, glb_map=glb, map=applied, use_glb_map=True,
-    glb_anchor=ANCHOR, base_map_corners_lla=CORNERS, map_corners_lla=CORNERS)
+    base_map=base, map=applied, use_glb_map=True,
+    base_map_corners_lla=CORNERS, map_corners_lla=CORNERS)
+  _store_glb(scene, enabled=True)
   scene.refresh_from_db()
   assert scene.use_glb_map is True
 
@@ -209,12 +217,6 @@ def _png_bytes():
   return buf.getvalue()
 
 
-def _store_glb(scene):
-  glb = _write(scene.glb_map, "stored.glb", 2.0)
-  Scene.objects.filter(pk=scene.pk).update(glb_map=glb, glb_anchor=ANCHOR)
-  scene.refresh_from_db()
-
-
 def _set_map(scene, name, content):
   scene.map.save(name, ContentFile(content), save=False)
   Scene.objects.filter(pk=scene.pk).update(map=scene.map.name)
@@ -226,11 +228,11 @@ def _clear_base_map(scene):
   scene.refresh_from_db()
 
 
-def test_apply_rejects_scene_with_empty_map(scene):
-  _store_glb(scene)
+def test_enable_rejects_scene_with_empty_map(scene):
+  layer = _store_glb(scene)
 
   with pytest.raises(glb_staging.GlbAlignmentError) as err:
-    glb_state.apply_glb_map(scene)
+    glb_state.set_layer_enabled(scene, layer, True)
 
   assert err.value.status == 400
   assert "flat base map" in err.value.message
@@ -238,46 +240,46 @@ def test_apply_rejects_scene_with_empty_map(scene):
   assert scene.use_glb_map is False
 
 
-def test_apply_rejects_generated_glb_as_base_map(scene):
-  _store_glb(scene)
+def test_enable_rejects_generated_glb_as_base_map(scene):
+  layer = _store_glb(scene)
   _set_map(scene, "mesh.glb", _glb_bytes(1.0))
 
   with pytest.raises(glb_staging.GlbAlignmentError) as err:
-    glb_state.apply_glb_map(scene)
+    glb_state.set_layer_enabled(scene, layer, True)
 
   assert err.value.status == 400
   scene.refresh_from_db()
   assert scene.use_glb_map is False
 
 
-def test_apply_succeeds_over_flat_map(scene):
-  _store_glb(scene)
+def test_enable_succeeds_over_flat_map(scene):
+  layer = _store_glb(scene)
   _set_map(scene, "flat.png", _png_bytes())
 
-  glb_state.apply_glb_map(scene)
+  glb_state.set_layer_enabled(scene, layer, True)
 
   scene.refresh_from_db()
   assert scene.use_glb_map is True
   assert scene.base_map.name.endswith(".png")
 
 
-def test_apply_new_glb_applies_over_flat_map(scene):
-  _store_glb(scene)
+def test_commit_enabled_new_layer_applies_over_flat_map(scene):
   _set_map(scene, "flat.png", _png_bytes())
+  token = glb_staging.stage_glb(
+    SimpleUploadedFile("stored.glb", _glb_bytes(2.0), content_type="model/gltf-binary"))
 
-  glb_state.apply_new_glb(scene)
+  glb_state.commit_layer(scene, token, {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0}, enable=True)
 
   scene.refresh_from_db()
   assert scene.use_glb_map is True
+  assert scene.glb_layers.get().enabled is True
 
 
-def test_apply_new_glb_keeps_glb_unapplied_without_flat_map(scene):
+def test_store_without_flat_map_keeps_layer_disabled(scene):
   _store_glb(scene)
 
-  glb_state.apply_new_glb(scene)
-
   scene.refresh_from_db()
-  assert scene.glb_map
+  assert scene.glb_layers.get().enabled is False
   assert scene.use_glb_map is False
 
 
@@ -285,13 +287,13 @@ def test_form_glb_commit_applies_new_glb_by_default(web_client, scene):
   _set_map(scene, "flat.png", _png_bytes())
   token = glb_staging.stage_glb(
     SimpleUploadedFile("stored.glb", _glb_bytes(2.0), content_type="model/gltf-binary"))
+  change = {"token": token, "anchor": {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0}, "enabled": True}
 
-  resp = _post_form(web_client, scene, map_file=False, glb_token=token,
-                    glb_anchor=json.dumps({"lat": 37.39, "lng": -121.97, "heading_deg": 45.0}))
+  resp = _post_form(web_client, scene, map_file=False, glb_changes=json.dumps([change]))
 
   assert resp.status_code == 302, resp.content
   scene.refresh_from_db()
-  assert scene.glb_map
+  assert scene.glb_layers.count() == 1
   assert scene.use_glb_map is True
 
 
@@ -300,7 +302,7 @@ def test_commit_applied_scene_rejects_missing_base_map(scene):
   _clear_base_map(scene)
 
   with pytest.raises(glb_staging.GlbAlignmentError) as err:
-    glb_state.commit_glb(scene, str(uuid.uuid4()), {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0})
+    glb_state.commit_layer(scene, str(uuid.uuid4()), {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0})
 
   assert err.value.status == 400
   assert "flat base map" in err.value.message
@@ -310,24 +312,26 @@ def test_commit_unapplied_scene_without_base_map_stores_glb(scene):
   upload = SimpleUploadedFile("stored.glb", _glb_bytes(2.0), content_type="model/gltf-binary")
   token = glb_staging.stage_glb(upload)
 
-  glb_state.commit_glb(scene, token, {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0})
+  glb_state.commit_layer(scene, token, {"lat": 37.39, "lng": -121.97, "heading_deg": 45.0})
 
   scene.refresh_from_db()
-  assert scene.glb_map
+  assert scene.glb_layers.count() == 1
+  assert scene.glb_layers.get().enabled is False
   assert scene.use_glb_map is False
 
 
 def test_move_and_remove_work_on_applied_scene_without_base_map(scene):
   _apply_glb_state(scene)
   _clear_base_map(scene)
+  layer = scene.glb_layers.get()
 
-  glb_state.move_glb_anchor(scene, {"lat": 37.3895, "lng": -121.9705, "heading_deg": 30.0})
-  scene.refresh_from_db()
-  assert scene.glb_anchor["lat"] == 37.3895
+  glb_state.move_layer(scene, layer, {"lat": 37.3895, "lng": -121.9705, "heading_deg": 30.0})
+  layer.refresh_from_db()
+  assert layer.anchor["lat"] == 37.3895
 
-  glb_state.remove_glb_map(scene)
+  glb_state.remove_layer(scene, layer)
   scene.refresh_from_db()
-  assert not scene.glb_map
+  assert not scene.glb_layers.exists()
   assert scene.use_glb_map is False
 
 

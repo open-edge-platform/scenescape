@@ -188,6 +188,8 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('FILE_UPLOAD_MAX_MEMORY_SIZE_MB', '1
 # Size cap for uploaded GLB maps. Not the Django upload settings above, which only
 # control when an upload is spooled to disk.
 GLB_UPLOAD_MAX_BYTES = int(os.getenv('GLB_UPLOAD_MAX_SIZE_MB', '132')) * 1024 * 1024
+# Number of GLB layers a geospatial scene can hold; at least one.
+GLB_MAX_LAYERS = max(1, int(os.getenv('GLB_MAX_LAYERS', '1')))
 
 # Geospatial API Keys
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')

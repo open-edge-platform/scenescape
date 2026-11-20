@@ -11,8 +11,11 @@ import uuid
 from contextlib import contextmanager
 from functools import partial
 
+from django.conf import settings
 from django.core.files import File
+from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models import Max
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -24,12 +27,13 @@ from scene_common.earth_lla import (
 from scene_common.mesh_util import extractMeshFromGLB, getPosedMeshFootprint
 
 from . import glb_staging
+from .glb_bake import bake_layers
 from .glb_staging import (
   GlbAlignmentError, adopt_staged_preview, ensure_glb_preview, glb_preview_path,
   purge_stale_files, remove_staged_files, staged_glb_path
 )
 from .models import (
-  Scene, _delete_unreferenced_mapping_file, glb_preview_name, remove_stored_file
+  GlbLayer, Scene, _delete_unreferenced_mapping_file, glb_preview_name, remove_stored_file
 )
 
 # Scene-edit form fields written by apply, unapply and move.
@@ -37,10 +41,10 @@ SCENE_FORM_GLB_FIELDS = (
   'scale', 'rotation_x', 'rotation_y', 'rotation_z',
   'translation_x', 'translation_y', 'translation_z', 'map_corners_lla',
 )
-# Stored files that apply, unapply, commit and move write; a failed write discards the new ones.
-GLB_STORED_FILES = ('map', 'base_map', 'glb_map', 'thumbnail')
+# Stored scene files that the layer writes change; a failed write discards the new ones.
+GLB_STORED_FILES = ('map', 'base_map', 'thumbnail')
 # State a GLB write changes; the scene-edit form carries its token to detect an out-of-date page.
-STATE_TOKEN_FIELDS = SCENE_FORM_GLB_FIELDS + ('use_glb_map', 'glb_anchor')
+STATE_TOKEN_FIELDS = SCENE_FORM_GLB_FIELDS + ('use_glb_map',)
 # Keep equal to FAR_ANCHOR_KM in static/js/geospatial/glb-alignment.js.
 MAX_ANCHOR_DISTANCE_KM = 50.0
 EARTH_RADIUS_KM = 6371.0
@@ -136,18 +140,8 @@ def compute_glb_pose_and_corners(frame_corners_lla, anchor_lat, anchor_lng, anch
   if not glb_path:
     raise GlbAlignmentError(400, 'glb_path is required for pose computation')
 
-  # Get frame centre, heading, and dimensions
-  frame_lat, frame_lng, frame_heading, frame_width, frame_height = \
-    footprintAnchorFromCornersLLA(frame_corners_lla)
-
-  # Frame local origin at SW corner (0, 0)
-  frame_corners_local = np.array([
-    [0.0, 0.0, 0.0],           # SW
-    [frame_width, 0.0, 0.0],   # SE
-    [frame_width, frame_height, 0.0],   # NE
-    [0.0, frame_height, 0.0]   # NW
-  ])
-  frame_trs = calculateTRSLocal2LLAFromSurfacePoints(frame_corners_local, frame_corners_lla)
+  # Frame heading (the frame origin is at its SW corner)
+  _, _, frame_heading, _, _ = footprintAnchorFromCornersLLA(frame_corners_lla)
 
   # Convert anchor (global LLA) to frame-local metres
   anchor_local = llaToFrameLocalXY(frame_corners_lla, anchor_lat, anchor_lng)
@@ -189,12 +183,21 @@ def compute_glb_pose_and_corners(frame_corners_lla, anchor_lat, anchor_lng, anch
   # Compute map_corners_lla using controller's path:
   # getPosedMeshFootprint(RAW mesh, rotation, translation) -> calculateTRSLocal2LLAFromSurfacePoints
   mesh_footprint = getPosedMeshFootprint(mesh, rotation, translation)
+  return rotation, translation, footprint_to_lla(frame_corners_lla, mesh_footprint)
 
-  # Convert posed footprint to LLA
-  posed_ecef = (frame_trs[:3, :3] @ mesh_footprint.T).T + frame_trs[:3, 3]
-  map_corners_lla = np.array([convertECEFToLLA(corner) for corner in posed_ecef]).tolist()
 
-  return rotation, translation, map_corners_lla
+def footprint_to_lla(frame_corners_lla, footprint):
+  """Convert a frame-local footprint (4x3, corners SW, SE, NE, NW at z=0) to LLA corners."""
+  _, _, _, frame_width, frame_height = footprintAnchorFromCornersLLA(frame_corners_lla)
+  frame_corners_local = np.array([
+    [0.0, 0.0, 0.0],
+    [frame_width, 0.0, 0.0],
+    [frame_width, frame_height, 0.0],
+    [0.0, frame_height, 0.0]
+  ])
+  frame_trs = calculateTRSLocal2LLAFromSurfacePoints(frame_corners_local, frame_corners_lla)
+  posed_ecef = (frame_trs[:3, :3] @ footprint.T).T + frame_trs[:3, 3]
+  return np.array([convertECEFToLLA(corner) for corner in posed_ecef]).tolist()
 
 
 def _delete_replaced_file_after_commit(scene, name):
@@ -214,21 +217,25 @@ def stored_file_names(scene, fields):
 
 @contextmanager
 def discard_files_on_failure(scene):
-  """Delete the files a failed write stored on the scene and restore the stored names.
+  """Delete the files a failed write stored and restore the stored scene names.
 
   Take it after the row is locked and the scene is current: the names seen on entry are
-  the ones that stay valid. A new file is never referenced by the rolled-back row.
+  the ones that stay valid. Yields the list of layer file names the write stores; a failed
+  write deletes them with their previews, since the rolled-back rows never reference them.
   """
   before = stored_file_names(scene, GLB_STORED_FILES)
+  created = []
   try:
-    yield
+    yield created
   except Exception:
+    layer_storage = GlbLayer._meta.get_field('file').storage
+    for name in created:
+      remove_stored_file(layer_storage, name)
+      remove_stored_file(layer_storage, glb_preview_name(name))
     for field, name_before in before.items():
       stored_file = getattr(scene, field)
       if stored_file.name and stored_file.name != name_before:
         remove_stored_file(stored_file.storage, stored_file.name)
-        if field == 'glb_map':
-          remove_stored_file(stored_file.storage, glb_preview_name(stored_file.name))
       setattr(scene, field, name_before)
     raise
 
@@ -242,8 +249,20 @@ def locked_scene_write(scene):
   scene._explicit_mesh_transform = True
   with transaction.atomic():
     lock_scene_row(scene)
-    with discard_files_on_failure(scene):
-      yield
+    with discard_files_on_failure(scene) as created:
+      yield created
+
+
+@contextmanager
+def _failing_as(message):
+  """Turn an unexpected error in a GLB write into a 500 with a client-safe message."""
+  try:
+    yield
+  except GlbAlignmentError:
+    raise
+  except Exception as e:
+    log.error(f'{message}: {e}')
+    raise GlbAlignmentError(500, message)
 
 
 def _remove_replaced_glb(storage, glb_name):
@@ -253,9 +272,11 @@ def _remove_replaced_glb(storage, glb_name):
 
 
 def scene_state_token(scene):
-  """Digest of the scene map, pose, corners and GLB state that a GLB write changes."""
+  """Digest of the scene map, pose, corners and GLB layer state that a GLB write changes."""
   state = [getattr(scene, name) for name in STATE_TOKEN_FIELDS]
-  state += [scene.map.name, scene.glb_map.name]
+  state += [scene.map.name]
+  state += [[str(layer.id), layer.order, layer.enabled, layer.anchor, layer.file.name]
+            for layer in scene.glb_layers.all()]
   return hashlib.sha256(json.dumps(state, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -282,298 +303,261 @@ def require_base_map(scene):
     raise GlbAlignmentError(400, 'Scene needs a flat base map (image) before a GLB can be placed')
 
 
-def _apply_pose_and_map(scene, glb_path=None):
-  """Internal helper: copy glb_map into scene.map and set pose/corners/thumbnail.
+def _frame_corners(scene):
+  """Frame corners the GLB pose is measured from: the base map while a GLB is placed."""
+  frame_corners = scene.base_map_corners_lla or scene.map_corners_lla
+  if not frame_corners:
+    raise GlbAlignmentError(400, 'Cannot compute pose: missing frame')
+  return frame_corners
 
-  Does NOT change use_glb_map. Used by apply and _reapply_applied_glb.
-  If glb_path is provided, it's used for map_corners_lla computation;
-  otherwise the rectangle is used.
-  """
-  if not scene.glb_map or not scene.glb_anchor:
-    raise GlbAlignmentError(400, 'No stored GLB or anchor')
 
-  # Always copy: the map may be a GLB (e.g. a generated mesh) that is not the stored GLB
+def _set_pose(scene, rotation, translation, map_corners):
+  """Set the scene map pose and its corners from compute_glb_pose_and_corners output."""
+  scene.rotation_x, scene.rotation_y, scene.rotation_z = rotation
+  scene.translation_x, scene.translation_y, scene.translation_z = translation
+  scene.map_corners_lla = map_corners
+
+
+def _snapshot_base_map(scene):
+  """Keep the flat map as base_map before a GLB is placed over it; unapply restores it."""
+  base_ext = os.path.splitext(scene.map.name)[1].lower()
+  previous_base = scene.base_map.name
+  with scene.map.storage.open(scene.map.name, 'rb') as f:
+    scene.base_map.save(f'base_{scene.name}{base_ext}', File(f), save=False)
+  _delete_replaced_file_after_commit(scene, previous_base)
+  scene.base_scale = scene.scale
+  if not scene.base_map_corners_lla:
+    scene.base_map_corners_lla = scene.map_corners_lla
+
+
+def _restore_base_map(scene):
+  """Put base_map back as the scene map, reset the pose and drop the base. Caller saves."""
   previous_map = scene.map.name
-  with scene.glb_map.storage.open(scene.glb_map.name, 'rb') as f:
+  if scene.base_map and scene.base_map.storage.exists(scene.base_map.name):
+    base_ext = os.path.splitext(scene.base_map.name)[1]
+    with scene.base_map.storage.open(scene.base_map.name, 'rb') as f:
+      scene.map.save(f'{scene.name}{base_ext}', File(f), save=False)
+  else:
+    scene.map = ''  # None crashes Scene.save() on the map-name check
+  _delete_replaced_file_after_commit(scene, previous_map)
+
+  scene.scale = scene.base_scale
+  scene.map_corners_lla = scene.base_map_corners_lla
+  scene.resetRotation()
+  scene.resetTranslation()
+  _delete_replaced_file_after_commit(scene, scene.thumbnail.name)
+  scene.thumbnail = None
+  scene.use_glb_map = False
+
+  # The base file is removed on commit only: a rollback restores base_map, which still needs it
+  _delete_replaced_file_after_commit(scene, scene.base_map.name)
+  scene.base_map = None
+  scene.base_scale = None
+
+
+def _place_single_layer(scene, layer):
+  """Place one layer as the scene map: copy its GLB and set the pose from its anchor."""
+  previous_map = scene.map.name
+  with layer.file.storage.open(layer.file.name, 'rb') as f:
     scene.map.save(f'{scene.name}.glb', File(f), save=False)
   _delete_replaced_file_after_commit(scene, previous_map)
 
-  # Compute pose from glb_anchor and frame_corners_lla
-  frame_corners = scene.base_map_corners_lla or scene.map_corners_lla
-  if not frame_corners or not scene.glb_anchor:
-    raise GlbAlignmentError(400, 'Cannot compute pose: missing frame or anchor')
-
-  anchor_lat = scene.glb_anchor['lat']
-  anchor_lng = scene.glb_anchor['lng']
-  anchor_heading = scene.glb_anchor['heading_deg']
-
-  # Use real mesh for map_corners_lla if glb_path provided
-  glb_path_for_corners = glb_path or scene.glb_map.path
-
+  anchor = layer.anchor
   rotation, translation, map_corners = compute_glb_pose_and_corners(
-    frame_corners, anchor_lat, anchor_lng, anchor_heading,
-    glb_path=glb_path_for_corners
+    _frame_corners(scene), anchor['lat'], anchor['lng'], anchor['heading_deg'],
+    glb_path=layer.file.path
   )
-  scene.rotation_x = rotation[0]
-  scene.rotation_y = rotation[1]
-  scene.rotation_z = rotation[2]
-  scene.translation_x = translation[0]
-  scene.translation_y = translation[1]
-  scene.translation_z = translation[2]
-  scene.map_corners_lla = map_corners
+  _set_pose(scene, rotation, translation, map_corners)
 
+
+def _place_baked_layers(scene, layers):
+  """Place several layers as one baked GLB, so the scene map keeps an identity pose."""
+  frame_corners = _frame_corners(scene)
+  parts = []
+  footprints = []
+  for layer in layers:
+    anchor = layer.anchor
+    rotation, translation, _ = compute_glb_pose_and_corners(
+      frame_corners, anchor['lat'], anchor['lng'], anchor['heading_deg'],
+      glb_path=layer.file.path
+    )
+    parts.append((layer.file.path, rotation, translation))
+    raw_mesh, _ = extractMeshFromGLB(layer.file.path, rotation=None)
+    footprints.append(getPosedMeshFootprint(raw_mesh, rotation, translation))
+
+  # Union of the posed footprints: the baked mesh is posed at identity, so its corners are this box
+  union = np.vstack(footprints)
+  low = union[:, :2].min(axis=0)
+  high = union[:, :2].max(axis=0)
+  baked_corners = np.array([
+    [low[0], low[1], 0.0],
+    [high[0], low[1], 0.0],
+    [high[0], high[1], 0.0],
+    [low[0], high[1], 0.0],
+  ])
+
+  previous_map = scene.map.name
+  scene.map.save(f'{scene.name}.glb', ContentFile(bake_layers(parts)), save=False)
+  _delete_replaced_file_after_commit(scene, previous_map)
+  scene.resetRotation()
+  scene.resetTranslation()
+  scene.map_corners_lla = footprint_to_lla(frame_corners, baked_corners)
+
+
+def build_scene_map(scene):
+  """Place the enabled layers as the scene map: one layer directly, several baked into one GLB.
+
+  The only writer of the scene map pose. Callers hold the scene row lock and save the scene.
+  """
+  layers = list(scene.glb_layers.filter(enabled=True))
+  if not layers:
+    if scene.use_glb_map:
+      _restore_base_map(scene)
+    return
+  if not scene.use_glb_map:
+    _snapshot_base_map(scene)
+  if len(layers) == 1:
+    _place_single_layer(scene, layers[0])
+  else:
+    _place_baked_layers(scene, layers)
+  scene.use_glb_map = True
   scene.saveThumbnail()
 
 
-def apply_glb_map(scene):
-  """Apply a stored GLB (use_glb_map False->True).
-
-  Moves snapshot to base_map/base_scale, sets scene.map = glb_map content,
-  computes pose from glb_anchor, sets map_corners_lla, saves thumbnail.
-  Keeps trs_matrix untouched. Returns saved_alignment dict.
-  """
-  if not scene.glb_map or not scene.glb_anchor:
-    raise GlbAlignmentError(400, 'No stored GLB or anchor')
+def disable_all_layers(scene):
+  """Disable every layer and restore the base map; the rows and files are kept. Caller saves."""
+  scene.glb_layers.update(enabled=False)
   if scene.use_glb_map:
-    raise GlbAlignmentError(400, 'GLB is already applied')
-  require_base_map(scene)
-
-  try:
-    with locked_scene_write(scene):
-      # Save current snapshot as base if not already saved
-      if scene.map:
-        base_ext = os.path.splitext(scene.map.name)[1].lower()
-        previous_base = scene.base_map.name
-        with scene.map.storage.open(scene.map.name, 'rb') as f:
-          scene.base_map.save(f'base_{scene.name}{base_ext}', File(f), save=False)
-        _delete_replaced_file_after_commit(scene, previous_base)
-        scene.base_scale = scene.scale
-        if not scene.base_map_corners_lla:
-          scene.base_map_corners_lla = scene.map_corners_lla
-
-      _apply_pose_and_map(scene)
-
-      scene.use_glb_map = True
-      scene.save()
-  except GlbAlignmentError:
-    raise
-  except Exception as e:
-    log.error(f'Failed to apply GLB: {e}')
-    raise GlbAlignmentError(500, 'Failed to apply GLB')
-
-  return saved_alignment(scene)
+    _restore_base_map(scene)
 
 
-def unapply_glb_map(scene):
-  """Unapply a GLB (use_glb_map True->False).
-
-  Restores scene.map = base_map content, scale = base_scale,
-  map_corners_lla = base_map_corners_lla, resets rotation/translation,
-  clears base_map/base_scale. Keeps trs_matrix and glb_map/glb_anchor.
-  """
-  if not scene.use_glb_map:
-    raise GlbAlignmentError(400, 'GLB is not currently applied')
-
-  try:
-    with locked_scene_write(scene):
-      previous_map = scene.map.name
-      if scene.base_map and scene.base_map.storage.exists(scene.base_map.name):
-        base_ext = os.path.splitext(scene.base_map.name)[1]
-        with scene.base_map.storage.open(scene.base_map.name, 'rb') as f:
-          scene.map.save(f'{scene.name}{base_ext}', File(f), save=False)
-      else:
-        scene.map = ''  # None crashes Scene.save() on the map-name check
-      _delete_replaced_file_after_commit(scene, previous_map)
-
-      scene.scale = scene.base_scale
-      scene.map_corners_lla = scene.base_map_corners_lla
-      scene.resetRotation()
-      scene.resetTranslation()
-      _delete_replaced_file_after_commit(scene, scene.thumbnail.name)
-      scene.thumbnail = None
-      scene.use_glb_map = False
-
-      # The base file is removed on commit only: a rollback restores base_map, which still needs it
-      _delete_replaced_file_after_commit(scene, scene.base_map.name)
-      scene.base_map = None
-      scene.base_scale = None
-
-      scene.save()
-  except GlbAlignmentError:
-    raise
-  except Exception as e:
-    log.error(f'Failed to unapply GLB: {e}')
-    raise GlbAlignmentError(500, 'Failed to unapply GLB')
-
-  return saved_alignment(scene) if scene.glb_map else None
-
-
-def move_glb_anchor(scene, new_anchor, save=True):
-  """Move an already-stored GLB to a new anchor (changes glb_anchor only).
-
-  If use_glb_map is True, recomputes pose and map_corners_lla + thumbnail.
-  If False, just stores the new anchor.
-  save=False leaves the row unsaved for the caller to save in the same transaction.
-  """
-  lat, lng, heading = parse_anchor(new_anchor)
-  check_anchor_near_map_center(scene, lat, lng)
-
-  try:
-    with locked_scene_write(scene):
-      # Update anchor with footprint from existing
-      footprint_m = scene.glb_anchor.get('footprint_m') if scene.glb_anchor else {}
-      scene.glb_anchor = {
-        'lat': float(lat),
-        'lng': float(lng),
-        'heading_deg': float(heading),
-        'footprint_m': footprint_m,
-      }
-
-      if scene.use_glb_map:
-        # Recompute pose
-        frame_corners = scene.base_map_corners_lla or scene.map_corners_lla
-        if not frame_corners:
-          raise GlbAlignmentError(400, 'Cannot compute pose: missing frame')
-
-        glb_width = footprint_m.get('width', 0)
-        glb_height = footprint_m.get('height', 0)
-        if glb_width <= 0 or glb_height <= 0:
-          raise GlbAlignmentError(400, 'Invalid GLB footprint')
-
-        rotation, translation, map_corners = compute_glb_pose_and_corners(
-          frame_corners, lat, lng, heading,
-          glb_path=scene.glb_map.path
-        )
-        scene.rotation_x = rotation[0]
-        scene.rotation_y = rotation[1]
-        scene.rotation_z = rotation[2]
-        scene.translation_x = translation[0]
-        scene.translation_y = translation[1]
-        scene.translation_z = translation[2]
-        scene.map_corners_lla = map_corners
-
-        scene.saveThumbnail()
-
-      if save:
-        scene.save()
-  except GlbAlignmentError:
-    raise
-  except Exception as e:
-    log.error(f'Failed to move GLB anchor: {e}')
-    raise GlbAlignmentError(500, 'Failed to move GLB anchor')
-
-  return saved_alignment(scene) if scene.glb_map else None
-
-
-def set_glb_applied(scene, use_glb):
-  """Apply or unapply the stored GLB to reach the requested state; no-op if already there."""
-  if use_glb and not scene.use_glb_map:
-    apply_glb_map(scene)
-  elif not use_glb and scene.use_glb_map:
-    unapply_glb_map(scene)
-
-
-def apply_new_glb(scene):
-  """Apply a GLB that was just stored, if the scene has a flat base map to place it over.
-
-  A scene without one keeps the GLB stored but unapplied, so the save still succeeds.
-  """
-  if scene.use_glb_map or not scene.glb_map:
-    return
+def _has_flat_base(scene):
+  """True when a GLB can be placed over the scene's flat base map."""
   try:
     require_base_map(scene)
   except GlbAlignmentError:
-    return
-  apply_glb_map(scene)
+    return False
+  return True
 
 
-def remove_glb_map(scene):
-  """Remove a stored GLB (delete glb_map and clear glb_anchor).
-
-  If use_glb_map was True, first unapply it (legacy: map becomes empty, frame kept).
-  The GLB file and its cached preview are deleted on commit.
-  """
-  try:
-    with locked_scene_write(scene):
-      # If applied, unapply first
-      if scene.use_glb_map:
-        unapply_glb_map(scene)
-
-      if scene.glb_map:
-        transaction.on_commit(partial(_remove_replaced_glb, scene.glb_map.storage, scene.glb_map.name))
-      scene.glb_map = None
-      scene.glb_anchor = None
-
-      scene.save()
-  except Exception as e:
-    log.error(f'Failed to remove GLB: {e}')
-    raise GlbAlignmentError(500, 'Failed to remove GLB')
+def _next_order(scene):
+  """Next draw order for a new layer; the (scene, order) constraint keeps it unique."""
+  highest = scene.glb_layers.aggregate(highest=Max('order'))['highest']
+  return 0 if highest is None else highest + 1
 
 
-def _reapply_applied_glb(scene):
-  """Re-copy the newly stored GLB into the applied map, keeping base_map/base_scale."""
-  try:
-    _apply_pose_and_map(scene, glb_path=scene.glb_map.path)
-  except GlbAlignmentError:
-    raise
-  except Exception as e:
-    log.error(f'Failed to update GLB pose: {e}')
-    raise GlbAlignmentError(500, 'Failed to update GLB pose')
+def commit_layer(scene, token, anchor, layer=None, enable=False, save=True):
+  """Store a staged GLB as a layer: a new one (layer None) or a new file for an existing layer.
 
-
-def commit_glb(scene, token, anchor, save=True):
-  """Store a staged GLB with its anchor; does not apply it.
-
-  This is the POST endpoint: stages the GLB as glb_map with the anchor.
-  Computes footprint from the real mesh file (not touching scene.map/pose).
-  If use_glb_map was already True, re-applies the new GLB to the scene map.
-  Otherwise, applying is a separate PUT with use_glb_map=true.
-  save=False leaves the row unsaved for the caller to save in the same transaction.
-  Returns saved_alignment dict.
+  A new layer is placed when enable is set and the scene has a flat base map; otherwise it is
+  stored disabled. An existing layer keeps its enabled state. Caller holds nothing; this locks.
+  Returns the saved_alignment dict of the layer.
   """
   if scene.use_glb_map:
-    # Re-applying the new GLB needs the flat base map; storing alone does not place it
+    # Re-placing the GLB needs the flat base map; storing alone does not
     require_base_map(scene)
   path = staged_glb_path(token)
   token = str(uuid.UUID(token))
   lat, lng, heading = parse_anchor(anchor)
   check_anchor_near_map_center(scene, lat, lng)
 
-  old_glb = scene.glb_map.name if scene.glb_map else ''
-  with locked_scene_write(scene):
-    # Save the staged GLB as glb_map
+  with _failing_as('Failed to store GLB'), locked_scene_write(scene) as created:
+    if layer is None:
+      if scene.glb_layers.count() >= settings.GLB_MAX_LAYERS:
+        raise GlbAlignmentError(409, f'A scene holds at most {settings.GLB_MAX_LAYERS} GLB layers')
+      layer = GlbLayer(scene=scene, order=_next_order(scene))
+      layer.enabled = enable and _has_flat_base(scene)
+    else:
+      layer.refresh_from_db()
+    old_file = layer.file.name or ''
+
     with open(path, 'rb') as f:
-      scene.glb_map.save(f'{scene.name}.glb', File(f), save=False)
-    adopt_staged_preview(scene, token)
+      layer.file.save(f'{scene.name}.glb', File(f), save=False)
+    created.append(layer.file.name)
+    adopt_staged_preview(layer, token)
 
-    # Get footprint from the real mesh (extract and measure, not autoAlignSceneMap)
-    width, height = _get_aligned_footprint_size_m(scene.glb_map.path)
-
-    scene.glb_anchor = {
+    width, height = _get_aligned_footprint_size_m(layer.file.path)
+    layer.anchor = {
       'lat': float(lat),
       'lng': float(lng),
       'heading_deg': float(heading),
       'footprint_m': {'width': float(width), 'height': float(height)},
     }
-
-    # Initialize base_map_corners_lla if not set (from current frame)
     if not scene.base_map_corners_lla:
       scene.base_map_corners_lla = scene.map_corners_lla
 
-    # If already applied, re-apply with new GLB; otherwise just store
-    if scene.use_glb_map:
-      _reapply_applied_glb(scene)
+    layer.save()
+    if layer.enabled:
+      build_scene_map(scene)
     if save:
       scene.save()
 
-    # Staged and replaced files are removed on commit only: a rollback keeps the old GLB row
-    if old_glb and old_glb != scene.glb_map.name:
-      transaction.on_commit(partial(_remove_replaced_glb, scene.glb_map.storage, old_glb))
+    # Replaced files are removed on commit only: a rollback keeps the old file referenced
+    if old_file and old_file != layer.file.name:
+      transaction.on_commit(partial(_remove_replaced_glb, layer.file.storage, old_file))
     transaction.on_commit(partial(remove_staged_files, token))
 
   purge_stale_files()
+  return write_response(layer)
 
-  return saved_alignment(scene)
+
+def get_layer(scene, layer_id):
+  """The stored layer of this scene with layer_id; 404 when it belongs to another scene."""
+  layer = scene.glb_layers.filter(pk=layer_id).first()
+  if layer is None:
+    raise GlbAlignmentError(404, 'No such GLB layer')
+  return layer
+
+
+def set_layer_enabled(scene, layer, enabled, save=True):
+  """Place a stored layer on the map, or take it off; the other layers stay as they are."""
+  with _failing_as('Failed to update GLB'), locked_scene_write(scene):
+    layer.refresh_from_db()
+    if layer.enabled == enabled:
+      raise GlbAlignmentError(400, 'GLB is already applied' if enabled else 'GLB is not currently applied')
+    if enabled:
+      require_base_map(scene)
+    layer.enabled = enabled
+    layer.save(update_fields=['enabled'])
+    build_scene_map(scene)
+    if save:
+      scene.save()
+  return write_response(layer)
+
+
+def move_layer(scene, layer, anchor, save=True):
+  """Move a stored layer to a new anchor; a placed layer re-places the scene map."""
+  lat, lng, heading = parse_anchor(anchor)
+  check_anchor_near_map_center(scene, lat, lng)
+
+  with _failing_as('Failed to move GLB anchor'), locked_scene_write(scene):
+    layer.refresh_from_db()
+    footprint_m = layer.anchor.get('footprint_m') or {}
+    if layer.enabled and (footprint_m.get('width', 0) <= 0 or footprint_m.get('height', 0) <= 0):
+      raise GlbAlignmentError(400, 'Invalid GLB footprint')
+    layer.anchor = {
+      'lat': float(lat),
+      'lng': float(lng),
+      'heading_deg': float(heading),
+      'footprint_m': footprint_m,
+    }
+    layer.save(update_fields=['anchor'])
+    if layer.enabled:
+      build_scene_map(scene)
+    if save:
+      scene.save()
+  return write_response(layer)
+
+
+def remove_layer(scene, layer):
+  """Delete a stored layer; its file and preview go on commit and the scene map is re-placed."""
+  with _failing_as('Failed to remove GLB'), locked_scene_write(scene):
+    layer.refresh_from_db()
+    was_enabled = layer.enabled
+    layer.delete()
+    if was_enabled:
+      build_scene_map(scene)
+    scene.save()
 
 
 def scene_form_fields(scene):
@@ -585,38 +569,32 @@ def scene_form_fields(scene):
   return {name: getattr(scene, name) for name in SCENE_FORM_GLB_FIELDS}
 
 
-def write_response(scene):
+def write_response(layer):
   """Alignment after a write: make sure the preview exists, then read it."""
-  ensure_glb_preview(scene)
-  return saved_alignment(scene)
+  ensure_glb_preview(layer)
+  return saved_alignment(layer)
 
 
-def saved_alignment(scene):
-  """Build alignment response from a scene with a stored GLB.
+def saved_alignment(layer):
+  """Build the alignment response of one stored layer. Read-only.
 
-  Returns dict with exists, filename, download_url, anchor, footprint_m, use_glb_map, preview_url.
-  Returns exists=false if no GLB stored.
-
-  Read-only. preview_url is the cached top view of the GLB file, applied or not: the map
-  overlay stretches it onto the footprint at the anchor heading, while scene.thumbnail is the
-  posed render of the applied map and already carries the heading.
+  preview_url is the cached top view of the GLB file, enabled or not: the map overlay stretches
+  it onto the footprint at the anchor heading, while scene.thumbnail is the posed render of the
+  applied map and already carries the heading.
   """
-  if not scene.glb_map or not scene.glb_anchor:
-    return {
-      'exists': False,
-    }
-
-  anchor_data = scene.glb_anchor
+  anchor_data = layer.anchor or {}
   footprint_data = anchor_data.get('footprint_m', {})
 
   preview_url = None
-  if os.path.exists(glb_preview_path(scene.glb_map.path)):
-    preview_url = scene.glb_map.storage.url(glb_preview_name(scene.glb_map.name))
+  if os.path.exists(glb_preview_path(layer.file.path)):
+    preview_url = layer.file.storage.url(glb_preview_name(layer.file.name))
 
   return {
-    'exists': True,
-    'filename': os.path.basename(scene.glb_map.name),
-    'download_url': scene.glb_map.url,
+    'id': str(layer.id),
+    'order': layer.order,
+    'enabled': layer.enabled,
+    'filename': os.path.basename(layer.file.name),
+    'download_url': layer.file.url,
     'anchor': {
       'lat': float(anchor_data.get('lat', 0.0)),
       'lng': float(anchor_data.get('lng', 0.0)),
@@ -626,6 +604,10 @@ def saved_alignment(scene):
       'width': float(footprint_data.get('width', 0.0)),
       'height': float(footprint_data.get('height', 0.0)),
     },
-    'use_glb_map': scene.use_glb_map,
     'preview_url': preview_url,
   }
+
+
+def list_layers(scene):
+  """Alignment of every stored layer of the scene, in draw order."""
+  return [saved_alignment(layer) for layer in scene.glb_layers.all()]

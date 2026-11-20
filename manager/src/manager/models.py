@@ -213,14 +213,6 @@ class Scene(models.Model):
               "stale once it no longer matches the scene's map corners"
   )
   # GLB alignment fields for geospatial scenes
-  glb_map = models.FileField(
-    null=True, blank=True, editable=False, upload_to='glb_maps/',
-    help_text='Stored GLB file for geospatial alignment (unposed)'
-  )
-  glb_anchor = models.JSONField(
-    null=True, blank=True, default=None, editable=False,
-    help_text='Geographic centre and heading of the GLB footprint: {lat, lng, heading_deg, footprint_m}'
-  )
   use_glb_map = models.BooleanField(
     default=False, editable=False,
     help_text='Whether the GLB is currently applied (True) or the snapshot is active (False)'
@@ -479,6 +471,7 @@ class Scene(models.Model):
     self.base_map_corners_lla = self.map_corners_lla
     self.resetRotation()
     self.resetTranslation()
+    self.glb_layers.update(enabled=False)
 
   def _invalidateMapState(self, glb_from_zip):
     # FieldFile equality is name-based; detect same-name uploads before storage saves them.
@@ -717,6 +710,9 @@ def source_map_thumbnail_upload_to(instance, filename):
 def mapping_artifact_upload_to(instance, filename):
   return f"mapping-artifacts/{instance.scene_id}/{instance.id}.zip"
 
+def glb_layer_upload_to(instance, filename):
+  return f"glb_maps/{instance.scene_id}/{instance.id}.glb"
+
 class SceneSourceMap(models.Model):
   """The current mesh from one method; a new upload from that method replaces it."""
 
@@ -759,6 +755,23 @@ class SceneMappingArtifact(models.Model):
         fields=["scene", "method"], name="unique_mapping_artifact_per_method"),
     ]
 
+class GlbLayer(models.Model):
+  """One GLB placed over a geospatial scene's flat base map; order is the merge order."""
+
+  id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+  scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="glb_layers")
+  file = models.FileField(upload_to=glb_layer_upload_to)
+  anchor = models.JSONField(default=dict)
+  enabled = models.BooleanField(default=False)
+  order = models.PositiveSmallIntegerField()
+
+  class Meta:
+    ordering = ["order"]
+    constraints = [
+      models.UniqueConstraint(
+        fields=["scene", "order"], name="unique_glb_layer_order_per_scene"),
+    ]
+
 
 def glb_preview_name(glb_name):
   """Storage name of the cached top-view preview that sits next to a stored GLB."""
@@ -774,8 +787,10 @@ def remove_stored_file(storage, name):
 
 
 def _delete_unreferenced_mapping_file(storage, name, using):
-  scene_files = Q(map=name) | Q(thumbnail=name) | Q(base_map=name) | Q(glb_map=name)
+  scene_files = Q(map=name) | Q(thumbnail=name) | Q(base_map=name)
   if Scene.objects.using(using).filter(scene_files).exists():
+    return
+  if GlbLayer.objects.using(using).filter(file=name).exists():
     return
   if SceneSourceMap.objects.using(using).filter(Q(file=name) | Q(thumbnail=name)).exists():
     return
@@ -788,18 +803,20 @@ def _delete_unreferenced_mapping_file(storage, name, using):
 @receiver(post_delete, sender=Scene)
 @receiver(post_delete, sender=SceneSourceMap)
 @receiver(post_delete, sender=SceneMappingArtifact)
+@receiver(post_delete, sender=GlbLayer)
 def delete_mapping_files_after_commit(sender, instance, using, **kwargs):
   """Cascade deletions must not remove shared files or survive a rollback."""
   fields = {
-    Scene: ("map", "thumbnail", "base_map", "glb_map"),
+    Scene: ("map", "thumbnail", "base_map"),
     SceneSourceMap: ("file", "thumbnail"),
     SceneMappingArtifact: ("bundle",),
+    GlbLayer: ("file",),
   }
   for field in fields[sender]:
     stored_file = getattr(instance, field)
     if stored_file:
       names = [stored_file.name]
-      if field == "glb_map":
+      if sender is GlbLayer:
         names.append(glb_preview_name(stored_file.name))
       for name in names:
         transaction.on_commit(

@@ -694,9 +694,8 @@ class MeshGenerator:
         glb_state.lock_scene_row(scene)
         scene.refresh_from_db()
         with glb_state.discard_files_on_failure(scene):
-          if scene.use_glb_map:
-            # Restores the pre-GLB base map and clears use_glb_map before the mesh overwrites scene.map
-            glb_state.unapply_glb_map(scene)
+          # Disables every GLB layer and restores the pre-GLB base map before the mesh overwrites scene.map
+          glb_state.disable_all_layers(scene)
           scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
 
           scene.map_processed = get_iso_time()

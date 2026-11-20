@@ -133,31 +133,31 @@ def glb_preview_path(glb_path):
   return glb_preview_name(glb_path)
 
 
-def adopt_staged_preview(scene, token):
-  """Cache the staged top view as the GLB's preview: the image depends only on the GLB file."""
+def adopt_staged_preview(layer, token):
+  """Cache the staged top view as the layer's preview: the image depends only on the GLB file."""
   staged_png = os.path.join(staging_dir(), f'{token}.png')
   if os.path.isfile(staged_png):
-    shutil.copyfile(staged_png, glb_preview_path(scene.glb_map.path))
+    shutil.copyfile(staged_png, glb_preview_path(layer.file.path))
 
 
-def ensure_glb_preview(scene):
-  """Render the preview of the stored GLB if it is not cached yet.
+def ensure_glb_preview(layer):
+  """Render the preview of a stored layer's GLB if it is not cached yet.
 
   The preview depends only on the GLB file, so the staged top view is normally adopted on
   commit and this only repairs a missing one. Call it outside the write transaction, never
   from the GET read path. A failed render is logged and retried on the next call.
   """
-  if not scene.glb_map:
+  if not layer.file:
     return
-  preview_path = glb_preview_path(scene.glb_map.path)
+  preview_path = glb_preview_path(layer.file.path)
   if os.path.exists(preview_path):
     return
   try:
     # Alignment rotation only; generateOrthoView does not use translation
-    temp_scene = Scene(map=scene.glb_map.path)
+    temp_scene = Scene(map=layer.file.path)
     temp_scene.rotation_x = ALIGN_ROTATION_X
     temp_scene.rotation_y = 0.0
     temp_scene.rotation_z = 0.0
-    _render_top_view(temp_scene, scene.glb_map.path, preview_path)
+    _render_top_view(temp_scene, layer.file.path, preview_path)
   except Exception as e:
     log.warning(f'Failed to generate GLB preview: {e}')

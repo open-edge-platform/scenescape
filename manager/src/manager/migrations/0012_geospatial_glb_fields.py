@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import uuid
+
+import django.db.models.deletion
+import manager.models
 import manager.validators
 from django.db import migrations, models
 from django.db.models import Q
@@ -8,36 +12,36 @@ from django.core.files import File
 
 
 def migrate_existing_glb_maps(apps, schema_editor):
-  """For existing geospatial scenes with GLB maps, initialize the new fields."""
+  """For existing geospatial scenes with GLB maps, create their first enabled GLB layer."""
   Scene = apps.get_model('manager', 'Scene')
+  GlbLayer = apps.get_model('manager', 'GlbLayer')
   from scene_common.earth_lla import footprintAnchorFromCornersLLA
 
   for scene in Scene.objects.filter(map_type='geospatial_map'):
     if not scene.map or not scene.map.name.lower().endswith('.glb'):
       continue
-    if scene.map_corners_lla and not scene.glb_anchor:
+    if scene.map_corners_lla and not GlbLayer.objects.filter(scene=scene).exists():
       try:
         lat, lng, heading, w, h = footprintAnchorFromCornersLLA(scene.map_corners_lla)
-        scene.glb_anchor = {
-          'lat': float(lat),
-          'lng': float(lng),
-          'heading_deg': float(heading),
-          'footprint_m': {'width': float(w), 'height': float(h)},
-        }
-        # Copy the current map to glb_map
         if scene.map.name and scene.map.storage.exists(scene.map.name):
-          glb_map_name = f'{scene.name}.glb'
+          layer = GlbLayer(scene=scene, order=0, enabled=True, anchor={
+            'lat': float(lat),
+            'lng': float(lng),
+            'heading_deg': float(heading),
+            'footprint_m': {'width': float(w), 'height': float(h)},
+          })
           with scene.map.storage.open(scene.map.name, 'rb') as f:
-            scene.glb_map.save(glb_map_name, File(f), save=False)
-        scene.use_glb_map = True
-        scene.base_map_corners_lla = scene.map_corners_lla
-        scene.save(update_fields=['glb_map', 'glb_anchor', 'use_glb_map', 'base_map_corners_lla'])
+            layer.file.save(f'{scene.name}.glb', File(f), save=False)
+          layer.save()
+          scene.use_glb_map = True
+          scene.base_map_corners_lla = scene.map_corners_lla
+          scene.save(update_fields=['use_glb_map', 'base_map_corners_lla'])
       except Exception as e:
         print(f"Failed to migrate scene {scene.name}: {e}")
 
 
 def reverse_glb_migration(apps, schema_editor):
-  """Noop reverse: leave glb_map, glb_anchor, use_glb_map, base_* as they are."""
+  """Noop reverse: leave the GLB layers, use_glb_map, base_* as they are."""
   pass
 
 
@@ -72,27 +76,25 @@ class Migration(migrations.Migration):
   ]
 
   operations = [
-    migrations.AddField(
-      model_name='scene',
-      name='glb_map',
-      field=models.FileField(
-        null=True,
-        blank=True,
-        editable=False,
-        upload_to='glb_maps/',
-        help_text='Stored GLB file for geospatial alignment (unposed)',
-      ),
-    ),
-    migrations.AddField(
-      model_name='scene',
-      name='glb_anchor',
-      field=models.JSONField(
-        null=True,
-        blank=True,
-        default=None,
-        editable=False,
-        help_text='Geographic centre and heading of the GLB footprint: {lat, lng, heading_deg, footprint_m}',
-      ),
+    migrations.CreateModel(
+      name='GlbLayer',
+      fields=[
+        ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+        ('file', models.FileField(upload_to=manager.models.glb_layer_upload_to)),
+        ('anchor', models.JSONField(default=dict)),
+        ('enabled', models.BooleanField(default=False)),
+        ('order', models.PositiveSmallIntegerField()),
+        ('scene', models.ForeignKey(
+          on_delete=django.db.models.deletion.CASCADE,
+          related_name='glb_layers', to='manager.scene')),
+      ],
+      options={
+        'ordering': ['order'],
+        'constraints': [
+          models.UniqueConstraint(
+            fields=('scene', 'order'), name='unique_glb_layer_order_per_scene'),
+        ],
+      },
     ),
     migrations.AddField(
       model_name='scene',
@@ -140,7 +142,7 @@ class Migration(migrations.Migration):
       name='map_corners_lla',
       field=models.JSONField(blank=True, default=None, help_text="Provide the array of four map corners geospatial coordinates (lat, long, alt).\nRequired only if 'Output geospatial coordinates' is set to `Yes`.\nExpected order: starting from the bottom-left corner, either counterclockwise or clockwise.\nExpected JSON format: '[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'", null=True, validators=[manager.validators.validate_map_corners_lla], verbose_name='Geospatial coordinates of the four map corners in JSON format'),
     ),
-    # Initialise the GLB fields from existing GLB maps, then clear the trs_matrix that those
+    # Create the first GLB layer from existing GLB maps, then clear the trs_matrix that those
     # scenes (and any already using a GLB) cached before the new pose was stored.
     migrations.RunPython(migrate_existing_glb_maps, reverse_glb_migration),
     migrations.RunPython(clear_glb_trs_matrix_migration, reverse_clear_glb_trs_matrix),
