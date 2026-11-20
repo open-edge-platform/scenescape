@@ -3,13 +3,29 @@
 
 """Scene registration must always notify the open calibration page."""
 
+import importlib
+import sys
 import threading
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-import auto_camera_calibration_context as context_module
-from auto_camera_calibration_context import CameraCalibrationContext
+
+def _import_context_module():
+  # The host test venv lacks the service-only runtime (eventlet, hloc/torch); stub only what is missing.
+  stubs = {}
+  for name in ("eventlet", "markerless_camera_calibration_controller",
+               "point_cloud_calibration_controller"):
+    try:
+      importlib.import_module(name)
+    except ImportError:
+      stubs[name] = MagicMock()
+  with patch.dict(sys.modules, stubs):
+    return importlib.import_module("auto_camera_calibration_context")
+
+
+context_module = _import_context_module()
+CameraCalibrationContext = context_module.CameraCalibrationContext
 
 
 def _context(strategy):
