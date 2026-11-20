@@ -194,6 +194,7 @@ class SceneDataIngestion:
     obj.velocity = (
       Point(obj_data['velocity']) if obj_data.get('velocity') else None
     )
+    obj.angular_velocity = obj_data.get('angular_velocity')
     obj.size = obj_data.get('size')
     obj.confidence = obj_data.get('confidence')
     obj.frameCount = obj_data.get('frame_count', 0)
@@ -208,6 +209,7 @@ class SceneDataIngestion:
     obj._visibility_from_producer = bool(obj.visibility)
     self._set_observation_info(obj, obj_data)
     obj.association_window = obj_data.get('association_window')
+    obj.uncertainty = obj_data.get('uncertainty')
 
     # Reconstruct bbMeters from size when available
     if obj.size and len(obj.size) == 3:
