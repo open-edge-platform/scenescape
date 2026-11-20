@@ -21,6 +21,47 @@ time_budget_hours="${TIME_BUDGET_HOURS:-${time_budget_hours:-2}}"
 
 : "${instance_ip:?instance_ip or INSTANCE_IP must be set}"
 
+if [[ "$service_name" == "autocalibration" ]]; then
+  resolved_camera_id="${AUTOCAL_CAMERA_ID:-${autocal_camera_id:-}}"
+  if [[ -z "$resolved_camera_id" ]]; then
+    echo "Set autocal_camera_id in .env or pass AUTOCAL_CAMERA_ID with docker run -e" >&2
+    exit 1
+  fi
+  camera_id_pattern='^[[:alnum:]_.-]{1,64}$'
+  if [[ ! "$resolved_camera_id" =~ $camera_id_pattern ]]; then
+    echo "Auto Calibration camera ID must be 1-64 letters, digits, dots," \
+      "underscores or hyphens" >&2
+    exit 1
+  fi
+
+  resolved_scene_id="${AUTOCAL_SCENE_ID:-${autocal_scene_id:-}}"
+  if [[ -z "$resolved_scene_id" ]]; then
+    camera_status_url="https://web.scenescape.intel.com/api/v1/autocalibration"
+    camera_status_url+="/cameras/${resolved_camera_id}/calibration"
+    if ! camera_status="$(curl --fail --silent --show-error \
+      --resolve "web.scenescape.intel.com:443:${instance_ip}" "$camera_status_url")"; then
+      printf 'Could not query camera %s status; verify it exists and supports calibration\n' \
+        "$resolved_camera_id" >&2
+      exit 1
+    fi
+    if ! resolved_scene_id="$(jq -er --arg camera_id "$resolved_camera_id" \
+      'select(.cameraId == $camera_id) | .sceneId | strings | select(length > 0)' \
+      <<< "$camera_status")"; then
+      printf 'No scene ID for %s; set AUTOCAL_SCENE_ID to override\n' \
+        "$resolved_camera_id" >&2
+      exit 1
+    fi
+  fi
+  scene_id_pattern='^[[:xdigit:]]{8}-[[:xdigit:]]{4}-'
+  scene_id_pattern+='[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$'
+  if [[ ! "$resolved_scene_id" =~ $scene_id_pattern ]]; then
+    echo "Auto Calibration scene ID must be a UUID" >&2
+    exit 1
+  fi
+  printf 'Auto Calibration camera: %s; scene: %s\n' \
+    "$resolved_camera_id" "$resolved_scene_id"
+fi
+
 spec_file="${service_name}_openapi.yaml"
 mode_dir="$(tr '[:lower:]' '[:upper:]' <<< "${restler_mode:0:1}")${restler_mode:1}"
 result_dir="/workspace/${mode_dir}/${service_name}"
@@ -41,10 +82,9 @@ sed -i "0,/^  - url:/s#^  - url:.*#  - url: \"$server_url\"#" "$spec_file"
 /RESTler/restler/Restler compile --api_spec "$spec_file"
 
 if [[ "$service_name" == "autocalibration" ]]; then
-  AUTOCAL_SCENE_ID="${AUTOCAL_SCENE_ID:?AUTOCAL_SCENE_ID must be set}"
-  AUTOCAL_CAMERA_ID="${AUTOCAL_CAMERA_ID:?AUTOCAL_CAMERA_ID must be set}"
-  python3 - "$AUTOCAL_SCENE_ID" "$AUTOCAL_CAMERA_ID" <<'PY'
+  python3 - "$resolved_scene_id" "$resolved_camera_id" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 grammar_path = Path("Compile/grammar.py")
@@ -79,12 +119,32 @@ for method in ("Post", "Get"):
     [('primitives.restler_fuzzable_string("fuzzstring", quoted=False),', camera_primitive)],
   )
 
-replace_block(
-  "# Endpoint: /perceptual-sensors/{sensorId}/localization, method: Post",
-  [('primitives.restler_fuzzable_string("fuzzstring", quoted=False),', camera_primitive),
-   ('primitives.restler_fuzzable_uuid4("566048da-ed19-4cd3-8e0a-b7e0e1ec4d72", quoted=True, examples=["302cf49a-97ec-402d-a324-c5077b280b7b"]),',
-    'primitives.restler_static_string("{}", quoted=True),'.format(scene_id))],
+localization_marker = "# Endpoint: /perceptual-sensors/{sensorId}/localization, method: Post"
+start, end, block = text.find(localization_marker), -1, None
+if start != -1:
+  end = text.find("# Endpoint:", start + len(localization_marker))
+  if end == -1:
+    end = len(text)
+  block = text[start:end]
+if block is None:
+  raise RuntimeError(f"Unable to find {localization_marker}")
+block = block.replace(
+  'primitives.restler_fuzzable_string("fuzzstring", quoted=False),',
+  camera_primitive,
+  1,
 )
+scene_uuid_pattern = re.compile(
+  r'primitives\.restler_fuzzable_uuid4\("[^"]+", quoted=True'
+  r'(?:, examples=\[[^\]]*\])?\),'
+)
+block, scene_uuid_count = scene_uuid_pattern.subn(
+  'primitives.restler_static_string("{}", quoted=True),'.format(scene_id),
+  block,
+  count=1,
+)
+if scene_uuid_count != 1:
+  raise RuntimeError(f"Expected one sceneId UUID in {localization_marker}")
+text = text[:start] + block + text[end:]
 
 grammar_path.write_text(text)
 PY

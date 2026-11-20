@@ -111,6 +111,22 @@ docker run --rm \
 The defaults in `run_autocalibration_fuzzing.sh` belong to one development
 instance and will not match yours.
 
+You can configure the identifiers in `.env` or override them for a single run:
+
+- **Camera:** Set `autocal_camera_id` in `.env` or pass
+  `-e AUTOCAL_CAMERA_ID=<camera id>` to `docker run`. The camera must exist and
+  belong to a calibration-enabled scene. The runner uses that camera's current
+  scene ID.
+- **Scene:** To select a scene directly, set `autocal_scene_id` in `.env` or
+  pass `-e AUTOCAL_SCENE_ID=<scene uuid>` to `docker run`. The scene ID must be
+  a UUID.
+
+For example, set the camera ID in `.env`:
+
+```bash
+autocal_camera_id=your-camera-id
+```
+
 #### Troubleshooting
 
 - `command not found`, exit code 127: pass the script as an absolute path in the
