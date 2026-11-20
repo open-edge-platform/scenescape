@@ -66,12 +66,20 @@ struct VelocityRotationState {
  */
 std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state);
 
+/// Published rotation of a track and whether it is the filter yaw.
+struct TrackRotation {
+    std::array<double, 4> value;
+    /// True when `value` is the filter yaw: the orientation was observed and the yaw agrees with
+    /// the velocity heading (or the track is below the speed gate). False for the velocity heading
+    /// and the identity quaternion.
+    bool filter_yaw;
+};
+
 /**
  * @brief Select published yaw, preferring observed orientation over velocity fallback.
  */
-std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& track,
-                                            bool rotation_from_velocity,
-                                            VelocityRotationState& state);
+TrackRotation select_track_rotation(const rv::tracking::TrackedObject& track,
+                                    bool rotation_from_velocity, VelocityRotationState& state);
 
 /**
  * @brief Per-scope worker thread for processing detection chunks.

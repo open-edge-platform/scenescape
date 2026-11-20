@@ -188,6 +188,7 @@ class MovingObject:
     self.gid = None
     self.frameCount = 1
     self.velocity = None
+    self.angular_velocity = None
     self.location = None
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
