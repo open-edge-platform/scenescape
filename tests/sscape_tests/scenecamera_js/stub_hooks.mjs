@@ -19,6 +19,7 @@ const THREE_URL = "stub:three";
 
 const STUB_SOURCE = `
   export default class {}
+  export class ConvergedCameraCalibration {}
   export const compareIntrinsics = () => {};
   export const startCameraCalibration = () => {};
   export const normalizeDistortion = () => {};
