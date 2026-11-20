@@ -167,17 +167,56 @@ cd tracker && make test-unit-coverage
 
 ## Track location uncertainty in the output (controller + tracker)
 
-**Goal:** See [design §5.7](../../docs/design/probabilistic-tracking-association.md#57-track-location-uncertainty-in-the-output). **Status:** not started; both services publish only `association_window`.
+**Goal:** See [design §5.7](../../docs/design/probabilistic-tracking-association.md#57-track-location-uncertainty-in-the-output). **Status:** implemented; published as `uncertainty` with the experimental observation processor only. Without it both services publish only `association_window`.
+
+| Task                   | Location                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| Field definition       | `data_formats.md`, `tracker/schema/scene-data.schema.json`                                    |
+| Tracker Service output | `track_uncertainty.hpp`, `tracking_types.hpp`, `tracking_worker.cpp`, `track_publisher.cpp`   |
+| Controller output      | `ilabs_tracking.py`, `scene_common` (`association.py`, `detections_builder.py`)               |
+| Analytics pass-through | `scene_common/ingestion.py`, `analytics/analytics_models.py`, `analytics/event_serializer.py` |
+
+Published for the track state that is published already: `translation` (the footprint base), `velocity`, and `size` (filter size with the observation processor).
+
+### Exit criteria
+
+- [x] Both services publish the field with the experimental observation processor; unit tests check it against the filter's P
+- [x] Legacy output unchanged (no field)
+
+### Deferred — `uncertainty.yaw`
+
+Publish the variance of the filter yaw (rad²) only when the published `rotation` is the filter yaw
+(not for the velocity-heading fallback or the identity quaternion). Keep `filter_yaw_published` for
+rotation selection; do not invent `uncertainty.angular_velocity` until a consumer needs it.
 
 | Task                   | Location                                                   |
 | ---------------------- | ---------------------------------------------------------- |
 | Field definition       | `data_formats.md`, `tracker/schema/scene-data.schema.json` |
-| Tracker Service output | `tracking_types.hpp`, `track_publisher.cpp`                |
-| Controller output      | `ilabs_tracking.py`, `scene_common`                        |
+| Tracker Service output | `track_uncertainty.hpp`, `track_publisher.cpp`             |
+| Controller output      | `ilabs_tracking.py`                                        |
+
+#### Exit criteria
+
+- [ ] Both services publish `uncertainty.yaw` only when `rotation` is the filter yaw
+- [ ] Unit tests cover publish vs withhold against `filter_yaw_published`
+
+---
+
+## Publish `angular_velocity` (controller + tracker)
+
+**Goal:** See [design §5.8](../../docs/design/probabilistic-tracking-association.md#58-angular-velocity-in-the-output). **Status:** implemented. Always-on `angular_velocity` `[ωx, ωy, ωz]` rad/s from filter yaw rate (`TrackedObject.w`); only `ωz` is estimated.
+
+| Task                   | Location                                                           |
+| ---------------------- | ------------------------------------------------------------------ |
+| Field definition       | `data_formats.md`, `tracker/schema/scene-data.schema.json`         |
+| Tracker Service output | `tracking_types.hpp`, `tracking_worker.cpp`, `track_publisher.cpp` |
+| Controller output      | `ilabs_tracking.py`, `moving_object.py`, `detections_builder.py`   |
+| Analytics pass-through | `ingestion.py`, `analytics_models.py`, `event_serializer.py`       |
 
 ### Exit criteria
 
-- [ ] Both services publish the field; unit tests check it against the filter's P
+- [x] Both services publish `angular_velocity` with every track; Analytics passes it through
+- [x] Docs and schema describe ωz-only estimation
 
 ---
 
@@ -276,9 +315,11 @@ cd tracker && make test-unit test-robot-vision
 9. [ ] F8: One z reference for pixel and 3D detections (mitigated: gated association + planar UKF omits z)
 10. [x] Planar UKF updates omit z only when the track already has sticky measured height and the detection does not
 11. [x] `position_gate` helpers centralize XY vs XYZ (association, UKF rows, UI); deferred alternatives listed above
-12. [ ] Track location uncertainty in the output
+12. [x] Track location uncertainty in the output (experimental observation processor only)
 13. [x] Invalid per-detection R rejected at C++ ingest; invalid Controller `birth_cluster_radius_m` → 2 m
 14. [x] Black-box mahalanobis companion configs (`*_mahalanobis.yaml`, `--association`)
+15. [x] Publish `angular_velocity` (filter yaw rate as `[0,0,ωz]`) on Controller + Tracker + Analytics
+16. [ ] Deferred: `uncertainty.yaw` when published rotation is the filter yaw
 
 ```mermaid
 gantt
