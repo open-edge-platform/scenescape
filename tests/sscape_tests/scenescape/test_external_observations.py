@@ -117,6 +117,36 @@ def test_same_message_can_be_transformed_for_two_scenes_without_mutation():
   assert message == original
 
 
+def test_retrack_false_promotes_child_uncertainty_onto_object_and_output():
+  """retrack=False must keep the child's covariances through parent republish.
+
+  add_uncertainty only reads obj.uncertainty (and pops any copy left in info), so
+  createMovingObjectsForSceneData has to promote the field the same way it promotes
+  rotation.
+  """
+  scene = _scene('scene-1')
+  message = _message()
+  uncertainty = {
+    'translation': [0.25, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0],
+    'velocity': [0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0],
+    'yaw': 0.05,
+  }
+  message['objects'][0]['uncertainty'] = uncertainty
+  source = SimpleNamespace(uid='drone-1', name='drone-1', retrack=False)
+  pose = CameraPose(dict(message['pose'], scale=[1, 1, 1]), None)
+
+  _, child_objects = scene.createMovingObjectsForSceneData(
+    message, source, pose, 'unknown', 100)
+
+  assert child_objects[0].uncertainty == uncertainty
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.already_tracked_objects = []
+  merged = tracker.mergeAlreadyTrackedObjects(child_objects)
+  scene._updateVisible(merged)
+  output = buildDetectionsList(merged, scene)
+  assert output[0]['uncertainty'] == uncertainty
+
+
 def test_source_identity_and_provenance_survive_merge_and_analytics_output():
   controller, scene, message = _controller(), _scene('scene-1'), _message()
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)

@@ -29,6 +29,8 @@ def add_uncertainty(obj_dict, obj):
 
   ``obj_dict`` may start from the incoming detection (``obj.info``), which can carry the ``uncertainty`` of
   another tracker (a child scene). The field is authoritative on ``obj``: when it has none, the key is removed.
+  Hierarchy callers that trust a child's tracks (``retrack=False``) must promote the child's
+  ``uncertainty`` onto ``obj`` before publish; leaving it only in ``info`` is not enough.
   """
   uncertainty = getattr(obj, 'uncertainty', None)
   if uncertainty:
