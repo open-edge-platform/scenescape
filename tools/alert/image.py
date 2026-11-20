@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2020 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2020 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
@@ -31,7 +31,7 @@ class Image:
     return
 
   def getREST(self):
-    rest = RESTClient(self.url, self.rootCert, self.auth)
+    rest = RESTClient(self.url, rootcert=self.rootCert, auth=self.auth)
 
     data = rest.frame(self.cameraID, self.timestamp)
     log.debug("FRAME RESULT", data.statusCode, data.keys())

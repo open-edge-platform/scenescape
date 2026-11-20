@@ -1242,8 +1242,11 @@ def generate_mesh_status(request, pk):
   if not request_id:
     return JsonResponse({"success": False, "error": "missing request_id"}, status=400)
 
+  from .mesh_generator import MeshGenerator, isValidRequestId
+  if not isValidRequestId(request_id):
+    return JsonResponse({"success": False, "error": "invalid request_id"}, status=400)
+
   try:
-    from .mesh_generator import MeshGenerator
     mesh_generator = MeshGenerator()
 
     status_data = mesh_generator.mapping_client.getReconstructionStatus(request_id)
