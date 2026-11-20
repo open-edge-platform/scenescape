@@ -18,7 +18,9 @@ Usage:
   python run_black_box_evaluation.py
   python run_black_box_evaluation.py --output /custom/output/path
   python run_black_box_evaluation.py --dataset wildtrack
+  python run_black_box_evaluation.py --dataset rolling_terrain
   python run_black_box_evaluation.py --observation-processor
+  python run_black_box_evaluation.py --no-observation-processor
   python run_black_box_evaluation.py --association mahalanobis
   python run_black_box_evaluation.py --association both
 
@@ -48,10 +50,11 @@ from pipeline_engine import PipelineEngine
 _SCRIPT_DIR = Path(__file__).parent
 
 # Available config sets, keyed by dataset name.  The legacy Unity dataset is the
-# default; Wildtrack is an additional set that can be selected manually.
+# default; the other sets can be selected manually.
 _CONFIG_DIRS = {
   "unity": "black_box_unity",
   "wildtrack": "black_box_wildtrack",
+  "rolling_terrain": "black_box_rolling_terrain",
 }
 DEFAULT_DATASET = "unity"
 DEFAULT_ASSOCIATION = "euclidean"
@@ -114,14 +117,8 @@ DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 # Helpers
 # ---------------------------------------------------------------------------
 
-OBSERVATION_PROCESSOR_RUN_SUFFIX = "-ObservationProcessor"
-
-
-def _enable_observation_processor(cfg: dict) -> None:
-  """Turn on the experimental observation processor service in a loaded config.
-
-  Sets ``harness.config.observation_processor.enabled`` and suffixes
-  ``pipeline.run_name`` so legacy and experimental runs stay distinguishable.
+def _set_observation_processor(cfg: dict, enabled: bool) -> None:
+  """Override ``harness.config.observation_processor.enabled`` in a loaded config.
 
   Raises:
     ValueError: If the config has no ``observation_processor`` block.
@@ -129,24 +126,23 @@ def _enable_observation_processor(cfg: dict) -> None:
   harness_cfg = cfg.get("harness", {}).get("config", {})
   if not isinstance(harness_cfg.get("observation_processor"), dict):
     raise ValueError("config has no harness.config.observation_processor block")
-  harness_cfg["observation_processor"]["enabled"] = True
-  pipeline = cfg["pipeline"]
-  pipeline["run_name"] = pipeline.get("run_name", "Run") + OBSERVATION_PROCESSOR_RUN_SUFFIX
+  harness_cfg["observation_processor"]["enabled"] = enabled
 
 
 def _run_config(
   config_path: Path,
   session_output: Path,
   image_tag: str | None = None,
-  observation_processor: bool = False,
+  observation_processor: bool | None = None,
 ) -> dict:
   """Load *config_path*, set its output base to *session_output*, run it.
 
   If *image_tag* is given, the tag portion of the harness ``container_image``
   is replaced with that value.  When *None* the tag from the YAML file is used
   unchanged (intended for manual runs where the user edits the YAML directly).
-  If *observation_processor* is true, the experimental observation processor
-  service is enabled for the run (see ``_enable_observation_processor``).
+  If *observation_processor* is not None, it overrides the experimental
+  observation processor setting of the config (see ``_set_observation_processor``).
+  The effective config is stored in the run's ``config/`` folder.
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
@@ -182,26 +178,20 @@ def _run_config(
       (_SCRIPT_DIR / raw_tracker_cfg).resolve()
     )
 
-  if observation_processor:
-    _enable_observation_processor(cfg)
+  if observation_processor is not None:
+    _set_observation_processor(cfg, observation_processor)
 
-  # Write the patched config to a temp file so load_configuration() can
-  # persist the config copy and run full validation.
-  with tempfile.NamedTemporaryFile(
-    mode="w", suffix=".yaml", prefix=config_path.stem + "_", delete=False
-  ) as tmp:
-    yaml.safe_dump(cfg, tmp)
-    tmp_path = tmp.name
-
-  try:
+  # Write the effective config under its original name so load_configuration()
+  # can persist the config copy and run full validation.
+  with tempfile.TemporaryDirectory() as tmp_dir:
+    tmp_path = Path(tmp_dir) / config_path.name
+    tmp_path.write_text(yaml.safe_dump(cfg))
     engine = PipelineEngine()
-    engine.load_configuration(tmp_path)
+    engine.load_configuration(str(tmp_path))
     engine.run()
     metrics = engine.evaluate()
     print(f"\nResults saved to: {engine._output_path}")
     return metrics
-  finally:
-    Path(tmp_path).unlink(missing_ok=True)
 
 
 def _print_summary(session_output: Path, results: list[tuple[str, dict | Exception]]) -> None:
@@ -232,7 +222,7 @@ def run_all(
   image_tag: str | None = None,
   output_dir: Path | None = None,
   dataset: str = DEFAULT_DATASET,
-  observation_processor: bool = False,
+  observation_processor: bool | None = None,
   association: str = DEFAULT_ASSOCIATION,
 ) -> list[tuple[str, dict | Exception]]:
   """Run black-box evaluation configs and return results.
@@ -243,9 +233,11 @@ def run_all(
                 (intended for manual runs where the user edits the YAML).
     output_dir: Base directory for session output.  Defaults to
                 ``DEFAULT_OUTPUT_BASE``.
-    dataset:    Config set to run (``"unity"`` by default, or ``"wildtrack"``).
-    observation_processor: Enable the experimental observation processor
-                service in every config (disabled in the shipped YAMLs).
+    dataset:    Config set to run (``"unity"`` by default, ``"wildtrack"`` or
+                ``"rolling_terrain"``).
+    observation_processor: ``True``/``False`` overrides the experimental
+                observation processor setting of every config; ``None`` keeps
+                each YAML's own setting.
     association:
       ``"euclidean"`` (default baseline), ``"mahalanobis"`` (HPHt + R gate),
       or ``"both"``.
@@ -291,9 +283,9 @@ def main() -> int:
       help=f"Config set / dataset to run (default: {DEFAULT_DATASET})",
   )
   parser.add_argument(
-      "--observation-processor", action="store_true",
-      help="Run the experimental observation processor service next to the "
-           "tracker/controller in every config (default: disabled)",
+      "--observation-processor", action=argparse.BooleanOptionalAction, default=None,
+      help="Override the experimental observation processor setting of every "
+           "config (default: keep each config's own setting)",
   )
   parser.add_argument(
       "--association",

@@ -197,7 +197,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 - Copies the source tracker configuration file into a `config/` subfolder of the output folder (for both container types), preserving the original filename, so each run records the config it was given. For the Tracker Service container the effective `config.json` is derived from this file by the harness (injecting MQTT/Manager endpoints, `max_lag_s=1e15`, and optional OTLP/metrics settings), so the copy captures the source configuration rather than the fully-resolved runtime config.
 - Supports both **Controller** (`intel/scenescape-controller`) and **Tracker Service** (`intel/scenescape-tracker`) container types, set explicitly via the required `container_type` config key.
 - Runs a **Mock Manager REST API** (`mock_manager.py`) on the Docker host so both container types can load scene configuration without a real Manager deployment.
-- Optionally (experimental, `observation_processor.enabled`, **off by default**) starts the **observation processor service** on the same network. The harness waits until its readiness service reports SERVING (probe run with `docker exec`), then starts the tracker/controller with the experimental flag, host, port, plaintext channel, mode and timeout set through `CONTROLLER_*` / `TRACKER_*` `OBSERVATION_PROCESSOR` env vars. The service reads scenes, cameras and assets from the mock Manager (`/api/v1/cameras?scene=<uid>` serves flat `translation`/`rotation`/`scale`) and uses the same anonymous broker. Its logs go to `observation_processor_logs.txt` and the settings are copied to `config/observation_processor.json`. Block keys: `enabled`, `image` (required when enabled), `mode` (`auto`|`full`|`frustum_only`, default `auto`; the datasets have no mesh, so `full` fails), `timeout_ms` (1–100, default 50), `ready_timeout_s` (default 60).
+- Optionally (experimental, `observation_processor.enabled`, **off by default**) starts the **observation processor service** on the same network. The harness waits until its readiness service reports SERVING (probe run with `docker exec`), then starts the tracker/controller with the experimental flag, host, port, plaintext channel, mode and timeout set through `CONTROLLER_*` / `TRACKER_*` `OBSERVATION_PROCESSOR` env vars. The service reads scenes, cameras and assets from the mock Manager (`/api/v1/cameras?scene=<uid>` serves flat `translation`/`rotation`/`scale`) and uses the same anonymous broker. Its logs go to `observation_processor_logs.txt` and the settings are copied to `config/observation_processor.json`. Block keys: `enabled`, `image` (required when enabled), `mode` (`auto`|`full`|`frustum_only`, default `auto`; `full` needs a scene mesh), `timeout_ms` (1–100, default 50), `ready_timeout_s` (default 60).
 
 **Prerequisites**:
 
@@ -300,14 +300,15 @@ The harness starts `mock_manager.py` as a thread on the Docker host and register
 
 Endpoints served:
 
-| Method | Path                   | Description                                                                          |
-| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
-| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials                                |
-| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics                          |
-| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                                          |
-| GET    | `/api/v1/assets`       | Returns the `object_classes` entries from `set_custom_config()` (empty when omitted) |
-| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics                         |
-| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)                                  |
+| Method | Path                   | Description                                                                                       |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------------------- |
+| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials                                             |
+| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics                                       |
+| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                                                       |
+| GET    | `/api/v1/assets`       | Returns the `object_classes` entries from `set_custom_config()` (empty when omitted)              |
+| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics                                      |
+| GET    | `/media/<name>.glb`    | Scene mesh, when the scene config `map` is a local `.glb` file (the scene `map` then points here) |
+| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)                                               |
 
 Camera extrinsics (`translation`, `rotation`, `scale`) are computed from the dataset's
 `camera points` / `map points` using the same logic as production:
@@ -332,7 +333,7 @@ in its config). The file must contain `"user"` and `"password"` fields
 **Tests**:
 
 - [tests/test_black_box_harness.py](tests/test_black_box_harness.py) — 85 test cases covering initialisation, config validation, timestamp pacing, wall-clock frame pacing (time-chunk scheduler correctness), full orchestration flow (Docker and paho fully mocked), `outputs.json` persistence to new nested directories, Tracker Service auth file `user`/`password` fields, and the optional observation processor (config validation, container order and env, readiness timeout, cleanup).
-- [tests/test_mock_manager.py](tests/test_mock_manager.py) — 42 test cases covering `_distortion_to_array()` (None/list/dict inputs, 14-key mapping), coplanarity helpers, `_pose_mat_to_extrinsics()` (identity, translation, scale, JSON serialization), `_compute_extrinsics()` (happy path, insufficient points, 2-D map points, distortion dict), `_build_rest_scene()` structure and JSON serializability, and all HTTP endpoints via a real ephemeral HTTPServer.
+- [tests/test_mock_manager.py](tests/test_mock_manager.py) — 42 test cases covering `_distortion_to_array()` (None/list/dict inputs, 14-key mapping), coplanarity helpers, `_pose_mat_to_extrinsics()` (identity, translation, scale, JSON serialization), `_compute_extrinsics()` (happy path, insufficient points, 2-D map points, distortion dict), `_build_rest_scene()` structure and JSON serializability, scene mesh serving, and all HTTP endpoints via a real ephemeral HTTPServer.
 
 ## Adding New Harnesses
 
