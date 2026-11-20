@@ -58,6 +58,7 @@ add_executable(tracker_tests
     tracking_replay_test.cpp
     proxy_utils_test.cpp
     track_publisher_test.cpp
+    track_uncertainty_test.cpp
     time_chunk_scheduler_test.cpp
     callback_guard_test.cpp
     topic_utils_test.cpp

@@ -156,6 +156,7 @@ rule in `allOf` to support both JSON Schema contract validation and Analytics'
       "category": "person",
       "translation": [-0.33, 2.48, 0.0],
       "velocity": [-0.04, 0.2, 0.0],
+      "angular_velocity": [0.0, 0.0, 0.1],
       "size": [0.5, 0.5, 1.85],
       "rotation": [0, 0, 0, 1],
       "metadata": { "reid": "...", "gender": "male" },
