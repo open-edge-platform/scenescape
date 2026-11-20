@@ -24,6 +24,30 @@ DEFAULT_ASSOCIATION_CONFIG = {
 }
 
 
+def add_uncertainty(obj_dict, obj):
+  """Set the output ``uncertainty`` of ``obj`` (the tracker's covariance of the published state) in ``obj_dict``.
+
+  ``obj_dict`` may start from the incoming detection (``obj.info``), which can carry the ``uncertainty`` of
+  another tracker (a child scene). The field is authoritative on ``obj``: when it has none, the key is removed.
+  Hierarchy callers that trust a child's tracks (``retrack=False``) must promote the child's
+  ``uncertainty`` onto ``obj`` before publish; leaving it only in ``info`` is not enough.
+  """
+  uncertainty = getattr(obj, 'uncertainty', None)
+  if uncertainty:
+    obj_dict['uncertainty'] = uncertainty
+  else:
+    obj_dict.pop('uncertainty', None)
+
+
+def add_angular_velocity(obj_dict, obj):
+  """Copy ``angular_velocity`` from ``obj`` into ``obj_dict``, or remove a stale ``info`` copy."""
+  angular_velocity = getattr(obj, 'angular_velocity', None)
+  if angular_velocity is not None:
+    obj_dict['angular_velocity'] = angular_velocity
+  else:
+    obj_dict.pop('angular_velocity', None)
+
+
 def add_association_window(obj_dict, obj):
   """Copy the tracker's ``association_window`` of ``obj`` into ``obj_dict`` when it has one."""
   association_window = getattr(obj, 'association_window', None)
