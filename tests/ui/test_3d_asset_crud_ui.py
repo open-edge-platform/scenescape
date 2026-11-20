@@ -129,8 +129,9 @@ def test_3d_asset_crud_ui(params, repo_root, result_recorder):
     browser.find_element(By.ID, f"obj-manage-{OBJECT_NAME}").click()
     common.selenium_wait_for_elements(browser, (By.ID, "id_name"))
     model_file_name = FILE_TO_UPLOAD.split("/")[-1]
-    browser.find_element(By.LINK_TEXT, model_file_name)
-    log.info(f"3D model '{model_file_name}' uploaded and verified in object detail - PASS")
+    stored_name = common.find_uploaded_file_link(browser, model_file_name)
+    assert stored_name, f"Link to uploaded 3D model {model_file_name!r} not found on object detail page"
+    log.info(f"3D model '{model_file_name}' uploaded as '{stored_name}' and verified in object detail - PASS")
 
     # Cleanup
     assert common.delete_object_library(browser, OBJECT_NAME)

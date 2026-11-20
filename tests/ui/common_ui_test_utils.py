@@ -1853,6 +1853,17 @@ def stored_file_name_matches(actual, expected) -> bool:
   pattern = rf"{re.escape(root)}(_[A-Za-z0-9]{{7}})?{re.escape(ext)}"
   return re.fullmatch(pattern, actual) is not None
 
+def find_uploaded_file_link(browser, file_name):
+  """! Find the page link to an uploaded file, tolerating Django collision renames.
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    file_name                  Name of the uploaded file.
+  @return   str                        Link text of the stored file, or None if absent.
+  """
+  for link in browser.find_elements(By.TAG_NAME, "a"):
+    if stored_file_name_matches(link.text, file_name):
+      return link.text
+  return None
+
 ######################################################################################
 # Decorators
 ######################################################################################
