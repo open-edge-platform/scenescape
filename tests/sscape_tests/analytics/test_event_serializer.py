@@ -269,6 +269,49 @@ class TestEventSerializer:
 
     assert result['association_window'] == obj.association_window
 
+  def test_uncertainty_passed_through_when_present(self):
+    obj = _make_obj()
+    obj.uncertainty = {'translation': [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]}
+
+    result = serialize_for_event(obj)
+
+    assert result['uncertainty'] == obj.uncertainty
+
+  @pytest.mark.parametrize("uncertainty", [None, {}])
+  def test_uncertainty_absent_when_missing_or_empty(self, uncertainty):
+    obj = _make_obj()
+    if uncertainty is not None:
+      obj.uncertainty = uncertainty
+
+    result = serialize_for_event(obj)
+
+    assert 'uncertainty' not in result
+
+  @pytest.mark.parametrize("uncertainty", [None, {}])
+  def test_uncertainty_inherited_from_info_is_dropped(self, uncertainty):
+    obj = _make_obj()
+    obj.info = {**(obj.info or {}), 'uncertainty': {'translation': [1.0] * 9}}
+    obj.uncertainty = uncertainty
+
+    result = serialize_for_event(obj)
+
+    assert 'uncertainty' not in result
+
+  def test_angular_velocity_passed_through_when_present(self):
+    obj = _make_obj()
+    obj.angular_velocity = [0.0, 0.0, 0.15]
+
+    result = serialize_for_event(obj)
+
+    assert result['angular_velocity'] == [0.0, 0.0, 0.15]
+
+  def test_angular_velocity_absent_when_missing(self):
+    obj = _make_obj()
+
+    result = serialize_for_event(obj)
+
+    assert 'angular_velocity' not in result
+
   @pytest.mark.parametrize("association_window", [None, {}])
   def test_association_window_absent_when_missing_or_empty(self, association_window):
     obj = _make_obj()
