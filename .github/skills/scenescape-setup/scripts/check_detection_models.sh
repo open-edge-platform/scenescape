@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
-# Verify person-detection-retail-0013 is present in the compose models volume.
+# Verify OpenVINO/yolox_s-int8-ov is present in the compose models volume.
 # Usage: check_detection_models.sh [deploy_dir]
 
 set -euo pipefail
@@ -10,7 +10,7 @@ set -euo pipefail
 deploy_dir=${1:-.}
 cd "$deploy_dir"
 
-MODEL_XML="omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml"
+MODEL_XML="huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml"
 
 project_name=$(docker compose config --format json \
   | python3 -c "import json,sys; print(json.load(sys.stdin).get('name', 'scenescape'))")
