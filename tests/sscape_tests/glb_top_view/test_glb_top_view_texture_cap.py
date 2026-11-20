@@ -37,7 +37,7 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
   with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
     renderer = _mock_offscreen_renderer()
     renderer_class.return_value = renderer
-    _, ppm = generateOrthoView(scene, str(path))
+    _, ppm, origin = generateOrthoView(scene, str(path))
     rendered_mesh = renderer.scene.add_geometry.call_args.args[1]
     extents = rendered_mesh.get_axis_aligned_bounding_box().get_extent().numpy()
     np.testing.assert_allclose(extents, [4 * scale[1], 2 * scale[0], 6 * scale[2]])
@@ -60,6 +60,10 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
     half_height = (top - bottom) / 2
     assert np.all(np.abs(bounds.get_box_points().numpy()[:, 0] - center[0]) <= half_width)
     assert np.all(np.abs(bounds.get_box_points().numpy()[:, 1] - center[1]) <= half_height)
+    np.testing.assert_allclose(origin, [center[0] + left, center[1] + bottom])
+    box_xy = bounds.get_box_points().numpy()[:, :2]
+    assert np.all(box_xy >= np.array(origin) - 1e-9)
+    assert np.all(box_xy <= np.array(origin) + [1024 / ppm, 768 / ppm] + 1e-9)
     assert near < eye[2] - max_z
     assert far > eye[2] - min_z
 
@@ -85,6 +89,7 @@ def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, 
     scene.save(send_update_command=False)
     scene.refresh_from_db()
     assert scene.scale == pytest.approx(1024 / 12)
+    assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((4.0, 15.5))
     assert scene.thumbnail.storage.exists(scene.thumbnail.name)
     source = SceneSourceMap.objects.create(
       scene=scene, method="scaled", file=scene.map.name,
@@ -92,7 +97,95 @@ def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, 
     activate_source_map(scene, source)
     scene.refresh_from_db()
     assert scene.scale == pytest.approx(1024 / 16)
+    assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((2.0, 14.0))
     assert scene.thumbnail.storage.exists(scene.thumbnail.name)
+
+
+def _run_map_origin_backfill():
+  import importlib
+  from django.apps import apps
+  from django.db import connection
+  migration = importlib.import_module("manager.migrations.0012_scene_map_origin")
+  migration.backfill_map_origins(apps, SimpleNamespace(connection=connection))
+
+
+@pytest.mark.django_db
+def test_upgrade_backfills_origin_for_unchanged_existing_glb_scene(tmp_path, settings):
+  import trimesh
+  from django.core.files.base import ContentFile
+  from django.core.files.storage import default_storage
+  from manager.models import Scene
+  settings.MEDIA_ROOT = str(tmp_path)
+  map_name = default_storage.save("box.glb", ContentFile(
+    trimesh.creation.box(extents=(2, 4, 6)).export(file_type="glb")))
+  thumb_name = default_storage.save("legacy_2d.png", ContentFile(b"pre-upgrade thumbnail"))
+  scene = Scene.objects.create(name="pre-upgrade")
+  # Pre-upgrade row: rendered thumbnail on disk, origin columns at their migration default.
+  Scene.objects.filter(pk=scene.pk).update(
+    map=map_name, thumbnail=thumb_name, scale=1.0, rotation_z=90,
+    translation_x=10, translation_y=20, scale_x=2, scale_y=3, scale_z=4,
+    map_origin_x=0.0, map_origin_y=0.0)
+  with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
+    renderer = _mock_offscreen_renderer()
+    renderer.render_to_image.return_value = np.full((768, 1024, 3), 255, dtype=np.uint8)
+    renderer_class.return_value = renderer
+    _run_map_origin_backfill()
+  scene.refresh_from_db()
+  assert scene.thumbnail.name == thumb_name
+  with default_storage.open(thumb_name, "rb") as f:
+    assert f.read(8) == b"\x89PNG\r\n\x1a\n"
+  assert scene.scale == pytest.approx(1024 / 12)
+  assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((4.0, 15.5))
+
+  # Opening and saving the unchanged scene keeps the backfilled origin.
+  scene = Scene.objects.get(pk=scene.pk)
+  scene.save(send_update_command=False)
+  scene.refresh_from_db()
+  assert (scene.map_origin_x, scene.map_origin_y) == pytest.approx((4.0, 15.5))
+
+
+@pytest.mark.django_db
+def test_upgrade_backfill_warns_about_shapes_drawn_without_origin(tmp_path, settings, caplog):
+  import trimesh
+  from django.core.files.base import ContentFile
+  from django.core.files.storage import default_storage
+  from manager.models import Region, Scene, SingletonSensor, Tripwire
+  settings.MEDIA_ROOT = str(tmp_path)
+  glb = trimesh.creation.box(extents=(2, 4, 6)).export(file_type="glb")
+  shapes = Scene.objects.create(name="with-shapes")
+  empty = Scene.objects.create(name="no-shapes")
+  for scene in (shapes, empty):
+    Scene.objects.filter(pk=scene.pk).update(
+      map=default_storage.save("box.glb", ContentFile(glb)), rotation_z=90,
+      translation_x=10, translation_y=20, scale_x=2, scale_y=3, scale_z=4)
+  Region.objects.create(scene=shapes, name="r")
+  Tripwire.objects.create(scene=shapes, name="t")
+  SingletonSensor.objects.create(scene=shapes, sensor_id="circle", name="circle", type="generic", area="circle")
+  SingletonSensor.objects.create(scene=shapes, sensor_id="whole", name="whole", type="generic", area="scene")
+  SingletonSensor.objects.create(scene=empty, sensor_id="whole2", name="whole2", type="generic", area="scene")
+  with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
+    renderer = _mock_offscreen_renderer()
+    renderer.render_to_image.return_value = np.full((768, 1024, 3), 255, dtype=np.uint8)
+    renderer_class.return_value = renderer
+    with caplog.at_level("WARNING", logger="manager.migrations.0012_scene_map_origin"):
+      _run_map_origin_backfill()
+  warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+  assert len(warnings) == 1
+  assert f"Scene {shapes.pk} (with-shapes)" in warnings[0]
+  assert "(4.000, 15.500)" in warnings[0]
+  assert "1 region(s), 1 tripwire(s) and 1 sensor area(s)" in warnings[0]
+
+
+@pytest.mark.django_db
+def test_upgrade_backfill_skips_scene_with_missing_glb(tmp_path, settings):
+  from manager.models import Scene
+  settings.MEDIA_ROOT = str(tmp_path)
+  scene = Scene.objects.create(name="missing-map")
+  Scene.objects.filter(pk=scene.pk).update(map="gone.glb", scale=50.0)
+  _run_map_origin_backfill()
+  scene.refresh_from_db()
+  assert scene.scale == 50.0
+  assert (scene.map_origin_x, scene.map_origin_y) == (0.0, 0.0)
 
 # Wide atlas mirrors the multi-mesh GLB that triggered the crash; tall covers
 # the rows > columns orientation of the same longest-side cap.
