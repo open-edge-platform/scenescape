@@ -48,6 +48,11 @@
       "description": "Scene Controller metric: unique track count for this detection type",
       "minimum": 0
     },
+    "max_resolved_identities": {
+      "type": "integer",
+      "description": "Scene Controller metric: distinct identities ReID has resolved and not superseded for this detection type",
+      "minimum": 0
+    },
     "rate": {
       "type": "number",
       "description": "Optional publish/camera rate passthrough from Scene Controller / detector messages"
