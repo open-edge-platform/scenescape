@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 _TESTS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _TESTS_DIR.parent.parent.parent

@@ -24,7 +24,7 @@ import numpy as np
 from manager import glb_staging, glb_state
 from manager.forms import SceneUpdateForm
 from manager.models import GlbLayer, Scene, Region, RegionPoint, SingletonSensor, glb_preview_name
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 from scene_common.glb_top_view import getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB
 

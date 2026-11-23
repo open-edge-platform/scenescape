@@ -1408,9 +1408,9 @@ class GeospatialGlbLayer(APIView):
   @glb_api_errors('PUT')
   def put(self, request, scene_uid, layer_id):
     data = _glb_request_body(request)
-    enabled = data.get('enabled')
-    if enabled is not None:
-      _require_bool_enabled(enabled)
+    has_enabled = 'enabled' in data
+    if has_enabled:
+      _require_bool_enabled(data['enabled'])
     with transaction.atomic():
       scene = glb_state.get_geospatial_scene(scene_uid, lock=True)
       layer = glb_state.get_layer(scene, layer_id)
@@ -1418,8 +1418,8 @@ class GeospatialGlbLayer(APIView):
       with glb_state.discard_files_on_failure(scene):
         if data.get('anchor') is not None:
           glb_state.move_layer(scene, layer, data['anchor'])
-        if enabled is not None and enabled != layer.enabled:
-          glb_state.set_layer_enabled(scene, layer, enabled)
+        if has_enabled and data['enabled'] != layer.enabled:
+          glb_state.set_layer_enabled(scene, layer, data['enabled'])
     return _glb_alignment_response(scene, layer)
 
   @glb_api_errors('DELETE')
@@ -1438,6 +1438,7 @@ class GeospatialGlbLayer(APIView):
 @login_required
 def geospatial_glb_layer_download(request, scene_uid, layer_id):
   """Download the file of one stored GLB layer."""
+  # Not glb_api_errors: a file download answers with plain-text bodies, not the JSON error object.
   try:
     try:
       scene = glb_state.get_geospatial_scene(scene_uid)

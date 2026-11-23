@@ -26,9 +26,9 @@ from scipy.spatial.transform import Rotation
 from manager import glb_staging, glb_state
 from manager.models import Scene
 from scene_common.earth_lla import (
-  localFootprintCornersLLA, convertLLAToECEF, convertECEFToLLA,
-  calculateTRSLocal2LLAFromSurfacePoints, footprintAnchorFromCornersLLA
+  convertLLAToECEF, convertECEFToLLA, calculateTRSLocal2LLAFromSurfacePoints, footprintAnchorFromCornersLLA
 )
+from tests.utils.geo_footprint import localFootprintCornersLLA
 from scene_common.glb_top_view import generateOrthoView
 from scene_common.mesh_util import extractMeshFromGLB, getPosedMeshFootprint
 

@@ -166,7 +166,7 @@ To replace a saved 3D model:
 
 ### Multiple 3D Models
 
-A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The default is `1`, the single-model behaviour described above. Set `GLB_MAX_LAYERS` in the Manager service's environment to a higher number to allow more layers. The add-layer control in the 3D model section appears only when the limit is above `1`.
+A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The default is `1`, the single-model behaviour described above. Set `GLB_MAX_LAYERS` in the Manager service's environment to a higher number to allow more layers. With Docker Compose the stock `docker-compose.yml` forwards `GLB_MAX_LAYERS` from the shell or `.env` file (default `1`). With the Helm chart, set `web.glbMaxLayers` (default `1`). The add-layer control in the 3D model section appears only when the limit is above `1`.
 
 - Each layer has its own file, anchor and heading, and applied state.
 - Layers are numbered 1, 2, and so on in draw order, and the order cannot be changed. When the scene has two or more layers, each layer's panel shows its number as a badge at the top-left corner of the panel. The number is also shown in a badge at the NW corner of the layer's footprint on the scene map. A single layer is not numbered. Numbers follow the saved draw order, so removing a layer renumbers the layers after it.

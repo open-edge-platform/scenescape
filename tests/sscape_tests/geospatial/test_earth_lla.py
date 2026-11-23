@@ -10,11 +10,11 @@ import scipy.spatial.transform as sstr
 
 from scene_common import earth_lla
 from scene_common.earth_lla import (
-  localFootprintCornersLLA,
   footprintAnchorFromCornersLLA,
   calculateTRSLocal2LLAFromSurfacePoints,
   convertXYZToLLA
 )
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 def _ecefDistanceM(lla_a, lla_b):
   """Straight-line distance in metres between two [lat, lng, alt] points, via ECEF."""

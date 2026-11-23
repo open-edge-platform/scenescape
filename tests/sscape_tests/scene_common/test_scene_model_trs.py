@@ -8,7 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from scene_common.earth_lla import convertXYZToLLA, localFootprintCornersLLA
+from scene_common.earth_lla import convertXYZToLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 from scene_common.scene_model import SceneModel
 
 TEST_GLB_FILE = Path(__file__).resolve().parents[1] / "mesh_util" / "test_data" / "scene.glb"

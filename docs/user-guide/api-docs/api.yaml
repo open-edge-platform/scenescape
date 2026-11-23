@@ -1598,7 +1598,8 @@ paths:
         Partially update one GLB layer. Both anchor and enabled are optional; omitted fields are not
         updated. A new anchor moves the layer, and if the layer is applied the map pose and map_corners_lla
         are recomputed. enabled true places the layer on the scene map and false takes it off; the other
-        layers keep their state. Cameras, regions, and sensors keep their local positions and trs_matrix is
+        layers keep their state. When present, enabled must be a JSON boolean; null or any other type
+        returns 400, so omit the key to leave the state unchanged. Cameras, regions, and sensors keep their local positions and trs_matrix is
         unchanged, but the lat/lng reported for objects can change. An empty anchor object (`anchor: {}`)
         returns 400; omit anchor or set it to null to leave it unchanged. The anchor must be within 50 km of
         the scene's map center (map_center_lat, map_center_lng); a farther anchor returns 400.
@@ -1685,7 +1686,7 @@ paths:
                     type: string
                     description: Digest of the scene map, pose, corners, and GLB state after the change
         "400":
-          description: Scene is not a geospatial_map, invalid anchor, enabled already matches the current state, or the scene has no flat base map to place the layer on
+          description: Scene is not a geospatial_map, invalid anchor, enabled is not a boolean (including null), enabled already matches the current state, or the scene has no flat base map to place the layer on
         "401":
           description: Unauthorized
         "403":

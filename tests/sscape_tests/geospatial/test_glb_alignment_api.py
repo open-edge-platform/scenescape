@@ -37,7 +37,7 @@ from PIL import Image
 
 from manager import glb_staging, glb_state
 from manager.models import GlbLayer, Scene, glb_preview_name
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / "mesh_util" / "test_data" / "scene.glb"
 POSE_FIELDS = ("rotation_x", "rotation_y", "rotation_z", "translation_x", "translation_y", "translation_z")
@@ -119,14 +119,17 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.assertAlmostEqual(self.layer.anchor['lat'], 37.40, places=5)
 
   def test_put_glb_invalid_enabled_returns_400(self):
-    """D6: PUT with non-bool enabled returns 400."""
-    response = self.client.put(
-      self._layer_url(),
-      data=json.dumps({'enabled': 'yes'}),
-      content_type='application/json'
-    )
+    """D6: PUT with non-bool or null enabled returns 400."""
+    for value in ('yes', 'false', None):
+      with self.subTest(enabled=value):
+        response = self.client.put(
+          self._layer_url(),
+          data=json.dumps({'enabled': value}),
+          content_type='application/json'
+        )
 
-    self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {'error': 'enabled must be a boolean'})
 
   def test_put_empty_anchor_returns_400_and_keeps_stored_anchor(self):
     """Negative: an empty anchor object is rejected instead of being ignored."""

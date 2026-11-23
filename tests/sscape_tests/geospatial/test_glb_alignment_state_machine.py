@@ -22,7 +22,7 @@ from PIL import Image
 
 from manager import glb_staging, glb_state
 from manager.models import GlbLayer, Scene, SceneSourceMap, glb_preview_name
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / "mesh_util" / "test_data" / "scene.glb"
 # Taken before a test stubs it, for the tests that check the thumbnail files

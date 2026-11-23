@@ -28,7 +28,7 @@ from rest_framework.test import APIClient
 from manager import glb_staging, glb_state, mapping_store
 from manager.models import GlbLayer, Scene, SceneSourceMap
 from manager.serializers import SceneSerializer
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 pytestmark = pytest.mark.django_db
 

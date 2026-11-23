@@ -12,7 +12,7 @@ from PIL import Image
 
 from manager import glb_composite
 from manager.glb_composite import compositeGlbOverBaseMap, hybridThumbnail, isHybridView
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 GRAY = 100
 RED = [255, 0, 0]

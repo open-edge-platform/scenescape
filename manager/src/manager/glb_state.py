@@ -46,7 +46,7 @@ SCENE_FORM_GLB_FIELDS = (
 GLB_STORED_FILES = ('map', 'base_map', 'thumbnail')
 # State a GLB write changes; the scene-edit form carries its token to detect an out-of-date page.
 STATE_TOKEN_FIELDS = SCENE_FORM_GLB_FIELDS + ('use_glb_map',)
-# Keep equal to FAR_ANCHOR_KM in static/js/geospatial/glb-alignment.js.
+# Passed to the scene page (data-max-anchor-km), which checks the anchor against it too.
 MAX_ANCHOR_DISTANCE_KM = 50.0
 EARTH_RADIUS_KM = 6371.0
 
@@ -516,7 +516,7 @@ def get_layer(scene, layer_id):
   """The stored layer of this scene with layer_id; 404 when it is not a UUID or belongs to another scene."""
   try:
     layer = scene.glb_layers.filter(pk=layer_id).first()
-  except ValidationError:
+  except (ValidationError, ValueError):
     layer = None
   if layer is None:
     raise GlbAlignmentError(404, 'No such GLB layer')

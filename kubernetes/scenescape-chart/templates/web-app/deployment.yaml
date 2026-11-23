@@ -116,6 +116,8 @@ spec:
           - name: PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
             value: {{ .Values.web.ptzCalibrationResidualThresholdPx | quote }}
           {{- end }}
+          - name: GLB_MAX_LAYERS
+            value: {{ .Values.web.glbMaxLayers | default 1 | quote }}
           - name: SUPASS
             valueFrom:
               secretKeyRef:

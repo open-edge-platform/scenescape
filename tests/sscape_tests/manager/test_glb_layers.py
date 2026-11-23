@@ -11,10 +11,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
+from manager import glb_state
+from manager.glb_staging import GlbAlignmentError
 from manager.models import GlbLayer, Scene, delete_unreferenced_mapping_file
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 migration = importlib.import_module('manager.migrations.0013_geospatial_glb_layers')
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / 'mesh_util' / 'test_data' / 'scene.glb'
@@ -114,3 +117,15 @@ def test_backfill_normalises_provider_order_corners(settings, tmp_path):
   assert layer.anchor['footprint_m']['width'] == pytest.approx(300.0, rel=1e-6)
   assert layer.anchor['footprint_m']['height'] == pytest.approx(200.0, rel=1e-6)
   assert scene.use_glb_map is True
+
+
+@pytest.mark.parametrize('error', [ValidationError('bad uuid'), ValueError('bad uuid')])
+def test_get_layer_maps_malformed_id_to_404(error):
+  """A layer id the ORM cannot parse is a 404, not a 500."""
+  scene = MagicMock()
+  scene.glb_layers.filter.side_effect = error
+
+  with pytest.raises(GlbAlignmentError) as exc:
+    glb_state.get_layer(scene, 'not-a-uuid')
+
+  assert exc.value.status == 404

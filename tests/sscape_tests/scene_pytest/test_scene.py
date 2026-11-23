@@ -18,7 +18,8 @@ from controller.tracking import Tracking
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Point
-from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA, localFootprintCornersLLA
+from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, getPosedMeshFootprint
 import scene_common.scene_model as scene_model_module
 

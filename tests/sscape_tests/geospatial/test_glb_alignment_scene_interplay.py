@@ -20,7 +20,7 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from PIL import Image
 
 from manager.models import Scene
-from scene_common.earth_lla import localFootprintCornersLLA
+from tests.utils.geo_footprint import localFootprintCornersLLA
 
 
 class TestSceneSaveGlbInterplay(TransactionTestCase):
