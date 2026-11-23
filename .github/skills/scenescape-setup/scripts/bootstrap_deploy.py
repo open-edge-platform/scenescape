@@ -220,7 +220,7 @@ def probe_video_fps(video_path: Path) -> float | None:
 def rtsp_video_encode_args(video_path: Path) -> str:
   """Choose ffmpeg output args for RTSP publish.
 
-  H.264 sources use bitstream copy (same as SceneScape sample queuing-cams).
+  H.264 sources use bitstream copy (same as Scenescape sample queuing-cams).
   Anything else is re-encoded to H.264 so the DL Streamer
   rtph264depay/h264parse/avdec_h264 pipeline still works.
   """
@@ -300,7 +300,7 @@ def generate_video_file_override(deploy_dir: Path, payload: dict) -> None:
 
   # One ffmpeg publisher per camera. A single process with multiple libx264 outputs
   # tends to die with Broken pipe against MediaMTX; per-camera isolation matches
-  # the stability of SceneScape's sample path while still allowing re-encode.
+  # the stability of Scenescape's sample path while still allowing re-encode.
   publisher_blocks = []
   for camera_id, video_path in zip(camera_ids, video_paths):
     container_path = f"/videos/{camera_id}{Path(video_path).suffix}"
@@ -400,7 +400,7 @@ def generate_secrets_and_env(
 
 
 def main() -> None:
-  parser = argparse.ArgumentParser(description="Bootstrap SceneScape deployment files (steps 2–6)")
+  parser = argparse.ArgumentParser(description="Bootstrap Scenescape deployment files (steps 2–6)")
   parser.add_argument("--deploy-dir", required=True, type=Path)
   parser.add_argument("--skill-dir", required=True, type=Path)
   parser.add_argument("--inputs-file", type=Path, help="deploy-inputs.json from Step 1")

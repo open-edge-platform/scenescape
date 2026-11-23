@@ -29,7 +29,7 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from uploader import (  # noqa: E402
-  DEFAULT_WAIT_SECONDS, REQUEST_TIMEOUT_SECONDS, SceneScapeClient, log, parse_auth, read_object_library, upload_all,
+  DEFAULT_WAIT_SECONDS, REQUEST_TIMEOUT_SECONDS, ScenescapeClient, log, parse_auth, read_object_library, upload_all,
   upload_object_library, is_application_ready
 )
 
@@ -88,7 +88,7 @@ def main():
   if args.remote_credentials and not os.path.isfile(args.remote_credentials):
     log.error("Remote credentials file does not exist")
     return 1
-  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True),
+  client = ScenescapeClient(args.url, False if args.insecure else (args.rootcert or True),
                            restore_ids=args.restore_ids, remote_credentials=args.remote_credentials,
                            reuse_existing=args.reuse_existing, import_timeout=args.import_timeout)
 

@@ -307,7 +307,7 @@ def test_scene_import(scenescape_env, request, result_recorder, zipFile, expecte
   """! Imports a scene archive via the UI and verifies the outcome.
   Successful imports must recreate every camera, tripwire, region, sensor and child
   scene from the archive; invalid, empty or duplicate archives must show the matching error.
-  @param    scenescape_env          Fixture providing the running SceneScape stack.
+  @param    scenescape_env          Fixture providing the running Scenescape stack.
   @param    request                 Pytest request providing the test parameters.
   @param    result_recorder         Fixture recording the test result.
   @param    zipFile                 Archive under tests/ui/test_media to import.

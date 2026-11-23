@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 """
-Collect calibration frames from one or more SceneScape cameras via MQTT.
+Collect calibration frames from one or more Scenescape cameras via MQTT.
 
 Usage:
     python capture_calibration_frames.py \
@@ -77,7 +77,7 @@ def collect_frames(
 
 
 def main() -> None:
-  parser = argparse.ArgumentParser(description="Collect calibration frames from SceneScape cameras via MQTT")
+  parser = argparse.ArgumentParser(description="Collect calibration frames from Scenescape cameras via MQTT")
   parser.add_argument(
     "--deploy-dir",
     required=True,

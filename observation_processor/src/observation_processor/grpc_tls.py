@@ -35,7 +35,7 @@ def server_credentials(cert=None, key=None):
 
 
 def client_credentials(rootcert=None):
-  """Build client TLS credentials that trust the SceneScape CA."""
+  """Build client TLS credentials that trust the Scenescape CA."""
   root_path = rootcert or _path("OBSERVATION_PROCESSOR_ROOTCERT", DEFAULT_ROOTCERT)
   with open(root_path, "rb") as handle:
     return grpc.ssl_channel_credentials(handle.read())

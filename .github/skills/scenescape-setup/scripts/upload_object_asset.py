@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 """
-Create or update an Object Library entry (Asset3D) via the SceneScape manager REST API. Object
+Create or update an Object Library entry (Asset3D) via the Scenescape manager REST API. Object
 Library entries improve tracking accuracy by giving the tracker expected size/shape for a detected
 object class, and optionally a custom 3D model instead of the default cuboid.
 
@@ -105,7 +105,7 @@ def submit_asset(
 
 
 def main() -> None:
-  parser = argparse.ArgumentParser(description="Create or update an Object Library (Asset3D) entry via the SceneScape manager")
+  parser = argparse.ArgumentParser(description="Create or update an Object Library (Asset3D) entry via the Scenescape manager")
   parser.add_argument("--deploy-dir", required=True, type=Path)
   parser.add_argument("--name", required=True, help="Object class name (must match the detected object type, e.g. 'person', 'vehicle')")
   parser.add_argument("--uid", default=None, help="Update the existing asset with this UID instead of creating a new one")

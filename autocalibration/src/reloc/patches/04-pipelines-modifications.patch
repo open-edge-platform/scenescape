@@ -1,4 +1,4 @@
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/4Seasons/localize.py hloc/pipelines/4Seasons/localize.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/4Seasons/localize.py hloc/pipelines/4Seasons/localize.py
 --- /tmp/hloc-latest/hloc/pipelines/4Seasons/localize.py	2026-01-16 16:13:56.814548664 -0700
 +++ hloc/pipelines/4Seasons/localize.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,89 +0,0 @@
@@ -91,7 +91,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -if "test" not in sequence:
 -    logger.info("Evaluating the relocalization submission...")
 -    evaluate_submission(submission_dir, reloc)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/4Seasons/prepare_reference.py hloc/pipelines/4Seasons/prepare_reference.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/4Seasons/prepare_reference.py hloc/pipelines/4Seasons/prepare_reference.py
 --- /tmp/hloc-latest/hloc/pipelines/4Seasons/prepare_reference.py	2026-01-16 16:13:56.814548664 -0700
 +++ hloc/pipelines/4Seasons/prepare_reference.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,51 +0,0 @@
@@ -146,7 +146,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -ffile = extract_features.main(fconf, ref_images, output_dir)
 -mfile = match_features.main(mconf, ref_pairs, fconf["output"], output_dir)
 -triangulation.main(ref_sfm, ref_sfm_empty, ref_images, ref_pairs, ffile, mfile)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/4Seasons/README.md hloc/pipelines/4Seasons/README.md
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/4Seasons/README.md hloc/pipelines/4Seasons/README.md
 --- /tmp/hloc-latest/hloc/pipelines/4Seasons/README.md	2026-01-16 16:13:56.814518791 -0700
 +++ hloc/pipelines/4Seasons/README.md	1969-12-31 17:00:00.000000000 -0700
 @@ -1,43 +0,0 @@
@@ -193,7 +193,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -| Baseline R2D2        | 21.5 / 33.1 / 53.0     | 12.3 / 23.7 / 42.0     |
 -| Baseline D2Net       | 12.5 / 29.3 / 56.7     | 7.5 / 21.4 / 47.7      |
 -| Baseline SuperPoint  | 15.5 / 27.5 / 47.5     | 9.0 / 19.4 / 36.4      |
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/4Seasons/utils.py hloc/pipelines/4Seasons/utils.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/4Seasons/utils.py hloc/pipelines/4Seasons/utils.py
 --- /tmp/hloc-latest/hloc/pipelines/4Seasons/utils.py	2026-01-16 16:13:56.814548664 -0700
 +++ hloc/pipelines/4Seasons/utils.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,231 +0,0 @@
@@ -428,7 +428,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -        s += " / ".join([f"{th:>7}m" for th in ths]) + "\n"
 -        s += " / ".join([f"{100*r:>7.3f}%" for r in recall])
 -        logger.info(s)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/7Scenes/create_gt_sfm.py hloc/pipelines/7Scenes/create_gt_sfm.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/7Scenes/create_gt_sfm.py hloc/pipelines/7Scenes/create_gt_sfm.py
 --- /tmp/hloc-latest/hloc/pipelines/7Scenes/create_gt_sfm.py	2026-01-16 16:13:56.814693688 -0700
 +++ hloc/pipelines/7Scenes/create_gt_sfm.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,148 +0,0 @@
@@ -580,7 +580,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -        depth_path = dataset / f"depth/7scenes_{scene}/train/depth"
 -        output_path = outputs / scene / "sfm_superpoint+superglue+depth"
 -        correct_sfm_with_gt_depth(sfm_path, depth_path, output_path)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/7Scenes/pipeline.py hloc/pipelines/7Scenes/pipeline.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/7Scenes/pipeline.py hloc/pipelines/7Scenes/pipeline.py
 --- /tmp/hloc-latest/hloc/pipelines/7Scenes/pipeline.py	2026-01-16 16:13:56.814693688 -0700
 +++ hloc/pipelines/7Scenes/pipeline.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,139 +0,0 @@
@@ -723,7 +723,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -        logger.info(f'Evaluate scene "{scene}".')
 -        gt_dir = Path(str(gt_dirs).format(scene=scene))
 -        evaluate(gt_dir, all_results[scene], gt_dir / "list_test.txt")
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/7Scenes/README.md hloc/pipelines/7Scenes/README.md
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/7Scenes/README.md hloc/pipelines/7Scenes/README.md
 --- /tmp/hloc-latest/hloc/pipelines/7Scenes/README.md	2026-01-16 16:13:56.814548664 -0700
 +++ hloc/pipelines/7Scenes/README.md	1969-12-31 17:00:00.000000000 -0700
 @@ -1,74 +0,0 @@
@@ -801,7 +801,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -  year={2021}
 -}
 -```
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/7Scenes/utils.py hloc/pipelines/7Scenes/utils.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/7Scenes/utils.py hloc/pipelines/7Scenes/utils.py
 --- /tmp/hloc-latest/hloc/pipelines/7Scenes/utils.py	2026-01-16 16:13:56.814693688 -0700
 +++ hloc/pipelines/7Scenes/utils.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,34 +0,0 @@
@@ -839,7 +839,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -
 -    write_model(cameras, images_ref, points3D_ref, ref_model, ".bin")
 -    logger.info(f"Kept {len(images_ref)} images out of {len(images)}.")
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Aachen/pipeline.py hloc/pipelines/Aachen/pipeline.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Aachen/pipeline.py hloc/pipelines/Aachen/pipeline.py
 --- /tmp/hloc-latest/hloc/pipelines/Aachen/pipeline.py	2026-01-16 16:13:56.814789152 -0700
 +++ hloc/pipelines/Aachen/pipeline.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,109 +0,0 @@
@@ -952,7 +952,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -    )
 -    args = parser.parse_args()
 -    run(args)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Aachen/README.md hloc/pipelines/Aachen/README.md
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Aachen/README.md hloc/pipelines/Aachen/README.md
 --- /tmp/hloc-latest/hloc/pipelines/Aachen/README.md	2026-01-16 16:13:56.814693688 -0700
 +++ hloc/pipelines/Aachen/README.md	1969-12-31 17:00:00.000000000 -0700
 @@ -1,16 +0,0 @@
@@ -972,7 +972,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -```bash
 -python3 -m hloc.pipelines.Aachen.pipeline
 -```
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/pipeline_loftr.py hloc/pipelines/Aachen_v1_1/pipeline_loftr.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/pipeline_loftr.py hloc/pipelines/Aachen_v1_1/pipeline_loftr.py
 --- /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/pipeline_loftr.py	2026-01-16 16:13:56.814855533 -0700
 +++ hloc/pipelines/Aachen_v1_1/pipeline_loftr.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,104 +0,0 @@
@@ -1080,7 +1080,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -        help="Number of image pairs for loc, default: %(default)s",
 -    )
 -    args = parser.parse_args()
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/pipeline.py hloc/pipelines/Aachen_v1_1/pipeline.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/pipeline.py hloc/pipelines/Aachen_v1_1/pipeline.py
 --- /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/pipeline.py	2026-01-16 16:13:56.814855533 -0700
 +++ hloc/pipelines/Aachen_v1_1/pipeline.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,104 +0,0 @@
@@ -1188,7 +1188,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -    )
 -    args = parser.parse_args()
 -    run(args)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/README.md hloc/pipelines/Aachen_v1_1/README.md
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/README.md hloc/pipelines/Aachen_v1_1/README.md
 --- /tmp/hloc-latest/hloc/pipelines/Aachen_v1_1/README.md	2026-01-16 16:13:56.814789152 -0700
 +++ hloc/pipelines/Aachen_v1_1/README.md	1969-12-31 17:00:00.000000000 -0700
 @@ -1,17 +0,0 @@
@@ -1209,7 +1209,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -```bash
 -python3 -m hloc.pipelines.Aachen_v1_1.pipeline
 -```
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Cambridge/pipeline.py hloc/pipelines/Cambridge/pipeline.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Cambridge/pipeline.py hloc/pipelines/Cambridge/pipeline.py
 --- /tmp/hloc-latest/hloc/pipelines/Cambridge/pipeline.py	2026-01-16 16:13:56.814993067 -0700
 +++ hloc/pipelines/Cambridge/pipeline.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,140 +0,0 @@
@@ -1353,7 +1353,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -            gt_dirs / scene / "list_query.txt",
 -            ext=".txt",
 -        )
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Cambridge/README.md hloc/pipelines/Cambridge/README.md
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Cambridge/README.md hloc/pipelines/Cambridge/README.md
 --- /tmp/hloc-latest/hloc/pipelines/Cambridge/README.md	2026-01-16 16:13:56.814919017 -0700
 +++ hloc/pipelines/Cambridge/README.md	1969-12-31 17:00:00.000000000 -0700
 @@ -1,47 +0,0 @@
@@ -1404,7 +1404,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -  year={2015}
 -}
 -```
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/Cambridge/utils.py hloc/pipelines/Cambridge/utils.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/Cambridge/utils.py hloc/pipelines/Cambridge/utils.py
 --- /tmp/hloc-latest/hloc/pipelines/Cambridge/utils.py	2026-01-16 16:13:56.814993067 -0700
 +++ hloc/pipelines/Cambridge/utils.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,145 +0,0 @@
@@ -1553,7 +1553,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -        ratio = np.mean((errors_t < th_t) & (errors_R < th_R))
 -        out += f"\n\t{th_t*100:.0f}cm, {th_R:.0f}deg : {ratio*100:.2f}%"
 -    logger.info(out)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/CMU/pipeline.py hloc/pipelines/CMU/pipeline.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/CMU/pipeline.py hloc/pipelines/CMU/pipeline.py
 --- /tmp/hloc-latest/hloc/pipelines/CMU/pipeline.py	2026-01-16 16:13:56.814919017 -0700
 +++ hloc/pipelines/CMU/pipeline.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,133 +0,0 @@
@@ -1690,7 +1690,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -        run_slice(
 -            f"slice{slice_}", args.dataset, args.outputs, args.num_covis, args.num_loc
 -        )
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/CMU/README.md hloc/pipelines/CMU/README.md
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/CMU/README.md hloc/pipelines/CMU/README.md
 --- /tmp/hloc-latest/hloc/pipelines/CMU/README.md	2026-01-16 16:13:56.814855533 -0700
 +++ hloc/pipelines/CMU/README.md	1969-12-31 17:00:00.000000000 -0700
 @@ -1,16 +0,0 @@
@@ -1710,7 +1710,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -```bash
 -python3 -m hloc.pipelines.CMU.pipeline
 -```
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/RobotCar/colmap_from_nvm.py hloc/pipelines/RobotCar/colmap_from_nvm.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/RobotCar/colmap_from_nvm.py hloc/pipelines/RobotCar/colmap_from_nvm.py
 --- /tmp/hloc-latest/hloc/pipelines/RobotCar/colmap_from_nvm.py	2026-01-16 16:13:56.815082664 -0700
 +++ hloc/pipelines/RobotCar/colmap_from_nvm.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,176 +0,0 @@
@@ -1890,7 +1890,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -    parser.add_argument("--skip_points", action="store_true")
 -    args = parser.parse_args()
 -    main(**args.__dict__)
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/RobotCar/pipeline.py hloc/pipelines/RobotCar/pipeline.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/RobotCar/pipeline.py hloc/pipelines/RobotCar/pipeline.py
 --- /tmp/hloc-latest/hloc/pipelines/RobotCar/pipeline.py	2026-01-16 16:13:56.815082664 -0700
 +++ hloc/pipelines/RobotCar/pipeline.py	1969-12-31 17:00:00.000000000 -0700
 @@ -1,143 +0,0 @@
@@ -2037,7 +2037,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -        help="Number of image pairs for loc, default: %(default)s",
 -    )
 -    args = parser.parse_args()
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/RobotCar/README.md hloc/pipelines/RobotCar/README.md
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/RobotCar/README.md hloc/pipelines/RobotCar/README.md
 --- /tmp/hloc-latest/hloc/pipelines/RobotCar/README.md	2026-01-16 16:13:56.814993067 -0700
 +++ hloc/pipelines/RobotCar/README.md	1969-12-31 17:00:00.000000000 -0700
 @@ -1,16 +0,0 @@
@@ -2057,7 +2057,7 @@ diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp
 -```bash
 -python3 -m hloc.pipelines.RobotCar.pipeline
 -```
-diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=SceneScape' /tmp/hloc-latest/hloc/pipelines/utils.py hloc/pipelines/utils.py
+diff -Naur '--exclude=__pycache__' '--exclude=*.pyc' '--exclude=Scenescape' /tmp/hloc-latest/hloc/pipelines/utils.py hloc/pipelines/utils.py
 --- /tmp/hloc-latest/hloc/pipelines/utils.py	1969-12-31 17:00:00.000000000 -0700
 +++ hloc/pipelines/utils.py	2026-01-16 16:16:08.558653868 -0700
 @@ -0,0 +1,42 @@

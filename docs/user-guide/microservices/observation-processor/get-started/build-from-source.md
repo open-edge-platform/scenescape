@@ -6,7 +6,7 @@
 ## Prerequisites
 
 - A working Docker Engine and Docker Compose installation.
-- A clone of the SceneScape repository.
+- A clone of the Scenescape repository.
 - Generated service secrets before deployment. From the repository root, run
   `make init-secrets` if they have not already been created.
 
@@ -18,7 +18,7 @@ From the repository root, build the Observation Processor image:
 make observation_processor
 ```
 
-This target builds the SceneScape common base image first, then builds the
+This target builds the Scenescape common base image first, then builds the
 Observation Processor runtime image. The service Makefile can also build the
 image directly with `make -C observation_processor` when the common base image
 is already available.

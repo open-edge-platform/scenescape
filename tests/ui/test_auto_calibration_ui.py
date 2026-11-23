@@ -263,7 +263,7 @@ def get_calibration_points_from_js(browser, canvas_type):
 @common.mock_display
 def test_april_tag(scenescape_env, request, result_recorder):
   """! Checks that a user can setup a scene with april tags.
-  @param    scenescape_env          Fixture providing the running SceneScape stack.
+  @param    scenescape_env          Fixture providing the running Scenescape stack.
   @param    request                 Pytest request providing the test parameters.
   @param    result_recorder         Pytest fixture recording the test result.
   @return   None.

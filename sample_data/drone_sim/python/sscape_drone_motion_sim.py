@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 """
-SceneScape demo GStreamer element that simulates a moving drone camera.
+Scenescape demo GStreamer element that simulates a moving drone camera.
 
 Warps each decoded BGR frame with the deterministic flight profile from
 sample_data/drone_sim/drone_cam_sim.py (gimbal yaw/pitch/roll + zoom around
@@ -55,11 +55,11 @@ class DroneMotionSim(GstBase.BaseTransform):
   """Warp frames into a simulated drone view and attach the matching pose."""
 
   __gstmetadata__ = (
-    "SceneScape Drone Motion Simulator",
+    "Scenescape Drone Motion Simulator",
     "Filter/Effect/Video",
     "Simulate a moving drone camera from a fixed camera stream and attach "
     "the matching external-source pose, mount, and intrinsics as GVA JSON",
-    "Intel SceneScape",
+    "Intel Scenescape",
   )
 
   __gsttemplates__ = (

@@ -70,7 +70,7 @@ struct Intrinsics {
 // ---------------------------------------------------------------------------
 // ShapePrior — expected 3D physical size and 1-sigma uncertainty (meters).
 //
-// Dimension convention follows the world frame used by SceneScape:
+// Dimension convention follows the world frame used by Scenescape:
 //   mu_x = width  (side-to-side extent)
 //   mu_y = depth  (front-to-back extent along the object's facing direction)
 //   mu_z = height (vertical extent)

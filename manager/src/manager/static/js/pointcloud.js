@@ -78,7 +78,7 @@ function heatColor(t) {
 
 /**
  * Manage a THREE.Points cloud placed in scene world coordinates using the
- * sensor's THREE camera (y-up / OpenGL). Sensor-local points are SceneScape /
+ * sensor's THREE camera (y-up / OpenGL). Sensor-local points are Scenescape /
  * OpenCV (y-down) and converted with (x, -y, -z) before matrixWorld.
  *
  * Geometry/material are reused across frames to avoid flicker from destroy/create.
@@ -214,7 +214,7 @@ export class PointCloudVisualizer {
       ) {
         continue;
       }
-      // OpenCV / SceneScape sensor frame -> OpenGL local (THREE camera).
+      // OpenCV / Scenescape sensor frame -> OpenGL local (THREE camera).
       v.set(lx, -ly, -lz);
       v.applyMatrix4(matrix);
       if (

@@ -1,6 +1,6 @@
-# SceneScape GStreamer plugins
+# Scenescape GStreamer plugins
 
-This folder contains SceneScape's custom GStreamer elements used by the DL
+This folder contains Scenescape's custom GStreamer elements used by the DL
 Streamer Pipeline Server. These are **not standalone scripts** — they are
 GStreamer plugins meant to be loaded in runtime.
 

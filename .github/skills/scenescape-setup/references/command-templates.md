@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Use these reusable commands in setup verification steps.
 
-## Determine SceneScape Network Name
+## Determine Scenescape Network Name
 
 ```bash
 NET_NAME=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1)
@@ -26,7 +26,7 @@ echo "EXIT:$?"
 
 ## MQTT Subscribe (TLS 1883)
 
-The broker uses `mosquitto-secure.conf` with TLS on listener 1883. Mount the SceneScape CA and
+The broker uses `mosquitto-secure.conf` with TLS on listener 1883. Mount the Scenescape CA and
 use `--insecure` because the broker certificate is issued for `broker.scenescape.intel.com`.
 
 ```bash

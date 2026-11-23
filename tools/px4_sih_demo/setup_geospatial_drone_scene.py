@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Create a geospatial SceneScape scene and ROI for the PX4 SIH drone demo.
+"""Create a geospatial Scenescape scene and ROI for the PX4 SIH drone demo.
 
 Uses Mapbox (same logic as the manager geospatial UI) to fetch a satellite
 snapshot, compute map_corners_lla / scale, register the scene via REST, and

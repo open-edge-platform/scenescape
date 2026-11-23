@@ -12,7 +12,7 @@ The MAVLink *adapter* only publishes telemetry — run this script (``run_demo.s
 fly``) in a separate terminal to move the drone.
 
 Connects to the SIH offboard port (default UDP 14540). Position updates reach
-the SceneScape MAVLink adapter on UDP 14550 automatically in SIH.
+the Scenescape MAVLink adapter on UDP 14550 automatically in SIH.
 """
 
 from __future__ import annotations

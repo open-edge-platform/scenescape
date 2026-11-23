@@ -168,7 +168,7 @@ def rendezvous_stamp_message(name: str, frame_index: int, msg: dict) -> dict:
 
 
 # ── Coordinate transform (LiDAR only) ──────────────────────────────────────────
-# SceneScape sensor poses (CameraPose / 3D UI) use an OpenCV-like frame:
+# Scenescape sensor poses (CameraPose / 3D UI) use an OpenCV-like frame:
 #   X right, Y down, Z forward.
 # Velodyne/KITTI / PointPillars use:
 #   X forward, Y left, Z up.
@@ -178,22 +178,22 @@ def rendezvous_stamp_message(name: str, frame_index: int, msg: dict) -> dict:
 
 
 def velodyne_to_scenescape(x_v: float, y_v: float, z_v: float) -> "tuple[float, float, float]":
-  """Velodyne/KITTI XYZ -> SceneScape OpenCV-like sensor XYZ."""
+  """Velodyne/KITTI XYZ -> Scenescape OpenCV-like sensor XYZ."""
   return -y_v, -z_v, x_v
 
 
 def lidar_to_scene_offset(x_l: float, y_l: float, z_l: float) -> "tuple[float, float, float]":
-  """Detection center in SceneScape sensor frame (Y forced to 0 for ground plane)."""
+  """Detection center in Scenescape sensor frame (Y forced to 0 for ground plane)."""
   x_s, _y_s, z_s = velodyne_to_scenescape(x_l, y_l, z_l)
   return x_s, 0.0, z_s
 
 
 def bbox3d_to_quaternion(yaw: float) -> "list[float]":
-  """PointPillars/Velodyne Z-yaw -> SceneScape sensor-frame quaternion ``[x, y, z, w]``.
+  """PointPillars/Velodyne Z-yaw -> Scenescape sensor-frame quaternion ``[x, y, z, w]``.
 
   PointPillars yaw is about Velodyne Z-up. The same axis remapping used for
   points (``x_s=-y_v``, ``y_s=-z_v``, ``z_s=x_v``) conjugates that rotation into
-  a turn about SceneScape Y (down):
+  a turn about Scenescape Y (down):
 
     q = [0, -sin(yaw/2), 0, cos(yaw/2)]
 
@@ -245,7 +245,7 @@ def build_lidar_message(
   fps: float,
   timestamp: "float | None" = None,
 ) -> dict:
-  """Wrap PointPillars 3-D detections in SceneScape camera-detection format.
+  """Wrap PointPillars 3-D detections in Scenescape camera-detection format.
 
   Prefer ``timestamp`` from the publish rendezvous so cam/lidar stay
   temporally aligned for scene time-chunking. Fall back to wall clock. Do not
@@ -290,7 +290,7 @@ def build_lidar_message(
 
 
 def build_camera_message(raw: dict, gst_to_wall, fps: float, timestamp: "float | None" = None) -> dict:
-  """Wrap gvametaconvert 2-D detections in SceneScape camera-detection format."""
+  """Wrap gvametaconvert 2-D detections in Scenescape camera-detection format."""
   ts = _make_timestamp(time.time() if timestamp is None else timestamp)
 
   objects: dict = {}
@@ -395,7 +395,7 @@ def _read_frame_as_jpeg_b64(path: str) -> "str | None":
 def _read_pointcloud_payload(path: str, max_points: int) -> "dict | None":
   """Load an N×4 float32 .bin frame and return a UI-ready point-cloud payload.
 
-  Points are converted Velodyne -> SceneScape OpenCV-like sensor frame so the
+  Points are converted Velodyne -> Scenescape OpenCV-like sensor frame so the
   3D UI can apply the same (x,-y,-z) OpenCV->OpenGL step used for cameras.
   Format is little-endian float32 xyz[+intensity].
   """

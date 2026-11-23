@@ -12,7 +12,7 @@ Step 1 gathering.
 ## Prompt
 
 ```text
-The SceneScape deployment in ~/deployments/retail-demo is up, but the same shopper walking from
+The Scenescape deployment in ~/deployments/retail-demo is up, but the same shopper walking from
 cam1 to cam3 keeps getting a new ID instead of being recognized as the same person. Can you fix
 this?
 ```

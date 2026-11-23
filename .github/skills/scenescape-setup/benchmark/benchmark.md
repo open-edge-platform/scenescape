@@ -46,11 +46,11 @@ SPDX-License-Identifier: Apache-2.0
 
 | Eval | Prompt | Cursor (w/) |
 |---|---|---|
-| 1 | Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail... | PASS (10/10) |
-| 2 | Continue the SceneScape deployment in ~/deployments/warehouse-demo — i... | PASS (5/5) |
+| 1 | Deploy Scenescape in ~/deployments/retail-demo with scene name 'Retail... | PASS (10/10) |
+| 2 | Continue the Scenescape deployment in ~/deployments/warehouse-demo — i... | PASS (5/5) |
 | 3 | In ~/deployments/warehouse-demo, replace cam1 with a new camera at rts... | PASS (4/4) |
-| 4 | The SceneScape deployment in ~/deployments/warehouse-demo is up, but t... | PASS (4/4) |
-| 5 | The SceneScape deployment in ~/deployments/retail-demo is up, but the ... | PASS (4/4) |
+| 4 | The Scenescape deployment in ~/deployments/warehouse-demo is up, but t... | PASS (4/4) |
+| 5 | The Scenescape deployment in ~/deployments/retail-demo is up, but the ... | PASS (4/4) |
 | | **Mean ±σ** | **100% ±0%** |
 
 ## Notes

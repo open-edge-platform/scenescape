@@ -71,7 +71,7 @@ The following profiles are available:
 | `tracker`           | Tracker + Analytics + Positioning (no Scene Controller). Used by `make demo-tracker`.      |
 
 Positioning connects to the standard broker TLS listener on port 1883 with the
-`positioning.auth` credentials, like the other SceneScape services. At startup it
+`positioning.auth` credentials, like the other Scenescape services. At startup it
 validates its configured sources against `deployment/positioning-assignments.json`
 and publishes only the status and pose topics of its resolver and assigned sources.
 Protect ONVIF camera traffic with the host firewall: Compose does not provide

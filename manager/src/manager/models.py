@@ -526,7 +526,7 @@ class Scene(models.Model):
             sensor.sensor_id, sInfo, resolution=(cam.width, cam.height))
     return
 
-  def createSceneScapeRegion(self, existing, region):
+  def createScenescapeRegion(self, existing, region):
     info = {'area': "poly"}
     if hasattr(region, 'area'):
       info['area'] = region.area
@@ -563,7 +563,7 @@ class Scene(models.Model):
   def scenescapeSceneUpdateRegions(self, mScene):
     oldRegions = list(mScene.regions.keys())
     for region in self.regions.all():
-      self.createSceneScapeRegion(mScene.regions, region)
+      self.createScenescapeRegion(mScene.regions, region)
 
     newRegions = list(mScene.regions.keys())
     delRegions = list(set(oldRegions) - set(newRegions))
@@ -594,7 +594,7 @@ class Scene(models.Model):
         continue
 
       sensor = SingletonSensor.objects.get(pk=sensor.id)
-      self.createSceneScapeRegion(mScene.sensors, sensor)
+      self.createScenescapeRegion(mScene.sensors, sensor)
 
     newSensors = list(mScene.sensors.keys())
     delSensors = list(set(oldSensors) - set(newSensors))

@@ -54,7 +54,7 @@ for the PTZ model, not the production service architecture.
 
 ### Current state
 
-SceneScape today calibrates a camera once and stores a static `rotation`/`translation`
+Scenescape today calibrates a camera once and stores a static `rotation`/`translation`
 pose (`scene_common.transform.CameraPose`), consumed at detection time in
 [`Scene.processCameraData()`](../../controller/src/controller/scene.py). There is no
 runtime path that changes a camera's effective pose between detections.
@@ -433,7 +433,7 @@ timestamps, PTZ projection remains disabled for that source.
 Responsibilities, deliberately narrow:
 
 - Continue polling at a configurable rate (5 Hz default), including while stationary.
-  Poll-after-settle is not sufficient: SceneScape may not own PTZ commands, backlash
+  Poll-after-settle is not sufficient: Scenescape may not own PTZ commands, backlash
   needs travel history, and detections continue during movement.
 - Timestamp each reading at the midpoint of the request/response round trip and send
   half-round-trip uncertainty.

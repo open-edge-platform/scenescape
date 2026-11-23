@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Context
 
-SceneScape tracking uses `robot_vision`'s `MultipleObjectTracker` (predict → associate → correct). Production association used Euclidean distance with a fixed meter threshold (`tracking_radius` / 2 m default), while the UKF already produces predicted measurement covariance after predict. Detections are point estimates from camera calibration with no measurement uncertainty. Detector confidence is available but unused for gating or filter noise.
+Scenescape tracking uses `robot_vision`'s `MultipleObjectTracker` (predict → associate → correct). Production association used Euclidean distance with a fixed meter threshold (`tracking_radius` / 2 m default), while the UKF already produces predicted measurement covariance after predict. Detections are point estimates from camera calibration with no measurement uncertainty. Detector confidence is available but unused for gating or filter noise.
 
 That leaves association inconsistent with the filter: gates ignore motion and coast, meter radii conflate object semantics with kinematics, camera geometry is unused for uncertainty, and multi-camera world-position disagreement is handled with ad-hoc fusion stopgaps rather than measurement noise.
 

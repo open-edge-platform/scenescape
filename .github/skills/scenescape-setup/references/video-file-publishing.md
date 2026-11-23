@@ -25,7 +25,7 @@ host video file
   → DL Streamer / verify_rtsp / proxy bypass
 ```
 
-MediaMTX is the broker only. It matches SceneScape's standalone per-scene video-source
+MediaMTX is the broker only. It matches Scenescape's standalone per-scene video-source
 compose files (`sample_data/demo_scenes/<Scene>/compose.<scene>-video.yml`, each with its
 own `mediaserver` service + `*-cams`). This skill
 does not own MediaMTX configuration beyond the default image and the `mediaserver` network alias.

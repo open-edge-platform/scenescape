@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-"""Generic service health checker for SceneScape setup orchestration.
+"""Generic service health checker for Scenescape setup orchestration.
 
 This checker supports two gates in one polling loop:
 1) Docker Compose service state (running and optional healthy)
@@ -127,7 +127,7 @@ def check_http(
 
 
 def parse_args() -> argparse.Namespace:
-  parser = argparse.ArgumentParser(description="SceneScape generic health checker")
+  parser = argparse.ArgumentParser(description="Scenescape generic health checker")
   parser.add_argument("--deploy-dir", default=".", help="Deployment directory")
   parser.add_argument("--service", required=True, help="Docker compose service name")
   parser.add_argument("--max-attempts", type=int, default=30)

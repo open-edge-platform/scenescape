@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt_file": "example-prompts/01-multi-camera-deployment.md",
-      "prompt": "Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have live RTSP cameras \u2014 use these two recorded videos as the camera feeds instead: cam1 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam1.mp4, cam2 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam2.mp4",
+      "prompt": "Deploy Scenescape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have live RTSP cameras \u2014 use these two recorded videos as the camera feeds instead: cam1 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam1.mp4, cam2 -> https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam2.mp4",
       "expected_output": "Without asking clarifying questions, the agent produces a complete, correctly-ordered deployment procedure (bootstrap, calibrate, scene phases) that: converts the GitHub blob links to raw download URLs, feeds the videos in as local video-file camera inputs rather than RTSP, validates the camera IDs, launches the orchestrator asynchronously, and describes the DEPLOY COMPLETE / cross-camera tracking / deployment-metrics success criteria the run must satisfy. Note: the harness instructs the agent not to perform real network calls, downloads, or start real services for this eval, so the expectations below check the correctness and completeness of the produced plan/commands rather than requiring the agent to have actually executed them.",
       "should_trigger": true,
       "files": [],
@@ -24,7 +24,7 @@
     {
       "id": 2,
       "prompt_file": "example-prompts/02-resume-unchanged-deployment.md",
-      "prompt": "Continue the SceneScape deployment in ~/deployments/warehouse-demo \u2014 it stopped partway through.",
+      "prompt": "Continue the Scenescape deployment in ~/deployments/warehouse-demo \u2014 it stopped partway through.",
       "expected_output": "Agent detects the existing deploy-inputs.json, uses the Fast Path (skips Step 1 questions), and resumes the orchestrator from the step recorded in .deploy-state.json.",
       "should_trigger": true,
       "files": [],
@@ -53,7 +53,7 @@
     {
       "id": 4,
       "prompt_file": "example-prompts/04-reactive-tracking-tuning.md",
-      "prompt": "The SceneScape deployment in ~/deployments/warehouse-demo is up, but tracked people keep disappearing and getting new IDs whenever they walk behind a shelf. Can you fix this?",
+      "prompt": "The Scenescape deployment in ~/deployments/warehouse-demo is up, but tracked people keep disappearing and getting new IDs whenever they walk behind a shelf. Can you fix this?",
       "expected_output": "Agent recognizes this as a post-deployment tracking-quality complaint, opens only tuning-tracker.md (not tuning-reid.md), asks its questionnaire, then edits tracker-config.json in the deploy_dir and restarts the scene service.",
       "should_trigger": true,
       "files": [],
@@ -67,7 +67,7 @@
     {
       "id": 5,
       "prompt_file": "example-prompts/05-reactive-reid-tuning.md",
-      "prompt": "The SceneScape deployment in ~/deployments/retail-demo is up, but the same shopper walking from cam1 to cam3 keeps getting a new ID instead of being recognized as the same person. Can you fix this?",
+      "prompt": "The Scenescape deployment in ~/deployments/retail-demo is up, but the same shopper walking from cam1 to cam3 keeps getting a new ID instead of being recognized as the same person. Can you fix this?",
       "expected_output": "Agent recognizes this as a post-deployment cross-camera Re-ID complaint, opens only tuning-reid.md (not tuning-tracker.md), asks its questionnaire, then edits reid-config.json in the deploy_dir and restarts the scene service.",
       "should_trigger": true,
       "files": [],

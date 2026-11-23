@@ -189,11 +189,11 @@ services:
       --ntp ntpserv
     configs:
       - source: tracker-config
-        target: /home/scenescape/SceneScape/tracker-config.json
+        target: /home/scenescape/Scenescape/tracker-config.json
       - source: reid-config
-        target: /home/scenescape/SceneScape/reid-config.json
+        target: /home/scenescape/Scenescape/reid-config.json
     volumes:
-      - vol-media:/home/scenescape/SceneScape/media
+      - vol-media:/home/scenescape/Scenescape/media
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

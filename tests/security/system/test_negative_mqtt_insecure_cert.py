@@ -45,8 +45,8 @@ def test_mqtt_insecure_cert(scenescape_env):
   result = 1
   try:
     # Enable TLS with certificate verification enforced, but do NOT trust the
-    # SceneScape CA. The broker presents a certificate signed by the private
-    # SceneScape CA, which is not in the default system trust store, so a
+    # Scenescape CA. The broker presents a certificate signed by the private
+    # Scenescape CA, which is not in the default system trust store, so a
     # secure client must reject it and fail to connect.
     client.tls_set()
     client.tls_insecure_set(False)

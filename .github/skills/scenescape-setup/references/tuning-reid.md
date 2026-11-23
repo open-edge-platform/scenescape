@@ -13,7 +13,7 @@ motion/timing tuning (occlusion, dead-track cleanup, time-chunking), see
 [tuning-tracker.md](./tuning-tracker.md) instead.
 
 Source of truth for parameter semantics:
-`docs/user-guide/microservices/controller/Extended-ReID.md` in the SceneScape repo.
+`docs/user-guide/microservices/controller/Extended-ReID.md` in the Scenescape repo.
 
 ## When to run the questionnaire
 

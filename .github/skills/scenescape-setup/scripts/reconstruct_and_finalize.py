@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 """
-Submit a reconstruction job to the SceneScape mapping service, then poll the manager's
+Submit a reconstruction job to the Scenescape mapping service, then poll the manager's
 generate-mesh-status endpoint to finalize.  The manager automatically applies
 alignMeshToXYPlane() and _transformCamerasWithMeshAlignment() before persisting.
 
@@ -199,7 +199,7 @@ def finalize_mesh(manager_url: str, verify_tls: bool | str, username: str, passw
 
 
 def main() -> None:
-  parser = argparse.ArgumentParser(description="Reconstruct mesh and finalize scene via SceneScape manager")
+  parser = argparse.ArgumentParser(description="Reconstruct mesh and finalize scene via Scenescape manager")
   parser.add_argument("--deploy-dir", required=True, type=Path)
   parser.add_argument("--frames-dir", required=True, type=Path, help="Directory containing per-camera JPEG frames")
   parser.add_argument("--cameras", required=True, nargs="+", metavar="CAMERA_ID")

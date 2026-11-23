@@ -17,7 +17,7 @@ import requests
 
 import uploader
 from uploader import (
-  RESOURCE_KEYS, SceneScapeClient, parse_auth,
+  RESOURCE_KEYS, ScenescapeClient, parse_auth,
   read_object_library, read_scene_from_zip, upload_all, upload_calibration_markers,
   upload_scene, is_application_ready,
   upload_object_library, upload_one, upload_scene
@@ -63,7 +63,7 @@ class TestUploadScenesCLI:
     namespace = runpy.run_path(str(Path(uploader.__file__).with_name("upload-scenes")))
     main = namespace["main"]
     client = MagicMock()
-    monkeypatch.setitem(main.__globals__, "SceneScapeClient", client)
+    monkeypatch.setitem(main.__globals__, "ScenescapeClient", client)
     monkeypatch.setitem(main.__globals__, "upload_all", MagicMock(return_value=0))
     folder = tmp_path / "Demo"
     folder.mkdir()
@@ -140,22 +140,22 @@ class TestReadSceneFromZip:
     assert read_scene_from_zip(str(zip_path)) is None
 
 
-class TestSceneScapeClientRequest:
+class TestScenescapeClientRequest:
   def test_url_trailing_slash_stripped(self):
-    client = SceneScapeClient("http://host/api/v1/", True)
+    client = ScenescapeClient("http://host/api/v1/", True)
     assert client.url == "http://host/api/v1"
 
   def test_request_raises_on_http_error(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value.raise_for_status.side_effect = requests.HTTPError("500")
     with pytest.raises(requests.HTTPError):
       client._request("GET", "/scenes")
 
 
-class TestSceneScapeClientAuthenticate:
+class TestScenescapeClientAuthenticate:
   def test_authenticate_sets_token_header(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value.json.return_value = {"token": "abc123"}
     client.authenticate("user", "pw")
@@ -164,25 +164,25 @@ class TestSceneScapeClientAuthenticate:
 
 class TestSceneUidAndAssetExists:
   def test_scene_uid_hit(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value.json.return_value = {"results": [{"uid": "abc"}]}
     assert client.scene_uid("Demo") == "abc"
 
   def test_scene_uid_miss(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value.json.return_value = {"results": []}
     assert client.scene_uid("Demo") is None
 
   def test_asset_exists_true(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value.json.return_value = {"results": [{"name": "a"}]}
     assert client.asset_exists("a") is True
 
   def test_asset_exists_false(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value.json.return_value = {"results": []}
     assert client.asset_exists("a") is False
@@ -190,12 +190,12 @@ class TestSceneUidAndAssetExists:
 
 class TestCalibrationMarkerExists:
   def test_true_when_found(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     assert client.calibration_marker_exists("uid_1") is True
 
   def test_false_on_404(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     error = requests.HTTPError("404")
     error.response = MagicMock(status_code=404)
@@ -203,7 +203,7 @@ class TestCalibrationMarkerExists:
     assert client.calibration_marker_exists("uid_1") is False
 
   def test_reraises_on_other_error(self):
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     error = requests.HTTPError("500")
     error.response = MagicMock(status_code=500)
@@ -224,7 +224,7 @@ class TestImportScene:
   def test_import_timeout_does_not_change_other_requests(self, tmp_path, timeout):
     zip_path = tmp_path / "scene.zip"
     zip_path.write_bytes(b"zip")
-    client = SceneScapeClient("http://host", True, import_timeout=timeout)
+    client = ScenescapeClient("http://host", True, import_timeout=timeout)
     client.session = MagicMock()
     client.session.request.return_value = self._reply({"scene": None})
     client.import_scene(str(zip_path))
@@ -235,12 +235,12 @@ class TestImportScene:
   @pytest.mark.parametrize("timeout", [0, -1, True, 1.5, None])
   def test_invalid_import_timeout_rejected(self, timeout):
     with pytest.raises(ValueError, match="positive integer"):
-      SceneScapeClient("http://host", True, import_timeout=timeout)
+      ScenescapeClient("http://host", True, import_timeout=timeout)
 
   def test_timeout_warns_about_server_processing(self, tmp_path, caplog):
     zip_path = tmp_path / "scene.zip"
     zip_path.write_bytes(b"zip")
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.side_effect = requests.ReadTimeout()
     with pytest.raises(requests.ReadTimeout):
@@ -250,7 +250,7 @@ class TestImportScene:
   def test_posts_multipart_zip(self, tmp_path):
     zip_path = tmp_path / "scene.zip"
     zip_path.write_bytes(b"fake zip contents")
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value = self._reply({"scene": None})
     result = client.import_scene(str(zip_path))
@@ -265,7 +265,7 @@ class TestImportScene:
     zip_path.write_bytes(b"zip")
     credentials = tmp_path / "credentials.json"
     credentials.write_text("{}")
-    client = SceneScapeClient("https://localhost", True, restore_ids=True,
+    client = ScenescapeClient("https://localhost", True, restore_ids=True,
                               remote_credentials=str(credentials), reuse_existing=True)
     client.session = MagicMock()
     client.session.request.return_value = self._reply({})
@@ -278,7 +278,7 @@ class TestImportScene:
     zip_path = tmp_path / "scene.zip"
     zip_path.write_bytes(b"zip")
     summary = {"scene": {"scene": ["Missing MQTT credentials"]}}
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     client.session.request.return_value = self._reply(summary, status_code=400)
     assert client.import_scene(str(zip_path)) == summary
@@ -287,7 +287,7 @@ class TestImportScene:
   def test_non_summary_http_400_still_raises(self, tmp_path):
     zip_path = tmp_path / "scene.zip"
     zip_path.write_bytes(b"zip")
-    client = SceneScapeClient("http://host", True)
+    client = ScenescapeClient("http://host", True)
     client.session = MagicMock()
     reply = self._reply({"error": "zipFile is required"}, status_code=400)
     reply.raise_for_status.side_effect = requests.HTTPError("400")

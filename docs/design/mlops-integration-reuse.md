@@ -28,7 +28,7 @@ The design goals follow directly from [ADR-12 §Decision](../adr/0012-mlops-inte
 
 The following are explicitly out of scope of this design document:
 
-- Direct SceneScape↔Geti integration (per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision); Geti is reached indirectly via Model Downloader for models and via Stream Manager for training data).
+- Direct Scenescape↔Geti integration (per [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision); Geti is reached indirectly via Model Downloader for models and via Stream Manager for training data).
 - The internal API design of Stream Manager (owned by the Stream Manager team).
 - ViPPET's internal pipeline templates and verification tooling.
 - DLSPS's internal architecture and the design of its runtime pipeline API.
@@ -56,7 +56,7 @@ Two capabilities in Scenescape are being **delegated** to new OEP components, an
 DLSPS is **already integrated** with Scenescape as the pipeline runtime; this integration is being evolved, not introduced. Two limitations of today's integration drive the evolution:
 
 - DLSPS does not (today) expose a runtime API for arbitrary pipeline reconfiguration, and runs a statically configured number of pipelines. As a consequence, the Kubernetes flow above **recreates DLSPS pods on every pipeline update**. Once DLSPS exposes a runtime pipeline API, Scenescape will use it for true dynamic pipeline lifecycle in both Docker Compose and Kubernetes deployments.
-- Scenescape injects custom Python logic — the _SceneScape adapter_ — into DLSPS pipelines via `gvapython` elements. The adapter code lives under [`dlstreamer-pipeline-server/user_scripts/gstplugins/`](../../dlstreamer-pipeline-server/user_scripts/gstplugins/) in the Scenescape repository (not in the DLSPS repository); it is statically injected into DLSPS pipeline configurations and executed by DLSPS at runtime. These elements have already replaced the former monolithic `gvapython` adapter.
+- Scenescape injects custom Python logic — the _Scenescape adapter_ — into DLSPS pipelines via `gvapython` elements. The adapter code lives under [`dlstreamer-pipeline-server/user_scripts/gstplugins/`](../../dlstreamer-pipeline-server/user_scripts/gstplugins/) in the Scenescape repository (not in the DLSPS repository); it is statically injected into DLSPS pipeline configurations and executed by DLSPS at runtime. These elements have already replaced the former monolithic `gvapython` adapter.
 
 ### 4.2 Scenescape Component Reference
 
@@ -103,7 +103,7 @@ The component view below shows the runtime relationships between Scenescape and 
 
 > Each "Scenescape →" arrow in this diagram is realized inside Scenescape by the corresponding **client library** described later in this section (one per OEP component). The diagram is component-level only — protocols, transport, and auth are specified in the per-contract specifications below.
 
-**Component roles** (consolidated from [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision) and the _SceneScape today_ subsection above):
+**Component roles** (consolidated from [ADR-12 §Decision](../adr/0012-mlops-integration-reuse.md#decision) and the _Scenescape today_ subsection above):
 
 | Component            | Status                                    | Owned data                              | Scenescape's relationship                                                                                       |
 | -------------------- | ----------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -146,7 +146,7 @@ The process model shows the user-facing workflow for building, packaging, and de
 
 ### 5.3 Responsibility matrix and cross-cutting concerns
 
-This section is the source of truth for _who does what_ in the integrated system. It collapses the per-component breakdown in _SceneScape today_ and the ADR-12 component assignments into a single Scenescape-perspective view, refined to the specific Scenescape services that own each responsibility (per the _SceneScape Component Reference_).
+This section is the source of truth for _who does what_ in the integrated system. It collapses the per-component breakdown in _Scenescape today_ and the ADR-12 component assignments into a single Scenescape-perspective view, refined to the specific Scenescape services that own each responsibility (per the _Scenescape Component Reference_).
 
 > **Note on Manager service:** Responsibilities are assigned to _Manager (UI)_, _Manager (Backend)_, and _Pipeline Orchestrator_ to guide future development. Until the service is formally split, all three sets of responsibilities reside within the current monolithic Manager service.
 
@@ -316,7 +316,7 @@ The exact pipeline-definition format (parametrization syntax, version envelope) 
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Scenescape consumer | Manager back-end (livestream / replay URLs for pipeline source binding); _(deferred)_ Auto Camera Calibration, Mapping                                                                                                                  |
 | Client library      | Stream Manager client library                                                                                                                                                                                                           |
-| Endpoints consumed  | Stream Manager livestream / replay APIs (exact shape owned by the Stream Manager team; per the _SceneScape team: livestreams/replays API_ line item in the Stream Manager proposal).                                                    |
+| Endpoints consumed  | Stream Manager livestream / replay APIs (exact shape owned by the Stream Manager team; per the _Scenescape team: livestreams/replays API_ line item in the Stream Manager proposal).                                                    |
 | Direction           | Scenescape → Stream Manager (REST control + stream consumption)                                                                                                                                                                         |
 | Payload             | Stream URLs / handles for livestream and replay; camera metadata used to populate scene-configuration camera entries.                                                                                                                   |
 | Frequency           | At scene-configuration time (camera enumeration) and at runtime (stream URL resolution at pipeline start).                                                                                                                              |

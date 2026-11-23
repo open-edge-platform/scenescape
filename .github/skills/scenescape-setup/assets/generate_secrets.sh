@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
-# Generates all secrets required by a SceneScape deployment.
+# Generates all secrets required by a Scenescape deployment.
 # Usage: bash generate_secrets.sh [SUPASS]
 #
 # If SUPASS is not supplied, a random one is generated and written to supass in this directory.

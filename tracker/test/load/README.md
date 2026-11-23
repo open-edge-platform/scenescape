@@ -74,7 +74,7 @@ co-located 50 m camera poses are used to convert the existing bbox grid into
 sensor-frame positions. Each detection still uses exactly one geometry form,
 as required by `camera-data.schema.json`.
 
-Run one load stack at a time and stop other local SceneScape instances first.
+Run one load stack at a time and stop other local Scenescape instances first.
 Competing tracker instances can consume host CPU and distort the dropped-message
 gate; the existing `<0.1%` threshold applies unchanged to every mode.
 

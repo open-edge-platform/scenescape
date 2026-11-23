@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
-# End-to-end SceneScape deployment orchestrator with checkpoint resume.
+# End-to-end Scenescape deployment orchestrator with checkpoint resume.
 #
 # Usage:
 #   deploy_scenescape.sh \

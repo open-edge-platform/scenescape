@@ -2,16 +2,16 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# End-to-end PX4 SIH → MAVLink adapter → SceneScape geospatial scene demo.
+# End-to-end PX4 SIH → MAVLink adapter → Scenescape geospatial scene demo.
 #
 # Prerequisites:
-#   - SceneScape running (make demo with MAPBOX_API_KEY and SUPASS set)
+#   - Scenescape running (make demo with MAPBOX_API_KEY and SUPASS set)
 #   - setup_geospatial_drone_scene.py already run (px4_sih_config.json present)
 #   - pip install -r tools/external_source_adapters/requirements.txt
 #   - Docker (for px4io/px4-sitl-sih)
 #
 # Host-side REST/MQTT use https://127.0.0.1 / localhost with TLS verify disabled.
-# That is intentional for this demo tooling: SceneScape certs are issued for
+# That is intentional for this demo tooling: Scenescape certs are issued for
 # *.scenescape.intel.com (Docker DNS), not localhost. The MQTT port publish is
 # bound to loopback only (see compose.broker-port.yml).
 #
@@ -102,7 +102,7 @@ ensure_mqtt_from_host() {
 cmd_setup() {
   : "${MAPBOX_API_KEY:?Set MAPBOX_API_KEY}"
   : "${SUPASS:?Set SUPASS (Scenescape admin password)}"
-  # Host demo: SceneScape certs don't cover localhost — use --insecure unless the
+  # Host demo: Scenescape certs don't cover localhost — use --insecure unless the
   # caller already set SCENESCAPE_REST_URL (e.g. in-cluster verified hostname).
   local setup_args=()
   if [[ -z "${SCENESCAPE_REST_URL:-}" ]]; then
@@ -176,7 +176,7 @@ cmd_start_adapter() {
   export SCENESCAPE_BROKER_PORT="${SCENESCAPE_BROKER_PORT:-1883}"
   export MAVLINK_CONNECTION="${MAVLINK_CONNECTION:-udpin:0.0.0.0:${PX4_HOST_MAVLINK_PORT}}"
 
-  echo "Starting MAVLink → SceneScape adapter (source_id=${SCENESCAPE_SOURCE_ID}) …"
+  echo "Starting MAVLink → Scenescape adapter (source_id=${SCENESCAPE_SOURCE_ID}) …"
   echo "  Note: adapter publishes telemetry only — run '$0 fly' to move the drone."
   echo "  MQTT broker: ${SCENESCAPE_BROKER}:${SCENESCAPE_BROKER_PORT} (TLS verify off; loopback)"
   echo "  MQTT auth:   ${SCENESCAPE_MQTT_AUTH}"
@@ -269,7 +269,7 @@ Usage: $(basename "$0") <command>
 Commands:
   setup       Create geospatial scene + ROI (needs MAPBOX_API_KEY, SUPASS)
   start       Start PX4 SIH Docker container and print next steps
-  adapter     Run MAVLink → SceneScape MQTT adapter (foreground)
+  adapter     Run MAVLink → Scenescape MQTT adapter (foreground)
   fly         Ping-pong across ROI edge for enter/exit analytics (Ctrl+C to stop)
   stop-fly    Exit auto mission and hold position (keeps PX4 SIH running)
   watch-roi   Subscribe to ROI count MQTT events

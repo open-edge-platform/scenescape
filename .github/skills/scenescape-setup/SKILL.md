@@ -1,7 +1,7 @@
 ---
 name: scenescape-setup
 description: >
-  Deploy a working Intel® SceneScape installation from scratch (outside the repo). Gathers
+  Deploy a working Intel® Scenescape installation from scratch (outside the repo). Gathers
   user-provided streams, camera IDs, scene name, and mapping choice, then runs bootstrap through
   tracking verification via scripts/deploy_scenescape.sh. Also handles re-running or resuming a
   single phase of an existing deployment on request (e.g. "recalibrate", "redo scene
@@ -15,13 +15,13 @@ metadata:
   argument-hint: "<deploy_dir> — always gather streams, camera_ids, scene_name, mapping from the user first"
 ---
 
-# SceneScape End-to-End Setup
+# Scenescape End-to-End Setup
 
 Host needs **Docker**, **docker-compose**, and **Python 3.10+** with `requests`.
 
 ## Overview
 
-This skill deploys and resumes an Intel® SceneScape environment outside the repo, gathers the
+This skill deploys and resumes an Intel® Scenescape environment outside the repo, gathers the
 required deployment inputs from the user, and orchestrates the bootstrap, calibration, scene
 reconstruction, and verification workflow. It is intended for first-time installs, re-runs with
 existing `deploy-inputs.json`, and targeted phase resumes such as `bootstrap`, `calibrate`, or

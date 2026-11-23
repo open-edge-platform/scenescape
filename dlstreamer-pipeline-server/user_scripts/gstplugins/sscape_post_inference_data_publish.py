@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 """
-SceneScape custom GStreamer element that consumes gvametaconvert JSON metadata
+Scenescape custom GStreamer element that consumes gvametaconvert JSON metadata
 and post-decode timestamps attached upstream and publishes per-frame inference
 data over MQTT (and, on request, JPEG-encoded frame images).
 """
@@ -72,7 +72,7 @@ CONVERSION_MAP = {
 # (or any level) toggles this plugin's verbosity like any built-in category.
 _GST_LOG = GstCategoryLogger(
   "sscape_post_inference",
-  "SceneScape post-inference MQTT publisher element",
+  "Scenescape post-inference MQTT publisher element",
 )
 
 
@@ -85,19 +85,19 @@ def _get_mac_address() -> str:
 
 
 class SscapePostInferenceDataPublish(GstBase.BaseTransform):
-  """Publish per-frame SceneScape metadata to MQTT.
+  """Publish per-frame Scenescape metadata to MQTT.
 
   Consumes `GstGVAJSONMeta` attached upstream (by `gvametaconvert` and by
-  `sscape_timestamp_capture`), builds the SceneScape per-frame payload, and
+  `sscape_timestamp_capture`), builds the Scenescape per-frame payload, and
   publishes it directly over MQTT via paho-mqtt. Also re-attaches the final
   payload as `GstGVAJSONMeta` for any downstream GVA-aware element.
   """
 
   __gstmetadata__ = (
-    "SceneScape Post-Inference Data Publish",
+    "Scenescape Post-Inference Data Publish",
     "Filter/Metadata/Video",
-    "Publish gvametaconvert inference output to MQTT with SceneScape schema",
-    "Intel SceneScape",
+    "Publish gvametaconvert inference output to MQTT with Scenescape schema",
+    "Intel Scenescape",
   )
 
   __gsttemplates__ = (

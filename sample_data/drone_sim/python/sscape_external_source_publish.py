@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 """
-SceneScape demo GStreamer element that publishes detections as
+Scenescape demo GStreamer element that publishes detections as
 external-source messages.
 
 Combines the drone_sim metadata attached by sscape_drone_motion_sim (pose,
@@ -62,10 +62,10 @@ class ExternalSourcePublish(GstBase.BaseTransform):
   """
 
   __gstmetadata__ = (
-    "SceneScape External Source Publish",
+    "Scenescape External Source Publish",
     "Filter/Metadata/Video",
     "Publish detections and simulated drone pose as external-source messages",
-    "Intel SceneScape",
+    "Intel Scenescape",
   )
 
   __gsttemplates__ = (
