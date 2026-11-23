@@ -3,7 +3,6 @@
 
 import json
 import math
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -83,7 +82,7 @@ def _extent_ratios(lat, zoom, tile_size, scale):
 _LAT_ZOOM = [(0.0, 16), (37.38, 16), (60.0, 12), (37.38, 19)]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestMapScaleTileSize:
   def test_tile_size_scales_pixels_per_metre_linearly(self):
     default_scale, scale_256, scale_512 = _js_scales(

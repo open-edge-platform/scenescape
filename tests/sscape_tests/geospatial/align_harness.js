@@ -140,6 +140,7 @@ function load(args) {
       if (id === "glbAlignRow") {
         fakeEls[id].dataset.sceneId = "scene-1";
         fakeEls[id].dataset.maxLayers = String(args.maxLayers ?? 1);
+        fakeEls[id].dataset.maxAnchorKm = String(args.maxAnchorKm ?? 50);
         if (args.maxUploadBytes)
           fakeEls[id].dataset.maxUploadBytes = String(args.maxUploadBytes);
         fakeEls[id].closest = () => fakeForm;

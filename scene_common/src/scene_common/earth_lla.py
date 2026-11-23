@@ -126,7 +126,7 @@ def calculateHeading(trs_mat, map_pt, velocity):
   bearing = math.atan2(x, y)
   return np.rad2deg(bearing) % 360
 
-def _signedArea(xs, ys):
+def signedArea(xs, ys):
   """! Shoelace signed area of the polygon with vertices (xs[i], ys[i]).
   @returns    float    Positive when the vertices run counterclockwise, negative when clockwise
   """
@@ -138,7 +138,7 @@ def _geographicSignedArea(lla_pts):
   @returns    float    Positive when the corners run counterclockwise, negative when clockwise
   """
   lon_diff = _wrapDegrees180(lla_pts[:, 1] - lla_pts[0, 1])
-  return _signedArea(lon_diff, lla_pts[:, 0])
+  return signedArea(lon_diff, lla_pts[:, 0])
 
 def alignCornerWinding(map_xyz_pts, lla_pts):
   """! Orders four geographic map corners so they run in the same rotational direction as the
@@ -159,7 +159,7 @@ def alignCornerWinding(map_xyz_pts, lla_pts):
   lla_pts = np.asarray(lla_pts)
   if map_xyz_pts.shape[0] != 4 or lla_pts.shape[0] != 4:
     return lla_pts
-  local_area = _signedArea(map_xyz_pts[:, 0], map_xyz_pts[:, 1])
+  local_area = signedArea(map_xyz_pts[:, 0], map_xyz_pts[:, 1])
   geo_area = _geographicSignedArea(lla_pts)
   if np.sign(local_area) * np.sign(geo_area) < 0:
     return lla_pts[[0, 3, 2, 1]]
@@ -242,6 +242,7 @@ def _localTangentRadii(lat_rad):
   N = EQUATORIAL_RADIUS / denom
   return M, N, math.cos(lat_rad)
 
+# Test reference: tests build synthetic footprints with this; production takes corners from the scene
 def localFootprintCornersLLA(center_lat, center_lng, heading_deg, width_m, height_m, alt=0.0):
   """! Compute LLA corners of a rectangular footprint from centre, heading, and dimensions.
   Local footprint corners are at SW (-W/2,-H/2), SE (+W/2,-H/2), NE (+W/2,+H/2), NW (-W/2,+H/2).

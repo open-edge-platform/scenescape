@@ -183,9 +183,9 @@ function updateElements(elements, action, condition) {
 }
 
 export {
+  setMapOrigin,
   pixelsToMeters,
   metersToPixels,
-  setMapOrigin,
   compareIntrinsics,
   normalizeDistortion,
   waitUntil,

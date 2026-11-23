@@ -72,6 +72,7 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
     assert far > eye[2] - min_z
 
 
+@pytest.mark.no_glb_stub
 @pytest.mark.django_db
 def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, settings):
   import trimesh

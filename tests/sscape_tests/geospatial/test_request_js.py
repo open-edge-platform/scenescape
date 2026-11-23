@@ -4,7 +4,6 @@
 """Unit tests for the shared requestJson helper in js/request.js."""
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -28,7 +27,7 @@ def run_request(url="/api/x", options=None, response=None, csrf="tok"):
   return json.loads(proc.stdout)
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestRequestJson:
   """requestJson sends the CSRF header, encodes the body and normalises errors."""
 

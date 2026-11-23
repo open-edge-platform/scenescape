@@ -128,16 +128,11 @@ def build_preview(token):
   return {'width': float(width), 'height': float(height)}, px_per_m
 
 
-def glb_preview_path(glb_path):
-  """Cache path of the top-view preview of a stored GLB, next to the GLB file."""
-  return glb_preview_name(glb_path)
-
-
 def adopt_staged_preview(layer, token):
   """Cache the staged top view as the layer's preview: the image depends only on the GLB file."""
   staged_png = os.path.join(staging_dir(), f'{token}.png')
   if os.path.isfile(staged_png):
-    shutil.copyfile(staged_png, glb_preview_path(layer.file.path))
+    shutil.copyfile(staged_png, glb_preview_name(layer.file.path))
 
 
 def ensure_glb_preview(layer):
@@ -149,7 +144,7 @@ def ensure_glb_preview(layer):
   """
   if not layer.file:
     return
-  preview_path = glb_preview_path(layer.file.path)
+  preview_path = glb_preview_name(layer.file.path)
   if os.path.exists(preview_path):
     return
   try:

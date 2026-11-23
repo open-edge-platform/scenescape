@@ -27,7 +27,6 @@ from django.utils.text import get_valid_filename
 from django.core.files import File
 
 from scene_common.camera import Camera as ScenescapeCamera, CameraPose as ScenescapeCameraPose
-from scene_common.earth_lla import llaToFrameLocalXY
 from scene_common.geometry import Region as ScenescapeRegion, Tripwire as ScenescapeTripwire
 from scene_common.glb_top_view import generateOrthoView, getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromPointCloud
@@ -39,7 +38,7 @@ from scene_common.timestamp import get_epoch_time
 from manager.validators import (
   SCENE_NAME_DB_PATTERN, validate_map_file, validate_glb, validate_map_corners_lla, validate_scene_name)
 from manager.fields import ListField
-from manager.glb_composite import hybridThumbnail, isHybridView
+from manager.glb_composite import glbOffsetFromBaseMap, hybridThumbnail, isHybridView
 
 from scene_common import log
 
@@ -397,8 +396,7 @@ class Scene(models.Model):
       return [0.0, 0.0]
     if not (self.use_glb_map and self.base_map_corners_lla and self.map_corners_lla):
       return [0.0, 0.0]
-    lat, lng = self.map_corners_lla[0][:2]
-    return llaToFrameLocalXY(self.base_map_corners_lla, lat, lng).tolist()
+    return glbOffsetFromBaseMap(self)
 
   def resetMapOrigin(self):
     self.map_origin_x = 0.0
@@ -421,7 +419,7 @@ class Scene(models.Model):
     if previous_thumbnail and previous_thumbnail != self.thumbnail.name:
       # On commit only: a rollback restores the row, which still needs the old file
       transaction.on_commit(partial(
-        _delete_unreferenced_mapping_file, self.thumbnail.storage, previous_thumbnail,
+        delete_unreferenced_mapping_file, self.thumbnail.storage, previous_thumbnail,
         self._state.db or "default"))
     return
 
@@ -487,7 +485,10 @@ class Scene(models.Model):
   def _dropGlbForNonGlbMap(self):
     # New non-GLB map uploaded while GLB is applied: swap out the GLB
     if self.base_map and self.base_map.name:
-      remove_stored_file(self.base_map.storage, self.base_map.name)
+      # On commit only: a rollback restores the row, which still needs the old file
+      transaction.on_commit(partial(
+        delete_unreferenced_mapping_file, self.base_map.storage, self.base_map.name,
+        self._state.db or "default"))
     self.use_glb_map = False
     self.base_map = None
     self.base_scale = None
@@ -802,14 +803,14 @@ def glb_preview_name(glb_name):
 
 
 def remove_stored_file(storage, name):
-  """Best-effort delete of a file from map storage; failures are ignored."""
+  """Best-effort delete of a file from map storage; a failure is logged and the file is left behind."""
   try:
     storage.delete(name)
-  except Exception:
-    pass
+  except Exception as e:
+    log.warning(f"Could not delete stored file {name}: {e}")
 
 
-def _delete_unreferenced_mapping_file(storage, name, using):
+def delete_unreferenced_mapping_file(storage, name, using):
   scene_files = Q(map=name) | Q(thumbnail=name) | Q(base_map=name)
   if Scene.objects.using(using).filter(scene_files).exists():
     return
@@ -843,7 +844,7 @@ def delete_mapping_files_after_commit(sender, instance, using, **kwargs):
         names.append(glb_preview_name(stored_file.name))
       for name in names:
         transaction.on_commit(
-          partial(_delete_unreferenced_mapping_file, stored_file.storage, name, using),
+          partial(delete_unreferenced_mapping_file, stored_file.storage, name, using),
           using=using,
         )
 

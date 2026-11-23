@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -29,7 +28,7 @@ def run_js(scenario, args):
   return json.loads(proc.stdout.strip())
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestCorners:
   """Test footprintCornersLLA parity with Python."""
 
@@ -74,7 +73,7 @@ class TestCorners:
     assert res["error"].startswith("RangeError"), f"Expected RangeError for {case}, got {res['error']}"
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestMatrix:
   """Test overlayCssMatrix."""
 
@@ -114,7 +113,7 @@ class TestMatrix:
     assert m["width"] == 0
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestAbstract:
   """Test MapInterface abstract methods throw."""
 
@@ -126,7 +125,7 @@ class TestAbstract:
     assert res["threw"] == "Error"
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestMapbox:
   """Test MapboxPlugin."""
 
@@ -208,7 +207,7 @@ class TestMapbox:
     assert abs(p0["lng"] - (-100 + 100 * 0.001)) < 1e-9
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestMapboxView:
   """MapboxPlugin pixel projection, view subscription and overlay opacity."""
 
@@ -243,7 +242,7 @@ class TestMapboxView:
     assert faded["opacity"] == 0.2
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestGoogle:
   """Test GoogleMapsPlugin."""
 
@@ -347,14 +346,14 @@ class TestGoogle:
     assert [c["style"]["opacity"] for c in faded["layer"]["children"]] == [0.2]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 def test_mapbox_dragrotate_false():
   """mapbox-plugin.js has dragRotate: false."""
   src = (_REPO_ROOT / "manager/src/manager/static/js/geospatial/mapbox-plugin.js").read_text()
   assert "dragRotate: false" in src
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 def test_google_heading_0():
   """google-maps-plugin.js has heading: 0."""
   src = (_REPO_ROOT / "manager/src/manager/static/js/geospatial/google-maps-plugin.js").read_text()

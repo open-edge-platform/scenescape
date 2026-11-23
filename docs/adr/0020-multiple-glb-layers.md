@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # ADR 0020: Multiple GLB Layers per Geospatial Scene
 
-- **Author(s)**: [user](https://github.com/user)
+- **Author(s)**: Emilia Anna Lukasiuk
 - **Date**: 2026-10-07
 - **Status**: `Accepted`
 - **Supersedes**: none
@@ -61,8 +61,3 @@ functions above:
 - With two or more layers, the posed layer geometry is baked into one file, so the individual pose of a layer is
   no longer visible in the scene artifact. Each layer's pose is recomputed from its anchor.
 - Each layer change rebuilds the whole artifact. This cost grows with the layer count and the face count.
-
-## References
-
-- Plan: `.github/plans/multi-glb-layers.plan.prompt.md`
-- Design doc: `docs/design/multi-glb-layers.md` (not present in this workspace at the time of this ADR)

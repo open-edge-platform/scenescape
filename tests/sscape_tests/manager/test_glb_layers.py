@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 from django.db import IntegrityError, transaction
 
-from manager.models import GlbLayer, Scene, _delete_unreferenced_mapping_file
+from manager.models import GlbLayer, Scene, delete_unreferenced_mapping_file
 from scene_common.earth_lla import localFootprintCornersLLA
 
 migration = importlib.import_module('manager.migrations.0012_geospatial_glb_fields')
@@ -76,6 +76,6 @@ def test_file_referenced_by_layer_is_kept():
   storage = MagicMock(name='storage')
   storage.exists.return_value = True
 
-  _delete_unreferenced_mapping_file(storage, 'glb_maps/kept.glb', 'default')
+  delete_unreferenced_mapping_file(storage, 'glb_maps/kept.glb', 'default')
 
   storage.delete.assert_not_called()

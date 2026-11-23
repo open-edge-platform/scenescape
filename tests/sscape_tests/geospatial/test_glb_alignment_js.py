@@ -3,7 +3,6 @@
 
 import json
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -99,7 +98,7 @@ def _last_opacity(res):
   return [c[1] for c in res["calls"] if c[0] == "setOverlayOpacity"][-1]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestGlbAlignment:
   """Test GLB alignment UI behaviour through the node harness."""
 
@@ -610,7 +609,7 @@ def _knob_xy(dial):
 _STAGED = [_NO_SAVED, _preview_resp("tok1")]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestOverlayOpacity:
   """The overlay always lets the map show through; only the map layer carries the alpha."""
 
@@ -638,7 +637,7 @@ class TestOverlayOpacity:
     assert [c[3] for c in res["calls"] if c[0] == "setOverlay"] == [SAVED_OPACITY, STAGED_OPACITY, SAVED_OPACITY]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestRotationDial:
   """Rotation dial drawn over the overlay on the map."""
 
@@ -931,6 +930,7 @@ def test_template_passes_upload_limit_to_row():
   row = re.search(r'<div\s[^>]*id="glbAlignRow"[^>]*>', html).group(0)
   assert "data-max-upload-bytes=" in row
   assert "data-max-layers=" in row
+  assert "data-max-anchor-km=" in row
 
 
 def _layer(layer_id, order, anchor=None):
@@ -952,7 +952,7 @@ def _layers_get(*layers, max_layers=2):
   return {"status": 200, "body": {"max_layers": max_layers, "layers": list(layers)}}
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestMultipleLayers:
   """Panels per saved layer: the Add button, per-panel dirty flags, one save payload, and hit-testing."""
 
@@ -1007,7 +1007,7 @@ def _two_saved_layers():
   )
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestLayerLabels:
   """The picker status line, and layer numbers on the panel and at the NW corner on the map."""
 

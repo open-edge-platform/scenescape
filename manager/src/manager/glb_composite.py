@@ -41,9 +41,9 @@ def compositeGlbOverBaseMap(base_rgb, glb_rgb, glb_mask, glb_ppm, base_scale, of
   factor = base_scale / glb_ppm
   glb_h = max(1, round(src_h * factor))
   glb_w = max(1, round(src_w * factor))
-  left = int(round(offset_m[0] * base_scale))
+  left = round(offset_m[0] * base_scale)
   # Image rows grow downwards, the frame's y grows upwards.
-  top = height - int(round(offset_m[1] * base_scale)) - glb_h
+  top = height - round(offset_m[1] * base_scale) - glb_h
 
   out = np.array(base_rgb, dtype=np.uint8, copy=True)
   x0, y0 = max(0, left), max(0, top)
@@ -67,6 +67,12 @@ def compositeGlbOverBaseMap(base_rgb, glb_rgb, glb_mask, glb_ppm, base_scale, of
   return out
 
 
+def glbOffsetFromBaseMap(scene):
+  """Local (x, y) of the GLB's own corner in the base map frame."""
+  lat, lng = scene.map_corners_lla[0][:2]
+  return llaToFrameLocalXY(scene.base_map_corners_lla, lat, lng).tolist()
+
+
 def hybridThumbnail(scene):
   """! Render the composite thumbnail of a hybrid scene.
   @param  scene              Scene with use_glb_map, base_map, base_scale, map and corner fields.
@@ -77,8 +83,7 @@ def hybridThumbnail(scene):
   glb_img, glb_ppm, glb_mask = generateOrthoViewWithMask(scene, scene.map.path)
   with scene.base_map.storage.open(scene.base_map.name, 'rb') as f:
     base_rgb = np.asarray(Image.open(f).convert('RGB'))
-  lat, lng = scene.map_corners_lla[0][:2]
-  offset_m = llaToFrameLocalXY(scene.base_map_corners_lla, lat, lng).tolist()
+  offset_m = glbOffsetFromBaseMap(scene)
   img = compositeGlbOverBaseMap(base_rgb, glb_img, glb_mask, glb_ppm,
                                 scene.base_scale, offset_m)
   return img, scene.base_scale

@@ -8,9 +8,12 @@ import uuid
 from zipfile import ZipFile
 
 from django.core.exceptions import ValidationError
+import numpy as np
 import open3d as o3d
 from PIL import Image
 from plyfile import PlyData, PlyParseError
+
+from scene_common.earth_lla import signedArea
 
 # Allow-list character class (letters, digits, space, dash, underscore, dot).
 # SCENE_NAME_DB_PATTERN is POSIX-safe for PostgreSQL CheckConstraint (no lookarounds).
@@ -208,18 +211,6 @@ def _parse_map_corner(index, corner):
 # produces cross-product noise around 1e-15; this threshold sits well above that noise.
 MIN_CORNER_AREA_DEG2 = 1e-13
 
-def _polygon_area_deg2(points):
-  """Absolute shoelace area of the (lat, lon) polygon in square degrees.
-
-  Coordinates are shifted to the first point before summing to limit float error.
-  """
-  lat0, lon0 = points[0]
-  shifted = [(lat - lat0, lon - lon0) for lat, lon in points]
-  twice_area = 0.0
-  for (x1, y1), (x2, y2) in zip(shifted, shifted[1:] + shifted[:1]):
-    twice_area += x1 * y2 - x2 * y1
-  return abs(twice_area) / 2.0
-
 def validate_map_corners_lla(value):
   """
   Validates that map_corners_lla is an array containing exactly 4 corner coordinates.
@@ -237,7 +228,10 @@ def validate_map_corners_lla(value):
     raise ValidationError("map_corners_lla must contain exactly 4 corner coordinates.")
 
   points = [_parse_map_corner(i + 1, corner) for i, corner in enumerate(value)]
-  if _polygon_area_deg2(points) < MIN_CORNER_AREA_DEG2:
+  # Shift to the first corner before the shoelace sum to limit float error
+  corners = np.array(points)
+  corners -= corners[0]
+  if abs(signedArea(corners[:, 0], corners[:, 1])) < MIN_CORNER_AREA_DEG2:
     raise ValidationError("map_corners_lla must enclose a non-zero area.")
 
   return value

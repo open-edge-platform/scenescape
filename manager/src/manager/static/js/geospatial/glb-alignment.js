@@ -35,9 +35,6 @@ const MAP_EMPTY_HINT =
   "Set the map location and save the scene before aligning a 3D model.";
 const PREVIEW_MISSING_HINT =
   "The preview of the saved 3D model could not be generated.";
-// Keep equal to MAX_ANCHOR_DISTANCE_KM in manager/glb_alignment.py, which enforces it on save.
-const FAR_ANCHOR_KM = 50;
-const FAR_ANCHOR_HINT = `The 3D model must stay within ${FAR_ANCHOR_KM} km of the map center.`;
 const BYTES_PER_MB = 1024 * 1024;
 
 function pointInPolygon(pt, corners) {
@@ -150,6 +147,7 @@ class GlbLayerPanel {
     this.root = root;
     this.sceneId = controller.sceneId;
     this.maxUploadBytes = controller.maxUploadBytes;
+    this.maxAnchorKm = controller.maxAnchorKm;
     this.overlayId = `glb-overlay${suffix}`;
     this.staged = null;
     this.saved = null;
@@ -247,18 +245,22 @@ class GlbLayerPanel {
   }
 
   _isFarFromCenter(anchor) {
-    if (this._mapEmpty()) return false;
+    if (this._mapEmpty() || !(this.maxAnchorKm > 0)) return false;
     const center = {
       lat: parseFloat(this.ui.mapCenterLat.value),
       lng: parseFloat(this.ui.mapCenterLng.value),
     };
-    return distanceKm(anchor, center) > FAR_ANCHOR_KM;
+    return distanceKm(anchor, center) > this.maxAnchorKm;
+  }
+
+  _farAnchorHint() {
+    return `The 3D model must stay within ${this.maxAnchorKm} km of the map center.`;
   }
 
   _updateFarAnchorHint() {
     const far = !!this.anchor && this._isFarFromCenter(this.anchor);
-    if (far) this.ui.hint.textContent = FAR_ANCHOR_HINT;
-    else if (this.ui.hint.textContent === FAR_ANCHOR_HINT)
+    if (far) this.ui.hint.textContent = this._farAnchorHint();
+    else if (this.ui.hint.textContent === this._farAnchorHint())
       this.ui.hint.textContent = this._mapEmpty() ? MAP_EMPTY_HINT : "";
   }
 
@@ -645,7 +647,7 @@ class GlbLayerPanel {
     const move = (ev) => {
       const next = dragAnchor(anchor0, grab, this._pointerLatLng(ev));
       if (this._isFarFromCenter(next)) {
-        this.ui.hint.textContent = FAR_ANCHOR_HINT;
+        this.ui.hint.textContent = this._farAnchorHint();
         return;
       }
       this.anchor = next;
@@ -857,6 +859,7 @@ class GlbAlignment {
 
     this.sceneId = row.dataset.sceneId;
     this.maxUploadBytes = Number(row.dataset.maxUploadBytes) || 0;
+    this.maxAnchorKm = Number(row.dataset.maxAnchorKm) || 0;
     this.maxLayers = Number(row.dataset.maxLayers) || 1;
     this.mapReady = false;
     this._unwatchMap = null;

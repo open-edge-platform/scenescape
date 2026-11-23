@@ -28,6 +28,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 from django.contrib.auth.models import User
 from django.core.files import File
 from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
@@ -35,7 +36,7 @@ from django.urls import reverse
 from PIL import Image
 
 from manager import glb_staging, glb_state
-from manager.models import GlbLayer, Scene
+from manager.models import GlbLayer, Scene, glb_preview_name
 from scene_common.earth_lla import localFootprintCornersLLA
 
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / "mesh_util" / "test_data" / "scene.glb"
@@ -275,7 +276,7 @@ class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
       'heading_deg': 0.0,
       'footprint_m': {'width': 10.0, 'height': 10.0}
     })
-    self.preview_path = glb_staging.glb_preview_path(self.layer.file.path)
+    self.preview_path = glb_preview_name(self.layer.file.path)
     self.client.force_login(self.user)
 
   def _get(self):
@@ -304,6 +305,7 @@ class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
     self.assertTrue(os.path.exists(self.preview_path))
     self.assertTrue(response.json()['preview_url'].endswith(os.path.basename(self.preview_path)))
 
+  @pytest.mark.real_glb_render
   def test_real_render_writes_valid_preview_png(self):
     """Unapplying with the real renderer caches a non-empty PNG preview."""
     self._set_snapshot_map()

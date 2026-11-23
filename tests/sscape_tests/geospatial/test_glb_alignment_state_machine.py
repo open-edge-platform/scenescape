@@ -21,7 +21,7 @@ from django.test import TransactionTestCase, override_settings
 from PIL import Image
 
 from manager import glb_staging, glb_state
-from manager.models import GlbLayer, Scene, SceneSourceMap
+from manager.models import GlbLayer, Scene, SceneSourceMap, glb_preview_name
 from scene_common.earth_lla import localFootprintCornersLLA
 
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / "mesh_util" / "test_data" / "scene.glb"
@@ -117,7 +117,8 @@ class TestGlbStateMachine(_MediaRootTestCase):
 
   def _commit(self, scene, token, layer=None, enable=False):
     with patch.object(glb_state, '_get_aligned_footprint_size_m', return_value=(10.0, 10.0)):
-      return glb_state.commit_layer(scene, token, ANCHOR, layer=layer, enable=enable)
+      layer = glb_state.commit_layer(scene, token, ANCHOR, layer=layer, enable=enable)
+      return glb_state.write_response(layer)
 
   def test_apply_then_unapply_restores_state_and_leaves_only_expected_files(self):
     """Apply poses the GLB without the upload auto-align and keeps trs_matrix; unapply restores the snapshot."""
@@ -253,7 +254,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
 
     layer.refresh_from_db()
     self.assertEqual(layer.anchor['lat'], ANCHOR['lat'])
-    with open(glb_staging.glb_preview_path(layer.file.path), 'rb') as f:
+    with open(glb_preview_name(layer.file.path), 'rb') as f:
       self.assertEqual(f.read(), b'staged')
     self.assertTrue(result['preview_url'].endswith('_preview.png'))
     self.assertFalse(os.path.exists(staged_png))
@@ -367,7 +368,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
     """Positive: only write_response repairs a missing preview; the read path never writes."""
     scene = self._create_scene()
     layer = scene.glb_layers.get()
-    preview = glb_staging.glb_preview_path(layer.file.path)
+    preview = glb_preview_name(layer.file.path)
 
     self.assertIsNone(glb_state.saved_alignment(layer)['preview_url'])
     self.assertFalse(os.path.exists(preview))

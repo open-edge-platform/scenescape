@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from functools import partial
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -29,11 +30,11 @@ from scene_common.mesh_util import extractMeshFromGLB, getPosedMeshFootprint
 from . import glb_staging
 from .glb_bake import bake_layers
 from .glb_staging import (
-  GlbAlignmentError, adopt_staged_preview, ensure_glb_preview, glb_preview_path,
+  GlbAlignmentError, adopt_staged_preview, ensure_glb_preview,
   purge_stale_files, remove_staged_files, staged_glb_path
 )
 from .models import (
-  GlbLayer, Scene, _delete_unreferenced_mapping_file, glb_preview_name, remove_stored_file
+  GlbLayer, Scene, delete_unreferenced_mapping_file, glb_preview_name, remove_stored_file
 )
 
 # Scene-edit form fields written by apply, unapply and move.
@@ -207,7 +208,7 @@ def _delete_replaced_file_after_commit(scene, name):
   """
   if name:
     transaction.on_commit(partial(
-      _delete_unreferenced_mapping_file, scene.map.storage, name, scene._state.db or 'default'))
+      delete_unreferenced_mapping_file, scene.map.storage, name, scene._state.db or 'default'))
 
 
 def stored_file_names(scene, fields):
@@ -461,7 +462,8 @@ def commit_layer(scene, token, anchor, layer=None, enable=False, save=True, stor
   A new layer is placed when enable is set and the scene has a flat base map; otherwise it is
   stored disabled. An existing layer keeps its enabled state. Caller holds nothing; this locks.
   stored_names, when given, is the enclosing write's list of stored files: the new layer file is
-  added so that a later failure in that write discards it. Returns the saved_alignment dict of the layer.
+  added so that a later failure in that write discards it. Returns the layer; the caller builds the
+  response with write_response after its transaction, so the preview render stays out of the write.
   """
   if scene.use_glb_map:
     # Re-placing the GLB needs the flat base map; storing alone does not
@@ -507,12 +509,15 @@ def commit_layer(scene, token, anchor, layer=None, enable=False, save=True, stor
     transaction.on_commit(partial(remove_staged_files, token))
 
   purge_stale_files()
-  return write_response(layer)
+  return layer
 
 
 def get_layer(scene, layer_id):
-  """The stored layer of this scene with layer_id; 404 when it belongs to another scene."""
-  layer = scene.glb_layers.filter(pk=layer_id).first()
+  """The stored layer of this scene with layer_id; 404 when it is not a UUID or belongs to another scene."""
+  try:
+    layer = scene.glb_layers.filter(pk=layer_id).first()
+  except ValidationError:
+    layer = None
   if layer is None:
     raise GlbAlignmentError(404, 'No such GLB layer')
   return layer
@@ -593,7 +598,7 @@ def saved_alignment(layer):
   footprint_data = anchor_data.get('footprint_m', {})
 
   preview_url = None
-  if os.path.exists(glb_preview_path(layer.file.path)):
+  if os.path.exists(glb_preview_name(layer.file.path)):
     preview_url = layer.file.storage.url(glb_preview_name(layer.file.name))
 
   return {

@@ -4,7 +4,6 @@
 """Unit tests for the pure helpers exported by glb-alignment.js."""
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -28,7 +27,7 @@ def run_js_helpers(test_name, args):
   return json.loads(proc.stdout.strip())["result"]
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+@pytest.mark.usefixtures("node_runtime")
 class TestGlbAlignmentPureHelpers:
   """Test pure helper functions from glb-alignment.js."""
 

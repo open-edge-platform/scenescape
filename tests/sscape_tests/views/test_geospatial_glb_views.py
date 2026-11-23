@@ -23,7 +23,7 @@ import numpy as np
 
 from manager import glb_staging, glb_state
 from manager.forms import SceneUpdateForm
-from manager.models import GlbLayer, Scene, Region, RegionPoint, SingletonSensor
+from manager.models import GlbLayer, Scene, Region, RegionPoint, SingletonSensor, glb_preview_name
 from scene_common.earth_lla import localFootprintCornersLLA
 from scene_common.glb_top_view import getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB
@@ -498,6 +498,13 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
         resp = self._post_commit(scene_uid, token=self._stage_glb(), anchor=anchor)
         self.assertEqual(resp.status_code, status)
 
+  def test_commit_with_non_uuid_layer_id_is_not_found(self):
+    """A layer_id that is not a UUID returns 404 'No such GLB layer', not a server error."""
+    anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}
+    resp = self._post_commit(token=self._stage_glb(), anchor=anchor, layer_id='not-a-uuid')
+    self.assertEqual(resp.status_code, 404)
+    self.assertEqual(resp.json(), {'error': 'No such GLB layer'})
+
   def test_get_is_read_only_for_regular_users_and_closed_to_anonymous(self):
     """GET is allowed for a logged-in non-superuser (IsAdminOrReadOnly) and refused when anonymous."""
     self.client.force_login(User.objects.create_user('regular', 'reg@intel.com', 'pass'))
@@ -685,6 +692,33 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     """POST the scene update form with the stored scene values, then overrides."""
     return self.client.post(reverse('scene_update', args=[self.scene.id]), data=self._scene_form_data(**overrides))
 
+  def test_get_scene_update_does_not_render_glb_previews(self):
+    """Opening the scene update page renders no GLB previews."""
+    self._commit_glb()
+    self.render_mock.reset_mock()
+    with patch.object(glb_staging, 'generateOrthoView') as render:
+      resp = self.client.get(reverse('scene_update', args=[self.scene.id]))
+
+    self.assertEqual(resp.status_code, 200)
+    render.assert_not_called()
+    self.render_mock.assert_not_called()
+
+  def test_form_with_non_uuid_layer_id_shows_not_found(self):
+    """A glb_changes layer_id that is not a UUID is a form error, not a server error."""
+    resp = self._post_scene_form(glb_changes=json.dumps([{'layer_id': 'not-a-uuid', 'anchor': self.SHIFTED}]))
+
+    self.assertEqual(resp.status_code, 200)
+    self.assertIn('No such GLB layer', resp.context['form'].non_field_errors())
+
+  def test_form_rejects_string_enabled_flag(self):
+    """A string enabled flag in glb_changes is a form error and the layer is not enabled."""
+    self._commit_glb()
+    resp = self._post_scene_form(glb_changes=json.dumps([{'layer_id': str(self._layer().id), 'enabled': 'yes'}]))
+
+    self.assertEqual(resp.status_code, 200)
+    self.assertIn('enabled must be a boolean', resp.context['form'].non_field_errors())
+    self.assertFalse(self._layer().enabled)
+
   def test_form_persists_shifted_anchor_with_other_fields(self):
     """The shifted anchor is saved with the form's own fields, keeping the stored footprint."""
     self._commit_glb()
@@ -810,18 +844,18 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.assertContains(resp, 'name="glb_state_token"')
     self.assertEqual(resp.context['glb_state_token'], token)
 
-  def test_edit_page_repairs_a_missing_preview(self):
-    """A saved GLB without a cached preview gets one when the edit page loads."""
+  def test_edit_page_leaves_a_missing_preview_for_the_next_write(self):
+    """Loading the edit page never renders; a missing preview waits for the next write."""
     self._commit_glb()
-    preview = glb_staging.glb_preview_path(self._layer().file.path)
+    preview = glb_preview_name(self._layer().file.path)
     if os.path.exists(preview):
       os.remove(preview)
-    with patch.object(glb_staging, 'generateOrthoView',
-                      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0, [0.0, 0.0])):
+    with patch.object(glb_staging, 'generateOrthoView') as render:
       resp = self.client.get(reverse('scene_update', args=[self.scene.id]))
 
     self.assertEqual(resp.status_code, 200)
-    self.assertTrue(os.path.exists(preview))
+    render.assert_not_called()
+    self.assertFalse(os.path.exists(preview))
 
   def test_failure_between_glb_commit_and_form_save_rolls_back_everything(self):
     """A failure after the GLB commit and before the form save leaves the row, files and staged GLB as before."""

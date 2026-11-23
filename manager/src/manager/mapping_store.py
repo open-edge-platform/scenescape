@@ -32,7 +32,7 @@ from django.utils import timezone as dj_timezone
 
 from manager.models import (
   Scene, SceneMappingArtifact, SceneSourceMap, sendUpdateCommand,
-  _delete_unreferenced_mapping_file,
+  delete_unreferenced_mapping_file,
 )
 
 DIGEST_HEADER = "X-Scenescape-Sha256"
@@ -297,7 +297,7 @@ def _save_artifact(artifact, zip_path):
       artifact.save()
   except BaseException:
     if artifact.bundle:
-      _delete_unreferenced_mapping_file(
+      delete_unreferenced_mapping_file(
         artifact.bundle.storage, artifact.bundle.name, artifact._state.db or "default")
     raise
 
@@ -409,7 +409,7 @@ def update_active_source_map(scene):
     source_map.save(update_fields=["transform", "thumbnail"])
     if previous_thumbnail and previous_thumbnail != new_thumbnail:
       transaction.on_commit(partial(
-        _delete_unreferenced_mapping_file, source_map.thumbnail.storage, previous_thumbnail,
+        delete_unreferenced_mapping_file, source_map.thumbnail.storage, previous_thumbnail,
         locked_scene._state.db or "default"))
 
 
@@ -467,7 +467,7 @@ def _activate_locked(scene, source_map):
     SceneSourceMap.objects.filter(pk=source_map.pk).update(thumbnail=scene.thumbnail.name)
   if previous_thumbnail and previous_thumbnail != scene.thumbnail.name:
     transaction.on_commit(partial(
-      _delete_unreferenced_mapping_file, thumbnail_storage, previous_thumbnail,
+      delete_unreferenced_mapping_file, thumbnail_storage, previous_thumbnail,
       scene._state.db or "default"))
   transaction.on_commit(partial(sendUpdateCommand, scene_id=scene.pk))
 
