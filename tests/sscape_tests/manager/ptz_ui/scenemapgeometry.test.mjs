@@ -47,3 +47,13 @@ test("hybrid frame grows when the GLB extends past the plane", () => {
   assert.equal(frame.floorWidth, 14);
   assert.equal(frame.floorHeight, 8);
 });
+
+test("hybrid frame reports the union minimum and centre with negative coordinates", () => {
+  const frame = hybridFrameSize(box(-100, -4, 10, 6), box(0, 0, 10, 5));
+  assert.equal(frame.floorWidth, 110);
+  assert.equal(frame.floorHeight, 10);
+  assert.equal(frame.minX, -100);
+  assert.equal(frame.minY, -4);
+  assert.equal(frame.centerX, -45);
+  assert.equal(frame.centerY, 1);
+});

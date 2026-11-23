@@ -99,8 +99,8 @@ export default class Scene {
     }
   }
 
-  computePerspectiveCameraPose(floorWidth, floorHeight) {
-    const center = { x: floorWidth / 2, y: floorHeight / 2 };
+  computePerspectiveCameraPose(floorWidth, floorHeight, minX = 0, minY = 0) {
+    const center = { x: minX + floorWidth / 2, y: minY + floorHeight / 2 };
     let cameraZ =
       floorHeight /
       (2 * Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov / 2)));
@@ -244,12 +244,14 @@ export default class Scene {
       sceneBoundingBox.union(new THREE.Box3().setFromObject(floor));
       floor.visible = this.axesHelper["visible"] = this.initFloorPlaneVisible();
     }
-    const { floorWidth, floorHeight } = this.get3DFrameSize(glbBox);
+    const { floorWidth, floorHeight, minX, minY } = this.get3DFrameSize(glbBox);
     var { cameraZ, center } = this.computePerspectiveCameraPose(
       floorWidth,
       floorHeight,
+      minX,
+      minY,
     );
-    this.initializeScene(cameraZ, center, floorHeight, floorWidth);
+    this.initializeScene(cameraZ, center, floorHeight, floorWidth, minX, minY);
     loadThings();
   }
 
@@ -627,7 +629,14 @@ export default class Scene {
     }
   }
 
-  initializeScene(cameraZ, center, floorHeight, floorWidth) {
+  initializeScene(
+    cameraZ,
+    center,
+    floorHeight,
+    floorWidth,
+    minX = 0,
+    minY = 0,
+  ) {
     this.perspectiveCamera.position.set(center.x, center.y, cameraZ);
 
     // Calculate the delta between the canvas width and the floor width
@@ -639,7 +648,8 @@ export default class Scene {
       floorHeight * this.perspectiveCamera.aspect - delta;
     this.orthographicCamera.top = floorHeight;
     this.orthographicCamera.bottom = 0;
-    this.orthographicCamera.position.set(0, 0, cameraZ);
+    // Frustum bounds are camera-local, so the floor origin offsets the position only.
+    this.orthographicCamera.position.set(minX, minY, cameraZ);
     this.orthographicCamera.updateProjectionMatrix();
 
     // Directional scene lighting - matching Open3D sun light setup
@@ -849,12 +859,22 @@ export default class Scene {
     // Update the scale and position of the scene objects based on the new pixels per meter value
     if (this.sceneMesh) {
       const glbBox = new THREE.Box3().setFromObject(this.sceneMesh);
-      const { floorWidth, floorHeight } = this.get3DFrameSize(glbBox);
+      const { floorWidth, floorHeight, minX, minY } =
+        this.get3DFrameSize(glbBox);
       var { cameraZ, center } = this.computePerspectiveCameraPose(
         floorWidth,
         floorHeight,
+        minX,
+        minY,
       );
-      this.initializeScene(cameraZ, center, floorHeight, floorWidth);
+      this.initializeScene(
+        cameraZ,
+        center,
+        floorHeight,
+        floorWidth,
+        minX,
+        minY,
+      );
     } else {
       // Handle 2D map case
       let floorWidth =

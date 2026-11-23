@@ -34,8 +34,14 @@ export function unionBounds(a, b) {
 // lies in the XY plane, so the frame width runs along X and the height along Y.
 export function hybridFrameSize(glbBounds, planeBounds) {
   const union = unionBounds(glbBounds, planeBounds);
+  const floorWidth = union.max.x - union.min.x;
+  const floorHeight = union.max.y - union.min.y;
   return {
-    floorWidth: union.max.x - union.min.x,
-    floorHeight: union.max.y - union.min.y,
+    floorWidth,
+    floorHeight,
+    minX: union.min.x,
+    minY: union.min.y,
+    centerX: union.min.x + floorWidth / 2,
+    centerY: union.min.y + floorHeight / 2,
   };
 }

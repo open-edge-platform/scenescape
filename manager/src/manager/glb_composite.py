@@ -37,8 +37,10 @@ def compositeGlbOverBaseMap(base_rgb, glb_rgb, glb_mask, glb_ppm, base_scale, of
   @return out                (H, W, 3) uint8 composite; base pixels stay where the GLB is not drawn.
   """
   height, width = base_rgb.shape[:2]
-  glb_rgb, glb_mask = _resizeToScale(glb_rgb, glb_mask, base_scale / glb_ppm)
-  glb_h, glb_w = glb_rgb.shape[:2]
+  src_h, src_w = glb_rgb.shape[:2]
+  factor = base_scale / glb_ppm
+  glb_h = max(1, round(src_h * factor))
+  glb_w = max(1, round(src_w * factor))
   left = int(round(offset_m[0] * base_scale))
   # Image rows grow downwards, the frame's y grows upwards.
   top = height - int(round(offset_m[1] * base_scale)) - glb_h
@@ -48,21 +50,21 @@ def compositeGlbOverBaseMap(base_rgb, glb_rgb, glb_mask, glb_ppm, base_scale, of
   x1, y1 = min(width, left + glb_w), min(height, top + glb_h)
   if x0 >= x1 or y0 >= y1:
     return out
-  src_rgb = glb_rgb[y0 - top:y1 - top, x0 - left:x1 - left]
-  src_mask = glb_mask[y0 - top:y1 - top, x0 - left:x1 - left]
+  # Only the visible part is resampled, so memory follows the base image, not the footprint.
+  sx, sy = src_w / glb_w, src_h / glb_h
+  box = ((x0 - left) * sx, (y0 - top) * sy, (x1 - left) * sx, (y1 - top) * sy)
+  cx0, cy0 = int(np.floor(box[0])), int(np.floor(box[1]))
+  cx1, cy1 = min(src_w, int(np.ceil(box[2]))), min(src_h, int(np.ceil(box[3])))
+  rel_box = (box[0] - cx0, box[1] - cy0, min(box[2], cx1) - cx0, min(box[3], cy1) - cy0)
+  size = (x1 - x0, y1 - y0)
+  rgb = Image.fromarray(np.uint8(glb_rgb[cy0:cy1, cx0:cx1])).resize(
+    size, Image.Resampling.BILINEAR, box=rel_box)
+  mask = Image.fromarray(glb_mask[cy0:cy1, cx0:cx1].astype(np.uint8) * 255).resize(
+    size, Image.Resampling.NEAREST, box=rel_box)
+  src_mask = np.asarray(mask) > 0
   region = out[y0:y1, x0:x1]
-  region[src_mask] = src_rgb[src_mask]
+  region[src_mask] = np.asarray(rgb)[src_mask]
   return out
-
-
-def _resizeToScale(glb_rgb, glb_mask, factor):
-  """! Resize the GLB image and its mask by factor; the mask uses nearest neighbour."""
-  new_h = max(1, round(glb_rgb.shape[0] * factor))
-  new_w = max(1, round(glb_rgb.shape[1] * factor))
-  rgb = Image.fromarray(np.uint8(glb_rgb)).resize((new_w, new_h), Image.Resampling.BILINEAR)
-  mask = Image.fromarray(glb_mask.astype(np.uint8) * 255).resize(
-    (new_w, new_h), Image.Resampling.NEAREST)
-  return np.asarray(rgb), np.asarray(mask) > 0
 
 
 def hybridThumbnail(scene):

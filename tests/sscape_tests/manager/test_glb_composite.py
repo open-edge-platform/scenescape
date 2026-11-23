@@ -121,3 +121,79 @@ def test_hybrid_thumbnail_is_drawn_at_the_base_scale(tmp_path):
   assert scale == 12.0
   assert img.shape == (20, 30, 3)
   assert np.any(np.all(img == RED, axis=2))
+
+
+def _spyResize():
+  sizes = []
+  real = Image.Image.resize
+
+  def spy(self, size, *args, **kwargs):
+    sizes.append(size)
+    return real(self, size, *args, **kwargs)
+  return sizes, patch.object(Image.Image, 'resize', spy)
+
+
+def _oldComposite(base, glb, mask, glb_ppm, base_scale, offset_m):
+  """Reference: resize the whole GLB first, then clip (the previous behaviour)."""
+  factor = base_scale / glb_ppm
+  h, w = max(1, round(glb.shape[0] * factor)), max(1, round(glb.shape[1] * factor))
+  rgb = np.asarray(Image.fromarray(glb).resize((w, h), Image.Resampling.BILINEAR))
+  msk = np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).resize(
+    (w, h), Image.Resampling.NEAREST)) > 0
+  left = int(round(offset_m[0] * base_scale))
+  top = base.shape[0] - int(round(offset_m[1] * base_scale)) - h
+  out = base.copy()
+  x0, y0 = max(0, left), max(0, top)
+  x1, y1 = min(base.shape[1], left + w), min(base.shape[0], top + h)
+  if x0 < x1 and y0 < y1:
+    m = msk[y0 - top:y1 - top, x0 - left:x1 - left]
+    out[y0:y1, x0:x1][m] = rgb[y0 - top:y1 - top, x0 - left:x1 - left][m]
+  return out
+
+
+def test_off_map_glb_with_huge_factor_is_not_resized():
+  """Edge: a 1 km footprint far off the map returns the base without any resize."""
+  base = _base(10, 10)
+  sizes, spy = _spyResize()
+  with spy:
+    out = compositeGlbOverBaseMap(base, _glb(10, 10), np.ones((10, 10), dtype=bool),
+                                  0.001, 100.0, [1e6, 0.0])
+  assert np.array_equal(out, base)
+  assert sizes == []
+
+
+def test_huge_footprint_resamples_only_the_visible_overlap():
+  """Edge: the GLB would scale to 100000 px but only base-sized images are resampled."""
+  glb = _glb(10, 10)
+  glb[:, 5:] = [0, 0, 255]
+  mask = np.ones((10, 10), dtype=bool)
+  sizes, spy = _spyResize()
+  with spy:
+    # factor 10000: GLB is 100000 px wide, base-left edge lies 400 m (src col 4) into it
+    out = compositeGlbOverBaseMap(_base(10, 10), glb, mask, 0.01, 100.0, [-400.0, -999.0])
+    blue = compositeGlbOverBaseMap(_base(10, 10), glb, mask, 0.01, 100.0, [-500.0, -999.0])
+  assert out.shape == (10, 10, 3)
+  assert np.all(out == RED)
+  assert np.all(blue == [0, 0, 255])
+  assert sizes and all(w <= 10 and h <= 10 for w, h in sizes)
+
+
+@pytest.mark.parametrize("offset", [[-2.0, 1.0], [3.0, 1.0], [0.0, -2.0], [0.0, 3.0], [0.0, 0.0]])
+def test_partial_overlap_and_exact_fit(offset):
+  """Edge: left, right, bottom, top overhang and an exact fit match the pre-crop result."""
+  base = _base(5, 5)
+  glb = np.random.default_rng(0).integers(0, 255, (4, 4, 3), dtype=np.uint8)
+  mask = np.random.default_rng(1).random((4, 4)) > 0.3
+  out = compositeGlbOverBaseMap(base, glb, mask, 1.0, 1.0, offset)
+  expected = _oldComposite(base, glb, mask, 1.0, 1.0, offset)
+  assert np.array_equal(out, expected)
+
+
+@pytest.mark.parametrize("ppm,scale", [(1.0, 2.0), (3.0, 1.0), (2.0, 3.0)])
+def test_fully_inside_matches_previous_output(ppm, scale):
+  """Positive: a GLB fully inside the base is identical to the whole-image resize."""
+  base = _base(40, 40)
+  glb = np.random.default_rng(2).integers(0, 255, (9, 7, 3), dtype=np.uint8)
+  mask = np.ones((9, 7), dtype=bool)
+  out = compositeGlbOverBaseMap(base, glb, mask, ppm, scale, [2.0, 3.0])
+  assert np.array_equal(out, _oldComposite(base, glb, mask, ppm, scale, [2.0, 3.0]))
