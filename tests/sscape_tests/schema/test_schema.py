@@ -40,6 +40,22 @@ def test_validate2DDetectionMessage(schemaObject, data, expected, format, reques
   assert result == expected
   return
 
+@pytest.mark.parametrize(("path", "value"), [
+  (("rate",), -1000),
+  (("objects", "person", 0, "confidence"), 5.0),
+  (("objects", "person", 0, "bounding_box", "x"), 259),
+  (("objects", "person", 0, "bounding_box", "y"), -1),
+  (("objects", "person", 0, "bounding_box", "width"), 101),
+  (("objects", "person", 0, "bounding_box", "height"), 240),
+])
+def test_validateDetectorRejectsOutOfRangeValues(schemaObject, objData, path, value):
+  target = objData
+  for key in path[:-1]:
+    target = target[key]
+  target[path[-1]] = value
+
+  assert not schemaObject.validateMessage("detector", objData)
+
 @pytest.mark.parametrize("data, expected, format", [("objData3D", True, False),
                                             ("objData3D", False, False),
                                             ("objData3D", True, True)])
