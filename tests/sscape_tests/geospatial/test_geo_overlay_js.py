@@ -158,6 +158,13 @@ class TestMapbox:
     assert "glb-overlay" not in res["layers"]
     assert "glb-overlay" not in res["sources"]
 
+  def test_frame_uses_the_frame_line_width(self):
+    """The applied-layer frame is a line at the frame width, wide enough to see on the map."""
+    corners = [{"lat": 10, "lng": 20}, {"lat": 10, "lng": 30}, {"lat": 20, "lng": 30}, {"lat": 20, "lng": 20}]
+    res = run_js("mapbox", [["setOverlay", "test.jpg", corners, 0.5], ["setOverlayFrameColor", "#00aa00"]])
+    assert res["ok"]
+    assert res["frameWidth"] == 5
+
   def test_remove_twice_safe(self):
     """removeOverlay twice is safe."""
     res = run_js("mapbox", [["removeOverlay"]])

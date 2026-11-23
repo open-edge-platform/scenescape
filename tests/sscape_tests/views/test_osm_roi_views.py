@@ -9,6 +9,7 @@ import json
 import os
 from unittest.mock import patch, MagicMock
 
+import numpy as np
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
@@ -16,7 +17,7 @@ from django.contrib.auth.models import User
 from manager.models import Scene, Region, RegionPoint
 from manager.osm_query import API_KEY_ENV_VAR
 from manager.osm_roi import STANDARD_LANE_WIDTH_M
-from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
+from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA
 
 
 # Map corner coordinates (LLA) reused from functional tests
@@ -327,6 +328,40 @@ class TestOsmRoiPreviews(TestCase):
     self.assertIn("Select a smaller area", error)
     self.assertNotIn("5000", error)
     self.assertNotIn("Unable to fetch OSM data", error)
+
+  def test_preview_selection_queries_only_selected_area(self):
+    """A small selection must succeed even when the whole scene exceeds the feature cap."""
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
+
+    from manager.osm_query import FeatureLimitError
+
+    lats = [c[0] for c in MAP_CORNERS_LLA]
+    lngs = [c[1] for c in MAP_CORNERS_LLA]
+    whole_scene_bbox = (min(lats), min(lngs), max(lats), max(lngs))
+    trs = np.asarray(self.scene.trs_matrix, dtype=float)
+    fake_way = {
+      "type": "residential",
+      "coords": [convertXYZToLLA(trs, np.array([x, 5.0, 0.0]))[:2] for x in (2.0, 8.0)],
+      "tags": {"highway": "residential", "lanes": "2"},
+    }
+
+    def fake_query(south, west, north, east, clip=True):
+      if (south, west, north, east) == whole_scene_bbox:
+        raise FeatureLimitError("Query returned 614 ways, exceeding limit of 200.")
+      return [fake_way]
+
+    selection = {"minX": 0, "minY": 0, "maxX": 10, "maxY": 10}
+    with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", side_effect=fake_query) as mock_query:
+      response = _post_previews(self.client, self.scene.id, {"bounds": selection})
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(len(json.loads(response.content)["rois"]), 1)
+    args, kwargs = mock_query.call_args
+    self.assertEqual(kwargs, {"clip": False})
+    south, west, north, east = args
+    self.assertLess(north - south, whole_scene_bbox[2] - whole_scene_bbox[0])
+    self.scene.refresh_from_db()
+    self.assertIsNone(self.scene.osm_ways_cache)  # partial selection result must not be cached
 
   def test_preview_rejects_invalid_scene_uuid(self):
     """Test that preview endpoint returns 404 for invalid/non-existent scene UUID."""

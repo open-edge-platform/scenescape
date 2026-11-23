@@ -221,14 +221,18 @@ SPDX-License-Identifier: Apache-2.0
           <div class="col-sm-10">
             <small id="glbAlignHint" class="form-text text-muted"></small>
             <div id="glbPanels">
-              <div id="glbLayerPanel" class="glb-layer-panel">
+              <div
+                id="glbLayerPanel"
+                class="glb-layer-panel mb-3 p-3 border rounded bg-light"
+              >
                 <div class="d-flex align-items-center">
+                  <span
+                    id="glbLayerBadge"
+                    class="glb-layer-badge mr-2"
+                    role="img"
+                    style="display:none;"
+                  ></span>
                   <div id="glbFileWrap" class="glb-file-picker">
-                    <span
-                      id="glbLayerBadge"
-                      class="glb-layer-badge mr-2"
-                      style="display:none;"
-                    ></span>
                     <input
                       type="file"
                       id="glbFileInput"
@@ -266,11 +270,15 @@ SPDX-License-Identifier: Apache-2.0
                 <div
                   id="glbSavedBlock"
                   style="display:none;"
-                  class="mt-3 p-3 border rounded bg-light"
+                  class="mt-3"
                 >
                   <div class="mb-2">
                     <strong>Saved 3D model:</strong>
                     <span id="glbSavedFilename"></span>
+                    <small
+                      id="glbLayerId"
+                      class="text-monospace text-muted ml-2"
+                    ></small>
                   </div>
                   <div class="mb-2">
                     <a
@@ -313,7 +321,7 @@ SPDX-License-Identifier: Apache-2.0
             </div>
             <button
               type="button"
-              class="btn btn-sm btn-outline-secondary mt-2"
+              class="btn btn-sm btn-outline-dark mt-2"
               id="glbAddLayer"
               style="display:none;"
             >
@@ -321,14 +329,15 @@ SPDX-License-Identifier: Apache-2.0
             </button>
             <!-- Markup of one extra GLB layer panel; the script clones it and suffixes the ids. -->
             <template id="glbPanelTemplate">
-              <div class="glb-layer-panel">
+              <div class="glb-layer-panel mb-3 p-3 border rounded bg-light">
                 <div class="d-flex align-items-center">
+                  <span
+                    id="glbLayerBadge"
+                    class="glb-layer-badge mr-2"
+                    role="img"
+                    style="display:none;"
+                  ></span>
                   <div id="glbFileWrap" class="glb-file-picker">
-                    <span
-                      id="glbLayerBadge"
-                      class="glb-layer-badge mr-2"
-                      style="display:none;"
-                    ></span>
                     <input
                       type="file"
                       id="glbFileInput"
@@ -366,11 +375,15 @@ SPDX-License-Identifier: Apache-2.0
                 <div
                   id="glbSavedBlock"
                   style="display:none;"
-                  class="mt-3 p-3 border rounded bg-light"
+                  class="mt-3"
                 >
                   <div class="mb-2">
                     <strong>Saved 3D model:</strong>
                     <span id="glbSavedFilename"></span>
+                    <small
+                      id="glbLayerId"
+                      class="text-monospace text-muted ml-2"
+                    ></small>
                   </div>
                   <div class="mb-2">
                     <a

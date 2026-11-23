@@ -5,6 +5,9 @@
 
 "use strict";
 
+// Outline width in px; matches the Mapbox frame width.
+const GOOGLE_FRAME_OUTLINE_PX = 5;
+
 // Google Maps Plugin Implementation
 class GoogleMapsPlugin extends MapInterface {
   constructor() {
@@ -381,7 +384,9 @@ class GoogleMapsPlugin extends MapInterface {
       setFrameColor(color) {
         this.frameColor = color;
         if (this.img) {
-          this.img.style.outline = color ? `3px dashed ${color}` : "";
+          this.img.style.outline = color
+            ? `${GOOGLE_FRAME_OUTLINE_PX}px dashed ${color}`
+            : "";
         }
       }
 

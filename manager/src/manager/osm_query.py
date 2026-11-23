@@ -291,7 +291,7 @@ def _fetch_ways(url: str, body: dict, headers: dict, max_features: int) -> List[
 
 def query_osm_ways_geometry(
   south: float, west: float, north: float, east: float,
-  endpoint: str = DEFAULT_ENDPOINT,
+  endpoint: str = DEFAULT_ENDPOINT, clip: bool = True,
 ) -> List[Dict[str, Any]]:
   """Query ohsome for road/footway ways in a bbox and return geometry.
 
@@ -310,7 +310,7 @@ def query_osm_ways_geometry(
   endpoint = validate_endpoint(endpoint)
   api_key = get_api_key()
   aoi = bbox.as_aoi()
-  body = {"aoi": aoi, "filter": ROAD_FILTER, "time": "latest", "clip": True}
+  body = {"aoi": aoi, "filter": ROAD_FILTER, "time": "latest", "clip": clip}
   headers = {"Authorization": f"Bearer {api_key}", "User-Agent": USER_AGENT}
   url = endpoint + EXTRACTION_PATH
   max_features = get_max_roi_features()

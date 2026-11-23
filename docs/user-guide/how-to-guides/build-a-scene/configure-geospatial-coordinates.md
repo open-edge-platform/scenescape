@@ -169,7 +169,9 @@ To replace a saved 3D model:
 A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The stock compose file sets it to `100` (`${GLB_MAX_LAYERS:-100}`), so the demo allows multiple layers. Set `GLB_MAX_LAYERS=1` in the environment to get the single-model behaviour described above. The add-layer control in the 3D model section appears only when the limit is above `1`.
 
 - Each layer has its own file, anchor and heading, and applied state.
-- Layers are numbered 1, 2, and so on in draw order, and the order cannot be changed. Each layer's panel shows its number as **Model N**. When the scene has two or more layers, the number is also shown in a badge at the NW corner of the layer's footprint on the scene map. A single layer is not numbered. Numbers follow the saved draw order, so removing a layer renumbers the layers after it.
+- Layers are numbered 1, 2, and so on in draw order, and the order cannot be changed. When the scene has two or more layers, each layer's panel shows its number as a badge at the top-left corner of the panel. The number is also shown in a badge at the NW corner of the layer's footprint on the scene map. A single layer is not numbered. Numbers follow the saved draw order, so removing a layer renumbers the layers after it.
+- A saved layer's panel shows the first 8 characters of its ID after the file name. Hover over the ID to see the full ID.
+- The frame of each layer on the scene map is 5 px wide. Its colour shows whether the layer is applied (green) or not (red).
 - A new layer is placed on the scene map only when it is enabled and the scene has a flat base map image. Otherwise it is stored disabled. The enabled layers are combined into the scene map.
 - Replacing the file of an existing layer does not count toward the limit. Adding a layer to a scene that already holds `GLB_MAX_LAYERS` layers is rejected with `409`.
 - Removing a layer deletes its file and preview. If it was enabled, the scene map is rebuilt without it.

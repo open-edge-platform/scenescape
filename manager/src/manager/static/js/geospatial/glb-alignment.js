@@ -183,6 +183,7 @@ class GlbLayerPanel {
       cancel: el("glbCancel"),
       savedBlock: el("glbSavedBlock"),
       savedFilename: el("glbSavedFilename"),
+      layerId: el("glbLayerId"),
       downloadLink: el("glbDownloadLink"),
       removeBtn: el("glbRemoveBtn"),
       useCheckbox: el("glbUse"),
@@ -264,6 +265,8 @@ class GlbLayerPanel {
   _renderSavedBlock() {
     if (!this.ui.savedBlock || !this.saved) return;
     this.ui.savedFilename.textContent = this.saved.filename || "3D model";
+    this.ui.layerId.textContent = `ID: ${this.saved.id.slice(0, 8)}`;
+    this.ui.layerId.title = this.saved.id;
     this.ui.downloadLink.href = this.saved.download_url;
     if (this.ui.useCheckbox) {
       this.ui.useCheckbox.checked = this.saved.enabled || false;
@@ -359,14 +362,17 @@ class GlbLayerPanel {
     }
   }
 
-  // Set by the controller: "Model N" beside the picker when two or more layers are filled.
+  // Set by the controller: the panel's number at its top-left when two or more layers are filled.
   _renderLayerBadge(filled) {
     const index = filled.indexOf(this);
     this.layerNumber = filled.length > 1 && index >= 0 ? index + 1 : null;
+    const label = this.layerNumber ? `Model ${this.layerNumber}` : "";
     this.ui.layerBadge.textContent = this.layerNumber
-      ? `Model ${this.layerNumber}`
+      ? String(this.layerNumber)
       : "";
+    this.ui.layerBadge.setAttribute("aria-label", label);
     this.ui.layerBadge.style.display = this.layerNumber ? "" : "none";
+    this.root.classList.toggle("glb-layer-panel--numbered", !!this.layerNumber);
     this._syncMapBadge();
   }
 
@@ -822,6 +828,8 @@ class GlbLayerPanel {
 
       this._applyServerState(response);
       this.saved = null;
+      this.ui.layerId.textContent = "";
+      this.ui.layerId.title = "";
       this.anchor = null;
       this.dirty = false;
       this._updateControlsVisibility();

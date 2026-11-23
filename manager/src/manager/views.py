@@ -1152,7 +1152,7 @@ class OsmRoiPreviews(APIView):
                    'Click "Generate Geospatial Bounds & Snapshot" in scene editor first.'
         }, status=400)
 
-      previews = osm_roi.build_roi_previews(scene)
+      previews = osm_roi.build_roi_previews(scene, bounds)
       if bounds is not None:
         previews = osm_roi.filter_by_bounds(previews, bounds)
 

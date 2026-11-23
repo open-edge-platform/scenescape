@@ -581,7 +581,11 @@ const scenarios = {
       panelState: ctl.panels.map((p) => ({
         status: p.ui.fileStatus.textContent,
         badge: p.ui.layerBadge.textContent,
+        badgeLabel: p.ui.layerBadge.attrs["aria-label"] ?? null,
         badgeDisplay: p.ui.layerBadge.style.display,
+        numbered: p.root.classList.contains("glb-layer-panel--numbered"),
+        layerId: p.ui.layerId.textContent,
+        layerIdTitle: p.ui.layerId.title ?? "",
         // The NW corner is where the map badge goes; corners are ordered SW, SE, NE, NW.
         nwPoint:
           p.anchor && p._corners().length ? mapPoint(p._corners()[3]) : null,

@@ -347,6 +347,8 @@ const scenarios = {
         );
       else if (op === "updateOverlay") plugin.updateOverlay(step[1]);
       else if (op === "setOverlayOpacity") plugin.setOverlayOpacity(step[1]);
+      else if (op === "setOverlayFrameColor")
+        plugin.setOverlayFrameColor(step[1]);
       else if (op === "removeOverlay")
         plugin.removeOverlay(step[1] ?? "glb-overlay");
     }
@@ -356,6 +358,7 @@ const scenarios = {
       sources: Object.keys(sources),
       layers: Object.keys(layers),
       opacity: layers["glb-overlay"]?.paint["raster-opacity"] ?? null,
+      frameWidth: layers["glb-overlay-frame"]?.paint["line-width"] ?? null,
     };
   },
 

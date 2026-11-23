@@ -123,7 +123,7 @@
   margin-left: 0.5rem;
 }
 
-/* Layer number: beside the picker in the panel, and on the map at a footprint corner. */
+/* Layer number: before the panel's file picker, and on the map at a footprint corner. */
 .glb-layer-badge {
   display: inline-flex;
   align-items: center;

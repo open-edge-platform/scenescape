@@ -1031,19 +1031,37 @@ class TestLayerLabels:
     res = _align(_STAGED, [["upload"], ["cancelClick"]])
     assert res["panelState"][0]["status"] == "No file selected"
 
+  def test_saved_layer_shows_its_short_id_with_the_full_id_on_hover(self):
+    """A saved layer shows the first 8 characters of its id; the full id is in the title."""
+    full_id = "3f2a9c1e-7b4d-4e8a-9c1f-0a1b2c3d4e5f"
+    res = _align([_layers_get(_layer(full_id, 0), max_layers=1)], [])
+    panel = res["panelState"][0]
+    assert panel["layerId"] == "ID: 3f2a9c1e"
+    assert panel["layerIdTitle"] == full_id
+
+  def test_staged_layer_has_no_id(self):
+    """A staged file has no server id yet, so the id line stays empty."""
+    res = _align(_STAGED, [["upload"]])
+    panel = res["panelState"][0]
+    assert panel["layerId"] == ""
+    assert panel["layerIdTitle"] == ""
+
   def test_single_layer_is_not_numbered(self):
     """With one layer there is no number on the panel or on the map."""
     res = _align([_layers_get(_layer("layer-1", 0), max_layers=1)], [])
     panel = res["panelState"][0]
     assert panel["badge"] == ""
     assert panel["badgeDisplay"] == "none"
+    assert not panel["numbered"]
     assert panel["mapBadge"] is None
 
   def test_two_layers_are_numbered_in_draw_order(self):
     """Each layer shows its position in draw order on its panel and as a map badge at its NW corner."""
     res = _align([_two_saved_layers()], [])
     first, second = res["panelState"]
-    assert (first["badge"], second["badge"]) == ("Model 1", "Model 2")
+    assert (first["badge"], second["badge"]) == ("1", "2")
+    assert (first["badgeLabel"], second["badgeLabel"]) == ("Model 1", "Model 2")
+    assert first["numbered"] and second["numbered"]
     assert first["badgeDisplay"] == "" and second["badgeDisplay"] == ""
     assert (first["mapBadge"]["text"], second["mapBadge"]["text"]) == ("1", "2")
     assert second["mapBadge"]["label"] == "Model 2"
@@ -1075,7 +1093,8 @@ class TestLayerLabels:
     res = _align([_two_saved_layers()], [["mapType", "image_map"]])
     first, second = res["panelState"]
     assert second["mapBadge"]["display"] == "none"
-    assert second["badge"] == "Model 2"
+    assert second["badge"] == "2"
+    assert second["badgeLabel"] == "Model 2"
 
   def test_removing_a_layer_leaves_the_other_unnumbered(self):
     """Removing the first layer leaves one layer, which is no longer numbered."""
@@ -1083,6 +1102,8 @@ class TestLayerLabels:
     first, second = res["panelState"]
     assert res["status"] == "3D model removed"
     assert (first["badge"], second["badge"]) == ("", "")
+    assert not first["numbered"]
+    assert first["layerId"] == "" and first["layerIdTitle"] == ""
     assert second["mapBadge"]["display"] == "none"
 
   def test_staged_layer_gets_the_next_number(self):
@@ -1092,8 +1113,9 @@ class TestLayerLabels:
       [["addPanel"], ["stagePanel", 1, "b.glb"]],
     )
     saved, staged = res["panelState"]
-    assert saved["badge"] == "Model 1"
-    assert staged["badge"] == "Model 2"
+    assert saved["badge"] == "1"
+    assert staged["badge"] == "2"
+    assert staged["badgeLabel"] == "Model 2"
     assert staged["status"] == "b.glb (not saved yet)"
     assert staged["mapBadge"]["text"] == "2"
 

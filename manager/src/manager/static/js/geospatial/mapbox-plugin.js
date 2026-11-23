@@ -5,6 +5,9 @@
 
 "use strict";
 
+// Frame width in px; the dash pattern scales with it.
+const MAPBOX_FRAME_LINE_WIDTH_PX = 5;
+
 // Mapbox Plugin Implementation
 class MapboxPlugin extends MapInterface {
   constructor() {
@@ -368,7 +371,7 @@ class MapboxPlugin extends MapInterface {
       source: frameId,
       paint: {
         "line-color": color,
-        "line-width": 3,
+        "line-width": MAPBOX_FRAME_LINE_WIDTH_PX,
         "line-dasharray": [2, 2],
       },
     });
