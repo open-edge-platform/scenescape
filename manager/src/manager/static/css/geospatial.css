@@ -94,6 +94,61 @@
   box-shadow: 0 0 0 3px var(--primary, #007bff);
 }
 
+/* The file input stays focusable but is hidden; the label beside it is the visible control. */
+.glb-file-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.glb-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.glb-file-input:focus-visible + label {
+  box-shadow: 0 0 0 3px var(--primary, #007bff);
+}
+
+.glb-file-input:disabled + label {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.glb-file-status {
+  margin-left: 0.5rem;
+}
+
+/* Layer number: beside the picker in the panel, and on the map at a footprint corner. */
+.glb-layer-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  height: 1.6em;
+  padding: 0 0.4em;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 0.8em;
+  background: #212529;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.glb-map-badge {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
 #map[style*="display: none"] {
   height: 0;
   margin: 0;

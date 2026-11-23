@@ -194,7 +194,9 @@ class TestGlbAlignment:
     res = _align([_NO_SAVED, _preview_resp("tok1")], [["upload"], ["submit"]])
     (submit,) = res["submits"]
     assert submit["prevented"] is False
-    assert res["glbChanges"] == [{"token": "tok1", "anchor": {"lat": 37, "lng": -122, "heading_deg": 0}}]
+    assert res["glbChanges"] == [
+      {"token": "tok1", "anchor": {"lat": 37, "lng": -122, "heading_deg": 0}, "enabled": True}
+    ]
     assert [f["method"] for f in res["fetches"]] == ["GET", "POST"]
 
   def test_upload_without_map_location_is_refused(self):
@@ -995,6 +997,113 @@ class TestMultipleLayers:
       [["markDirty", 1], ["submit"]],
     )
     assert res["panelDirty"] == [False, False]
+
+
+def _two_saved_layers():
+  """Two saved layers; the second footprint sits about 1 km north, so the two map badges are apart."""
+  return _layers_get(
+    _layer("layer-1", 0),
+    _layer("layer-2", 1, {"lat": 37.009, "lng": -122, "heading_deg": 0}),
+  )
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
+class TestLayerLabels:
+  """The picker status line, and layer numbers on the panel and at the NW corner on the map."""
+
+  def test_status_says_no_file_selected_when_empty(self):
+    """A panel with no file says so in place of the native "No file chosen" text."""
+    res = _align([_NO_SAVED], [])
+    assert res["panelState"][0]["status"] == "No file selected"
+
+  def test_status_names_the_staged_file(self):
+    """A staged file is named in the status line until it is saved or cancelled."""
+    res = _align(_STAGED, [["upload"]])
+    assert res["panelState"][0]["status"] == "a.glb (not saved yet)"
+
+  def test_status_is_empty_for_a_saved_layer(self):
+    """A saved layer's name is already in the saved block, so the status line is empty."""
+    res = _align([_layers_get(_layer("layer-1", 0), max_layers=1)], [])
+    assert res["panelState"][0]["status"] == ""
+
+  def test_cancel_returns_status_to_no_file_selected(self):
+    """Cancelling a staged file removes its name from the status line."""
+    res = _align(_STAGED, [["upload"], ["cancelClick"]])
+    assert res["panelState"][0]["status"] == "No file selected"
+
+  def test_single_layer_is_not_numbered(self):
+    """With one layer there is no number on the panel or on the map."""
+    res = _align([_layers_get(_layer("layer-1", 0), max_layers=1)], [])
+    panel = res["panelState"][0]
+    assert panel["badge"] == ""
+    assert panel["badgeDisplay"] == "none"
+    assert panel["mapBadge"] is None
+
+  def test_two_layers_are_numbered_in_draw_order(self):
+    """Each layer shows its position in draw order on its panel and as a map badge at its NW corner."""
+    res = _align([_two_saved_layers()], [])
+    first, second = res["panelState"]
+    assert (first["badge"], second["badge"]) == ("Model 1", "Model 2")
+    assert first["badgeDisplay"] == "" and second["badgeDisplay"] == ""
+    assert (first["mapBadge"]["text"], second["mapBadge"]["text"]) == ("1", "2")
+    assert second["mapBadge"]["label"] == "Model 2"
+    assert second["mapBadge"]["display"] == ""
+    assert second["mapBadge"]["attached"] is True
+
+  def test_map_badge_is_at_the_footprint_nw_corner(self):
+    """The map badge is placed on the NW corner (corner index 3) of each layer's footprint."""
+    res = _align([_two_saved_layers()], [])
+    for panel in res["panelState"]:
+      assert panel["mapBadge"]["left"] == panel["nwPoint"]["left"]
+      assert panel["mapBadge"]["top"] == panel["nwPoint"]["top"]
+
+  def test_map_badge_follows_the_view(self):
+    """Panning or zooming the map moves the map badge with the NW corner."""
+    before = _align([_two_saved_layers()], [], geomapReady=True)
+    after = _align(
+      [_two_saved_layers()],
+      [["view", {"scale": 2, "dx": 10, "dy": 5}]],
+      geomapReady=True,
+    )
+    for old, new in zip(before["panelState"], after["panelState"]):
+      assert new["mapBadge"]["left"] == new["nwPoint"]["left"]
+      assert new["mapBadge"]["top"] == new["nwPoint"]["top"]
+      assert new["mapBadge"]["left"] != old["mapBadge"]["left"]
+
+  def test_map_badge_hidden_when_map_is_not_geospatial(self):
+    """Off a geospatial map the map badge is hidden; the layer number on the panel still applies."""
+    res = _align([_two_saved_layers()], [["mapType", "image_map"]])
+    first, second = res["panelState"]
+    assert second["mapBadge"]["display"] == "none"
+    assert second["badge"] == "Model 2"
+
+  def test_removing_a_layer_leaves_the_other_unnumbered(self):
+    """Removing the first layer leaves one layer, which is no longer numbered."""
+    res = _align([_two_saved_layers(), {"status": 200, "body": {}}], [["remove"]])
+    first, second = res["panelState"]
+    assert res["status"] == "3D model removed"
+    assert (first["badge"], second["badge"]) == ("", "")
+    assert second["mapBadge"]["display"] == "none"
+
+  def test_staged_layer_gets_the_next_number(self):
+    """A layer staged after a saved one is Model 2 while staged, and its status names the file."""
+    res = _align(
+      [_layers_get(_layer("layer-1", 0), max_layers=2), _preview_resp("tok2")],
+      [["addPanel"], ["stagePanel", 1, "b.glb"]],
+    )
+    saved, staged = res["panelState"]
+    assert saved["badge"] == "Model 1"
+    assert staged["badge"] == "Model 2"
+    assert staged["status"] == "b.glb (not saved yet)"
+    assert staged["mapBadge"]["text"] == "2"
+
+
+def test_file_picker_hides_native_input_behind_a_label():
+  """Both panel markups show the file picker as a label, so the native "No file chosen" text never shows."""
+  html = _SCENE_UPDATE_TEMPLATE.read_text()
+  assert html.count('id="glbFileLabel"') == 2
+  assert html.count('class="glb-file-input"') == 2
+  assert html.count('id="glbFileInput"') == 2
 
   def test_topmost_hit_is_the_later_overlapping_panel(self):
     """Layers draw in panel order, so where footprints overlap the later layer is hit."""

@@ -909,6 +909,53 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     self.assertIn('footprint_m', self._anchor())
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
 
+  def test_new_staged_layer_posted_enabled_is_applied_on_save(self):
+    """A new layer posted as enabled is applied to the flat base map in the same save."""
+    changes = json.dumps([{'token': self._stage_glb(), 'anchor': self.SHIFTED, 'enabled': True}])
+
+    with self.captureOnCommitCallbacks(execute=True):
+      resp = self._post_scene_form(name='geo_renamed', glb_changes=changes)
+
+    self.assertEqual(resp.status_code, 302)
+    self.scene.refresh_from_db()
+    self.assertTrue(self._layer().enabled)
+    self.assertTrue(self.scene.use_glb_map)
+
+  @override_settings(GLB_MAX_LAYERS=3)
+  def test_form_saves_two_enabled_layers_together(self):
+    """Two enabled layers moved in one form save bake onto the flat base map and the save succeeds."""
+    self._commit_glb()
+    self._commit_glb()
+    layers = list(self.scene.glb_layers.order_by('order'))
+    for layer in layers:
+      with self.captureOnCommitCallbacks(execute=True):
+        resp = self.client.put(
+          reverse('geospatial_glb_layer', kwargs={'scene_uid': self.scene.id, 'layer_id': str(layer.id)}),
+          data=json.dumps({'enabled': True}), content_type='application/json'
+        )
+      self.assertEqual(resp.status_code, 200)
+    changes = json.dumps([{'layer_id': str(layer.id), 'anchor': self.SHIFTED} for layer in layers])
+
+    with self.captureOnCommitCallbacks(execute=True):
+      resp = self._post_scene_form(name='geo_renamed', glb_changes=changes)
+
+    self.assertEqual(resp.status_code, 302)
+    self.scene.refresh_from_db()
+    self.assertTrue(self.scene.use_glb_map)
+    self.assertEqual([layer.enabled for layer in self.scene.glb_layers.order_by('order')], [True, True])
+
+  @override_settings(GLB_MAX_LAYERS=2)
+  def test_form_refuses_a_third_staged_layer_over_the_limit(self):
+    """Negative: a third staged layer in the form is refused with 409 and no row is added."""
+    self._commit_glb()
+    self._commit_glb()
+    changes = json.dumps([{'token': self._stage_glb(), 'anchor': self.SHIFTED, 'enabled': True}])
+
+    resp = self._post_scene_form(name='geo_renamed', glb_changes=changes)
+
+    self.assertEqual(resp.status_code, 409)
+    self.assertEqual(self.scene.glb_layers.count(), 2)
+
   def test_staged_glb_with_unknown_token_is_rejected(self):
     """A staged token with no file is refused and nothing is saved."""
     changes = json.dumps([{'token': str(uuid.uuid4()), 'anchor': self.SHIFTED}])
@@ -1102,5 +1149,3 @@ class TestScenePagesMapImage(TestCase):
   def test_unapplied_page_keeps_the_image_origin(self):
     scene = self._scene_with_map("pages_scene.png")
     self.assertEqual(self._map_origin(scene), [0.0, 0.0])
-
-

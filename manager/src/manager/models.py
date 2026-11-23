@@ -46,6 +46,17 @@ from scene_common import log
 # FIXME - when entire app has transitioned to using APIs
 # move this definition to views.py
 def sendUpdateCommand(scene_id=None, camera_data=None, camera_config_update=None):
+  """Notify other services of a committed change.
+
+  Runs in transaction.on_commit, so the data is already saved; a failure here is
+  logged instead of raised, otherwise the request returns HTTP 500 for a saved change.
+  """
+  try:
+    _publishUpdateCommand(scene_id=scene_id, camera_data=camera_data, camera_config_update=camera_config_update)
+  except Exception as e:  # MQTT/TLS/HTTP errors vary; none may fail a committed save
+    log.error("Unable to send update command after commit: %s", e)
+
+def _publishUpdateCommand(scene_id=None, camera_data=None, camera_config_update=None):
   broker = os.environ.get("BROKER")
   auth = os.environ.get("BROKERAUTH")
   rootcert = os.environ.get("BROKERROOTCERT")

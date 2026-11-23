@@ -511,6 +511,10 @@ const scenarios = {
           fakeEls["id_map_type"].fire("change", {});
         } else if (step[0] === "addPanel") {
           ctl._addPanel();
+        } else if (step[0] === "stagePanel") {
+          await ctl.panels[step[1]]._handleFileUpload({
+            target: { files: [{ name: step[2] }], value: "" },
+          });
         } else if (step[0] === "markDirty") {
           ctl.panels[step[1]].dirty = true;
         } else if (step[0] === "submit") {
@@ -528,6 +532,10 @@ const scenarios = {
       }
     }
 
+    const mapPoint = (c) => {
+      const pt = strategy.latLngToPoint(c.lat, c.lng);
+      return { left: `${pt.x}px`, top: `${pt.y}px` };
+    };
     return {
       ok: true,
       fetches,
@@ -570,6 +578,22 @@ const scenarios = {
         .filter((c) => c.name === "glb_changes")
         .flatMap((c) => JSON.parse(c.value)),
       panelCount: ctl.panels.length,
+      panelState: ctl.panels.map((p) => ({
+        status: p.ui.fileStatus.textContent,
+        badge: p.ui.layerBadge.textContent,
+        badgeDisplay: p.ui.layerBadge.style.display,
+        // The NW corner is where the map badge goes; corners are ordered SW, SE, NE, NW.
+        nwPoint:
+          p.anchor && p._corners().length ? mapPoint(p._corners()[3]) : null,
+        mapBadge: p.mapBadge && {
+          text: p.mapBadge.textContent,
+          label: p.mapBadge.attrs["aria-label"] ?? null,
+          display: p.mapBadge.style.display,
+          left: p.mapBadge.style.left,
+          top: p.mapBadge.style.top,
+          attached: p.mapBadge.parentNode === fakeEls["map"],
+        },
+      })),
       panelDirty: ctl.panels.map((p) => p.dirty),
       addDisplay: fakeEls["glbAddLayer"]?.style?.display ?? null,
       addDisabled: fakeEls["glbAddLayer"]?.disabled ?? null,

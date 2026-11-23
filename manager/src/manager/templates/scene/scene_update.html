@@ -223,13 +223,28 @@ SPDX-License-Identifier: Apache-2.0
             <div id="glbPanels">
               <div id="glbLayerPanel" class="glb-layer-panel">
                 <div class="d-flex align-items-center">
-                  <div id="glbFileWrap">
+                  <div id="glbFileWrap" class="glb-file-picker">
+                    <span
+                      id="glbLayerBadge"
+                      class="glb-layer-badge mr-2"
+                      style="display:none;"
+                    ></span>
                     <input
                       type="file"
                       id="glbFileInput"
-                      class="form-control-file"
+                      class="glb-file-input"
                       accept=".glb"
                     />
+                    <label
+                      id="glbFileLabel"
+                      for="glbFileInput"
+                      class="btn btn-sm btn-outline-secondary mb-0"
+                      >Choose File</label
+                    >
+                    <span
+                      id="glbFileStatus"
+                      class="glb-file-status text-muted"
+                    ></span>
                   </div>
                   <button
                     type="button"
@@ -308,13 +323,28 @@ SPDX-License-Identifier: Apache-2.0
             <template id="glbPanelTemplate">
               <div class="glb-layer-panel">
                 <div class="d-flex align-items-center">
-                  <div id="glbFileWrap">
+                  <div id="glbFileWrap" class="glb-file-picker">
+                    <span
+                      id="glbLayerBadge"
+                      class="glb-layer-badge mr-2"
+                      style="display:none;"
+                    ></span>
                     <input
                       type="file"
                       id="glbFileInput"
-                      class="form-control-file"
+                      class="glb-file-input"
                       accept=".glb"
                     />
+                    <label
+                      id="glbFileLabel"
+                      for="glbFileInput"
+                      class="btn btn-sm btn-outline-secondary mb-0"
+                      >Choose File</label
+                    >
+                    <span
+                      id="glbFileStatus"
+                      class="glb-file-status text-muted"
+                    ></span>
                   </div>
                   <button
                     type="button"

@@ -125,7 +125,7 @@ When a model is shown on the scene map, Scenescape keeps the scene's flat map im
 
 1. Click the **Edit** button on the scene.
 1. Scroll to the **3D model (GLB)** section.
-1. Click **Browse** and select a `.glb` file to upload. If a model is already staged or saved, you are first asked to confirm replacing it; declining keeps the current model, and a saved model stays in place until you save the new one.
+1. Click **Choose File** and select a `.glb` file to upload. The name of the staged file appears beside the button, or **No file selected** when none is chosen. If a model is already staged or saved, you are first asked to confirm replacing it; declining keeps the current model, and a saved model stays in place until you save the new one.
 1. Once the preview appears, set the 3D model's rotation (degrees clockwise from north) by dragging the knob of the rotation dial at the center of the preview. The dial appears when you hover over the preview (or tap it, or focus the knob with the keyboard) and while you rotate; it is hidden while you press or drag the preview, and it never grows beyond 75% of the preview's size when you zoom out. Dragging snaps lightly to 0, 90, 180 and 270 degrees (within 5 degrees); hold **Shift** while dragging to turn snapping off and rotate at a quarter of the speed for fine adjustment. With the knob focused, the arrow keys change the heading by 1 degree (15 with **Shift**). The preview is semi-transparent, so the map beneath stays visible while you match colors and boundaries. The map view does not move when the model is uploaded; pan or zoom the map to find the preview if it sits outside the current view.
 1. Drag the model's preview on the map to reposition it as needed.
 1. Press and hold the model, or drag it, to make it transparent so the map underneath shows through; it returns to its normal opacity when you release.
@@ -169,7 +169,7 @@ To replace a saved 3D model:
 A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The stock compose file sets it to `100` (`${GLB_MAX_LAYERS:-100}`), so the demo allows multiple layers. Set `GLB_MAX_LAYERS=1` in the environment to get the single-model behaviour described above. The add-layer control in the 3D model section appears only when the limit is above `1`.
 
 - Each layer has its own file, anchor and heading, and applied state.
-- Layers are numbered in upload order. Layers are drawn in that order, and the order cannot be changed.
+- Layers are numbered 1, 2, and so on in draw order, and the order cannot be changed. Each layer's panel shows its number as **Model N**. When the scene has two or more layers, the number is also shown in a badge at the NW corner of the layer's footprint on the scene map. A single layer is not numbered. Numbers follow the saved draw order, so removing a layer renumbers the layers after it.
 - A new layer is placed on the scene map only when it is enabled and the scene has a flat base map image. Otherwise it is stored disabled. The enabled layers are combined into the scene map.
 - Replacing the file of an existing layer does not count toward the limit. Adding a layer to a scene that already holds `GLB_MAX_LAYERS` layers is rejected with `409`.
 - Removing a layer deletes its file and preview. If it was enabled, the scene map is rebuilt without it.

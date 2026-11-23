@@ -163,6 +163,8 @@ class GlbLayerPanel {
     this._isMoving = false;
     this.uploading = false;
     this.saving = false;
+    this.layerNumber = null;
+    this.mapBadge = null;
 
     // Panel ids carry the suffix; layer 0 has none, so its ids match the single-layer page.
     const el = (id) => byId(`${id}${suffix}`);
@@ -174,6 +176,8 @@ class GlbLayerPanel {
       mapCenterLng: controller.ui.mapCenterLng,
       file: el("glbFileInput"),
       fileWrap: el("glbFileWrap"),
+      fileStatus: el("glbFileStatus"),
+      layerBadge: el("glbLayerBadge"),
       footprint: el("glbFootprint"),
       status: el("glbAlignStatus"),
       cancel: el("glbCancel"),
@@ -194,6 +198,7 @@ class GlbLayerPanel {
     if (this.ui.removeBtn) on(this.ui.removeBtn, "click", () => this._remove());
     if (this.ui.useCheckbox)
       on(this.ui.useCheckbox, "change", () => this._toggleUse());
+    this._renderFileStatus();
   }
 
   _strategy() {
@@ -280,6 +285,8 @@ class GlbLayerPanel {
 
   // Cancel and the footprint belong to a staged GLB; Save position to a moved saved GLB.
   _updateControlsVisibility() {
+    this._renderFileStatus();
+    this.controller._refreshLayerBadges();
     this._syncDial();
     const footprint = this.staged?.footprint;
     this.ui.footprint.textContent = footprint
@@ -342,7 +349,69 @@ class GlbLayerPanel {
     return this.dial;
   }
 
+  // The picker is visually hidden, so this line names the staged file. A saved file's name is
+  // already in the saved block, so nothing is repeated here.
+  _renderFileStatus() {
+    if (this.staged) {
+      this.ui.fileStatus.textContent = `${this.staged.filename} (not saved yet)`;
+    } else {
+      this.ui.fileStatus.textContent = this.saved ? "" : "No file selected";
+    }
+  }
+
+  // Set by the controller: "Model N" beside the picker when two or more layers are filled.
+  _renderLayerBadge(filled) {
+    const index = filled.indexOf(this);
+    this.layerNumber = filled.length > 1 && index >= 0 ? index + 1 : null;
+    this.ui.layerBadge.textContent = this.layerNumber
+      ? `Model ${this.layerNumber}`
+      : "";
+    this.ui.layerBadge.style.display = this.layerNumber ? "" : "none";
+    this._syncMapBadge();
+  }
+
+  // Map badge at the footprint's NW corner, clear of the rotation dial at the centre.
+  _syncMapBadge() {
+    let point = null;
+    if (
+      this.layerNumber &&
+      this.anchor &&
+      this.ui.mapType.value === "geospatial_map"
+    ) {
+      try {
+        const corner = this._corners()[3];
+        if (corner)
+          point = this._strategy().latLngToPoint(corner.lat, corner.lng);
+      } catch {
+        // The map projection is not ready; a later map view change redraws the badge.
+      }
+    }
+    if (!point) {
+      if (this.mapBadge) this.mapBadge.style.display = "none";
+      return;
+    }
+    const badge = this._ensureMapBadge();
+    badge.textContent = String(this.layerNumber);
+    badge.setAttribute("aria-label", `Model ${this.layerNumber}`);
+    badge.style.left = `${point.x}px`;
+    badge.style.top = `${point.y}px`;
+    badge.style.display = "";
+  }
+
+  _ensureMapBadge() {
+    if (!this.mapBadge) {
+      this.mapBadge = document.createElement("div");
+      this.mapBadge.className = "glb-layer-badge glb-map-badge";
+      this.mapBadge.setAttribute("role", "img");
+    }
+    // Switching map provider empties the map container, which detaches the badge.
+    if (this.mapBadge.parentNode !== this.ui.map)
+      this.ui.map.appendChild(this.mapBadge);
+    return this.mapBadge;
+  }
+
   _syncDial() {
+    this._syncMapBadge();
     let layout = null;
     if (this._dialWanted()) {
       try {
@@ -503,6 +572,7 @@ class GlbLayerPanel {
         imageUrl: data.preview_url,
         footprint: data.footprint_m,
         anchor: { ...startAnchor },
+        filename: file.name,
       };
 
       this.anchor = { ...startAnchor };
@@ -684,10 +754,15 @@ class GlbLayerPanel {
 
   // The change Save Scene Updates posts for this layer, or null when nothing changed.
   // A staged file replaces the layer's file (or adds a layer); a moved saved layer only moves.
+  // A new layer is applied on save (enabled), as the server places it only over a flat base map.
   pendingChange() {
     if (!this.anchor) return null;
     if (this.staged) {
-      const change = { token: this.staged.token, anchor: this.anchor };
+      const change = {
+        token: this.staged.token,
+        anchor: this.anchor,
+        enabled: true,
+      };
       if (this.saved)
         Object.assign(change, {
           layer_id: this.saved.id,
@@ -901,7 +976,15 @@ class GlbAlignment {
     if (panel === this.panels[0]) return;
     this.panels = this.panels.filter((p) => p !== panel);
     panel.root.remove();
+    panel.mapBadge?.remove();
+    this._refreshLayerBadges();
     this._renderAddButton();
+  }
+
+  // Numbers follow panel order, which is the saved draw order; a lone layer is not numbered.
+  _refreshLayerBadges() {
+    const filled = this.panels.filter((p) => p.saved || p.staged);
+    for (const p of this.panels) p._renderLayerBadge(filled);
   }
 
   _pointerLatLng(e) {
