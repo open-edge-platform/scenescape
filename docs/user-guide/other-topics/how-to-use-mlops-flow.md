@@ -47,9 +47,11 @@ Export the variables before `make deploy`; Docker Compose passes them to the
 
 ## Create Scenescape pipelines
 
-In ViPPET, create a pipeline from `Scenescape` template for each camera you want to use with Scenescape. Select an appropriate model, and optionally add tags for easier pipelines filtering. Then, in the Pipeline Builder,
+In ViPPET, create a pipeline from `Scenescape` template for each camera you want to use with Scenescape. Select an appropriate model, and optionally add tags for easier pipelines filtering.
+Then, in the Pipeline Builder,
 select `Input` element and set `Source Type` to `Camera`, `Source` to `Custom RTSP URL...` and enter the RTSP URL of the camera, for example `rtsp://mediaserver:8554/queuing-cam1`
 In the `Scenescape Publisher` element, set the `Camera ID` to the camera ID you want to use in Scenescape, for example `atag-qcam1`. Camera URL has to be reachable from both ViPPET and Scenescape containers.
+If you previously set model that outputs multiple object classes, set the appropriate detection labels (e.g. `person`) you want to track in Scenescape.
 
 ViPPET documentation on creating and editing pipelines can be found at [ViPPET User Guide](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-libraries/visual-pipeline-and-platform-evaluation-tool/user-guide/pipeline-management.html).
 

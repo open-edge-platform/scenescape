@@ -106,8 +106,8 @@ The defaults can be changed with these variables:
    object detection model that detects people, for example **YOLO 11n 640x640**.
 2. Create a new pipeline from `Scenescape` templates for the first camera. Add `Scenescape` tag to it.
 3. In the Pipeline Builder, in the `Input` element, set `Source Type` to `Camera`, `Source` to `Custom RTSP URL...` and enter `rtsp://mediaserver:8554/queuing-cam1`.
-4. In the Pipeline Builder, in the `Scenescape Publisher` element, set `Camera ID` to `atag-qcam1`.
-5. Repeat all steps for the second camera with `queuing-cam2` and `cameraid=atag-qcam2`,
+4. In the Pipeline Builder, in the `Scenescape Publisher` element, set `Camera ID` to `atag-qcam1`, and type `person` in the `Detection labels` field.
+6. Repeat all steps for the second camera with `queuing-cam2` and `cameraid=atag-qcam2`,
    saved as `Queuing qcam2` with the same tag.
 
 The pipelines consume the RTSP streams directly from the demo media server.

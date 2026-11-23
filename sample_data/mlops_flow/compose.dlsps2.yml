@@ -26,7 +26,7 @@ secrets:
 
 services:
   dlstreamer-pipeline-server:
-    image: ${DLSPS2_IMAGE:-intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-2.0-rc1}
+    image: ${DLSPS2_IMAGE:-intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-2.0-rc2}
     hostname: dlstreamer-pipeline-server
     container_name: dlsps2-pipeline-server
     security_opt:
