@@ -104,16 +104,10 @@ The defaults can be changed with these variables:
 
 1. Open the ViPPET UI (`http://<host>/`). On the **Models** page, install an
    object detection model that detects people, for example **YOLO 11n 640x640**.
-2. Create a new pipeline and open **Import pipeline > Import GST Description**.
-   Paste the description for the first camera:
-
-   ```text
-   rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model="" device=CPU ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher cameraid=atag-qcam1 detection-labels=person ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true
-   ```
-
-3. Select the installed model in the `gvadetect` node, add the tag `Scenescape`
-   and save the pipeline as `Queuing qcam1`.
-4. Repeat for the second camera with `queuing-cam2` and `cameraid=atag-qcam2`,
+2. Create a new pipeline from `Scenescape` templates for the first camera. Add `Scenescape` tag to it.
+3. In the Pipeline Builder, in the `Input` element, set `Source Type` to `Camera`, `Source` to `Custom RTSP URL...` and enter `rtsp://mediaserver:8554/queuing-cam1`.
+4. In the Pipeline Builder, in the `Scenescape Publisher` element, set `Camera ID` to `atag-qcam1`.
+5. Repeat all steps for the second camera with `queuing-cam2` and `cameraid=atag-qcam2`,
    saved as `Queuing qcam2` with the same tag.
 
 The pipelines consume the RTSP streams directly from the demo media server.
