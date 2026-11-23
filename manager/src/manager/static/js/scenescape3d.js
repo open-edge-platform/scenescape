@@ -17,10 +17,7 @@ import { SetupInteractions } from "/static/js/interactions.js";
 import Scene from "/static/js/thing/scene.js";
 import { Draw } from "/static/js/draw.js";
 import Toast from "/static/js/toast.js";
-import {
-  getCalibrationServiceStatus,
-  registerScene,
-} from "/static/js/calibration.js";
+import { registerSceneFor3DView } from "/static/js/calibration.js";
 
 import {
   initializeOpencv,
@@ -277,6 +274,10 @@ function main() {
   const sceneBoundingBox = new THREE.Box3();
 
   let assetManager, client;
+  let resolveMqttConnected;
+  const mqttConnected = new Promise((resolve) => {
+    resolveMqttConnected = resolve;
+  });
   let isVARunning = false;
   async function loadThings() {
     let things = Object.keys(sceneThingManagers["things"]);
@@ -304,6 +305,7 @@ function main() {
     }
 
     connectMQTT();
+    autoCalibrationSetup(sceneThingManagers.things.camera.obj, mqttConnected);
 
     refreshGlobalCameraPanelControls();
 
@@ -443,8 +445,7 @@ function main() {
             cameraManager.sceneCameras[key].setMQTTClient(client, appName);
           }
         }
-
-        autoCalibrationSetup();
+        resolveMqttConnected();
       });
     }
 
@@ -543,28 +544,23 @@ function main() {
     }
   }
 
-  async function autoCalibrationSetup() {
+  function autoCalibrationSetup(cameraManager, mqttReady) {
+    if (!isStaff) return;
     if (document.getElementById("camera_calib_strategy").value == "Manual") {
       for (const key in cameraManager.sceneCameras) {
         if (key !== "undefined") {
           cameraManager.sceneCameras[key].hideAutoCalibrateButton();
         }
       }
-    } else {
-      const response = await getCalibrationServiceStatus();
-      if (response.status === "running") {
-        const responseRegister = await registerScene(sceneID);
-        if (responseRegister.status === "success") {
-          for (const key in cameraManager.sceneCameras) {
-            if (key !== "undefined") {
-              if (isStaff) {
-                cameraManager.sceneCameras[key].enableAutoCalibration(true);
-              }
-            }
-          }
-        }
-      }
+      return;
     }
+
+    registerSceneFor3DView(
+      sceneID,
+      cameraManager.sceneCameras,
+      toast,
+      mqttReady,
+    );
   }
 
   function handleMQTTMessage(topic, data) {

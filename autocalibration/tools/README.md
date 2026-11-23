@@ -38,14 +38,16 @@ python perceptual_sensor_cli.py --help
 4. Run localization:
 
 ```bash
-python perceptual_sensor_cli.py localize --sensor-id 0 --scene-id <scene UUID> --pointcloud lidar_input.pcd --auth ../../manager/secrets/calibration.auth
+python perceptual_sensor_cli.py localize --sensor-id 0 --scene-id <scene UUID> --pointcloud lidar_input.pcd --auth ../../manager/secrets/calibration.auth --cacert ../../manager/secrets/certs/scenescape-ca.pem --url https://web.scenescape.intel.com/api/v1/autocalibration
 ```
 
 5. Check result:
 
 ```bash
-python perceptual_sensor_cli.py status --sensor-id 0 --auth ../../manager/secrets/calibration.auth
+python perceptual_sensor_cli.py status --sensor-id 0 --auth ../../manager/secrets/calibration.auth --cacert ../../manager/secrets/certs/scenescape-ca.pem --url https://web.scenescape.intel.com/api/v1/autocalibration
 ```
+
+TLS certificate verification is enabled by default. The demo deployment uses a private CA, so pass its certificate with `--cacert`, and use a `--url` hostname that matches the generated certificate (`web.scenescape.intel.com`, which must resolve to the host running the demo, e.g. via `/etc/hosts`). `--insecure` disables verification and should only be used as an explicit opt-out for local development.
 
 The resulting transform should be the inverse of the initial transform (some negligible estimation errors are expected):
 
