@@ -39,10 +39,7 @@ def fetch_dlstreamer_assets(deploy_dir: Path) -> None:
     "sscape_3d_detector.py",
     "sscape_gst_log.py",
   )
-  if (
-    (dl_dir / "model-proc-files" / "person-detection-retail-0013.json").is_file()
-    and all((gstplugins / name).is_file() for name in required_plugins)
-  ):
+  if all((gstplugins / name).is_file() for name in required_plugins):
     return
 
   tmp = deploy_dir / "_scenescape-tmp"

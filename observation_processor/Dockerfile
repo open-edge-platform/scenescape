@@ -48,6 +48,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # ca-certificates: Manager REST over TLS; libgl1 + libgomp1: open3d runtime;
 # libtbb12: frustum-gaussian C++ kernel
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         libgl1 \
