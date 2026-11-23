@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+#include <functional>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -19,8 +21,8 @@ namespace {
 using rv::tracking::TrackedObject;
 namespace idx = rv::tracking::test::idx;
 
-constexpr int kStateSize = 12;
-constexpr int kMeasurementSize = 7;
+constexpr int kStateSize = TrackedObject::StateSize;
+constexpr int kMeasurementSize = TrackedObject::MeasurementSize;
 constexpr double kDeltaT = 0.1;
 
 // Same UKF parameters as MultiModelKalmanEstimator.
@@ -44,6 +46,7 @@ cv::Mat cvTransition(double deltaT)
   cv::Mat transition = cv::Mat::eye(kStateSize, kStateSize, CV_64F);
   transition.at<double>(idx::X, idx::Vx) = deltaT;
   transition.at<double>(idx::Y, idx::Vy) = deltaT;
+  transition.at<double>(idx::Z, idx::Vz) = deltaT;
   transition.at<double>(idx::Ax, idx::Ax) = 0.0;
   transition.at<double>(idx::Ay, idx::Ay) = 0.0;
   transition.at<double>(idx::YawRate, idx::YawRate) = 0.0;
@@ -86,7 +89,7 @@ TEST(UnscentedKalmanFilterTest, LinearModelMatchesExactKalmanFilter)
   start.width = 1.8;
   start.height = 1.5;
   cv::Mat errorCov = cv::Mat::diag(
-    (cv::Mat_<double>(kStateSize, 1) << 0.2, 0.2, 0.05, 0.05, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.05, 0.01));
+    (cv::Mat_<double>(kStateSize, 1) << 0.2, 0.2, 0.05, 0.05, 0.1, 0.1, 0.2, 0.05, 0.2, 0.2, 0.2, 0.05, 0.01));
   const cv::Mat processNoise = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 1e-3;
   const double measurementNoise = 0.2;
   auto filter = makeCvFilter(start.stateVector(), errorCov, processNoise, measurementNoise);
@@ -187,6 +190,66 @@ TEST(UnscentedKalmanFilterTest, SelectRowsAndBlockShareContiguousData)
     {
       EXPECT_DOUBLE_EQ(gappedBlock.at<double>(i, j), matrix.at<double>(gapped[i], gapped[j]));
     }
+  }
+}
+
+// Bug: after correct(z, rows, R), the overloads without R and the base-class correct(z) reused that R until the next
+// predict; only correct(z, rows, noArray()) restored the default (Copilot review of #2129).
+TEST(UnscentedKalmanFilterTest, CorrectWithoutNoiseAfterCorrectWithNoiseUsesDefaultR)
+{
+  using Filter = cv::detail::tracking::UnscentedKalmanFilterMod;
+  constexpr double kDefaultNoise = 0.2;
+  const cv::Mat identity = cv::Mat::eye(kStateSize, kStateSize, CV_64F);
+  const cv::Mat sharpNoise = cv::Mat::eye(kMeasurementSize, kMeasurementSize, CV_64F) * 1e-4;
+  const cv::Mat defaultNoise = cv::Mat::eye(kMeasurementSize, kMeasurementSize, CV_64F) * kDefaultNoise;
+  const std::vector<int> allRows{0, 1, 2, 3, 4, 5, 6};
+  const std::vector<int> withoutYaw{0, 1, 2, 3, 4, 5};
+
+  TrackedObject start;
+  start.length = start.width = start.height = 1.0;
+  TrackedObject first = start;
+  first.x = 1.0;
+  TrackedObject second = start;
+  second.y = 1.0;
+  const cv::Mat firstMeasurement(first.measurementVector());
+  const cv::Mat secondMeasurement(second.measurementVector());
+
+  // Two corrections without a predict between them; the first carries its own R.
+  auto correctTwice = [&](const std::function<void(Filter &)> &secondCorrect) {
+    auto filter = makeCvFilter(start.stateVector(), identity, identity * 1e-3, kDefaultNoise);
+    filter->predict(cv::Mat(1, 1, CV_64F, cv::Scalar(kDeltaT)));
+    filter->correct(firstMeasurement, allRows, sharpNoise);
+    secondCorrect(*filter);
+    return std::make_pair(filter->getState(), filter->getErrorCov());
+  };
+
+  struct Case
+  {
+    std::string name;
+    const std::vector<int> &rows;
+    std::function<void(Filter &)> secondCorrect;
+  };
+  const std::vector<Case> cases{
+    {"correct(z)", allRows, [&](Filter &filter) { filter.correct(secondMeasurement); }},
+    {"base correct(z)",
+     allRows,
+     [&](Filter &filter) {
+       static_cast<cv::detail::tracking::UnscentedKalmanFilter &>(filter).correct(secondMeasurement);
+     }},
+    {"correct(z, rows)", withoutYaw, [&](Filter &filter) { filter.correct(secondMeasurement, withoutYaw); }},
+    {"correct(z, rows, noArray())",
+     withoutYaw,
+     [&](Filter &filter) { filter.correct(secondMeasurement, withoutYaw, cv::noArray()); }},
+  };
+
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    const auto expected
+      = correctTwice([&](Filter &filter) { filter.correct(secondMeasurement, testCase.rows, defaultNoise); });
+    const auto actual = correctTwice(testCase.secondCorrect);
+    EXPECT_LT(cv::norm(actual.first, expected.first, cv::NORM_INF), 1e-12);
+    EXPECT_LT(cv::norm(actual.second, expected.second, cv::NORM_INF), 1e-12);
   }
 }
 

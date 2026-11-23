@@ -12,6 +12,7 @@
 #include <rv/tracking/TrackTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/PositionGate.hpp>
 #include <rv/Utils.hpp>
 #include <rv/tracking/CameraUtils.hpp>
 #include <chrono>
@@ -77,6 +78,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("x", &rv::tracking::TrackedObject::x, "Position 'x' in meters.")
     .def_readwrite("y", &rv::tracking::TrackedObject::y, "Position 'y' in meters.")
     .def_readwrite("z", &rv::tracking::TrackedObject::z, "Position 'z' in meters.")
+    .def_readwrite("z_measured", &rv::tracking::TrackedObject::z_measured,
+     "True when Z came from a measured 3D pose (translation), not ground-plane projection.")
     .def_readwrite("length", &rv::tracking::TrackedObject::length, "Object's length in meters.")
     .def_readwrite("width", &rv::tracking::TrackedObject::width, "Object's width in meters.")
     .def_readwrite("height", &rv::tracking::TrackedObject::height, "Object's height in meters.")
@@ -84,11 +87,13 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("w", &rv::tracking::TrackedObject::w, "Turn rate about Z axis in radians/s.")
     .def_readwrite("vx", &rv::tracking::TrackedObject::vx, "Velocity component 'x' (forward) in m/s.")
     .def_readwrite("vy", &rv::tracking::TrackedObject::vy, "Velocity component 'y' (left) in m/s.")
+    .def_readwrite("vz", &rv::tracking::TrackedObject::vz, "Velocity component 'z' (up) in m/s.")
     .def_readwrite("ax", &rv::tracking::TrackedObject::ax, "Acceleration component 'x' (forward) in m/s^2.")
     .def_readwrite("ay", &rv::tracking::TrackedObject::ay, "Acceleration component 'y' (left) in m/s^2.")
     .def_readwrite("corrected", &rv::tracking::TrackedObject::corrected, "Returns True if the TrackedObject was the result of a correction step.")
     .def_readwrite("id", &rv::tracking::TrackedObject::id, "Object's identification number.")
-    .def("isDynamic", &rv::tracking::TrackedObject::isDynamic, "Returns True if the TrackedObject is considered to be moving.")
+    .def("isDynamic", &rv::tracking::TrackedObject::isDynamic,
+         "True when speed squared exceeds 1 m^2/s^2 (vz only when z_measured; affects coast aging).")
     .def_readwrite("classification", &rv::tracking::TrackedObject::classification, "Returns a numpy array with classification probabilities.")
     .def_readwrite("attributes", &rv::tracking::TrackedObject::attributes, "Dictionary of attributes. Note: only string types are supported.")
     .def_property("vector",
@@ -107,6 +112,34 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
                   [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.errorCovariance); },
                   [](rv::tracking::TrackedObject &object, const cv::Mat &covariance) { object.errorCovariance = covariance; },
                   "Copy of the error covariance matrix, convert to numpy using np.array(tracked_object.error_covariance).")
+    .def_property(
+      "measurement_noise_covariance",
+      [](const rv::tracking::TrackedObject &self) -> py::object {
+        if (!self.measurementNoiseCov)
+        {
+          return py::none();
+        }
+        const int n = rv::tracking::TrackedObject::MeasurementSize;
+        return py::array_t<double>({n, n}, self.measurementNoiseCov->val);
+      },
+      [](rv::tracking::TrackedObject &self, py::object value) {
+        if (value.is_none())
+        {
+          self.measurementNoiseCov.reset();
+          return;
+        }
+        const int n = rv::tracking::TrackedObject::MeasurementSize;
+        auto array = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(value);
+        if (!array || array.ndim() != 2 || array.shape(0) != n || array.shape(1) != n)
+        {
+          throw std::invalid_argument("measurement_noise_covariance must be a 7x7 float64 matrix or None");
+        }
+        self.measurementNoiseCov
+          = rv::tracking::validatedMeasurementNoiseCov(rv::tracking::TrackedObject::MeasurementMatrix(array.data()));
+      },
+      "Per-detection measurement noise R (7x7, [x, y, z, length, width, height, yaw]); None uses the "
+      "tracker default R. Drives multi-camera fusion weights, the association gate (S = H P H^T + R) "
+      "and the Kalman update.")
     .def("__repr__", &rv::tracking::TrackedObject::toString, "String representation.");
 
 
@@ -184,13 +217,15 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
      "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
-     "Standard euclidean distance that considers x and y coordinates.")
+     "Euclidean distance on x and y, on x, y and z when both sides have z_measured.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
      "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
      "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
-     "Squared Mahalanobis distance on the (x, y) position block using predicted measurement covariance.")
+     "Squared Mahalanobis distance on the (x, y, z) block of the predicted measurement covariance when both sides have z_measured, else on the (x, y) block at the same gate probability; the threshold is chi2(p, 3).")
+    .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
+     "Detection birth clustering: XY if either side lacks z_measured; XYZ when both measured.")
     .export_values();
 
   py::class_<rv::tracking::TrackManagerConfig>(tracking, "TrackManagerConfig", "Holds all the configuration parameters used by the TrackManager.")
@@ -410,8 +445,17 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           py::arg("max_radius_m") = std::numeric_limits<double>::infinity());
 
      tracking.def("chi2_threshold", &rv::chi2Threshold,
-                  "Chi-squared gate threshold for 2D position innovation gating.",
+                  "Chi-squared gate threshold for position innovation gating (df=2 XY, df=3 XYZ).",
                   py::arg("gate_probability"), py::arg("degrees_of_freedom") = 2);
+
+     tracking.def("gates_z",
+                  py::overload_cast<const rv::tracking::TrackedObject &, const rv::tracking::TrackedObject &>(
+                    &rv::tracking::position_gate::gatesZ),
+                  "True when both sides measured z (association / birth use XYZ).",
+                  py::arg("track"), py::arg("detection"));
+     tracking.def("position_chi2", &rv::tracking::position_gate::positionChi2,
+                  "Chi-squared gate for the position subspace: df=3 when include_z, else df=2.",
+                  py::arg("gate_probability"), py::arg("include_z"));
 
      tracking.def("angle_difference",
         &rv::angleDifference,

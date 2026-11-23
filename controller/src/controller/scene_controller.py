@@ -17,7 +17,8 @@ from scene_common.transform import CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
-from controller.ilabs_tracking import normalize_association_config, warn_association_config
+from controller.ilabs_tracking import (normalize_association_config, normalize_filter_config,
+                                       warn_association_config)
 from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -96,6 +97,14 @@ def _parseAssociationConfig(tracker_config):
     return normalize_association_config()
   warn_association_config(association_config)
   return association_config
+
+
+def _parseFilterConfig(tracker_config):
+  """Normalized top-level ``filter`` block (q, r, P0) of a tracker config; the production constants when it is absent.
+
+  Each invalid field is logged and takes its own default; a block that is not an object takes all defaults.
+  """
+  return normalize_filter_config(tracker_config.get("filter"))
 
 
 def _parseTrustedSources(value):
@@ -249,6 +258,7 @@ class SceneController:
           self.tracker_config_data["persist_attributes"] = {}
 
       self.tracker_config_data["association"] = _parseAssociationConfig(tracker_config)
+      self.tracker_config_data["filter"] = _parseFilterConfig(tracker_config)
     return
 
   def extractReidConfigData(self, reid_config_file):
@@ -608,10 +618,31 @@ class SceneController:
         self._moving_object_queue.task_done()
     return
 
+  def _isOwnHierarchyEcho(self, topic, jdata):
+    if topic.get('_topic_id') != PubSub.DATA_EXTERNAL or 'source_id' in jdata:
+      return False
+    local = self.cache_manager.sceneWithID(topic['scene_id'])
+    return local is not None and not getattr(local, 'parent', None)
+
+  @staticmethod
+  def _parseJSONObject(message):
+    """Return the JSON object in an MQTT payload, or None (logged) if it is invalid."""
+    try:
+      jdata = orjson.loads(message.payload.decode('utf-8'))
+    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+      log.error(f"Invalid JSON payload on {message.topic}: {e}")
+      return None
+    if not isinstance(jdata, dict):
+      log.error(f"Malformed payload on {message.topic}: expected JSON object")
+      return None
+    return jdata
+
   def _processMovingObjectMessage(self, client, userdata, message):
 
     topic = PubSub.parseTopic(message.topic)
-    jdata = orjson.loads(message.payload.decode('utf-8'))
+    jdata = self._parseJSONObject(message)
+    if jdata is None:
+      return
 
     # Own hierarchy echo: this instance published to external/{own_uid}/+
     # and the wildcard subscription delivered it back. A local scene with
@@ -619,10 +650,8 @@ class SceneController:
     # schema validation, NTP sync, or child-object handling. Remote-child
     # payloads arrive on the parent via ChildSceneController; there
     # sceneWithID(child_uid) is None so this check does not fire.
-    if topic.get('_topic_id') == PubSub.DATA_EXTERNAL and 'source_id' not in jdata:
-      local = self.cache_manager.sceneWithID(topic['scene_id'])
-      if local is not None and not getattr(local, 'parent', None):
-        return
+    if self._isOwnHierarchyEcho(topic, jdata):
+      return
 
     metric_attributes = {
         "topic": message.topic,
@@ -1333,7 +1362,14 @@ class SceneController:
     enables parent to visualize them.
     """
     topic = PubSub.parseTopic(message.topic)
-    msg = orjson.loads(message.payload.decode('utf-8'))
+    try:
+      msg = orjson.loads(message.payload.decode('utf-8'))
+    except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
+      log.error(f"Invalid event payload on {message.topic}: {e}")
+      return
+    if not isinstance(msg, dict) or not isinstance(msg.get('metadata'), dict):
+      log.error(f"Malformed event payload on {message.topic}")
+      return
 
     sender_id = topic['scene_id']
     sender = self.cache_manager.sceneWithID(sender_id)
@@ -1346,7 +1382,7 @@ class SceneController:
         sender = remote_sender
 
     if not hasattr(sender, 'parent') or sender.parent is None:
-      log.error("UNKNOWN PARENT", sender_id)
+      log.error(f"UNKNOWN PARENT: {sender_id}")
       return
 
     scene = self.cache_manager.sceneWithID(sender.parent)

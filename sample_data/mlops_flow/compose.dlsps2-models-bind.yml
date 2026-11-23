@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+services:
+  dlstreamer-pipeline-server:
+    volumes:
+      - type: bind
+        source: ${VIPPET_MODELS_DIR:?set VIPPET_MODELS_DIR to ViPPET's /models directory}
+        target: /models
+        read_only: true
+        bind:
+          create_host_path: false

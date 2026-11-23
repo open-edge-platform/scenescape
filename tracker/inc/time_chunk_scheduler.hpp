@@ -5,6 +5,7 @@
 
 #include "config_loader.hpp"
 #include "object_class.hpp"
+#include "remote_observation_processor.hpp"
 #include "scene_registry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "tracking_worker.hpp"
@@ -43,10 +44,13 @@ public:
      * @param publish_callback Callback for workers to publish results
      * @param clock_fn Wall-clock source for track timestamps
      * @param object_classes Per-category projection settings from Manager assets
+     * @param processor_factory Detection processor of each new worker; empty for local
+     *        camera-model processing
      */
     TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
                        const TrackingConfig& config, PublishCallback publish_callback,
-                       ClockFn clock_fn = makeSystemClock(), ObjectClassMap object_classes = {});
+                       ClockFn clock_fn = makeSystemClock(), ObjectClassMap object_classes = {},
+                       ObservationProcessorFactory processor_factory = {});
 
     /// Destructor stops scheduler and all workers
     ~TimeChunkScheduler();
@@ -130,6 +134,7 @@ private:
     PublishCallback publish_callback_;
     ClockFn clock_fn_;
     ObjectClassMap object_classes_;
+    ObservationProcessorFactory processor_factory_;
 
     std::chrono::milliseconds interval_;
     std::thread scheduler_thread_;

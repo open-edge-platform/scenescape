@@ -21,6 +21,7 @@ urlpatterns = [
   path('admin/', admin.site.urls),
   path('', views.index, name='index'),
   path('<uuid:scene_id>/', views.sceneDetail, name='sceneDetail'),
+  path('<uuid:scene_id>/children/metadata/', views.child_scene_metadata, name='child_scene_metadata'),
   path('<uuid:scene_id>/roi', views.saveROI, name='save-roi'),
   path('scene/list/', views.SceneListView.as_view(), name='scene_list'),
   path('scene/create/', views.SceneCreateView.as_view(), name='scene_create'),
@@ -48,6 +49,11 @@ urlpatterns = [
   path('asset/create/', views.AssetCreateView.as_view(), name='asset_create'),
   path('asset/update/<int:pk>/', views.AssetUpdateView.as_view(), name='asset_update'),
   path('asset/delete/<int:pk>/', views.AssetDeleteView.as_view(), name='asset_delete'),
+  path('pipeline/list/', views.PipelineListView.as_view(), name='pipeline_list'),
+  path('pipeline/create/', views.PipelineCreateView.as_view(), name='pipeline_create'),
+  path('pipeline/update/<int:pk>/', views.PipelineUpdateView.as_view(), name='pipeline_update'),
+  path('pipeline/delete/<int:pk>/', views.PipelineDeleteView.as_view(), name='pipeline_delete'),
+  path('pipeline/sync/', views.PipelineSyncView.as_view(), name='pipeline_sync'),
   path('child/create/', views.ChildCreateView.as_view(), name='child_create'),
   path('child/update/<int:pk>/', views.ChildUpdateView.as_view(), name='child_update'),
   path('child/delete/<int:pk>/', views.ChildDeleteView.as_view(), name='child_delete'),
@@ -85,9 +91,12 @@ if settings.KUBERNETES_SERVICE_HOST:
 
 # REST API
 
+# Collection paths (e.g. api/v1/scene) only create. reading, updating and deleting need a UID.
+COLLECTION_METHODS = ['post', 'options']
+
 urlpatterns += [
   re_path(r'api/v1/(scenes)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(scene)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(scene)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(scene)/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$', api.ManageThing.as_view()),
   re_path(
       r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
@@ -110,30 +119,30 @@ urlpatterns += [
       r'maps/(?P<method>[a-z][a-z0-9_-]{0,31})/activate$',
       api.SceneSourceMapActivateView.as_view(), name='scene_source_map_activate'),
   re_path(r'api/v1/(cameras)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(camera)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(camera)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(camera)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(sensors)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(sensor)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(sensor)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(sensor)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(regions)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(region)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(region)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(region)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(tripwires)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(tripwire)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(tripwire)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(tripwire)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(users)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(user)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(user)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(user)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(frame)$', api.CameraManager.as_view()),
   re_path(r'api/v1/(video)$', api.CameraManager.as_view()),
   re_path(r'api/v1/(assets)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(asset)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(asset)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(asset)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/scenes/(child)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(child)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(child)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(child)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(calibrationmarkers)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(calibrationmarker)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(calibrationmarker)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(calibrationmarker)/([^/]+)$', api.ManageThing.as_view())
 ]
 
