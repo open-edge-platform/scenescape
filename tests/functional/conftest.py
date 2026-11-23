@@ -9,8 +9,8 @@ import logging
 from pathlib import Path
 
 import pytest
-import numpy as np
 from scene_common.rest_client import RESTClient
+from tests.functional.functional import demo_sweep_locations
 
 repo_root = Path(__file__).resolve().parents[2]
 if str(repo_root) not in sys.path:
@@ -26,16 +26,7 @@ def obj_location(request):
   """! Moving object locations used in test_roi_mqtt.py.
   @return   location    Object location.
   """
-  step = 0.02
-  opposite = np.arange(-0.5, 0.6, step)
-  across = np.flip(opposite)[2:]
-  location = np.concatenate((opposite, across))
-
-  gap = np.array([abs(x - y) for x, y in zip(location[:-1], location[1:])])
-  too_large = np.where(np.isclose(gap, step) == False)
-  if len(too_large[0]):
-    np.delete(location, too_large[0])
-  return location
+  return demo_sweep_locations()
 
 @pytest.fixture
 def objData():
