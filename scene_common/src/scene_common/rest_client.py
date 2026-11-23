@@ -33,16 +33,17 @@ class RESTResult(dict):
 
 class RESTClient:
   def __init__(self, url=None, token=None, auth=None,
-               rootcert=None, verify_ssl=False, timeout=10):
+               rootcert=None, verify_ssl=True, timeout=10):
     self.url = url
 
     if self.url and not self.url.endswith("/"):
       self.url = self.url + "/"
 
-    # Handle SSL verification (support both bool and path)
-    self.verify_ssl = verify_ssl if verify_ssl is not False else False
-    if rootcert:
-      self.verify_ssl = rootcert
+    # TLS verification is on by default (system CAs, or `rootcert` when given).
+    # Disabling it requires an explicit verify_ssl=False.
+    self.verify_ssl = rootcert if rootcert else verify_ssl
+    if self.verify_ssl is not False and not self.verify_ssl:
+      self.verify_ssl = True
 
     self.timeout = timeout
     self.session = requests.session()
