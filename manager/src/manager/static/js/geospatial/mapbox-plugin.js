@@ -222,34 +222,46 @@ class MapboxPlugin extends MapInterface {
 
     const url = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center.lng},${center.lat},${zoom},${bearing},${pitch}/${width}x${height}?access_token=${this.accessToken}`;
 
-    // Create a temporary image to convert to canvas and get base64 data
-    const tempImg = new Image();
-    tempImg.crossOrigin = "anonymous";
+    // Create a temporary image to convert to canvas and get base64 data.
+    // snapshotPending settles only after the filename is saved, so form submit can wait for it.
+    this.snapshotPending = new Promise((resolve) => {
+      const tempImg = new Image();
+      tempImg.crossOrigin = "anonymous";
 
-    tempImg.onload = () => {
-      // Create canvas to convert image to base64
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(tempImg, 0, 0);
+      tempImg.onload = () => {
+        try {
+          // Create canvas to convert image to base64
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(tempImg, 0, 0);
 
-      // Get base64 data
-      const imageData = canvas.toDataURL("image/png");
+          // Get base64 data and save to server
+          const imageData = canvas.toDataURL("image/png");
+          resolve(this.saveSnapshotToServer(imageData));
 
-      // Save to server
-      this.saveSnapshotToServer(imageData);
+          // Hide snapshot display elements
+          document.getElementById("snapshot").style.display = "none";
+          document.getElementById("stitchedSnapshot").style.display = "none";
+        } catch (error) {
+          console.error("Failed to build Mapbox snapshot:", error);
+          resolve();
+        }
+      };
 
-      // Hide snapshot display elements
-      document.getElementById("snapshot").style.display = "none";
-      document.getElementById("stitchedSnapshot").style.display = "none";
-    };
+      tempImg.onerror = () => {
+        console.error("Failed to load Mapbox static image");
+        const msg = document.getElementById("screenshotMsg");
+        if (msg) {
+          msg.textContent = "Failed to load Mapbox static image";
+          msg.style.display = "block";
+        }
+        resolve();
+      };
 
-    tempImg.onerror = () => {
-      console.error("Failed to load Mapbox static image");
-    };
-
-    tempImg.src = url;
+      tempImg.src = url;
+    });
   }
 
   prepareScreenshot() {
