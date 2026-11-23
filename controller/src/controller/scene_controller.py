@@ -1291,6 +1291,34 @@ class SceneController:
       remote_info['parent'] = parent_uid
     return remote_info
 
+  def _subscribeLocalChildLink(self, info, parent_uid, need_subscribe):
+    """Refresh local ChildScene link settings and subscribe to child events."""
+    child_scene = self.cache_manager.sceneWithID(info['child'])
+    if child_scene is None:
+      log.warning(
+        f"Local child scene {info['child']} not found "
+        f"for parent scene {parent_uid}"
+      )
+      return
+
+    child_scene.retrack = info['retrack']
+    # Relying only on SceneSerializer.transform
+    # during refreshScenes can leave a stale/identity cameraPose.
+    transform = info.get('transform')
+    if transform:
+      child_scene.cameraPose = CameraPose(transform, None)
+
+    need_subscribe.add((
+      PubSub.formatTopic(
+        PubSub.EVENT,
+        region_type="+",
+        event_type="+",
+        scene_id=info['child'],
+        region_id="+",
+      ),
+      self.republishEvents,
+    ))
+
   def _parentUidForRemoteChild(self, remote_child_id):
     """Return the parent scene uid that links *remote_child_id*, or None."""
     for scene in self.cache_manager.allScenes():
@@ -1472,31 +1500,7 @@ class SceneController:
 
       for info in child_scenes.get('results', []):
         if info['child_type'] == 'local':
-          child_scene = self.cache_manager.sceneWithID(info['child'])
-          if child_scene is None:
-            log.warning(
-              f"Local child scene {info['child']} not found "
-              f"for parent scene {scene.uid}"
-            )
-            continue
-
-          child_scene.retrack = info['retrack']
-          # Relying only on SceneSerializer.transform
-          # during refreshScenes can leave a stale/identity cameraPose.
-          transform = info.get('transform')
-          if transform:
-            child_scene.cameraPose = CameraPose(transform, None)
-
-          need_subscribe.add((
-            PubSub.formatTopic(
-              PubSub.EVENT,
-              region_type="+",
-              event_type="+",
-              scene_id=info['child'],
-              region_id="+",
-            ),
-            self.republishEvents,
-          ))
+          self._subscribeLocalChildLink(info, scene.uid, need_subscribe)
           continue
 
         remote_info = self._withRemoteChildParent(info, scene.uid)

@@ -34,7 +34,7 @@ controller/src/controller/scene.py	Scene::convertPixelBoundingBoxesToMeters	23
 controller/src/controller/scene_controller.py	SceneController::_handleChildSceneObject	13
 controller/src/controller/scene_controller.py	SceneController::_processMovingObjectMessage	46
 controller/src/controller/scene_controller.py	SceneController::_scenesForExternalPublisher	19
-controller/src/controller/scene_controller.py	SceneController::updateSubscriptions	45
+controller/src/controller/scene_controller.py	SceneController::updateSubscriptions	41
 controller/src/controller/time_chunking.py	TimeChunkProcessor::run	20
 controller/src/controller/tools/analytics/library/metrics.py	associateTracks	22
 controller/src/controller/tools/analytics/library/metrics.py	fuseTracks	21
