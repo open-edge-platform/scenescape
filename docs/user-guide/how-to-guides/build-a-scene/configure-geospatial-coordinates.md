@@ -93,7 +93,7 @@ For scenes that use a 3D model (GLB file) as the map:
 
 - The scene's **Map Type** is **Geospatial Map**. The 3D model section and the REST endpoints reject other map types.
 - The scene has a saved map centre (latitude and longitude). Until the scene is saved with a map centre, the file picker is disabled and the preview request returns `400`. Select a location on the map as described in [Steps to Leverage Built-In Geospatial Map Creation](#steps-to-leverage-built-in-geospatial-map-creation) and click **Save Scene**.
-- The `.glb` file is no larger than the upload limit. The limit is 132 MB by default and is set by the `GLB_UPLOAD_MAX_SIZE_MB` environment variable of the Manager service (value in MB). A larger file is rejected with `413`. The stock `docker-compose.yml` does not forward this variable, so add it to the Manager service's `environment` to change it. The number of 3D models a scene can hold is set the same way by `GLB_MAX_LAYERS` (see [Multiple 3D Models](#multiple-3d-models)).
+- The `.glb` file is no larger than the upload limit. The limit is 132 MB by default and is set by the `GLB_UPLOAD_MAX_SIZE_MB` environment variable of the Manager service (value in MB). A larger file is rejected with `413`. The stock `docker-compose.yml` does not forward this variable, so add it to the Manager service's `environment` to change it. The number of 3D models a scene can hold is set by `GLB_MAX_LAYERS` (see [Multiple 3D Models](#multiple-3d-models)).
 - The scene map is a flat image, not a `.glb`. A model can only be shown on the scene map over a flat base map image. If the scene map is a `.glb`, or a model is applied but no base map image is stored, applying or saving the model is rejected with `400`. Replace the scene map with an image first.
 - Saving, applying, moving, or removing a model requires a superuser account.
 
@@ -166,7 +166,7 @@ To replace a saved 3D model:
 
 ### Multiple 3D Models
 
-A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The default is `1`, which gives the single-model behaviour described above and leaves existing scenes unchanged. To allow more layers, set `GLB_MAX_LAYERS` in the Manager service's `environment`, as for `GLB_UPLOAD_MAX_SIZE_MB`. The add-layer control in the 3D model section appears only when the limit is above `1`.
+A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The stock compose file sets it to `100` (`${GLB_MAX_LAYERS:-100}`), so the demo allows multiple layers. Set `GLB_MAX_LAYERS=1` in the environment to get the single-model behaviour described above. The add-layer control in the 3D model section appears only when the limit is above `1`.
 
 - Each layer has its own file, anchor and heading, and applied state.
 - Layers are numbered in upload order. Layers are drawn in that order, and the order cannot be changed.
