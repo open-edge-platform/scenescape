@@ -10,7 +10,7 @@ import time
 import pytest
 from tests.utils.log import get_logger
 from scene_common.mqtt import PubSub
-from tests.functional import FunctionalTest
+from tests.functional import FunctionalTest, apply_demo_sweep_box
 from scene_common.timestamp import get_iso_time
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import SCENE_NO_DB
@@ -105,7 +105,7 @@ class SceneControllerImportJSON(FunctionalTest):
           loc_iter = iter(objLocation)
           location = next(loc_iter)
         jdata['timestamp'] = get_iso_time()
-        jdata['objects'][PERSON][0]['bounding_box']['y'] = location
+        apply_demo_sweep_box(jdata, location, PERSON)
         self.pubsub.publish(cam_topic, json.dumps(jdata))
         time.sleep(1 / self.frameRate)
 
