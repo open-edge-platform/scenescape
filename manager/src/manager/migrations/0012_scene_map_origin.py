@@ -42,8 +42,7 @@ def backfill_map_origins(apps, schema_editor):
     Scene.objects.using(db).filter(pk=scene.pk).update(
       thumbnail=scene.thumbnail.name, scale=pixels_per_meter,
       map_origin_x=origin[0], map_origin_y=origin[1])
-    if max(abs(origin[0]), abs(origin[1])) * pixels_per_meter < 1:
-      # Sub-pixel padding of the render frame, not a visible shift
+    if not (origin[0] or origin[1]):
       continue
     # Shapes drawn in the 2D view before this upgrade ignored the origin, so they now render shifted.
     regions = Region.objects.using(db).filter(scene=scene.pk).count()

@@ -4,7 +4,7 @@
 """Unit tests for the GLB state machine: apply, unapply, move, remove, commit and their files.
 
 Tests invariants: trs_matrix unchanged, unapply restores state, apply twice and other error
-cases, files written by a write are cleaned up on success and on failure, migration 0007.
+cases, files written by a write are cleaned up on success and on failure.
 """
 
 import importlib
@@ -152,11 +152,16 @@ class TestGlbStateMachine(_MediaRootTestCase):
     self.assertEqual(scene.trs_matrix, trs)
     self.assertEqual(self._stored_files(), ['test_glb.glb', 'test_scene.png'])
 
-  def test_apply_twice_raises_error(self):
+  def test_repeating_the_current_state_raises_error(self):
+    """Unapply when not applied, then apply twice: both repeats of the current state are refused."""
     scene = self._create_scene()
     layer = scene.glb_layers.get()
-    glb_state.set_layer_enabled(scene, layer, True)
 
+    with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
+      glb_state.set_layer_enabled(scene, layer, False)
+    self.assertEqual(ctx.exception.status, 400)
+
+    glb_state.set_layer_enabled(scene, layer, True)
     with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
       glb_state.set_layer_enabled(scene, layer, True)
     self.assertEqual(ctx.exception.status, 400)
@@ -170,13 +175,6 @@ class TestGlbStateMachine(_MediaRootTestCase):
 
     with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
       glb_state.move_layer(scene, layer, {'lat': 37.40, 'lng': -121.95, 'heading_deg': 0.0})
-    self.assertEqual(ctx.exception.status, 400)
-
-  def test_unapply_when_not_applied_raises_error(self):
-    scene = self._create_scene()
-
-    with self.assertRaises(glb_staging.GlbAlignmentError) as ctx:
-      glb_state.set_layer_enabled(scene, scene.glb_layers.get(), False)
     self.assertEqual(ctx.exception.status, 400)
 
   def test_move_when_not_applied_updates_anchor_only(self):
@@ -273,6 +271,20 @@ class TestGlbStateMachine(_MediaRootTestCase):
         glb_state.commit_layer(scene, token, ANCHOR, layer=layer)
 
     self.assertEqual(ctx.exception.status, 500)
+
+    self.assertEqual(self._stored_files(), before)
+
+  def test_corrupt_staged_glb_fails_commit_and_stores_nothing(self):
+    """Negative: a staged file that is not a readable GLB fails the commit and leaves no stored file."""
+    scene = self._create_scene()
+    token = str(uuid.uuid4())
+    os.makedirs(glb_staging.staging_dir(), exist_ok=True)
+    with open(os.path.join(glb_staging.staging_dir(), f'{token}.glb'), 'wb') as f:
+      f.write(b'not a glb')
+    before = self._stored_files()
+
+    with self.assertRaises(glb_staging.GlbAlignmentError):
+      glb_state.commit_layer(scene, token, ANCHOR)
 
     self.assertEqual(self._stored_files(), before)
 
@@ -445,40 +457,3 @@ class TestGlbStateMachine(_MediaRootTestCase):
     layer.refresh_from_db()
     self.assertTrue(os.path.exists(layer.file.path))
 
-
-class TestMigration0012CornerOrder(_MediaRootTestCase):
-  """Migration 0012 reads provider-ordered (SW, NW, NE, SE) corners."""
-
-  def test_migration_0012_normalises_provider_order_corners(self):
-    """Migration 0012 derives a north-up anchor (heading 0) with unswapped width and height."""
-    from django.apps import apps
-
-    migration = importlib.import_module('manager.migrations.0012_geospatial_glb_fields')
-    ccw = localFootprintCornersLLA(
-      center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
-      width_m=300.0, height_m=200.0
-    )
-    provider_order = ccw[[0, 3, 2, 1]].tolist()  # SW, NW, NE, SE
-
-    scene = Scene.objects.create(
-      name="legacy_migrate",
-      map_type="geospatial_map",
-      map_center_lat=37.38,
-      map_center_lng=-121.96,
-      output_lla=True
-    )
-    scene.map = self._write_test_glb("legacy_migrate.glb")
-    scene.map_corners_lla = provider_order
-    scene.save()
-
-    with patch.object(Scene, 'saveThumbnail'), \
-         patch('manager.models.sendUpdateCommand'):
-      migration.migrate_existing_glb_maps(apps, None)
-    scene.refresh_from_db()
-
-    layer = scene.glb_layers.get()
-    heading = layer.anchor['heading_deg']
-    assert min(heading, 360.0 - heading) < 1e-6
-    assert layer.anchor['footprint_m']['width'] == pytest.approx(300.0, rel=1e-6)
-    assert layer.anchor['footprint_m']['height'] == pytest.approx(200.0, rel=1e-6)
-    assert scene.use_glb_map is True

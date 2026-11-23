@@ -1,66 +1,36 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the trs_matrix clearing step of migration 0012 (clear cached trs_matrix of GLB scenes).
-
-No DB needed: the Scene model is replaced by a mock that records the
-queryset calls.
-"""
+"""Migration 0013 clears the cached trs_matrix of GLB geospatial scenes only."""
 
 import importlib
-from unittest.mock import MagicMock
 
-migration = importlib.import_module('manager.migrations.0012_geospatial_glb_fields')
+import pytest
+from django.apps import apps as django_apps
 
+from manager.models import Scene
 
-def _fake_scene_model():
-  queryset = MagicMock(name='queryset')
-  queryset.update.return_value = 3
-  scene_model = MagicMock(name='Scene')
-  scene_model.objects.filter.return_value = queryset
-  queryset.filter.return_value = queryset
-  return scene_model, queryset
+migration = importlib.import_module('manager.migrations.0013_geospatial_glb_layers')
+
+CACHED = {'trs': 'cached'}
 
 
-def test_clears_trs_matrix_on_geospatial_scenes():
-  scene_model, queryset = _fake_scene_model()
+@pytest.mark.django_db
+def test_clears_trs_matrix_only_on_geospatial_glb_scenes():
+  glb_applied = Scene.objects.create(name='glb-applied', map_type='geospatial_map', output_lla=True,
+                                     map='applied.glb', use_glb_map=True, trs_matrix=CACHED)
+  glb_map = Scene.objects.create(name='glb-map', map_type='geospatial_map', output_lla=True,
+                                 map='legacy.glb', use_glb_map=False, trs_matrix=CACHED)
+  plain_map = Scene.objects.create(name='plain-map', map_type='geospatial_map', output_lla=True,
+                                   map='plan.png', use_glb_map=False, trs_matrix=CACHED)
+  non_geo = Scene.objects.create(name='non-geo', map_type='map_upload', map='other.glb',
+                                 use_glb_map=False, trs_matrix=CACHED)
 
-  updated = migration.clear_glb_trs_matrix(scene_model)
+  migration.clear_glb_trs_matrix_migration(django_apps, None)
 
-  scene_model.objects.filter.assert_called_once_with(map_type='geospatial_map')
-  queryset.update.assert_called_once_with(trs_matrix=None)
-  assert updated == 3
-
-
-def test_filter_selects_applied_glb_or_glb_map_only():
-  scene_model, queryset = _fake_scene_model()
-
-  migration.clear_glb_trs_matrix(scene_model)
-
-  (q_filter,), _ = queryset.filter.call_args
-  rendered = str(q_filter)
-  assert 'use_glb_map' in rendered
-  assert 'map__iendswith' in rendered
-  assert '.glb' in rendered
-
-
-def test_forward_migration_passes_historical_model():
-  apps = MagicMock(name='apps')
-  scene_model, _ = _fake_scene_model()
-  apps.get_model.return_value = scene_model
-
-  migration.clear_glb_trs_matrix_migration(apps, None)
-
-  apps.get_model.assert_called_once_with('manager', 'Scene')
-  scene_model.objects.filter.assert_called_once_with(map_type='geospatial_map')
-
-
-def test_reverse_is_noop():
-  apps = MagicMock(name='apps')
-  migration.reverse_clear_glb_trs_matrix(apps, None)
-  apps.get_model.assert_not_called()
-
-
-def test_migration_depends_on_current_leaf():
-  assert ('manager', '0011_cam_pose_provenance') in (
-    migration.Migration.dependencies)
+  for scene in (glb_applied, glb_map):
+    scene.refresh_from_db()
+    assert scene.trs_matrix is None, scene.name
+  for scene in (plain_map, non_geo):
+    scene.refresh_from_db()
+    assert scene.trs_matrix == CACHED, scene.name

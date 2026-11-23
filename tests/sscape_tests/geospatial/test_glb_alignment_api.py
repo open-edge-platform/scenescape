@@ -138,47 +138,29 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
     self.layer.refresh_from_db()
     self.assertEqual(self.layer.anchor, anchor_before)
 
-  def test_put_anchor_longitude_at_bounds_is_accepted(self):
-    """Boundary: anchor longitude of exactly -180 and 180 is accepted and stored."""
-    for lng in (-180.0, 180.0):
-      with self.subTest(lng=lng):
-        Scene.objects.filter(pk=self.scene.pk).update(map_center_lat=37.40, map_center_lng=lng)
+  def test_put_anchor_boundaries(self):
+    """Boundary: longitude at +/-180, the 50 km placement limit and the antimeridian, each with its status."""
+    cases = [
+      ('lng -180 accepted', 37.40, -180.0, 37.40, -180.0, 200),
+      ('lng 180 accepted', 37.40, 180.0, 37.40, 180.0, 200),
+      ('49 km accepted', 37.38, -121.96, 37.38 + 49.0 / 111.195, -121.96, 200),
+      ('51 km rejected', 37.38, -121.96, 37.38 + 51.0 / 111.195, -121.96, 400),
+      ('antimeridian short way', 37.40, 179.9, 37.40, -179.9, 200),
+      ('lng past 180 rejected', 37.38, -121.96, 37.40, 180.5, 400),
+    ]
+    for label, center_lat, center_lng, lat, lng, status in cases:
+      with self.subTest(case=label):
+        Scene.objects.filter(pk=self.scene.pk).update(map_center_lat=center_lat, map_center_lng=center_lng)
+        anchor_before = GlbLayer.objects.get(pk=self.layer.pk).anchor
 
-        response = self._put({'anchor': {'lat': 37.40, 'lng': lng, 'heading_deg': 0.0}})
+        response = self._put({'anchor': {'lat': lat, 'lng': lng, 'heading_deg': 0.0}})
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, status)
         self.layer.refresh_from_db()
-        self.assertEqual(self.layer.anchor['lng'], lng)
-
-  def test_put_anchor_within_50_km_of_map_center_is_accepted(self):
-    """Boundary: an anchor about 49 km from the map center is accepted."""
-    response = self._put({'anchor': {'lat': 37.38 + 49.0 / 111.195, 'lng': -121.96, 'heading_deg': 0.0}})
-
-    self.assertEqual(response.status_code, 200)
-
-  def test_put_anchor_beyond_50_km_of_map_center_returns_400(self):
-    """Boundary: an anchor about 51 km from the map center is rejected and the stored anchor kept."""
-    anchor_before = self.layer.anchor
-
-    response = self._put({'anchor': {'lat': 37.38 + 51.0 / 111.195, 'lng': -121.96, 'heading_deg': 0.0}})
-
-    self.assertEqual(response.status_code, 400)
-    self.layer.refresh_from_db()
-    self.assertEqual(self.layer.anchor, anchor_before)
-
-  def test_put_anchor_distance_crosses_antimeridian_the_short_way(self):
-    """Boundary: 0.2 degrees apart across +/-180 is near, not 359.8 degrees away."""
-    Scene.objects.filter(pk=self.scene.pk).update(map_center_lat=37.40, map_center_lng=179.9)
-
-    response = self._put({'anchor': {'lat': 37.40, 'lng': -179.9, 'heading_deg': 0.0}})
-
-    self.assertEqual(response.status_code, 200)
-
-  def test_put_anchor_longitude_past_bound_returns_400(self):
-    """Negative: anchor longitude beyond 180 is rejected."""
-    response = self._put({'anchor': {'lat': 37.40, 'lng': 180.5, 'heading_deg': 0.0}})
-
-    self.assertEqual(response.status_code, 400)
+        if status == 200:
+          self.assertEqual(self.layer.anchor['lng'], lng)
+        else:
+          self.assertEqual(self.layer.anchor, anchor_before)
 
   def test_put_enabled_true_returns_applied_scene_fields(self):
     """D4: PUT enabled=true places the layer and returns the pose and corners it wrote."""

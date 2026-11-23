@@ -163,15 +163,8 @@ class TestGeospatialGlbPreview(TestCase):
     self.assertIn("(.glb)", json.loads(response.content)["error"])
     self.assertEqual(len(os.listdir(self.staging_dir)), 0)
 
-  def test_oversized_file_returns_413(self):
-    """GLB exceeding MAX_GLB_BYTES returns 413 Payload Too Large."""
-    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
-    with patch.object(glb_staging, "MAX_GLB_BYTES", 10):
-      response = self._upload_glb(self.scene.id)
-    self.assertEqual(response.status_code, 413)
-
-  def test_oversized_file_message_shows_configured_limit(self):
-    """The 413 message names the configured limit, not a hardcoded one."""
+  def test_oversized_file_returns_413_with_configured_limit(self):
+    """GLB over MAX_GLB_BYTES returns 413; the message names the configured limit, not a hardcoded one."""
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
     with patch.object(glb_staging, "MAX_GLB_BYTES", 3 * 1024 * 1024 // 2):
       response = self._upload_glb(self.scene.id, file_data=b"x" * (2 * 1024 * 1024))

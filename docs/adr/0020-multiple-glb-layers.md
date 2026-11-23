@@ -27,7 +27,8 @@ single map with a single pose, so more than one model needs a single combined ar
 - `Scene.use_glb_map` stays a stored field. It is written only by the single writer `build_scene_map` and always
   equals `any(layer.enabled)`.
 - The layers are the only source of truth. The earlier dual-write, mirror, adapter and contract phases are not
-  needed because the GLB work is unreleased on this branch. Migration 0012 is edited in place.
+  needed because the GLB work is unreleased on this branch. The GLB layer migration is squashed into
+  `0013_geospatial_glb_layers`, which depends on the release leaf `0012_scene_map_origin`.
 - Maximum layer count comes from `GLB_MAX_LAYERS` (default `1`, which keeps today's behaviour).
 
 ### Bake spike (M0)

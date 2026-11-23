@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import uuid
 
 import django.db.models.deletion
@@ -9,6 +10,8 @@ import manager.validators
 from django.db import migrations, models
 from django.db.models import Q
 from django.core.files import File
+
+log = logging.getLogger(__name__)
 
 
 def migrate_existing_glb_maps(apps, schema_editor):
@@ -36,8 +39,8 @@ def migrate_existing_glb_maps(apps, schema_editor):
           scene.use_glb_map = True
           scene.base_map_corners_lla = scene.map_corners_lla
           scene.save(update_fields=['use_glb_map', 'base_map_corners_lla'])
-      except Exception as e:
-        print(f"Failed to migrate scene {scene.name}: {e}")
+      except Exception as exc:  # A broken map must not block the upgrade.
+        log.warning(f"Failed to migrate GLB map of scene {scene.name}: {exc}")
 
 
 def reverse_glb_migration(apps, schema_editor):
@@ -72,7 +75,7 @@ def reverse_clear_glb_trs_matrix(apps, schema_editor):
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0011_cam_pose_provenance'),
+    ('manager', '0012_scene_map_origin'),
   ]
 
   operations = [

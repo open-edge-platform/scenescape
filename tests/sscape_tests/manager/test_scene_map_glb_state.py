@@ -193,19 +193,14 @@ def test_form_glb_upload_while_glb_applied(web_client, scene):
     assert scene.map.name == before
 
 
-def test_api_glb_upload_without_applied_glb_is_plain_map(api_client, scene):
-  resp = _put_glb(api_client, scene)
-
-  assert resp.status_code == 200, resp.content
-  scene.refresh_from_db()
-  assert scene.use_glb_map is False
-  assert scene.map.name.endswith(".glb")
-
-
-def test_form_glb_upload_without_applied_glb_is_plain_map(web_client, scene):
-  resp = _post_form(web_client, scene)
-
-  assert resp.status_code == 302
+@pytest.mark.parametrize('path', ['api', 'form'])
+def test_glb_upload_without_applied_glb_is_plain_map(api_client, web_client, scene, path):
+  if path == 'api':
+    resp = _put_glb(api_client, scene)
+    assert resp.status_code == 200, resp.content
+  else:
+    resp = _post_form(web_client, scene)
+    assert resp.status_code == 302
   scene.refresh_from_db()
   assert scene.use_glb_map is False
   assert scene.map.name.endswith(".glb")

@@ -1,19 +1,23 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""GlbLayer schema: backfill from migration 0012, unique order per scene, shared file safety."""
+"""GlbLayer schema: backfill from migration 0013, unique order per scene, shared file safety."""
 
 import importlib
 import io
-from unittest.mock import MagicMock
+import shutil
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
+from django.apps import apps
 from django.db import IntegrityError, transaction
 
 from manager.models import GlbLayer, Scene, delete_unreferenced_mapping_file
 from scene_common.earth_lla import localFootprintCornersLLA
 
-migration = importlib.import_module('manager.migrations.0012_geospatial_glb_fields')
+migration = importlib.import_module('manager.migrations.0013_geospatial_glb_layers')
+TEST_GLB_FILE = Path(__file__).resolve().parent.parent / 'mesh_util' / 'test_data' / 'scene.glb'
 
 CORNERS = localFootprintCornersLLA(
   center_lat=37.38689, center_lng=-121.96411, heading_deg=0.0,
@@ -79,3 +83,34 @@ def test_file_referenced_by_layer_is_kept():
   delete_unreferenced_mapping_file(storage, 'glb_maps/kept.glb', 'default')
 
   storage.delete.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_backfill_normalises_provider_order_corners(settings, tmp_path):
+  """Provider-ordered (SW, NW, NE, SE) corners give a north-up anchor with unswapped width and height."""
+  settings.MEDIA_ROOT = str(tmp_path)
+  ccw = localFootprintCornersLLA(
+    center_lat=37.38, center_lng=-121.96, heading_deg=0.0,
+    width_m=300.0, height_m=200.0,
+  )
+  provider_order = ccw[[0, 3, 2, 1]].tolist()  # SW, NW, NE, SE
+  shutil.copy(TEST_GLB_FILE, tmp_path / 'legacy_migrate.glb')
+
+  scene = Scene.objects.create(
+    name='legacy_migrate', map_type='geospatial_map', map_center_lat=37.38,
+    map_center_lng=-121.96, output_lla=True,
+  )
+  scene.map = 'legacy_migrate.glb'
+  scene.map_corners_lla = provider_order
+  scene.save()
+
+  with patch.object(Scene, 'saveThumbnail'), patch('manager.models.sendUpdateCommand'):
+    migration.migrate_existing_glb_maps(apps, None)
+  scene.refresh_from_db()
+
+  layer = scene.glb_layers.get()
+  heading = layer.anchor['heading_deg']
+  assert min(heading, 360.0 - heading) < 1e-6
+  assert layer.anchor['footprint_m']['width'] == pytest.approx(300.0, rel=1e-6)
+  assert layer.anchor['footprint_m']['height'] == pytest.approx(200.0, rel=1e-6)
+  assert scene.use_glb_map is True
