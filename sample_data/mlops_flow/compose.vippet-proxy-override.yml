@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Applied to ViPPET's existing Compose project by configure-mlops-vippet.
+services:
+  vippet:
+    environment:
+      no_proxy: "${VIPPET_NO_PROXY:+${VIPPET_NO_PROXY},}mediaserver"
+      NO_PROXY: "${VIPPET_NO_PROXY:+${VIPPET_NO_PROXY},}mediaserver"
+
+  dlstreamer-pipeline-server:
+    environment:
+      no_proxy: "${VIPPET_DLSPS_NO_PROXY:+${VIPPET_DLSPS_NO_PROXY},}mediaserver"
+      NO_PROXY: "${VIPPET_DLSPS_NO_PROXY:+${VIPPET_DLSPS_NO_PROXY},}mediaserver"

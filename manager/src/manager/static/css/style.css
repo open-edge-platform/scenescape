@@ -1107,3 +1107,41 @@ ul.errorlist {
 .roi-hidden {
   display: none;
 }
+
+/* Pipeline integration controls while Manager runs without --enable-mlops-flow.
+   Disabled controls swallow mouse events in some browsers, so they pass the
+   pointer to the wrapper, which carries the explanatory title tooltip. */
+.mlops-flow-disabled {
+  cursor: not-allowed;
+}
+
+.mlops-flow-disabled :disabled,
+.mlops-flow-disabled .disabled {
+  pointer-events: none;
+}
+
+.mlops-flow-disabled #camera-dlsps-instance-id {
+  opacity: 0.65;
+}
+
+/* "Sync with ViPPET" tag filter and pipeline actions on the Pipelines page */
+.pipeline-actions .btn,
+.pipeline-actions .form-control {
+  margin-left: 0.5rem;
+}
+
+/* Long pipeline strings scroll inside their cell so the row actions stay visible */
+.pipeline-string-cell {
+  width: 100%;
+  max-width: 0;
+}
+
+.pipeline-string-cell pre {
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.pipeline-table td:not(.pipeline-string-cell) {
+  white-space: nowrap;
+}
