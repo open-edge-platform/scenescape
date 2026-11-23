@@ -105,8 +105,6 @@ class _Strategy:
   def __init__(self, map_updated, process_result):
     self._map_updated = map_updated
     self._process_result = process_result
-    self.socketio = None
-    self.socket_scene_clients = None
 
   def is_map_updated(self, scene):
     """Return the configured map-update flag."""
