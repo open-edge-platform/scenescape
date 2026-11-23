@@ -3,9 +3,10 @@
 
 """AprilTags must be detectable in the calibration frames DLStreamer publishes.
 
-Autocalibration receives a camera frame from DLStreamer as a base64 image,
-decodes it and detects the AprilTags in it. This test plays that consumer role
-against the live Queuing pipeline, using the same detector settings.
+DLStreamer answers a localize command with a base64 camera frame and the camera
+intrinsics, the input autocalibration solves a camera pose from. This test plays
+that consumer role against the live Queuing pipeline: it decodes the frame and
+detects the AprilTags in it with the autocalibration detector settings.
 """
 
 import base64
@@ -32,6 +33,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 CAMERA_ID = "atag-qcam1"
+# atag-qcam1 intrinsics from the Queuing scene, as a camera matrix.
+INTRINSICS = [[905, 0, 640], [0, 905, 360], [0, 0, 1]]
 # Still frame of the same camera; its tags are the ones visible in the live video.
 REFERENCE_FRAME = "tests/ui/test_media/atag-qcam1-frame.png"
 # Autocalibration cannot solve a camera pose from fewer tags.
@@ -60,9 +63,11 @@ def decode_frame(message):
 def request_frame(client, frames):
   """Ask DLStreamer for a calibration frame, re-asking until one arrives."""
   cmd_topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=CAMERA_ID)
+  # Unlike getcalibrationimage, localize makes DLStreamer return the intrinsics with the frame.
+  command = json.dumps({"command": "localize", "payload_intrinsics": INTRINSICS})
   deadline = time.monotonic() + FRAME_TIMEOUT
   while time.monotonic() < deadline:
-    client.publish(cmd_topic, "getcalibrationimage")
+    client.publish(cmd_topic, command)
     try:
       return frames.get(timeout=RETRY_INTERVAL)
     except queue.Empty:
@@ -72,8 +77,9 @@ def request_frame(client, frames):
 
 @pytest.mark.test_name("NEX-T17408")
 def test_apriltags_detected_in_dlstreamer_calibration_frame(params, repo_root, result_recorder):
-  """! Request calibration frames from DLStreamer for atag-qcam1, decode each
-  base64 image and check that every AprilTag visible to the camera is detected.
+  """! Request calibration frames from DLStreamer for atag-qcam1, check that each
+  carries the camera intrinsics, decode its base64 image and check that every
+  AprilTag visible to the camera is detected.
   @param    params           Dict of test parameters.
   @param    repo_root        Repository root path.
   @param    result_recorder  Fixture recording the Zephyr result.
@@ -106,6 +112,9 @@ def test_apriltags_detected_in_dlstreamer_calibration_frame(params, repo_root, r
       message = request_frame(client, frames)
       assert message is not None, "no calibration frame received from DLStreamer"
       assert message["id"] == CAMERA_ID
+      assert message.get("calibrate") is True
+      assert message.get("intrinsics") == INTRINSICS, (
+        f"calibration frame carries intrinsics {message.get('intrinsics')}, expected {INTRINSICS}")
       image = decode_frame(message)
       assert image is not None, "calibration frame is not a decodable image"
       assert message["resolution"] == [image.shape[1], image.shape[0]]
