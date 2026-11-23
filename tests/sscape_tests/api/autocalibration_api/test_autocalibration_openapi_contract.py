@@ -48,6 +48,9 @@ _MISSING_SCENE = "44444444-4444-4444-8444-444444444444"
 _NO_STRATEGY_SCENE = "55555555-5555-4555-8555-555555555555"
 _MANUAL_SCENE = "66666666-6666-4666-8666-666666666666"
 _CAMERA_SCENE = "77777777-7777-4777-8777-777777777777"
+_ACTIVE_SCENE = "88888888-8888-4888-8888-888888888888"
+_REJECTED_SCENE = "99999999-9999-4999-8999-999999999999"
+_TOO_FEW_TAGS = "Cannot auto calibrate. Check scene to ensure there are at least 4 april tags"
 
 _CAM_SUCCESS = "atag-qcam1"
 _CAM_STORED = "atag-qcam-stored"
@@ -102,8 +105,6 @@ class _Strategy:
   def __init__(self, map_updated, process_result):
     self._map_updated = map_updated
     self._process_result = process_result
-    self.socketio = None
-    self.socket_scene_clients = None
 
   def is_map_updated(self, scene):
     """Return the configured map-update flag."""
@@ -174,6 +175,8 @@ class _ReadyContext:
       _ERROR_SCENE: _Scene(_ERROR_SCENE, _FAILING),
       _REGISTERING_SCENE: _Scene(_REGISTERING_SCENE, _MARKERLESS),
       _BUSY_SCENE: _Scene(_BUSY_SCENE, _MARKERLESS),
+      _ACTIVE_SCENE: _Scene(_ACTIVE_SCENE, _MARKERLESS),
+      _REJECTED_SCENE: _Scene(_REJECTED_SCENE, _APRILTAG),
       _NO_STRATEGY_SCENE: _Scene(_NO_STRATEGY_SCENE, _MISSING_STRATEGY),
       _MANUAL_SCENE: _Scene(_MANUAL_SCENE, _MANUAL),
     }
@@ -189,7 +192,14 @@ class _ReadyContext:
       _MARKERLESS: _Strategy(True, {"status": "success"}),
       _FAILING: _Strategy(False, {"status": "error", "message": "registration failed"}),
     }
-    self.register_thread_lock = _ViewLock({_BUSY_SCENE})
+    self.register_thread_lock = _ViewLock({_BUSY_SCENE, _ACTIVE_SCENE})
+    self.current_processing_scene = _ACTIVE_SCENE
+    # The AprilTag worker saved map_processed, then rejected the scene for too few tags.
+    self.registration_results = {
+      _SUCCESS_SCENE: {"status": "success"},
+      _REJECTED_SCENE: {"status": "error", "message": _TOO_FEW_TAGS},
+    }
+    self.pending_registrations = set()
     self.calibration_thread_lock = _ViewLock({_CAM_BUSY})
     self.calibration_results = _Results({
       _CAM_SUCCESS: {
@@ -211,11 +221,28 @@ class _ReadyContext:
       },
     })
     self.socket_clients = {}
-    self.socket_scene_clients = {}
 
   def scene_update_thread_wrapper(self, scene, map_update=False):
-    """Accept an update trigger without starting a thread."""
-    return None
+    """Accept an update trigger only if the simulated worker is idle."""
+    return not self.register_thread_lock.locked()
+
+  def request_scene_registration(self, scene):
+    """Start, report active, or queue the scene like the real context."""
+    if self.current_processing_scene == scene.id:
+      return "active"
+    if self.scene_update_thread_wrapper(scene, map_update=True):
+      return "started"
+    self.pending_registrations.add(scene.id)
+    return "busy"
+
+  def begin_sync_registration(self, scene_id):
+    """No concurrent workers are simulated, so any generation works."""
+    return 0
+
+  def finish_sync_registration(self, scene_id, generation, result):
+    """Store the synchronous registration result."""
+    self.registration_results[scene_id] = result
+    return True
 
   def calibrate_camera_thread_wrapper(self, scene, camera_id, intrinsics, frame):
     """Accept calibration, or fail for the camera that must return 500."""
@@ -278,6 +305,8 @@ _CONTRACT_INPUTS = [
          {"sceneId": _REGISTERING_SCENE}),
   _input("registration-status-busy", "getSceneRegistrationStatus", "success",
          {"sceneId": _BUSY_SCENE}),
+  _input("registration-status-rejected", "getSceneRegistrationStatus", "success",
+         {"sceneId": _REJECTED_SCENE}),
   _input("registration-status-missing", "getSceneRegistrationStatus", "error",
          {"sceneId": _MISSING_SCENE}),
   _input("registration-status-no-strategy", "getSceneRegistrationStatus", "error",
@@ -350,6 +379,94 @@ def test_autocalibration_matches_openapi_contract(contract_input):
   if contract_input.use_unready_app:
     call_kwargs["app"] = _unready_api.app
   case.call_and_validate(checks=CONTRACT_CHECKS, **call_kwargs)
+
+
+@pytest.mark.parametrize("scene_id,http_status,status", [
+  (_REGISTERING_SCENE, 202, "registering"),
+  (_ACTIVE_SCENE, 202, "registering"),
+  (_BUSY_SCENE, 200, "busy"),
+])
+def test_registration_distinguishes_active_scene(scene_id, http_status, status):
+  """Only a different scene's registration should return busy."""
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{scene_id}/registration", json={})
+  assert response.status_code == http_status
+  assert response.get_json()["status"] == status
+
+
+@pytest.mark.parametrize("scene_id,status,message", [
+  (_REJECTED_SCENE, "error", _TOO_FEW_TAGS),
+  (_ACTIVE_SCENE, "registering", "Registration is in progress"),
+  (_BUSY_SCENE, "busy", "Registration is currently busy"),
+  (_SUCCESS_SCENE, "success", "Registration is complete"),
+])
+def test_registration_status_reports_worker_result(scene_id, status, message):
+  """A processed map is not success when the worker rejected the scene."""
+  with _api.app.test_client() as client:
+    response = client.get(f"{API_PREFIX}/scenes/{scene_id}/registration")
+  assert response.status_code == 200
+  assert response.get_json()["status"] == status
+  assert response.get_json()["message"] == message
+
+
+def test_registration_retry_does_not_rerun_active_scene(monkeypatch):
+  """A retry during registration must not run the strategy outside the worker."""
+  context = _api.calibrationContext
+  monkeypatch.setattr(context, "current_processing_scene", _REJECTED_SCENE)
+
+  def fail_if_called(scene):
+    pytest.fail("strategy ran while the scene was registering")
+
+  monkeypatch.setattr(
+    context.scene_strategies[_APRILTAG], "process_scene_for_calibration", fail_if_called)
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{_REJECTED_SCENE}/registration", json={})
+  assert response.status_code == 202
+  assert response.get_json()["message"] == "Registration is in progress"
+
+
+def test_registration_retry_keeps_worker_error_when_busy(monkeypatch):
+  """A refused retry keeps the last error but GET reports the retry as waiting."""
+  error = {"status": "error", "message": _TOO_FEW_TAGS}
+  monkeypatch.setattr(_api.calibrationContext, "pending_registrations", set())
+  monkeypatch.setitem(_api.calibrationContext.registration_results, _BUSY_SCENE, error)
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
+    status = client.get(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration")
+  assert response.get_json()["status"] == "busy"
+  assert status.get_json()["status"] == "busy"
+  assert _api.calibrationContext.registration_results[_BUSY_SCENE] == error
+
+
+def test_refused_scene_update_keeps_error_and_waits(monkeypatch):
+  """A PATCH that cannot start a worker must not erase the last error or report success."""
+  context = _api.calibrationContext
+  error = {"status": "error", "message": _TOO_FEW_TAGS}
+  monkeypatch.setattr(context, "pending_registrations", set())
+  monkeypatch.setitem(context.registration_results, _BUSY_SCENE, error)
+  with _api.app.test_client() as client:
+    client.patch(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
+    monkeypatch.setattr(context.scene_strategies[_MARKERLESS], "_map_updated", False)
+    status = client.get(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration")
+  assert context.registration_results[_BUSY_SCENE] == error
+  assert status.get_json()["status"] == "busy"
+
+
+def test_registration_status_without_worker_result_is_not_success(monkeypatch):
+  """A processed map alone is not proof of success, e.g. after a service restart."""
+  monkeypatch.delitem(_api.calibrationContext.registration_results, _SUCCESS_SCENE)
+  with _api.app.test_client() as client:
+    response = client.get(f"{API_PREFIX}/scenes/{_SUCCESS_SCENE}/registration")
+  assert response.get_json()["status"] == "busy"
+
+
+def test_registration_status_prefers_pending_map_over_stale_success(monkeypatch):
+  """A newer map must not be reported as registered from an older success."""
+  monkeypatch.setitem(
+    _api.calibrationContext.registration_results, _BUSY_SCENE, {"status": "success"})
+  with _api.app.test_client() as client:
+    response = client.get(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration")
+  assert response.get_json()["status"] == "busy"
 
 
 def test_contract_inputs_cover_success_and_error():

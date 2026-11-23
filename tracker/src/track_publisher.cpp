@@ -74,6 +74,14 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         velocity.PushBack(track.velocity[2], allocator);
         obj.AddMember("velocity", velocity, allocator);
 
+        // Angular velocity [ωx, ωy, ωz]; only ωz is filter-estimated (yaw rate)
+        Value angular_velocity(kArrayType);
+        angular_velocity.Reserve(3, allocator);
+        angular_velocity.PushBack(track.angular_velocity[0], allocator);
+        angular_velocity.PushBack(track.angular_velocity[1], allocator);
+        angular_velocity.PushBack(track.angular_velocity[2], allocator);
+        obj.AddMember("angular_velocity", angular_velocity, allocator);
+
         // Size [length, width, height]
         Value size(kArrayType);
         size.Reserve(3, allocator);
@@ -138,6 +146,26 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
                 assoc.AddMember("angle_rad", Value(*window.angle_rad), allocator);
             }
             obj.AddMember("association_window", assoc, allocator);
+        }
+
+        if (track.uncertainty.has_value()) {
+            const auto& uncertainty = *track.uncertainty;
+            Value out(kObjectType);
+            const auto add_block = [&](const char* name, const std::optional<Covariance3>& block) {
+                if (!block.has_value()) {
+                    return;
+                }
+                Value values(kArrayType);
+                values.Reserve(static_cast<SizeType>(block->size()), allocator);
+                for (const double value : *block) {
+                    values.PushBack(value, allocator);
+                }
+                out.AddMember(Value().SetString(name, allocator), values, allocator);
+            };
+            add_block("translation", uncertainty.translation);
+            add_block("velocity", uncertainty.velocity);
+            add_block("size", uncertainty.size);
+            obj.AddMember("uncertainty", out, allocator);
         }
 
         objects_array.PushBack(obj, allocator);

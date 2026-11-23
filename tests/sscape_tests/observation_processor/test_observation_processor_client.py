@@ -28,7 +28,8 @@ from scenescape_api.observation_processor.v1 import observation_processor_pb2 as
 from scenescape_api.observation_processor.v1 import observation_processor_pb2_grpc as pb_grpc
 
 from controller import observation_processor
-from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
+from controller.ilabs_tracking import (IntelLabsTracking, build_track_uncertainty,
+                                       normalize_association_config)
 from controller.moving_object import MovingObject
 from controller.observation_processor import (GrpcObservationProcessorClient,
                                               RemoteObservationProcessor,
@@ -791,6 +792,224 @@ class TestTrackerIntegration:
     assert scene.tracker.observation_processor == "processor:scene-uid"
 
 
+# Row/column of the published state in robot_vision's 13-element state vector.
+STATE_X, STATE_Y, STATE_VX, STATE_VY, STATE_Z, STATE_VZ = 0, 1, 2, 3, 6, 7
+STATE_LENGTH, STATE_WIDTH, STATE_HEIGHT = 8, 9, 10
+
+
+def covariance_with_distinct_entries():
+  """A symmetric P whose every entry differs, so a wrong index shows up as a wrong value."""
+  n = 13
+  upper = 0.001 * (1 + 13 * np.arange(n)[:, None] + np.arange(n)[None, :])
+  covariance = np.triu(upper) + np.triu(upper, 1).T
+  return covariance + np.eye(n)
+
+
+class TestBuildTrackUncertainty:
+
+  def test_velocity_and_size_are_row_major_blocks_of_p(self):
+    p = covariance_with_distinct_entries()
+
+    uncertainty = build_track_uncertainty(p, z_measured=True)
+
+    velocity_index = [STATE_VX, STATE_VY, STATE_VZ]
+    size_index = [STATE_LENGTH, STATE_WIDTH, STATE_HEIGHT]
+    np.testing.assert_allclose(
+      uncertainty["velocity"], p[np.ix_(velocity_index, velocity_index)].reshape(-1))
+    np.testing.assert_allclose(uncertainty["size"], p[np.ix_(size_index, size_index)].reshape(-1))
+
+  def test_translation_describes_the_published_footprint_base(self):
+    p = covariance_with_distinct_entries()
+
+    translation = np.array(build_track_uncertainty(p, True)["translation"]).reshape(3, 3)
+
+    var_z = p[STATE_Z, STATE_Z] - p[STATE_Z, STATE_HEIGHT] + 0.25 * p[STATE_HEIGHT, STATE_HEIGHT]
+    cov_xz = p[STATE_X, STATE_Z] - 0.5 * p[STATE_X, STATE_HEIGHT]
+    cov_yz = p[STATE_Y, STATE_Z] - 0.5 * p[STATE_Y, STATE_HEIGHT]
+    np.testing.assert_allclose(translation[:2, :2], p[:2, :2])
+    assert translation[2, 2] == pytest.approx(var_z)
+    assert translation[0, 2] == pytest.approx(cov_xz) and translation[2, 0] == pytest.approx(cov_xz)
+    assert translation[1, 2] == pytest.approx(cov_yz) and translation[2, 1] == pytest.approx(cov_yz)
+
+  def test_z_related_values_are_zero_without_measured_z(self):
+    p = covariance_with_distinct_entries()
+
+    uncertainty = build_track_uncertainty(p, z_measured=False)
+
+    translation = np.array(uncertainty["translation"]).reshape(3, 3)
+    velocity = np.array(uncertainty["velocity"]).reshape(3, 3)
+    for block in (translation, velocity):
+      assert not block[2].any() and not block[:, 2].any()
+    np.testing.assert_allclose(translation[:2, :2], p[:2, :2])
+    np.testing.assert_allclose(velocity[:2, :2], p[2:4, 2:4])
+
+  def test_blocks_are_symmetrized(self):
+    p = covariance_with_distinct_entries()
+    p[STATE_VX, STATE_VY], p[STATE_VY, STATE_VX] = 0.5, 0.1
+
+    velocity = np.array(build_track_uncertainty(p, True)["velocity"]).reshape(3, 3)
+
+    assert velocity[0, 1] == pytest.approx(0.3) and velocity[1, 0] == pytest.approx(0.3)
+
+  def test_non_finite_block_is_omitted_and_the_others_stay(self):
+    p = covariance_with_distinct_entries()
+    p[STATE_VZ, STATE_VZ] = np.nan
+
+    uncertainty = build_track_uncertainty(p, True)
+
+    assert "velocity" not in uncertainty
+    assert "translation" in uncertainty and "size" in uncertainty
+    assert "yaw" not in uncertainty
+
+  @pytest.mark.parametrize("unused_state", [STATE_Z, STATE_HEIGHT])
+  def test_planar_translation_ignores_a_non_finite_z_or_height_variance(self, unused_state):
+    p = covariance_with_distinct_entries()
+    p[unused_state, :] = np.nan
+    p[:, unused_state] = np.nan
+
+    uncertainty = build_track_uncertainty(p, z_measured=False)
+
+    translation = np.array(uncertainty["translation"]).reshape(3, 3)
+    np.testing.assert_allclose(translation[:2, :2], p[:2, :2])
+    assert not translation[2].any() and not translation[:, 2].any()
+
+  @pytest.mark.parametrize("unused_state", [STATE_Z, STATE_HEIGHT])
+  def test_measured_translation_is_omitted_for_a_non_finite_z_or_height_variance(self, unused_state):
+    p = covariance_with_distinct_entries()
+    p[unused_state, :] = np.nan
+    p[:, unused_state] = np.nan
+
+    uncertainty = build_track_uncertainty(p, z_measured=True)
+
+    assert "translation" not in uncertainty
+    assert "velocity" in uncertainty
+
+  def test_nothing_finite_gives_no_uncertainty(self):
+    assert build_track_uncertainty(np.full((13, 13), np.nan), True) is None
+
+
+class TestPublishedUncertainty:
+
+  @staticmethod
+  def tracked(detection_uuid="detection-uuid", z_measured=True):
+    # robot_vision's TrackedObject takes error_covariance only as its own Mat type.
+    return SimpleNamespace(
+      id=7, x=1.0, y=2.0, z=1.2, vx=0.1, vy=0.0, vz=0.3, w=0.0,
+      length=0.5, width=0.5, height=1.8, yaw=0.0,
+      z_measured=z_measured, error_covariance=covariance_with_distinct_entries(),
+      attributes={"info": detection_uuid})
+
+  @staticmethod
+  def sscape_object(has_detection_rotation=False):
+    sscape_object = detected_object(make_camera())
+    sscape_object.uuid = "detection-uuid"
+    sscape_object.location = [SimpleNamespace(point=None)]
+    sscape_object.setGID = Mock()
+    sscape_object.inferRotationFromVelocity = Mock()
+    sscape_object.has_detection_rotation = has_detection_rotation
+    return sscape_object
+
+  @staticmethod
+  def tracker(processor):
+    tracker = tracker_with_processor(processor)
+    tracker.all_tracker_objects = []
+    tracker.uuid_manager = Mock()
+    return tracker
+
+  def test_experimental_publishes_filter_size_and_uncertainty_blocks(self):
+    tracked = self.tracked()
+    sscape_object = self.sscape_object()
+    sscape_object.size = [9.0, 9.0, 9.0]
+
+    published = self.tracker(Mock()).from_tracked_object(tracked, [sscape_object])
+
+    expected = build_track_uncertainty(covariance_with_distinct_entries(), True)
+    assert published.uncertainty == expected
+    assert set(published.uncertainty) == {"translation", "velocity", "size"}
+    assert published.size == [tracked.length, tracked.width, tracked.height]
+    assert published.angular_velocity == [0.0, 0.0, 0.0]
+
+  def test_legacy_keeps_detection_size(self):
+    tracked = self.tracked()
+    sscape_object = self.sscape_object()
+    sscape_object.size = [9.0, 9.0, 9.0]
+
+    published = self.tracker(None).from_tracked_object(tracked, [sscape_object])
+
+    assert published.size == [9.0, 9.0, 9.0]
+
+  def test_legacy_publishes_no_uncertainty(self):
+    published = self.tracker(None).from_tracked_object(self.tracked(), [self.sscape_object()])
+
+    assert getattr(published, "uncertainty", None) is None
+
+  def test_filter_yaw_is_published_when_detection_has_rotation(self):
+    tracked = self.tracked()
+    tracked.yaw = 0.2
+
+    published = self.tracker(Mock()).from_tracked_object(
+      tracked, [self.sscape_object(has_detection_rotation=True)])
+
+    assert published.filter_yaw_published is True
+    assert published.rotation == pytest.approx(
+      [0.0, 0.0, math.sin(0.1), math.cos(0.1)])
+
+  def test_velocity_heading_is_published_when_it_disagrees_with_filter_yaw(self):
+    tracked = self.tracked()
+    tracked.yaw, tracked.vx, tracked.vy = 0.0, 0.0, 2.0
+
+    published = self.tracker(Mock()).from_tracked_object(
+      tracked, [self.sscape_object(has_detection_rotation=True)])
+
+    heading_yaw = 2.0 * math.atan2(published.rotation[2], published.rotation[3])
+    assert heading_yaw == pytest.approx(math.pi / 2.0), "the heading is still published"
+    assert published.filter_yaw_published is False
+
+  def test_object_outside_the_frame_gets_a_refreshed_uncertainty(self):
+    tracker = self.tracker(Mock())
+    previous = self.sscape_object()
+    previous.size = [9.0, 9.0, 9.0]
+    tracker.all_tracker_objects = [previous]
+    tracked = self.tracked()
+
+    published = tracker.from_tracked_object(tracked, [])
+
+    assert published is previous
+    assert set(published.uncertainty) == {"translation", "velocity", "size"}
+    assert published.size == [tracked.length, tracked.width, tracked.height]
+    assert published.angular_velocity == [0.0, 0.0, 0.0]
+
+  def test_gap_keeps_the_yaw_provenance_of_the_retained_rotation(self):
+    tracker = self.tracker(Mock())
+    tracked = self.tracked()
+    tracked.yaw, tracked.vx, tracked.vy = 0.0, 0.0, 2.0
+    published = tracker.from_tracked_object(
+      tracked, [self.sscape_object(has_detection_rotation=True)])
+    assert published.filter_yaw_published is False
+    tracker.all_tracker_objects = [published]
+
+    # The track slows below the yaw speed gate while its detection is missing: the retained
+    # rotation is still the velocity heading, so filter_yaw_published stays false.
+    tracked.vx = tracked.vy = 0.0
+    refreshed = tracker.from_tracked_object(tracked, [])
+
+    assert refreshed is published
+    assert refreshed.filter_yaw_published is False
+
+  def test_gap_keeps_the_filter_yaw_provenance_of_a_retained_filter_yaw(self):
+    tracker = self.tracker(Mock())
+    tracked = self.tracked()
+    tracked.yaw = 0.2
+    published = tracker.from_tracked_object(
+      tracked, [self.sscape_object(has_detection_rotation=True)])
+    assert published.filter_yaw_published is True
+    tracker.all_tracker_objects = [published]
+
+    refreshed = tracker.from_tracked_object(tracked, [])
+
+    assert refreshed.filter_yaw_published is True
+
+
 FPS = 15
 FRAMES = 30 * FPS
 
@@ -844,6 +1063,56 @@ def run_tracker(make_objects, experimental):
 
 def published_values(published, index):
   return np.array([track[index] for frame in published for track in frame])
+
+
+def last_frame_objects(make_objects, experimental):
+  """Track FRAMES frames with production robot_vision; return the last frame's published objects."""
+  tracker = IntelLabsTracking(MAX_UNRELIABLE_TIME, NON_MEASUREMENT_TIME_DYNAMIC,
+                              NON_MEASUREMENT_TIME_STATIC, FPS)
+  tracker.uuid_manager.scene_id = "scene"
+  tracker.observation_processor = \
+    SimpleNamespace(process=lambda *args: None) if experimental else None
+  for n in range(FRAMES):
+    when = WHEN + n / FPS
+    tracker.trackCategory(make_objects(n, when), when, [])
+  objects = list(tracker.all_tracker_objects)
+  tracker.uuid_manager.shutdown()
+  return objects
+
+
+class TestUncertaintyWithRobotVision:
+
+  def test_planar_track_has_zero_z_related_values(self):
+    objects = last_frame_objects(planar_objects(np.full((FRAMES, 2), 1.7)), experimental=True)
+
+    assert objects, "no reliable tracks"
+    for obj in objects:
+      translation = np.array(obj.uncertainty["translation"]).reshape(3, 3)
+      velocity = np.array(obj.uncertainty["velocity"]).reshape(3, 3)
+      for block in (translation, velocity):
+        assert np.isfinite(block).all()
+        np.testing.assert_allclose(block, block.T, atol=1e-12)
+        assert not block[2].any() and not block[:, 2].any()
+        assert block[0, 0] > 0.0 and block[1, 1] > 0.0
+      assert set(obj.uncertainty) == {"translation", "velocity", "size"}
+      assert "yaw" not in obj.uncertainty
+
+  def test_measured_z_track_has_z_variance(self):
+    objects = last_frame_objects(translation_objects, experimental=True)
+
+    assert objects, "no reliable tracks"
+    translation = np.array(objects[0].uncertainty["translation"]).reshape(3, 3)
+    velocity = np.array(objects[0].uncertainty["velocity"]).reshape(3, 3)
+    assert translation[2, 2] > 0.0 and velocity[2, 2] > 0.0
+    np.testing.assert_allclose(translation, translation.T, atol=1e-12)
+
+  @pytest.mark.parametrize("make_objects", [planar_objects(np.full((FRAMES, 2), 1.7)),
+                                            translation_objects], ids=["planar", "measured_z"])
+  def test_legacy_publishes_no_uncertainty(self, make_objects):
+    objects = last_frame_objects(make_objects, experimental=False)
+
+    assert objects, "no reliable tracks"
+    assert all(getattr(obj, "uncertainty", None) is None for obj in objects)
 
 
 class TestZReferenceWithRobotVision:

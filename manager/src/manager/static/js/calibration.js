@@ -90,6 +90,87 @@ async function registerScene(sceneId) {
   }
 }
 
+async function getSceneRegistrationStatus(sceneId) {
+  const response = await fetch(
+    `${AUTOCALIB_PROXY_BASE}/scenes/${sceneId}/registration`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Registration status unavailable (HTTP ${response.status})`,
+    );
+  }
+  return response.json();
+}
+
+export async function registerSceneFor3DView(
+  sceneId,
+  sceneCameras,
+  toast,
+  mqttConnected = Promise.resolve(),
+) {
+  const toastId = "scene-registration-toast";
+  const resultToastDelay = 10000;
+  let progressStatus;
+  try {
+    const response = await getCalibrationServiceStatus();
+    if (response?.status !== "running") return;
+
+    let registration = await registerScene(sceneId);
+    while (["registering", "busy"].includes(registration.status)) {
+      const status = registration.status;
+      if (status !== progressStatus) {
+        const message =
+          status === "registering"
+            ? "Processing the scene data to enable auto calibration"
+            : "Another scene is being registered. Waiting to register this scene.";
+        if (progressStatus) {
+          toast.updateToast(toastId, message);
+        } else {
+          toast.showToast(message, "default", toastId, null);
+        }
+        progressStatus = status;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      registration = await getSceneRegistrationStatus(sceneId);
+      // Only a waiting scene is re-submitted; a re-POST while registering could repeat failed work.
+      if (registration.status === "busy") {
+        registration = await registerScene(sceneId);
+      }
+    }
+
+    if (registration.status !== "success") {
+      throw new Error(registration.message || "Scene registration failed");
+    }
+    if (progressStatus) {
+      document.getElementById(toastId)?.remove();
+      toast.showToast(
+        "Dataset registered",
+        "success",
+        "None",
+        resultToastDelay,
+      );
+    }
+    // Calibration requests its frame over MQTT, so the button waits for the client.
+    await mqttConnected;
+    for (const [key, camera] of Object.entries(sceneCameras)) {
+      if (key !== "undefined") camera.enableAutoCalibration(true);
+    }
+  } catch (error) {
+    console.warn("Scene registration failed:", error);
+    if (progressStatus) {
+      document.getElementById(toastId)?.remove();
+      toast.showToast(
+        "Scene registration could not be completed",
+        "danger",
+        "None",
+        resultToastDelay,
+      );
+    }
+  }
+}
+
 function clearRegistrationRetry(btn) {
   if (btn) {
     delete btn.dataset.registrationRetry;
@@ -145,6 +226,10 @@ async function registerAutoCameraCalibration(scene_id, socket) {
   // Replace any prior handler so retries do not stack listeners.
   socket.off("register_result");
   socket.on("register_result", async (notification) => {
+    if (notification.camera_calibration) {
+      calibration_strategy = notification.camera_calibration;
+      document.getElementById("calib_strategy").value = calibration_strategy;
+    }
     await manageCalibrationState(notification.data, scene_id);
   });
 
@@ -317,5 +402,6 @@ export {
   getCalibrationServiceStatus,
   startCameraCalibration,
   registerScene,
+  getSceneRegistrationStatus,
   requestSceneRegistration,
 };
