@@ -65,7 +65,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
       patch.object(Scene, 'saveThumbnail'),
       patch('manager.models.sendUpdateCommand'),
       patch.object(glb_staging, 'generateOrthoView',
-                   return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 10.0)),
+                   return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 10.0, [0.0, 0.0])),
     )
     for stub in stubs:
       stub.start()
@@ -331,7 +331,7 @@ class TestGlbStateMachine(_MediaRootTestCase):
 
     with patch.object(Scene, 'saveThumbnail', REAL_SAVE_THUMBNAIL), \
          patch('manager.models.generateOrthoView',
-               return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 10.0)):
+               return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 10.0, [0.0, 0.0])):
       layer = scene.glb_layers.get()
       glb_state.set_layer_enabled(scene, layer, True)
       applied = thumbnails()

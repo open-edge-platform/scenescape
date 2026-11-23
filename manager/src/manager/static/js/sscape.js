@@ -8,6 +8,7 @@
 import {
   APP_NAME,
   CMD_CAMERA,
+  CMD_DATABASE,
   DATA_CAMERA,
   DATA_REGULATED,
   IMAGE_CALIBRATE,
@@ -59,6 +60,8 @@ import { PTZ_AWAY_MESSAGE } from "/static/js/ptzpose.js";
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
 var points, maps, rois, tripwires, child_rois, child_tripwires, child_sensors;
+var childOverlayRefreshTimer;
+var childOverlaySnapshot;
 var dragging, drawing, adding, editing, fullscreen;
 var wasDragging = false;
 var g;
@@ -183,6 +186,7 @@ async function checkBrokerConnections() {
       if (document.getElementById("scene_children")?.value !== "0") {
         client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
         console.log("Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
+        client.subscribe(APP_NAME + CMD_DATABASE);
         var remote_childs = $("[id^='mqtt_status_remote']")
           .map((_, el) => el.id.split("_").slice(3).join("_"))
           .get();
@@ -238,7 +242,9 @@ async function checkBrokerConnections() {
       }
       var img;
 
-      if (topic.includes(DATA_REGULATED)) {
+      if (topic === APP_NAME + CMD_DATABASE) {
+        scheduleChildOverlayRefresh();
+      } else if (topic.includes(DATA_REGULATED)) {
         if (show_telemetry) {
           // Show the FPS for each camera
           for (const [key, value] of Object.entries(msg.rate)) {
@@ -344,6 +350,76 @@ async function checkBrokerConnections() {
         }
       }
     });
+
+    async function refreshChildSceneOverlays() {
+      const metadataUrl = document.getElementById("child_metadata_url")?.value;
+      if (!metadataUrl || !svgCanvas) return;
+
+      try {
+        const response = await fetch(metadataUrl, {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) {
+          throw new Error(`Child metadata request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const nextRois = Array.isArray(data.rois) ? data.rois : [];
+        const nextTripwires = Array.isArray(data.tripwires)
+          ? data.tripwires
+          : [];
+        const nextSensors = Array.isArray(data.sensors) ? data.sensors : [];
+        const snapshot = JSON.stringify({
+          rois: nextRois,
+          tripwires: nextTripwires,
+          sensors: nextSensors,
+        });
+        if (snapshot === childOverlaySnapshot) return;
+
+        removeMissingChildOverlays("child_roi", nextRois, "uuid");
+        removeMissingChildOverlays("child_tripwire", nextTripwires, "uuid");
+        removeMissingChildOverlays("child_sensor", nextSensors, "title");
+
+        nextRois.forEach((region) => drawRoi(region, region.uuid, "child_roi"));
+        nextTripwires.forEach((tripwire) => {
+          const points = tripwire.points.map((point) =>
+            metersToPixels(point, scale, scene_y_max),
+          );
+          newTripwire({ ...tripwire, points }, tripwire.uuid, "child_tripwire");
+        });
+        nextSensors.forEach((sensor) =>
+          drawSensor(
+            { ...sensor, points: sensor.points?.map((point) => [...point]) },
+            sensor.title,
+            "child_sensor",
+          ),
+        );
+
+        child_rois = nextRois;
+        child_tripwires = nextTripwires;
+        child_sensors = nextSensors;
+        childOverlaySnapshot = snapshot;
+      } catch (error) {
+        console.error("Failed to refresh child-scene overlays", error);
+      }
+    }
+
+    function removeMissingChildOverlays(prefix, items, key) {
+      const currentIds = new Set(items.map((item) => `${prefix}_${item[key]}`));
+      document
+        .querySelectorAll(`#svgout g[id^="${prefix}_"]`)
+        .forEach((group) => {
+          if (!currentIds.has(group.id)) group.remove();
+        });
+      numberRois();
+      numberTripwires();
+    }
+
+    function scheduleChildOverlayRefresh() {
+      clearTimeout(childOverlayRefreshTimer);
+      childOverlayRefreshTimer = setTimeout(refreshChildSceneOverlays, 250);
+    }
 
     client.on("error", function (e) {
       console.log("MQTT error: " + e);
@@ -720,7 +796,7 @@ function stringifyRois() {
       if (n % 2 === 0) {
         tuple = [point];
       } else {
-        tuple[1] = point;
+        tuple.push(point);
         tuples.push(pixelsToMeters(tuple, scale, scene_y_max));
       }
     });
@@ -1917,7 +1993,7 @@ function drawSensor(sensor, index, type) {
   if (type === "child_sensor" && document.getElementById(i)) {
     var name_text = document.getElementById(i).querySelector("#name");
     var hierarchy_text = document.getElementById(i).querySelector("#hierarchy");
-    if (sensor.x && sensor.y) {
+    if (Number.isFinite(sensor.x) && Number.isFinite(sensor.y)) {
       var p = metersToPixels([sensor.x, sensor.y], scale, scene_y_max);
       sensor.x = p[0];
       sensor.y = p[1];
@@ -1929,11 +2005,35 @@ function drawSensor(sensor, index, type) {
       hierarchy_text.setAttribute("x", sensor?.x);
       hierarchy_text.setAttribute("y", sensor?.y + 15);
     }
+
+    const areaTag =
+      sensor.area === "circle"
+        ? "circle"
+        : sensor.area === "poly"
+          ? "polygon"
+          : null;
+    let areaElement = document.querySelector("#" + i + " > .area");
+    if (areaTag && areaElement?.tagName.toLowerCase() !== areaTag) {
+      const replacement = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        areaTag,
+      );
+      replacement.classList.add("area");
+      if (areaElement) {
+        areaElement.replaceWith(replacement);
+      } else {
+        document.getElementById(i).appendChild(replacement);
+      }
+      areaElement = replacement;
+    } else if (sensor.area === "scene") {
+      areaElement?.remove();
+      areaElement = null;
+    }
+
     if (sensor.area === "circle") {
-      var outer_circle = document.querySelector("#" + i + " > .area");
-      outer_circle.setAttribute("cx", sensor.x);
-      outer_circle.setAttribute("cy", sensor.y);
-      outer_circle.setAttribute("r", sensor.radius * scale);
+      areaElement.setAttribute("cx", sensor.x);
+      areaElement.setAttribute("cy", sensor.y);
+      areaElement.setAttribute("r", sensor.radius * scale);
     } else if (sensor.area === "poly") {
       let area_points = [];
       sensor.points.forEach(function (m) {
@@ -1941,9 +2041,8 @@ function drawSensor(sensor, index, type) {
         area_points.push(p[0], p[1]);
       });
       var points_string = area_points.join(",");
-      var polygon = document.querySelector("#" + i + " > .area");
-      if (polygon.getAttribute("points") != points_string) {
-        polygon.setAttribute("points", points_string);
+      if (areaElement.getAttribute("points") != points_string) {
+        areaElement.setAttribute("points", points_string);
       }
     }
   } else if (document.getElementById("sensor_" + index) === null && svgCanvas) {
@@ -2684,6 +2783,11 @@ $(document).ready(function () {
           child_rois = JSON.parse($child_rois.val());
           child_tripwires = JSON.parse($child_tripwires.val());
           child_sensors = JSON.parse($child_sensors.val());
+          childOverlaySnapshot = JSON.stringify({
+            rois: child_rois,
+            tripwires: child_tripwires,
+            sensors: child_sensors,
+          });
 
           child_rois.forEach(function (e, index) {
             drawRoi(e, e.uuid, "child_roi");

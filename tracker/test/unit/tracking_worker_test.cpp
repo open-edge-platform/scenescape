@@ -18,9 +18,13 @@
 #include <condition_variable>
 #include <cstdint>
 #include <format>
+#include <functional>
+#include <memory>
 #include <mutex>
 #include <numbers>
 #include <optional>
+#include <span>
+#include <stdexcept>
 #include <thread>
 #include <utility>
 
@@ -113,13 +117,13 @@ TEST(VelocityRotationTest, UsesConfiguredFallbackOnlyWhenOrientationWasNeverObse
     track.vy = 1.1;
     VelocityRotationState state;
 
-    const auto inferred = select_track_rotation(track, true, state);
+    const auto inferred = select_track_rotation(track, true, state).value;
     EXPECT_TRUE(state.active);
     EXPECT_NEAR(inferred[2], std::sin(std::numbers::pi / 4.0), 1e-12);
     EXPECT_NEAR(inferred[3], std::cos(std::numbers::pi / 4.0), 1e-12);
 
     state = {};
-    const auto identity = select_track_rotation(track, false, state);
+    const auto identity = select_track_rotation(track, false, state).value;
     EXPECT_FALSE(state.active);
     EXPECT_EQ(identity, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
 }
@@ -131,7 +135,7 @@ TEST(VelocityRotationTest, UsesKalmanYawForObservedTrackBelowSpeedGate) {
     rv::tracking::orientation::setHasOrientation(track, true);
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, true, state);
+    const auto rotation = select_track_rotation(track, true, state).value;
     const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
 
     EXPECT_EQ(rotation, expected);
@@ -146,7 +150,7 @@ TEST(VelocityRotationTest, UsesKalmanYawAtYawResidualThreshold) {
         rv::tracking::orientation::TRUE_VALUE;
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, true, state);
+    const auto rotation = select_track_rotation(track, true, state).value;
     const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
 
     EXPECT_NEAR(rotation[2], expected[2], 1e-12);
@@ -161,7 +165,7 @@ TEST(VelocityRotationTest, UsesVelocityHeadingWhenObservedYawDisagrees) {
     rv::tracking::orientation::setHasOrientation(track, true);
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, false, state);
+    const auto rotation = select_track_rotation(track, false, state).value;
 
     EXPECT_DOUBLE_EQ(rotation[0], 0.0);
     EXPECT_DOUBLE_EQ(rotation[1], 0.0);
@@ -178,11 +182,38 @@ TEST(VelocityRotationTest, WrapsYawResidualAcrossPi) {
     rv::tracking::orientation::setHasOrientation(track, true);
     VelocityRotationState state;
 
-    const auto rotation = select_track_rotation(track, false, state);
+    const auto rotation = select_track_rotation(track, false, state).value;
     const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
 
     EXPECT_NEAR(rotation[2], expected[2], 1e-12);
     EXPECT_NEAR(rotation[3], expected[3], 1e-12);
+}
+
+TEST(VelocityRotationTest, ReportsWhetherTheFilterYawIsPublished) {
+    VelocityRotationState state;
+
+    rv::tracking::TrackedObject unobserved;
+    unobserved.vx = 2.0;
+    EXPECT_FALSE(select_track_rotation(unobserved, true, state).filter_yaw)
+        << "the velocity fallback is published";
+    EXPECT_FALSE(select_track_rotation(unobserved, false, state).filter_yaw)
+        << "the identity quaternion is published";
+
+    rv::tracking::TrackedObject observed;
+    observed.yaw = 0.4;
+    observed.vx = 0.99;
+    rv::tracking::orientation::setHasOrientation(observed, true);
+    const auto filter = select_track_rotation(observed, true, state);
+    EXPECT_TRUE(filter.filter_yaw);
+    EXPECT_EQ(filter.value, CoordinateTransformer::yawToQuaternion(observed.yaw));
+
+    rv::tracking::TrackedObject disagreeing;
+    disagreeing.yaw = 0.0;
+    disagreeing.vy = 2.0;
+    rv::tracking::orientation::setHasOrientation(disagreeing, true);
+    const auto heading = select_track_rotation(disagreeing, true, state);
+    EXPECT_FALSE(heading.filter_yaw) << "the velocity heading is published";
+    EXPECT_EQ(heading.value, CoordinateTransformer::yawToQuaternion(std::numbers::pi / 2.0));
 }
 
 // Test that worker processes chunks and calls publish callback
@@ -808,7 +839,7 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
 }
 
 // Test that confidence is preserved end-to-end through the tracker pipeline:
-// transformDetections() -> RobotVision tracker -> convert_tracks() -> Track::confidence.
+// toTrackerInputs() -> RobotVision tracker -> convert_tracks() -> Track::confidence.
 //
 // Uses max_unreliable_time_s = 0.0 so tracks become reliable on first observation.
 TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
@@ -922,7 +953,7 @@ TEST_F(TrackingWorkerTest, Tracking_ObjectClassShiftTypeChangesPublishedPosition
         first_track_position(ObjectClassConfig{.shift_type = ObjectClassConfig::kShiftType2});
 
     EXPECT_GT(std::hypot(type2[0] - type1[0], type2[1] - type1[1]), 0.1)
-        << "TYPE_2 object class should change the projected track position";
+        << "TYPE_2 object class should change the processed track position";
 }
 
 // Pixel detections carry no orientation, so a turning track must not publish the Kalman yaw
@@ -1201,6 +1232,9 @@ TEST_F(TrackingWorkerTest, Tracking_Climbing3DDetectionPublishesHeightAndVertica
     EXPECT_NEAR(published_track->translation[2], last_z, 0.2);
     EXPECT_NEAR(published_track->velocity[2], kClimbRate, 0.2);
     EXPECT_LT(std::hypot(published_track->velocity[0], published_track->velocity[1]), 0.1);
+    // Filter yaw rate about world Z only; ωx and ωy stay 0.
+    EXPECT_EQ(published_track->angular_velocity[0], 0.0);
+    EXPECT_EQ(published_track->angular_velocity[1], 0.0);
 }
 
 TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocityEnabled_PublishesVelocityHeading) {
@@ -1832,6 +1866,446 @@ TEST(BuildTrackerConfigTest, TakesTheConfiguredFilterValuesAndKeepsTheLifecycle)
     EXPECT_EQ(config.mMaxUnreliableTime, 2.0);
     EXPECT_EQ(config.mNonMeasurementTimeDynamic, 0.7);
     EXPECT_EQ(config.mNonMeasurementTimeStatic, 1.7);
+}
+
+// Processor whose geometry comes from a callback, standing in for any ObservationProcessor.
+class CallbackProcessor final : public ObservationProcessor {
+public:
+    using ProcessFn = std::function<std::vector<std::optional<ProcessedObservations>>(
+        std::span<const DetectionBatch>)>;
+
+    explicit CallbackProcessor(ProcessFn process_fn) : process_fn_(std::move(process_fn)) {}
+
+    std::vector<std::optional<ProcessedObservations>>
+    process(std::span<const DetectionBatch> batches) override {
+        return process_fn_(batches);
+    }
+
+private:
+    ProcessFn process_fn_;
+};
+
+// Publishes every chunk's tracks; waits until `count` chunks have been published.
+class PublishedFrames {
+public:
+    PublishCallback callback() {
+        return [this](const std::string&, const std::string&, const std::string&,
+                      const std::string&, const std::vector<Track>& tracks) {
+            std::lock_guard lock(mutex_);
+            frames_.push_back(tracks);
+            cv_.notify_one();
+        };
+    }
+
+    std::vector<std::vector<Track>> wait_for(size_t count) {
+        std::unique_lock lock(mutex_);
+        cv_.wait_for(lock, std::chrono::seconds(3), [&] { return frames_.size() >= count; });
+        return frames_;
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::vector<std::vector<Track>> frames_;
+};
+
+Chunk make_chunk(int index, std::vector<DetectionBatch> batches) {
+    Chunk chunk;
+    chunk.scene_id = "scene-1";
+    chunk.category = "person";
+    chunk.chunk_time = std::chrono::steady_clock::now();
+    for (auto& batch : batches) {
+        batch.timestamp_iso = std::format("2026-01-27T12:00:00.{:03d}Z", index * 67);
+        batch.timestamp =
+            std::chrono::system_clock::time_point(std::chrono::milliseconds(1000 + index * 67));
+    }
+    chunk.camera_batches = std::move(batches);
+    return chunk;
+}
+
+DetectionBatch make_batch(const std::string& camera_id, std::vector<std::string> names) {
+    DetectionBatch batch;
+    batch.camera_id = camera_id;
+    for (size_t i = 0; i < names.size(); ++i) {
+        Detection detection{.id = static_cast<int32_t>(i), .bounding_box_px = {10, 20, 50, 100}};
+        detection.metadata_json = R"({"name":")" + names[i] + R"("})";
+        batch.detections.push_back(std::move(detection));
+    }
+    return batch;
+}
+
+TEST_F(TrackingWorkerTest, InjectedProcessor_TracksOnlyDetectionsWithGeometry) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    // cam-1: the first detection has no geometry; cam-2 cannot be processed at all.
+    auto processor =
+        std::make_unique<CallbackProcessor>([](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProcessedObservations>> processed;
+            for (const auto& batch : batches) {
+                if (batch.camera_id != "cam-1") {
+                    processed.emplace_back();
+                    continue;
+                }
+                rv::tracking::TrackedObject geometry;
+                geometry.x = 5.0;
+                geometry.y = 6.0;
+                geometry.length = geometry.width = 0.5;
+                geometry.height = 1.7;
+                processed.emplace_back(
+                    ProcessedObservations{{rv::tracking::TrackedObject{}, geometry}, {0, 1}});
+            }
+            return processed;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(processor), false, ZReference::FootprintBase);
+
+    constexpr int kChunks = 3;
+    for (int i = 0; i < kChunks; ++i) {
+        ASSERT_TRUE(worker.try_enqueue(make_chunk(
+            i, {make_batch("cam-1", {"dropped", "kept"}), make_batch("cam-2", {"skipped"})})));
+    }
+
+    const auto frames = published.wait_for(kChunks);
+    ASSERT_EQ(frames.size(), static_cast<size_t>(kChunks));
+    for (const auto& tracks : frames) {
+        ASSERT_EQ(tracks.size(), 1u);
+        EXPECT_NEAR(tracks[0].translation[0], 5.0, 1e-6);
+        EXPECT_NEAR(tracks[0].translation[1], 6.0, 1e-6);
+        EXPECT_NE(tracks[0].metadata_json.find("kept"), std::string::npos);
+    }
+}
+
+TEST_F(TrackingWorkerTest, InjectedProcessor_MismatchedResultsAreSkipped) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    int call = 0;
+    // First chunk: no result per batch; second chunk: no result per detection.
+    auto processor =
+        std::make_unique<CallbackProcessor>([&call](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProcessedObservations>> processed;
+            if (call++ > 0) {
+                processed.resize(batches.size(), ProcessedObservations{});
+            }
+            return processed;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(processor), false, ZReference::FootprintBase);
+
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"a"})})));
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"a"})})));
+
+    const auto frames = published.wait_for(2);
+    ASSERT_EQ(frames.size(), 2u);
+    EXPECT_TRUE(frames[0].empty());
+    EXPECT_TRUE(frames[1].empty());
+    EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
+}
+
+TEST_F(TrackingWorkerTest, InjectedProcessor_InvalidMeasurementNoiseDropsOnlyThatDetection) {
+    // Adapted from 26f24812f: track() drops a detection with an invalid R and tracks the others of
+    // the chunk, and the worker keeps processing chunks.
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    int call = 0;
+    auto processor =
+        std::make_unique<CallbackProcessor>([&call](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProcessedObservations>> processed;
+            for ([[maybe_unused]] const auto& batch : batches) {
+                rv::tracking::TrackedObject bad;
+                bad.x = 5.0;
+                bad.y = 6.0;
+                bad.length = bad.width = 0.5;
+                bad.height = 1.7;
+                rv::tracking::TrackedObject ok = bad;
+                ok.x = 9.0;
+                if (call == 0) {
+                    bad.measurementNoiseCov =
+                        rv::tracking::TrackedObject::MeasurementMatrix::zeros();
+                }
+                processed.emplace_back(ProcessedObservations{{bad, ok}, {1, 1}});
+            }
+            ++call;
+            return processed;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(processor), false, ZReference::FootprintBase);
+
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"bad-r", "ok"})})));
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"bad-r", "ok"})})));
+
+    const auto frames = published.wait_for(2);
+    ASSERT_EQ(frames.size(), 2u);
+    ASSERT_EQ(frames[0].size(), 1u) << "only the detection with an invalid R is dropped";
+    EXPECT_NEAR(frames[0][0].translation[0], 9.0, 1e-6);
+    EXPECT_NE(frames[0][0].metadata_json.find("\"ok\""), std::string::npos);
+    EXPECT_EQ(frames[1].size(), 2u) << "the next chunk tracks both detections";
+    EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
+}
+
+TEST_F(TrackingWorkerTest, InjectedProcessor_ExceptionDropsTheChunkAndKeepsTheWorker) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    int call = 0;
+    auto processor =
+        std::make_unique<CallbackProcessor>([&call](std::span<const DetectionBatch> batches) {
+            if (call++ == 0) {
+                throw std::runtime_error("processor failed");
+            }
+            std::vector<std::optional<ProcessedObservations>> processed;
+            for ([[maybe_unused]] const auto& batch : batches) {
+                rv::tracking::TrackedObject geometry;
+                geometry.x = 5.0;
+                geometry.y = 6.0;
+                geometry.length = geometry.width = 0.5;
+                geometry.height = 1.7;
+                processed.emplace_back(ProcessedObservations{{geometry}, {1}});
+            }
+            return processed;
+        });
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
+                          std::move(processor), false, ZReference::FootprintBase);
+
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"a"})})));
+    ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"a"})})));
+
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
+    const auto frames = published.wait_for(1);
+    ASSERT_EQ(frames.size(), 1u) << "the failed chunk is not published";
+    ASSERT_EQ(frames[0].size(), 1u);
+    EXPECT_NEAR(frames[0][0].translation[0], 5.0, 1e-6);
+    EXPECT_EQ(worker.dropped_count(), 1);
+}
+
+TEST_F(TrackingWorkerTest, InjectedProcessor_NullIsRejected) {
+    PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
+                                  const std::string&, const std::vector<Track>&) {};
+    EXPECT_THROW(TrackingWorker({"scene-1", "person"}, "Test Scene", 2, callback, tracking_config_,
+                                std::unique_ptr<ObservationProcessor>{}, false,
+                                ZReference::FootprintBase),
+                 std::invalid_argument);
+}
+
+// -----------------------------------------------------------------
+// z reference: legacy mode publishes robot_vision z as is; centre-of-mass mode feeds unmeasured
+// z raised by half the height and publishes the footprint base.
+// -----------------------------------------------------------------
+
+constexpr int kZReferenceChunks = 20;
+
+// Ends below the horizon of the test camera (cy = 360), so it projects to a nearby ground point.
+const cv::Rect2f kGroundBox(600.0f, 420.0f, 55.0f, 150.0f);
+
+Detection groundBoxDetection() {
+    return Detection{.id = 1, .bounding_box_px = kGroundBox};
+}
+
+// World z 0.9 is the centre of a 1.8 m tall object.
+Detection centreTranslationDetection() {
+    return Detection{.id = 1,
+                     .translation = std::array<double, 3>{1.0, 2.0, 0.9},
+                     .size = std::array<double, 3>{0.5, 0.5, 1.8}};
+}
+
+// Sensor translations are world positions.
+std::unordered_map<std::string, Camera> make_identity_pose_cameras() {
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 0.0};
+    cameras.at("cam-1").extrinsics.rotation = {0.0, 0.0, 0.0};
+    return cameras;
+}
+
+// Remote-style measurement: centre z 0.85 of a 1.7 m tall object moving along x.
+std::unique_ptr<ObservationProcessor> make_centre_measurement_processor() {
+    return std::make_unique<CallbackProcessor>(
+        [step = 0](std::span<const DetectionBatch> batches) mutable {
+            std::vector<std::optional<ProcessedObservations>> processed;
+            for (const auto& batch : batches) {
+                ProcessedObservations geometry{
+                    std::vector<rv::tracking::TrackedObject>(batch.detections.size()),
+                    std::vector<uint8_t>(batch.detections.size(), 1)};
+                for (auto& object : geometry.objects) {
+                    object.x = 5.0 + 0.1 * step;
+                    object.y = 6.0;
+                    object.z = 0.85;
+                    object.length = object.width = 0.5;
+                    object.height = 1.7;
+                    object.z_measured = true;
+                }
+                processed.emplace_back(std::move(geometry));
+            }
+            ++step;
+            return processed;
+        });
+}
+
+// Feeds kZReferenceChunks cam-1 frames of `detection`; returns the tracks of the last frame.
+std::vector<Track> track_last_frame(TrackingWorker& worker, PublishedFrames& published,
+                                    const Detection& detection) {
+    for (int i = 0; i < kZReferenceChunks; ++i) {
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.detections.push_back(detection);
+        EXPECT_TRUE(worker.try_enqueue(make_chunk(i, {std::move(batch)})));
+    }
+    const auto frames = published.wait_for(kZReferenceChunks);
+    return frames.size() == static_cast<size_t>(kZReferenceChunks) ? frames.back()
+                                                                   : std::vector<Track>{};
+}
+
+TEST_F(TrackingWorkerTest, Legacy_PublishesTrackerZUnchanged) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    PublishedFrames box_frames;
+    TrackingWorker box_worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                              box_frames.callback(), config, cameras_);
+    const auto box_tracks = track_last_frame(box_worker, box_frames, groundBoxDetection());
+    ASSERT_EQ(box_tracks.size(), 1u);
+    EXPECT_NEAR(box_tracks[0].translation[2], 0.0, 1e-9);
+
+    PublishedFrames translation_frames;
+    TrackingWorker translation_worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                                      translation_frames.callback(), config,
+                                      make_identity_pose_cameras());
+    const auto translation_tracks =
+        track_last_frame(translation_worker, translation_frames, centreTranslationDetection());
+    ASSERT_EQ(translation_tracks.size(), 1u);
+    EXPECT_NEAR(translation_tracks[0].translation[2], 0.9, 1e-9);
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_PixelBoxPublishedAtBase) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                          published.callback(), config,
+                          std::make_unique<CameraModelProcessor>(cameras_, ObjectClassConfig{}),
+                          false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, groundBoxDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    EXPECT_NEAR(tracks[0].translation[2], 0.0, 1e-9);
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_TranslationTreatedAsCentre) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Test Scene", kZReferenceChunks, published.callback(), config,
+        std::make_unique<CameraModelProcessor>(make_identity_pose_cameras(), ObjectClassConfig{}),
+        false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, centreTranslationDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    EXPECT_NEAR(tracks[0].translation[2], 0.0, 1e-9);
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_RemoteMeasurementAtCentre) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    auto run = [&](ZReference z_reference) {
+        PublishedFrames published;
+        TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                              published.callback(), config, make_centre_measurement_processor(),
+                              false, z_reference);
+        return track_last_frame(worker, published, groundBoxDetection());
+    };
+
+    const auto legacy = run(ZReference::FootprintBase);
+    const auto centre = run(ZReference::CentreOfMass);
+
+    ASSERT_EQ(legacy.size(), 1u);
+    ASSERT_EQ(centre.size(), 1u);
+    EXPECT_NEAR(legacy[0].translation[2], 0.85, 1e-9);
+    EXPECT_NEAR(centre[0].translation[2], 0.0, 1e-9);
+    EXPECT_EQ(centre[0].translation[0], legacy[0].translation[0]);
+    EXPECT_EQ(centre[0].translation[1], legacy[0].translation[1]);
+    EXPECT_EQ(centre[0].velocity, legacy[0].velocity);
+    EXPECT_EQ(centre[0].size, legacy[0].size);
+    EXPECT_GT(centre[0].velocity[0], 1.0) << "the object moves along x";
+}
+
+// -----------------------------------------------------------------
+// Track uncertainty: published only in centre-of-mass (experimental) mode.
+// -----------------------------------------------------------------
+
+Detection rotatedCentreTranslationDetection() {
+    constexpr double kYaw = 0.8;
+    return Detection{
+        .id = 1,
+        .translation = std::array<double, 3>{1.0, 2.0, 0.9},
+        .size = std::array<double, 3>{0.5, 0.5, 1.8},
+        .rotation = std::array<double, 4>{0.0, 0.0, std::sin(kYaw / 2.0), std::cos(kYaw / 2.0)}};
+}
+
+TEST_F(TrackingWorkerTest, Legacy_PublishesNoUncertainty) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                          published.callback(), config, cameras_);
+
+    const auto tracks = track_last_frame(worker, published, groundBoxDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    EXPECT_FALSE(tracks[0].uncertainty.has_value());
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_PlanarTrackPublishesZeroZRelatedUncertainty) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                          published.callback(), config,
+                          std::make_unique<CameraModelProcessor>(cameras_, ObjectClassConfig{}),
+                          false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, groundBoxDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    ASSERT_TRUE(tracks[0].uncertainty.has_value());
+    const auto& uncertainty = *tracks[0].uncertainty;
+    ASSERT_TRUE(uncertainty.translation.has_value());
+    ASSERT_TRUE(uncertainty.velocity.has_value());
+    ASSERT_TRUE(uncertainty.size.has_value());
+    EXPECT_GT((*uncertainty.translation)[0], 0.0);
+    EXPECT_GT((*uncertainty.translation)[4], 0.0);
+    for (const int i : {2, 5, 6, 7, 8}) {
+        EXPECT_EQ((*uncertainty.translation)[i], 0.0) << i;
+        EXPECT_EQ((*uncertainty.velocity)[i], 0.0) << i;
+    }
+    EXPECT_GT((*uncertainty.size)[0], 0.0);
+    EXPECT_EQ(tracks[0].angular_velocity[0], 0.0);
+    EXPECT_EQ(tracks[0].angular_velocity[1], 0.0);
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_MeasuredZTrackPublishesTheFullUncertainty) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Test Scene", kZReferenceChunks, published.callback(), config,
+        std::make_unique<CameraModelProcessor>(make_identity_pose_cameras(), ObjectClassConfig{}),
+        false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, rotatedCentreTranslationDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    ASSERT_TRUE(tracks[0].uncertainty.has_value());
+    const auto& uncertainty = *tracks[0].uncertainty;
+    ASSERT_TRUE(uncertainty.translation.has_value());
+    EXPECT_GT((*uncertainty.translation)[8], 0.0) << "z variance of a measured-z track";
+    ASSERT_TRUE(uncertainty.velocity.has_value());
+    EXPECT_GT((*uncertainty.velocity)[8], 0.0);
+    EXPECT_EQ(tracks[0].angular_velocity[0], 0.0);
+    EXPECT_EQ(tracks[0].angular_velocity[1], 0.0);
 }
 
 } // namespace

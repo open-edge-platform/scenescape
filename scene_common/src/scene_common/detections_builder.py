@@ -5,7 +5,7 @@ import numpy as np
 import base64
 
 from scene_common import log
-from scene_common.association import add_association_window
+from scene_common.association import add_angular_velocity, add_association_window, add_uncertainty
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -295,6 +295,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     'velocity': velocity.asCartesianVector
   })
 
+  add_angular_velocity(obj_dict, aobj)
+
   if aobj.rotation is not None:
     obj_dict['rotation'] = aobj.rotation
 
@@ -313,6 +315,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   _addOptionalAttributes(obj_dict, aobj)
   add_association_window(obj_dict, aobj)
+  add_uncertainty(obj_dict, aobj)
   if len(aobj.chain_data.persist):
     obj_dict['persistent_data'] = aobj.chain_data.persist
   return obj_dict

@@ -104,6 +104,7 @@ def _setOrthoCamera(renderer, triangle_mesh, glb_size, res_x, res_y):
   @param  res_y              height of capture.
 
   @return pixels_per_meter   determined pixels per meter.
+  @return origin             mesh-frame [x, y] of the image's bottom-left corner.
   """
   bounds = triangle_mesh.get_axis_aligned_bounding_box()
   min_bound = bounds.min_bound.numpy()
@@ -125,7 +126,7 @@ def _setOrthoCamera(renderer, triangle_mesh, glb_size, res_x, res_y):
                         -right / 2, right / 2, -top / 2, top / 2,
                         0.0, max_z - min_z + 2 * margin)
   # We use the vertical resolution as the base for all computations
-  return res_y / top
+  return res_y / top, [center_x - right / 2, center_y - top / 2]
 
 def _setupTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   """! Builds the offscreen top-view renderer for the mesh without capturing it.
@@ -137,6 +138,7 @@ def _setupTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
 
   @return renderer           renderer ready to capture.
   @return pixels_per_meter   determined pixels per meter.
+  @return origin             mesh-frame [x, y] of the image's bottom-left corner.
   """
   if not tensor_mesh:
     raise ValueError("tensor_mesh is empty; cannot access its first element.")
@@ -148,8 +150,8 @@ def _setupTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
                                      SUNLIGHT_INTENSITY)
   renderer.scene.scene.enable_sun_light(True)
   renderer.scene.show_axes(False)
-  pixels_per_meter = _setOrthoCamera(renderer, triangle_mesh, glb_size, res_x, res_y)
-  return renderer, pixels_per_meter
+  pixels_per_meter, origin = _setOrthoCamera(renderer, triangle_mesh, glb_size, res_x, res_y)
+  return renderer, pixels_per_meter, origin
 
 def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   """! Renders the top view of the mesh and returns the capture
@@ -162,10 +164,11 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
 
   @return img                captured image as array.
   @return pixels_per_meter   determined pixels per meter.
+  @return origin             mesh-frame [x, y] of the image's bottom-left corner.
   """
-  renderer, pixels_per_meter = _setupTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y)
+  renderer, pixels_per_meter, origin = _setupTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y)
   img = renderer.render_to_image()
-  return img, pixels_per_meter
+  return img, pixels_per_meter, origin
 
 def renderTopViewWithMask(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   """! Renders the top view and a mask of the pixels covered by the mesh.
@@ -180,7 +183,7 @@ def renderTopViewWithMask(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   @return pixels_per_meter   determined pixels per meter.
   @return mask               boolean array, True where the mesh is drawn.
   """
-  renderer, pixels_per_meter = _setupTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y)
+  renderer, pixels_per_meter, _ = _setupTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y)
   img = renderer.render_to_image()
   depth = np.asarray(renderer.render_to_depth_image(z_in_view_space=False))
   return img, pixels_per_meter, depth < 1.0
@@ -211,14 +214,15 @@ def generateOrthoView(scene_obj, glb_file):
 
   @return img                captured image as numpy array.
   @return pixels_per_meter   determined pixels per meter.
+  @return origin             mesh-frame [x, y] of the image's bottom-left corner.
   """
   triangle_mesh, tensor_mesh, glb_size, res_x, res_y = _prepareOrthoMesh(scene_obj, glb_file)
-  img, pixels_per_meter = renderTopView(triangle_mesh,
-                                        tensor_mesh,
-                                        glb_size,
-                                        res_x,
-                                        res_y)
-  return np.array(img), pixels_per_meter
+  img, pixels_per_meter, origin = renderTopView(triangle_mesh,
+                                                tensor_mesh,
+                                                glb_size,
+                                                res_x,
+                                                res_y)
+  return np.array(img), pixels_per_meter, origin
 
 def generateOrthoViewWithMask(scene_obj, glb_file):
   """! generates the orthographic perspective of 3d glb and the mask of its footprint.

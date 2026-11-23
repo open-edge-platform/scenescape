@@ -12,7 +12,8 @@
   "reid": {
     "type": "inference",
     "params": {
-      "model": "omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
+      "model": "ultralytics/public/mars-small128/mars_small128_fp32.xml",
+      "model_proc": "ultralytics/public/mars-small128/mars-small128.json"
     },
     "adapter-params": {
       "metadatagenpolicy": "reidPolicy"
@@ -25,15 +26,6 @@
     },
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy"
-    }
-  },
-  "marsreid": {
-    "type": "inference",
-    "params": {
-      "model": "public/mars-small128/mars_small128_fp32.xml"
-    },
-    "adapter-params": {
-      "metadatagenpolicy": "reidPolicy"
     }
   }
 }

@@ -27,7 +27,7 @@ from scipy.spatial.transform import Rotation
 from manager.validators import validate_scene_name
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
-  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport, sendUpdateCommand
 from manager.ptz_calibration import PTZCalibrationError, validate_ptz_calibration
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
@@ -1108,6 +1108,7 @@ class SceneSerializer(NonNullSerializer):
     instance.saveThumbnail()
     Scene.objects.filter(pk=instance.pk).update(
       thumbnail=instance.thumbnail, scale=instance.scale,
+      map_origin_x=instance.map_origin_x, map_origin_y=instance.map_origin_y,
       rotation_x=instance.rotation_x, rotation_y=instance.rotation_y, rotation_z=instance.rotation_z,
       translation_x=instance.translation_x, translation_y=instance.translation_y,
       translation_z=instance.translation_z,
@@ -1377,6 +1378,7 @@ class ChildSceneSerializer(NonNullSerializer):
       ChildScene.objects.filter(pk=instance.pk).update(**update_values)
       for key, value in update_values.items():
         setattr(instance, key, value)
+      transaction.on_commit(sendUpdateCommand)
       return instance
 
     # For partial updates, inherit current type from instance

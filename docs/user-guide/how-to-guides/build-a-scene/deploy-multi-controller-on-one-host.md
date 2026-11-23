@@ -70,7 +70,7 @@ Prefer **one Compose project** with role-prefixed services
 stacks both claiming host ports `443` / `1883` / `55555`.
 
 A working reference used by functional tests lives under
-[`tests/compose/hierarchy/`](https://github.com/open-edge-platform/scenescape/tree/main/tests/compose/hierarchy).
+[`tests/compose/hierarchy/`](https://github.com/open-edge-platform/scenescape/tree/release-2026.3.0/tests/compose/hierarchy).
 Those fragments are test-oriented but illustrate the same deployment rules.
 
 ### 1. Give Each Role Unique Host Ports
@@ -228,7 +228,7 @@ env vars.
 | No ReID write intent (typical parent-only child: TLS default on, **no** ReID client certs) | Forwarded without `will_enroll` | Parent may sole-enroll |
 
 Details and edge cases (empty vector batches, cancelled flushes, multi-hop
-relays): [ADR 0015](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md).
+relays): [ADR 0015](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0015-hierarchy-reid-provenance.md).
 
 ### Retrack when using ReID in a hierarchy
 
@@ -282,7 +282,7 @@ Mount matching ReID client certificates. The DB needs a network alias matching
 For hierarchy rematch with a shared backend, **enable Retrack** (see
 [above](#retrack-when-using-reid-in-a-hierarchy)). Durable continuity across
 children that enroll is primarily **sequential** rematch
-([ADR 0015](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md)).
+([ADR 0015](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0015-hierarchy-reid-provenance.md)).
 
 ### Hierarchy: unsupported ReID mixes
 
@@ -342,7 +342,7 @@ machine.
 - [Configure a hierarchy of scenes](./configure-hierarchy-of-scenes.md) — local vs remote linking, retrack, rates
 - [How to enable re-identification](../../other-topics/how-to-enable-reidentification.md) — single-stack ReID enablement
 - [Extended ReID](../../microservices/controller/Extended-ReID.md) — provenance and enrollment policy
-- [ADR 0015: Hierarchy ReID provenance](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md) — design rationale
+- [ADR 0015: Hierarchy ReID provenance](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0015-hierarchy-reid-provenance.md) — design rationale
 - Test compose reference: `tests/compose/hierarchy/`
 - Functional coverage: `tests/functional/test_hierarchy_reid_db_scope.py`
-- Agent fixture notes: [multi-controller hierarchy fixtures](https://github.com/open-edge-platform/scenescape/blob/main/.github/skills/testing/references/functional-tests.md)
+- Agent fixture notes: [multi-controller hierarchy fixtures](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/.github/skills/testing/references/functional-tests.md)

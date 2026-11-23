@@ -13,22 +13,21 @@ import {
   EULER,
 } from "/static/js/constants.js";
 
-// Local (x, y) in meters of the map image's bottom-left corner, set by the page that shows the map
-let mapOrigin = [0, 0];
+// World [x, y] of the 2D map image's bottom-left corner
+var mapOrigin = [0, 0];
 
 function setMapOrigin(origin) {
-  mapOrigin = origin;
+  mapOrigin = origin.map((v) => (Number.isFinite(v) ? v : 0));
 }
 
 // Convert a point from pixels to meters
 function pixelsToMeters(pixels, scale, scene_y_max) {
   var meters = [];
 
-  // Scale-only in x
-  meters[0] = parseFloat(pixels[0] / scale) + mapOrigin[0];
+  meters[0] = parseFloat(pixels[0] / scale + mapOrigin[0]);
 
   // Move y axis to bottom and also scale
-  meters[1] = parseFloat((scene_y_max - pixels[1]) / scale) + mapOrigin[1];
+  meters[1] = parseFloat((scene_y_max - pixels[1]) / scale + mapOrigin[1]);
 
   if (pixels.length == 3) {
     // Leave z alone
@@ -42,7 +41,6 @@ function pixelsToMeters(pixels, scale, scene_y_max) {
 function metersToPixels(meters, scale, scene_y_max) {
   var pixels = [];
 
-  // Scale-only in x
   pixels[0] = Math.round((meters[0] - mapOrigin[0]) * scale);
 
   // Move y axis to top and also scale

@@ -355,7 +355,7 @@ def install_shared_models(request, repo_root):
     yield
     return
 
-  logger.info("Installing OpenVINO Zoo models to shared volume (scenescape_vol-models)...")
+  logger.info("Installing models to shared volume (scenescape_vol-models)...")
   try:
     stream_subprocess(
       ["make", "install-models"],

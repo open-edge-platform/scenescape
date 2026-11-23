@@ -246,7 +246,7 @@ class TestGeospatialGlbApiPutEndpoint(_GlbApplyHelpers, TransactionTestCase):
 class TestGeospatialGlbUnappliedPreview(_GlbApplyHelpers, TransactionTestCase):
   """Unapplied preview contract: GET is read-only, write paths render and cache the preview."""
 
-  RENDER = (np.zeros((8, 8, 3), dtype=np.uint8), 5.0)
+  RENDER = (np.zeros((8, 8, 3), dtype=np.uint8), 5.0, [0.0, 0.0])
 
   def setUp(self):
     """Create superuser and scene with a stored GLB layer that has no preview yet."""

@@ -52,7 +52,7 @@ class TestGeospatialGlbPreview(TestCase):
     self.addCleanup(self.temp_dir.cleanup)
     render_patch = patch.object(
       glb_staging, "generateOrthoView",
-      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0)
+      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0, [0.0, 0.0])
     )
     self.render_mock = render_patch.start()
     self.addCleanup(render_patch.stop)
@@ -266,7 +266,7 @@ class CommitBaseSetup(TestCase):
     from manager import models as models_module
     render_patch = patch.object(
       models_module, "generateOrthoView",
-      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0)
+      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0, [0.0, 0.0])
     )
     self.render_mock = render_patch.start()
     self.addCleanup(render_patch.stop)
@@ -817,7 +817,7 @@ class TestSceneUpdateGlbAnchor(CommitBaseSetup):
     if os.path.exists(preview):
       os.remove(preview)
     with patch.object(glb_staging, 'generateOrthoView',
-                      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0)):
+                      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0, [0.0, 0.0])):
       resp = self.client.get(reverse('scene_update', args=[self.scene.id]))
 
     self.assertEqual(resp.status_code, 200)

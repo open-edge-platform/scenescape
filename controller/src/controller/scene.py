@@ -20,6 +20,7 @@ from scene_common.reid_constants import REID_PROVENANCE_KEY
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
+from controller import observation_processor
 from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config, normalize_filter_config
 from controller.ptz import provider as ptz_provider
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
@@ -133,6 +134,15 @@ class Scene(SceneModel):
     self.tracker = self.available_trackers[self.trackerType](
       *args, association_config=self.association_config, filter_config=self.filter_config)
     self.tracker.uuid_manager.scene_id = self.name
+    self._bindObservationProcessor()
+    return
+
+  def _bindObservationProcessor(self):
+    """Bind experimental observation processor to the tracker once the scene UID is known."""
+    chunking_rate_fps = self.time_chunking_rate_fps \
+      if getattr(self, 'trackerType', None) == "time_chunked_intel_labs" else None
+    self.tracker.observation_processor = observation_processor.for_scene(getattr(self, 'uid', None),
+                                                                 chunking_rate_fps)
     return
 
   def applyAssociationConfig(self, association_config):
@@ -378,8 +388,7 @@ class Scene(SceneModel):
       # originating scene already owns that crop's contribution to the shared database.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
-      if 'rotation' in info:
-        mobj.rotation = info['rotation']
+      self._promoteTrustedChildState(mobj, info)
       log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
@@ -388,6 +397,21 @@ class Scene(SceneModel):
         child_objects.append(mobj)
 
     return objects, child_objects
+
+  @staticmethod
+  def _promoteTrustedChildState(mobj, info):
+    """Promote child-published fields that prepareObjDict reads from the object attribute.
+
+    retrack=False trusts the child's state, including filter covariances and angular velocity.
+    add_uncertainty / add_angular_velocity only emit from the object attribute (not from ``info``),
+    so promote them with rotation.
+    """
+    if 'rotation' in info:
+      mobj.rotation = info['rotation']
+    if 'angular_velocity' in info:
+      mobj.angular_velocity = info['angular_velocity']
+    if 'uncertainty' in info:
+      mobj.uncertainty = info['uncertainty']
 
   @staticmethod
   def _sceneObservationToWorld(observation: dict, pose: CameraPose) -> Optional[dict]:
@@ -467,6 +491,7 @@ class Scene(SceneModel):
                 pose_adjustment_config_data=pose_adjustment_config_data,
                 filter_config=data.get('filter_config', None))
     scene.uid = data['uid']
+    scene._bindObservationProcessor()
     scene._hydrateFromSceneData(data, reid_runtime_update=False)
     return scene
 

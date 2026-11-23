@@ -259,7 +259,7 @@ coverage-html:
 		--output-file build-debug/coverage/coverage.info \
 		--rc branch_coverage=1 \
 		--ignore-errors mismatch,gcov,unused,inconsistent \
-		--quiet 2>/dev/null
+		--quiet
 	@lcov --remove build-debug/coverage/coverage.info \
 		'/usr/*' \
 		'*/test/*' \
@@ -268,6 +268,7 @@ coverage-html:
 		'*/robot_vision/*' \
 		'*/controller/*' \
 		'*/build-debug/_deps/*' \
+		'*/build-debug/generated/*' \
 		'*/external/*' \
 		'*/third_party/*' \
 		'*/src/main.cpp' \
@@ -275,7 +276,7 @@ coverage-html:
 		--output-file build-debug/coverage/coverage-filtered.info \
 		--rc branch_coverage=1 \
 		--ignore-errors unused,inconsistent \
-		--quiet 2>/dev/null
+		--quiet
 	@genhtml build-debug/coverage/coverage-filtered.info \
 		--output-directory build-debug/coverage/html \
 		--title "Tracker Service Coverage" \
@@ -283,7 +284,7 @@ coverage-html:
 		--function-coverage \
 		--demangle-cpp \
 		--ignore-errors mismatch,inconsistent \
-		--quiet 2>/dev/null
+		--quiet
 	@echo "✓ HTML coverage report: build-debug/coverage/html/index.html"
 
 coverage-xml:
@@ -293,6 +294,7 @@ coverage-xml:
 		--root . \
 		--exclude '.*test.*' \
 		--exclude '.*/build-debug/.*' \
+		--exclude '.*\.pb\.(cc|h)$$' \
 		--exclude '.*/usr/.*' \
 		--exclude '.*/.conan/.*' \
 		--exclude '.*/.conan2/.*' \
@@ -318,6 +320,7 @@ coverage-report:
 		--root . \
 		--exclude '.*test.*' \
 		--exclude '.*/build-debug/.*' \
+		--exclude '.*\.pb\.(cc|h)$$' \
 		--exclude '.*/usr/.*' \
 		--exclude '.*/.conan/.*' \
 		--exclude '.*/.conan2/.*' \

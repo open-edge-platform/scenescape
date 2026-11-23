@@ -477,8 +477,8 @@ def test_map_origin_is_posed_footprint_corner_and_matches_thumbnail(
   # A real offscreen render segfaults without EGL; only the framing is under test.
   with patch('scene_common.glb_top_view.renderTopView',
              side_effect=lambda _mesh, _tensors, _size, res_x, res_y:
-             (np.zeros((res_y, res_x, 3), dtype=np.uint8), 1.0)):
-    image, _ = generateOrthoView(thumb_scene, glb_path)
+             (np.zeros((res_y, res_x, 3), dtype=np.uint8), 1.0, [0.0, 0.0])):
+    image, _, _ = generateOrthoView(thumb_scene, glb_path)
   width, height = footprint[2][:2] - footprint[0][:2]
   assert image.shape[1] / image.shape[0] == pytest.approx(width / height, rel=0.03)
 

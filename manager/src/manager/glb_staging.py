@@ -112,7 +112,7 @@ def staged_glb_path(token):
 
 def _render_top_view(scene, glb_path, png_path):
   """Render glb_path top-down with the scene's pose, save it as a PNG; returns pixels per metre."""
-  img_data, px_per_m = generateOrthoView(scene, glb_path)
+  img_data, px_per_m, _ = generateOrthoView(scene, glb_path)
   Image.fromarray(np.uint8(img_data)).save(png_path, format='PNG')
   return float(px_per_m)
 

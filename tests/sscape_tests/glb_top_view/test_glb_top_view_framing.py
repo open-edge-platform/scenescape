@@ -67,9 +67,9 @@ class TestGenerateOrthoViewFraming:
   def test_frames_mesh_from_min_corner_ignoring_translation(
       self, mock_extract, mock_render, origin, translation):
     mock_extract.return_value = (_box((10.0, 4.0, 1.0), origin), [])
-    mock_render.return_value = (np.zeros((410, 1024, 3), dtype=np.uint8), 102.4)
+    mock_render.return_value = (np.zeros((410, 1024, 3), dtype=np.uint8), 102.4, [0.0, 0.0])
 
-    img, _ = generateOrthoView(_scene(*translation), "scene.glb")
+    img, _, _ = generateOrthoView(_scene(*translation), "scene.glb")
 
     triangle_mesh, _, glb_size, res_x, res_y = mock_render.call_args.args
     min_bound = triangle_mesh.get_axis_aligned_bounding_box().min_bound.numpy()
@@ -82,7 +82,7 @@ class TestGenerateOrthoViewFraming:
   @patch("scene_common.glb_top_view.extractMeshFromGLB")
   def test_square_footprint_uses_square_thumbnail(self, mock_extract, mock_render):
     mock_extract.return_value = (_box((10.0, 10.0, 1.0), [3.0, 3.0, 0.0]), [])
-    mock_render.return_value = (np.zeros((768, 768, 3), dtype=np.uint8), 76.8)
+    mock_render.return_value = (np.zeros((768, 768, 3), dtype=np.uint8), 76.8, [0.0, 0.0])
 
     generateOrthoView(_scene(), "scene.glb")
 
