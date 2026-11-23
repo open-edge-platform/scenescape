@@ -81,7 +81,7 @@ web:
   # Empty keeps the Manager image default (12.0).
   ptzCalibrationResidualThresholdPx: ""
   # Maximum number of GLB layers a scene can hold (GLB_MAX_LAYERS).
-  glbMaxLayers: 1
+  glbMaxLayers: 100
 
 scene:
   image: intel/scenescape-controller

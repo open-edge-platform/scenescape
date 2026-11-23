@@ -1390,7 +1390,7 @@ paths:
       description: >-
         Return the GLB layers of a geospatial scene in draw order, which is the upload order. Each layer
         has its own anchor, footprint, applied state, and file. max_layers is the per-scene limit set by
-        the GLB_MAX_LAYERS environment variable (default 1); with the default a scene holds one layer.
+        the GLB_MAX_LAYERS environment variable (default 100).
       parameters:
         - in: path
           name: uid

@@ -417,7 +417,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
       reverse('geospatial_glbs', kwargs={'scene_uid': self.scene.id})
     )
     self.assertEqual(resp.status_code, 200)
-    self.assertEqual(json.loads(resp.content), {'max_layers': 1, 'layers': []})
+    self.assertEqual(json.loads(resp.content), {'max_layers': 100, 'layers': []})
 
   def test_commit_with_sensor_and_region_stores_without_map_change(self):
     """POST succeeds with existing sensors/regions and does not change the applied map."""
