@@ -87,3 +87,17 @@ class TestRESTClientPagination:
 
     assert result.status_code == 500
     assert result.errors == {}
+
+
+class TestRESTClientTLSVerification:
+  def test_verifies_tls_by_default(self):
+    assert RESTClient("https://manager.example/api/v1").verify_ssl is True
+
+  def test_rootcert_overrides_default(self):
+    assert RESTClient("https://manager.example/api/v1", rootcert="/ca.pem").verify_ssl == "/ca.pem"
+
+  def test_disabling_verification_requires_explicit_opt_in(self):
+    assert RESTClient("https://manager.example/api/v1", verify_ssl=False).verify_ssl is False
+
+  def test_empty_verify_value_fails_closed(self):
+    assert RESTClient("https://manager.example/api/v1", verify_ssl=None).verify_ssl is True

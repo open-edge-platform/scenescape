@@ -299,7 +299,17 @@ class PubSub(_PubSubTopicBase):
     def wrapper(*args, **kwargs):
       modified_args = list(args)
       modified_args[0] = self
-      return function(*modified_args, **kwargs)
+      try:
+        return function(*modified_args, **kwargs)
+      except Exception as e:
+        # Contain message failures without hiding connection/setup failures.
+        message = args[2] if len(args) > 2 else kwargs.get('message')
+        if not hasattr(message, 'topic'):
+          raise
+        topic = message.topic
+        log.error(f"Exception in MQTT callback {getattr(function, '__name__', function)}"
+                  f"{f' (topic {topic})' if topic else ''}: {type(e).__name__}: {e}")
+        return None
     return wrapper
 
   @staticmethod
@@ -416,29 +426,29 @@ class PubSub(_PubSubTopicBase):
 
   def chunkReceived(self, client, userdata, message):
     # self and client are the same
-    self.receivedCondition.acquire()
+    # The condition must be released on malformed chunks so the waiter in
+    # receiveFile can re-acquire it and finish.
+    with self.receivedCondition:
+      headerLen = struct.calcsize(CHUNK_HEADER)
+      header = struct.unpack(CHUNK_HEADER, message.payload[:headerLen])
+      data = message.payload[headerLen:]
 
-    headerLen = struct.calcsize(CHUNK_HEADER)
-    header = struct.unpack(CHUNK_HEADER, message.payload[:headerLen])
-    data = message.payload[headerLen:]
+      totalSize = header[0]
+      chunkSize = header[1]
+      chunkCount = header[2]
+      idx = header[3]
 
-    totalSize = header[0]
-    chunkSize = header[1]
-    chunkCount = header[2]
-    idx = header[3]
+      if not hasattr(self, 'remaining') or self.remaining is None:
+        self.remaining = list(range(chunkCount))
+        self.received = bytearray(totalSize)
 
-    if not hasattr(self, 'remaining') or self.remaining is None:
-      self.remaining = list(range(chunkCount))
-      self.received = bytearray(totalSize)
+      if idx in self.remaining:
+        offset = idx * chunkSize
+        self.received[offset:offset + len(data)] = data
+        self.remaining.remove(idx)
+        self.complete = len(self.remaining) == 0
 
-    if idx in self.remaining:
-      offset = idx * chunkSize
-      self.received[offset:offset + len(data)] = data
-      self.remaining.remove(idx)
-      self.complete = len(self.remaining) == 0
-
-    self.receivedCondition.notify()
-    self.receivedCondition.release()
+      self.receivedCondition.notify()
     return
 
 def initializeMqttClient(**kwargs):
