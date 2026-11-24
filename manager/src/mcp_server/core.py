@@ -12,7 +12,7 @@ from thin_mcp import JsonRpcErrorCode, McpHttpResult, McpRequest, McpRequestHead
 from thin_mcp.schemas import JsonRpcErrorResponse, JsonRpcResultResponse, ToolResult
 
 from mcp_server.consts import (
-  OUTCOME_EXCEPTION, OUTCOME_PROTOCOL_ERROR, OUTCOME_SUCCESS, OUTCOME_TOOL_ERROR,
+  METHOD_TOOLS_CALL, OUTCOME_EXCEPTION, OUTCOME_PROTOCOL_ERROR, OUTCOME_SUCCESS, OUTCOME_TOOL_ERROR,
   PYDANTIC_JSON_INVALID,
 )
 from mcp_server.tools import tool_registry
@@ -33,7 +33,7 @@ MCP_SERVER = McpServer(
 
 def dispatch_request(user: AbstractBaseUser, payload: McpRequest) -> McpHttpResult:
   """Log tool calls without recording arguments or results."""
-  if payload.method != 'tools/call':
+  if payload.method != METHOD_TOOLS_CALL:
     return MCP_SERVER.dispatch_request(user, payload)
 
   name = payload.params.get('name')
@@ -50,7 +50,8 @@ def dispatch_request(user: AbstractBaseUser, payload: McpRequest) -> McpHttpResu
         outcome = OUTCOME_TOOL_ERROR
     return result
   finally:
-    duration_ms = (perf_counter() - started) * 1000
+    ended = perf_counter()
+    duration_ms = (ended - started) * 1000
     logger.info(f'MCP tool call: tool={tool} user_id={user.pk} '
                 f'outcome={outcome} duration_ms={duration_ms:.1f}')
 

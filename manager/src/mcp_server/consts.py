@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Stable tool-call log outcomes and validation error identifiers."""
+"""MCP method names, tool-call outcomes, and validation error identifiers."""
+
+METHOD_TOOLS_CALL = 'tools/call'
 
 OUTCOME_EXCEPTION = 'exception'
 OUTCOME_PROTOCOL_ERROR = 'protocol_error'
