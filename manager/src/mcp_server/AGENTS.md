@@ -15,7 +15,7 @@ SceneScape owns authentication, permissions, and configuration queries.
 1. Define validated arguments and explicit public result fields in `schemas.py`.
    Derive inputs from `Arguments`; reuse UUID and pagination validation.
 2. Add a bounded ORM read in `queries.py`, with stable ordering and valid
-   continuation offsets. Exclude credentials, stream URLs, and raw model dumps.
+   continuation pages. Exclude credentials, stream URLs, and raw model dumps.
 3. Follow `tools/scenes.py`: register a typed adapter with argument/result models
    and `READ_ANNOTATIONS`. Import new domain modules in
    `tools/__init__.py`; the shared registry lives in `tools_registry.py`.

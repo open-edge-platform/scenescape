@@ -8,16 +8,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-MAX_OFFSET = 500
-
-
 class Arguments(BaseModel):
   model_config = ConfigDict(extra='forbid')
 
 
 class ListArguments(Arguments):
   limit: int = Field(default=25, ge=1, le=25)
-  offset: int = Field(default=0, ge=0, le=MAX_OFFSET)
+  page: int = Field(default=1, ge=1)
 
 
 class SceneArguments(Arguments):
@@ -37,4 +34,4 @@ ItemT = TypeVar('ItemT', bound=BaseModel)
 
 class Page(BaseModel, Generic[ItemT]):
   items: list[ItemT]
-  next_offset: int | None
+  next_page: int | None

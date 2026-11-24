@@ -94,11 +94,11 @@ def test_initialize_and_notification(client):
 
 def test_valid_tool_call(client, monkeypatch):
   scene = SceneSummary(id=uuid4(), name='Demo', map_type='map_upload', scale=1, use_tracker=True)
-  monkeypatch.setattr(queries, 'list_scenes', lambda arguments: Page(items=[scene], next_offset=None))
+  monkeypatch.setattr(queries, 'list_scenes', lambda arguments: Page(items=[scene], next_page=None))
   response = rpc(client, 'tools/call', {'name': 'list_scenes', 'arguments': {'limit': 1}})
   result = response.json()['result']
   assert result['structuredContent']['items'][0]['id'] == str(scene.id)
-  assert result['structuredContent']['next_offset'] is None
+  assert result['structuredContent']['next_page'] is None
 
 
 @pytest.mark.parametrize('failure, outcome', [
@@ -113,7 +113,7 @@ def test_tool_calls_logged_once(client, monkeypatch, caplog, failure, outcome):
       raise failure
     scene = SceneSummary(id=uuid4(), name='private-scene-name',
                          map_type=None, scale=None, use_tracker=True)
-    return Page(items=[scene], next_offset=None)
+    return Page(items=[scene], next_page=None)
 
   monkeypatch.setattr(queries, 'list_scenes', list_scenes)
   with caplog.at_level(logging.INFO, logger='mcp_server.core'):
@@ -146,41 +146,35 @@ def test_discovery_does_not_log_tool_call(client, caplog):
   assert not caplog.records
 
 
-def test_pagination_follows_continuations_up_to_offset_500(client, monkeypatch):
-  """Follow real tool calls to the last allowed page, then reject offset 501."""
+def test_pagination_follows_continuations_beyond_500(client, monkeypatch):
+  """Follow every page, including scenes beyond the old offset limit."""
   rows = [{'id': UUID(int=i + 1), 'name': f'Scene {i}', 'map_type': None,
            'scale': None, 'use_tracker': True} for i in range(526)]
   scene = MagicMock()
-  # Use actual list slicing behind the ORM mock; keep validation and queries real.
   scene.objects.order_by.return_value.values.return_value = rows
   monkeypatch.setattr(queries, 'Scene', scene)
-  offset = 0
+  page_number = 1
   seen = []
-
-  for expected_offset in range(0, 501, 25):
-    assert offset == expected_offset
+  for expected_page in range(1, 23):
+    assert page_number == expected_page
     response = rpc(client, 'tools/call', {
-      'name': 'list_scenes', 'arguments': {'limit': 25, 'offset': offset},
+      'name': 'list_scenes', 'arguments': {'limit': 24, 'page': page_number},
     })
     assert response.status_code == 200
-    page = response.json()['result']['structuredContent']
-    assert [item['id'] for item in page['items']] == [
-      str(row['id']) for row in rows[expected_offset:expected_offset + 25]]
-    seen.extend(item['id'] for item in page['items'])
-    offset = page['next_offset']
-
-  assert offset is None  # Row 526 exists, but the next page would start above 500.
-  assert len(seen) == len(set(seen)) == 525
-  scene.objects.order_by.reset_mock()
-  response = rpc(client, 'tools/call', {
-    'name': 'list_scenes', 'arguments': {'offset': 501},
-  })
-  assert response.json()['result']['isError'] is True
-  scene.objects.order_by.assert_not_called()
+    result = response.json()['result']['structuredContent']
+    seen.extend(item['id'] for item in result['items'])
+    page_number = result['next_page']
+  assert page_number is None
+  assert seen == [str(row['id']) for row in rows]
+  result = rpc(client, 'tools/call', {
+    'name': 'list_scenes', 'arguments': {'limit': 24, 'page': 23},
+  }).json()['result']
+  assert result['isError'] is True
 
 
-@pytest.mark.parametrize('arguments', [{'limit': 26}, {'limit': 0}, {'offset': -1},
-                                       {'offset': 501}, {'unknown': 'value'}])
+@pytest.mark.parametrize('arguments', [{'limit': 26}, {'limit': 0}, {'page': 0},
+                                       {'page': -1}, {'offset': 0}, {'unknown': 'value'}])
+
 def test_invalid_tool_arguments_never_query(client, monkeypatch, arguments):
   def unexpected_query(arguments):
     raise AssertionError('Invalid arguments reached the query layer.')

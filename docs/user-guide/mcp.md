@@ -55,7 +55,7 @@ scene configuration:
 
 | Tool          | Arguments                  | Result                            |
 | ------------- | -------------------------- | --------------------------------- |
-| `list_scenes` | Optional `limit`, `offset` | Scene summaries and `next_offset` |
+| `list_scenes` | Optional `limit`, `page`   | Scene summaries and `next_page`   |
 | `get_scene`   | Required `scene_id` UUID   | One scene summary                 |
 
 Example: list up to 10 scenes.
@@ -72,9 +72,11 @@ Example: list up to 10 scenes.
 }
 ```
 
-Pages default to 25 scenes (maximum 25). Pass `next_offset` to continue; `null`
-means the end of results or the offset limit of 500. These tools do not expose
-live tracking or video.
+Pages start at 1 and default to 25 scenes (maximum 25). Pass `next_page` to
+continue, keeping the same `limit`; `null` means the end of results. An empty
+inventory returns an empty first page. Invalid or nonexistent pages return a
+tool error. Scenes are ordered by ID, but additions and deletions between calls
+can shift page boundaries. These tools do not expose live tracking or video.
 
 ## Endpoint controls
 

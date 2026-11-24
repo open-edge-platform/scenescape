@@ -11,16 +11,10 @@ submitted reviews or inline review threads yet.
 
 ## Code and tests
 
-- [ ] Decide and implement the pagination boundary behavior. With `limit=24`,
-  following `next_offset` stops after the page starting at 480, although a
-  request starting at offset 500 is allowed. Make the continuation and the
-  documented limit consistent, and test page sizes that do not divide 500.
-- [ ] Complete the local `core.py` cleanup: the `tools/call` constant and
-  explicit `ended = perf_counter()` are currently uncommitted and therefore
-  are not in the PR. Run the focused MCP tests and
-  `make complexity-check SERVICE=manager`, then commit and push the changes.
-  The current local environment lacks pytest and complexipy; the checks have
-  not been rerun for these edits.
+- [ ] Validate and push the page-number pagination change. It removes the
+  arbitrary 500-offset limit and uses Django's paginator, as the REST API does.
+  Check the focused MCP tests, Django integration tests, and
+  `make complexity-check SERVICE=manager` for the final commit.
 
 ## Integration and CI
 

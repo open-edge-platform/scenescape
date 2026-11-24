@@ -65,14 +65,14 @@ def test_initialize_and_discover_two_read_only_tools(mcp_client):
 def test_list_scenes_orders_and_projects_real_rows(mcp_client):
   client, _, _ = mcp_client
   result = call_tool(client, 'list_scenes', {'limit': 2})['structuredContent']
-  assert result['next_offset'] == 2
+  assert result['next_page'] == 2
   assert result['items'] == [
     {'id': str(UUID(int=i)), 'name': f'Scene {i}', 'map_type': None,
      'scale': None, 'use_tracker': True} for i in (1, 2)
   ]
-  last = call_tool(client, 'list_scenes', {'limit': 2, 'offset': 2})['structuredContent']
+  last = call_tool(client, 'list_scenes', {'limit': 2, 'page': 2})['structuredContent']
   assert [row['id'] for row in last['items']] == [str(UUID(int=3))]
-  assert last['next_offset'] is None
+  assert last['next_page'] is None
 
 
 def test_get_scene_is_read_only(mcp_client):
@@ -96,23 +96,23 @@ def test_missing_scene_returns_tool_error(mcp_client):
   assert result['content'][0]['text'] == 'Scene not found.'
 
 
-def test_pagination_stops_after_page_start_500(mcp_client):
+def test_pagination_reaches_all_scenes_beyond_500(mcp_client):
   client, _, _ = mcp_client
   Scene.objects.bulk_create([Scene(id=UUID(int=i), name=f'Scene {i}') for i in range(4, 527)])
-  offset = 0
+  page_number = 1
   seen = []
-  for expected_offset in range(0, 501, 25):
-    assert offset == expected_offset
-    page = call_tool(client, 'list_scenes', {'offset': offset})['structuredContent']
+  for expected_page in range(1, 23):
+    assert page_number == expected_page
+    page = call_tool(client, 'list_scenes', {'limit': 24, 'page': page_number})['structuredContent']
     seen.extend(row['id'] for row in page['items'])
-    offset = page['next_offset']
-  assert offset is None
-  assert seen == [str(UUID(int=i)) for i in range(1, 526)]
-  assert Scene.objects.count() == 526
+    page_number = page['next_page']
+  assert page_number is None
+  assert seen == [str(UUID(int=i)) for i in range(1, 527)]
+  assert call_tool(client, 'list_scenes', {'limit': 24, 'page': 23})['isError']
 
 
 @pytest.mark.parametrize('tool, arguments', [
-  ('list_scenes', {'offset': 501}),
+  ('list_scenes', {'page': 0}),
   ('get_scene', {'scene_id': 'not-a-uuid'}),
 ])
 def test_invalid_arguments_only_query_authentication(mcp_client, django_assert_num_queries, tool, arguments):

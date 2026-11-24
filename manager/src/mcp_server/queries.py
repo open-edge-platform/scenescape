@@ -3,26 +3,27 @@
 
 """Bounded inventory queries; select only fields in the public MCP contract."""
 
+from django.core.paginator import EmptyPage, Paginator
 from django.db.models import QuerySet
 from thin_mcp import ToolExecutionError
 
 from manager.models import Scene
 from mcp_server.schemas import (
-  MAX_OFFSET, ItemT, ListArguments, Page, SceneArguments, SceneSummary,
+  ItemT, ListArguments, Page, SceneArguments, SceneSummary,
 )
 
 
 def inventory_page(queryset: QuerySet, arguments: ListArguments,
                    item_model: type[ItemT]) -> Page[ItemT]:
-  """Fetch one extra row to detect another page without an unbounded count."""
-  rows = list(queryset.values(*item_model.model_fields)[
-    arguments.offset:arguments.offset + arguments.limit + 1])
-  next_offset = arguments.offset + arguments.limit
-  if len(rows) <= arguments.limit or next_offset > MAX_OFFSET:
-    next_offset = None
+  """Paginate projected fields using the same Django paginator as the REST API."""
+  paginator = Paginator(queryset.values(*item_model.model_fields), arguments.limit)
+  try:
+    page = paginator.page(arguments.page)
+  except EmptyPage as exc:
+    raise ToolExecutionError('Page does not exist.') from exc
   return Page[item_model](
-    items=[item_model.model_validate(row) for row in rows[:arguments.limit]],
-    next_offset=next_offset,
+    items=[item_model.model_validate(row) for row in page.object_list],
+    next_page=page.next_page_number() if page.has_next() else None,
   )
 
 
