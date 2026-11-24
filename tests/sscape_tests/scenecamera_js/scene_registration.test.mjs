@@ -8,7 +8,7 @@ import { setImmediate } from "node:timers/promises";
 
 register("./stub_hooks.mjs", import.meta.url);
 globalThis.document = { addEventListener() {}, getElementById() {} };
-const { registerSceneFor3DView } =
+const { manageCalibrationState, registerSceneFor3DView } =
   await import("../../../manager/src/manager/static/js/calibration.js");
 const { default: Toast } =
   await import("../../../manager/src/manager/static/js/toast.js");
@@ -204,4 +204,37 @@ test("persistent toasts disable autohide without passing a null Bootstrap delay"
 
   Toast().showToast(PROCESSING, "default", TOAST_ID, null);
   assert.deepEqual(calls, [{ autohide: false }, "show"]);
+});
+
+const SCENE_A = "scene-a";
+const SCENE_B = "scene-b";
+
+async function busyTooltip(context, msg) {
+  const button = { dataset: {}, disabled: false, title: "" };
+  const spinner = { classList: { add() {}, remove() {} } };
+  context.mock.method(document, "getElementById", (id) =>
+    id === "auto-autocalibration" ? button : spinner,
+  );
+  await manageCalibrationState(msg, SCENE_B);
+  assert.equal(button.disabled, true);
+  return button.title;
+}
+
+test("a busy reply for scene B names the scene that is registering", async (context) => {
+  const title = await busyTooltip(context, {
+    status: "busy",
+    sceneId: SCENE_B,
+    registeringSceneId: SCENE_A,
+    registeringSceneName: "A name",
+  });
+  assert.equal(title, "Unavailable, registering scene : A name");
+});
+
+test("a busy reply without the registering scene name stays generic", async (context) => {
+  const title = await busyTooltip(context, {
+    status: "busy",
+    sceneId: SCENE_B,
+    registeringSceneId: SCENE_A,
+  });
+  assert.equal(title, "Unavailable, another scene is registering");
 });

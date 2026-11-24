@@ -8,7 +8,6 @@ import base64
 
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, join_room
-from requests.exceptions import RequestException
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
 from point_cloud_registration import PointCloudRegistration, PointCloudRegistrationError
@@ -414,7 +413,8 @@ class CameraCalibrationApi:
 
   def _request_scene_registration(self, scene_id: str, scene) -> dict:
     status = self.OpenApi.Status
-    result, registering_id = self.calibrationContext.request_scene_registration(scene)
+    result, registering_id, registering_name = (
+        self.calibrationContext.request_scene_registration(scene))
     outcome, message = {
         "active": (status.REGISTERING, "Registration is in progress"),
         "started": (status.REGISTERING, "Registration started"),
@@ -427,13 +427,6 @@ class CameraCalibrationApi:
     }
     if outcome == status.BUSY and registering_id:
       response[self.OpenApi.REGISTERING_SCENE_ID] = registering_id
-      try:
-        registering_scene = self.calibrationContext.calibration_data_interface.scene_with_id(
-            registering_id)
-      except RequestException as e:
-        log.warning(f"Could not look up registering scene {registering_id}: {e}")
-        registering_scene = None
-      registering_name = getattr(registering_scene, "name", None)
       if registering_name:
         response[self.OpenApi.REGISTERING_SCENE_NAME] = registering_name
     return response

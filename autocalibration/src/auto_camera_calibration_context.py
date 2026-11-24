@@ -65,6 +65,7 @@ class CameraCalibrationContext:
     self.registration_state_lock = threading.RLock()
     self.calibration_thread_lock = threading.Lock()
     self.current_processing_scene = None
+    self.current_processing_scene_name = None
 
     return
 
@@ -95,6 +96,7 @@ class CameraCalibrationContext:
       if not self.register_thread_lock.acquire(blocking=False):
         return False
       self.current_processing_scene = sceneobj.id
+      self.current_processing_scene_name = getattr(sceneobj, "name", None)
       self.pending_registrations.discard(sceneobj.id)
       self.registration_results.pop(sceneobj.id, None)
       self._bump_registration_generation(sceneobj.id)
@@ -103,6 +105,7 @@ class CameraCalibrationContext:
         self.socketio.start_background_task(self.process_scene, sceneobj, map_update)
       except Exception:
         self.current_processing_scene = None
+        self.current_processing_scene_name = None
         self.register_thread_lock.release()
         raise
       return True
@@ -110,15 +113,15 @@ class CameraCalibrationContext:
   def request_scene_registration(self, sceneobj):
     """! Start registering a scene, or queue it while another scene registers.
 
-    @return  ("active" | "started" | "busy", id of the scene being registered).
+    @return  ("active" | "started" | "busy", registering scene id, registering scene name).
     """
     with self.registration_state_lock:
       if self.current_processing_scene == sceneobj.id:
-        return "active", sceneobj.id
+        return "active", sceneobj.id, self.current_processing_scene_name
       if self.scene_update_thread_wrapper(sceneobj, map_update=True):
-        return "started", sceneobj.id
+        return "started", sceneobj.id, self.current_processing_scene_name
       self.pending_registrations.add(sceneobj.id)
-      return "busy", self.current_processing_scene
+      return "busy", self.current_processing_scene, self.current_processing_scene_name
 
   def process_scene(self, sceneobj, map_update):
     """! function processes the uploaded scene(image/glb) and publish back the
@@ -166,6 +169,7 @@ class CameraCalibrationContext:
       finally:
         self._bump_registration_generation(scene_id)
         self.current_processing_scene = None
+        self.current_processing_scene_name = None
         self.register_thread_lock.release()
 
   def _bump_registration_generation(self, scene_id):

@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-import requests
 from flask import has_request_context, request
 
 from auto_camera_calibration_api import CameraCalibrationApi
@@ -196,6 +195,7 @@ class _ReadyContext:
     }
     self.register_thread_lock = _ViewLock({_BUSY_SCENE, _ACTIVE_SCENE})
     self.current_processing_scene = _ACTIVE_SCENE
+    self.current_processing_scene_name = _ACTIVE_SCENE_NAME
     # The AprilTag worker saved map_processed, then rejected the scene for too few tags.
     self.registration_results = {
       _SUCCESS_SCENE: {"status": "success"},
@@ -231,11 +231,11 @@ class _ReadyContext:
   def request_scene_registration(self, scene):
     """Start, report active, or queue the scene like the real context."""
     if self.current_processing_scene == scene.id:
-      return "active", scene.id
+      return "active", scene.id, self.current_processing_scene_name
     if self.scene_update_thread_wrapper(scene, map_update=True):
-      return "started", scene.id
+      return "started", scene.id, scene.name
     self.pending_registrations.add(scene.id)
-    return "busy", self.current_processing_scene
+    return "busy", self.current_processing_scene, self.current_processing_scene_name
 
   def begin_sync_registration(self, scene_id):
     """No concurrent workers are simulated, so any generation works."""
@@ -397,11 +397,22 @@ def test_registration_distinguishes_active_scene(scene_id, http_status, status):
 
 
 def test_busy_registration_names_the_registering_scene(monkeypatch):
-  """A busy response for scene B must identify active scene A, not B."""
-  monkeypatch.setattr(_api.calibrationContext, "pending_registrations", set())
+  """A busy response for scene B must identify active scene A without asking the Manager."""
+  context = _api.calibrationContext
+  monkeypatch.setattr(context, "pending_registrations", set())
+  lookup = context.calibration_data_interface.scene_with_id
+
+  def lookup_without_active_scene(scene_id):
+    if scene_id == _ACTIVE_SCENE:
+      pytest.fail("busy reply looked up the registering scene in the Manager")
+    return lookup(scene_id)
+
+  monkeypatch.setattr(
+    context.calibration_data_interface, "scene_with_id", lookup_without_active_scene)
   with _api.app.test_client() as client:
     response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
   body = response.get_json()
+  assert response.status_code == 200
   assert body["status"] == "busy"
   assert body["sceneId"] == _BUSY_SCENE
   assert body["registeringSceneId"] == _ACTIVE_SCENE
@@ -409,37 +420,17 @@ def test_busy_registration_names_the_registering_scene(monkeypatch):
   assert "sceneName" not in body
 
 
-def _unreachable_lookup(lookup, unreachable_id, error):
-  """Wrap a scene lookup so one scene ID fails at the transport layer."""
-  def scene_with_id(scene_id):
-    if scene_id == unreachable_id:
-      raise error
-    return lookup(scene_id)
-  return scene_with_id
-
-
-@pytest.mark.parametrize("registering_id,lookup_error", [
-  (_MISSING_SCENE, None),
-  (_ACTIVE_SCENE, requests.exceptions.ConnectionError("manager unreachable")),
-  (_ACTIVE_SCENE, requests.exceptions.Timeout("manager timed out")),
-], ids=["missing-scene", "connection-error", "timeout"])
-def test_busy_registration_omits_name_when_lookup_fails(
-    monkeypatch, registering_id, lookup_error):
-  """A registering scene that cannot be looked up is reported by ID only, not as a 500."""
+def test_busy_registration_omits_unknown_registering_scene_name(monkeypatch):
+  """A registering scene without a known name is reported by ID only."""
   context = _api.calibrationContext
   monkeypatch.setattr(context, "pending_registrations", set())
-  monkeypatch.setattr(context, "current_processing_scene", registering_id)
-  monkeypatch.setattr(context, "register_thread_lock", _ViewLock({_BUSY_SCENE}))
-  if lookup_error:
-    data_interface = context.calibration_data_interface
-    monkeypatch.setattr(data_interface, "scene_with_id", _unreachable_lookup(
-      data_interface.scene_with_id, registering_id, lookup_error))
+  monkeypatch.setattr(context, "current_processing_scene_name", None)
   with _api.app.test_client() as client:
     response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
   body = response.get_json()
   assert response.status_code == 200
   assert body["status"] == "busy"
-  assert body["registeringSceneId"] == registering_id
+  assert body["registeringSceneId"] == _ACTIVE_SCENE
   assert "registeringSceneName" not in body
   assert _BUSY_SCENE in context.pending_registrations
 
