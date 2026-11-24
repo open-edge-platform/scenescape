@@ -177,7 +177,7 @@ For an existing Kubernetes cluster, follow [Deploy on Kubernetes](./deploy-kuber
 
 ### Wire Up the Demo Video Sources
 
-The chart does not run a media server itself. Start the bundled Retail and Queuing sample-video stack and point the cluster's `mediaserver` Service at it: see [Video Source (sample/demo camera feeds)](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/kubernetes/README.md#video-source-sampledemo-camera-feeds).
+The chart does not run a media server itself. Start the bundled Retail and Queuing sample-video stack and point the cluster's `mediaserver` Service at it: see [Video Source (sample/demo camera feeds)](https://github.com/open-edge-platform/scenescape/blob/main/kubernetes/README.md#video-source-sampledemo-camera-feeds).
 
 ### Upload the Demo Scenes
 
