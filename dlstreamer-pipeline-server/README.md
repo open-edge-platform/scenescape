@@ -16,7 +16,7 @@
 Below are step-by-step instructions for enabling out-of-the-box scenes in Scenescape to leverage DL Streamer Pipeline Server for Video Analytics.
 
 1. **Model Requirements:**
-   Ensure the OMZ model `person-detection-retail-0013` is present in the Models Volume in the `omz/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
+   Ensure the models `OpenVINO_yolox_s-fp16-ov` and `OpenVINO_yolox_s-int8-ov` are present in the Models Volume in the `huggingface/` subfolder. Refer to the instructions in [How to Manage Files in Volumes](../docs/user-guide/other-topics/how-to-manage-files-in-volumes.md) on how to access the Models Volume.
 
 2. **Start Scenescape DL Streamer-based demo:**
 
@@ -133,7 +133,7 @@ To facilitate NPU acceleration, sample configuration files are provided for the 
 
 - Inference offloaded to NPU
 
-NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
+NPU performance metrics can be monitored using [NPU System Monitoring Tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/tools/npu-monitor-tool)
 
 ### Configuration
 
@@ -219,7 +219,7 @@ docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.r
   -f sample_data/compose/compose.reid-pipeline-override.yml up -d
 ```
 
-Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
+Ensure the `mars-small128` model (installed by `make -C model_download install-models`) is available in the `ultralytics/public/mars-small128/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/ultralytics/public/mars-small128`. The same folder holds `mars-small128.json`, the model-proc that feeds the model RGB frames.
 
 ## Enable Pose Estimation
 
@@ -231,7 +231,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
    > `download_public_models.sh` no longer exists in the upstream DL Streamer repository; it was replaced by separate scripts under [`scripts/download_models/`](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models) with different CLI syntax. The link and the commands below are kept for historical reference.
 
    Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
-   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
+   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
 
    Download the YOLO pose model:
 
@@ -342,4 +342,4 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 For detailed instructions on further configuring DL Streamer pipelines, refer to:
 
 - [How to Configure DL Streamer Video Pipeline](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md) - Step-by-step guide for configuring DL Streamer video pipelines in Scenescape.
-- [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.
+- [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/how-to-guides/use-gpu-npu-for-decode-and-inference.html) - How to configure video pipeline to use GPU or NPU.

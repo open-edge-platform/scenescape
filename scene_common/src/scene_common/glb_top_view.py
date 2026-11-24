@@ -56,6 +56,7 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
 
   @return img                captured image as array.
   @return pixels_per_meter   determined pixels per meter.
+  @return origin             world [x, y] of the image's bottom-left corner.
   """
   if not tensor_mesh:
     raise ValueError("tensor_mesh is empty; cannot access its first element.")
@@ -126,8 +127,9 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
                                        0.0, max_z - min_z + 2 * margin)
   # We use the vertical resolution as the base for all computations
   pixels_per_meter = res_y / top
+  origin = [center_x - right / 2, center_y - top / 2]
   img = renderer.render_to_image()
-  return img, pixels_per_meter
+  return img, pixels_per_meter, origin
 
 def getMeshSize(mesh):
   """! Returns the mesh size as [width, height, depth].
@@ -145,6 +147,7 @@ def generateOrthoView(scene_obj, glb_file):
 
   @return img                captured image as numpy array.
   @return pixels_per_meter   determined pixels per meter.
+  @return origin             world [x, y] of the image's bottom-left corner.
   """
   rotation_vector = np.float64([scene_obj.rotation_x,
                                 scene_obj.rotation_y,
@@ -160,9 +163,9 @@ def generateOrthoView(scene_obj, glb_file):
   triangle_mesh.translate((scene_obj.translation_x, scene_obj.translation_y, scene_obj.translation_z))
 
   glb_size = getMeshSize(triangle_mesh)
-  img, pixels_per_meter = renderTopView(triangle_mesh,
-                                        tensor_mesh,
-                                        glb_size,
-                                        THUMBNAIL_RESOLUTION['x'],
-                                        THUMBNAIL_RESOLUTION['y'])
-  return np.array(img), pixels_per_meter
+  img, pixels_per_meter, origin = renderTopView(triangle_mesh,
+                                                tensor_mesh,
+                                                glb_size,
+                                                THUMBNAIL_RESOLUTION['x'],
+                                                THUMBNAIL_RESOLUTION['y'])
+  return np.array(img), pixels_per_meter, origin

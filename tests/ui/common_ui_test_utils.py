@@ -71,6 +71,7 @@ DEFAULT_SENSOR_TRIANGLE_HEIGHT = 600
 DEFAULT_SENSOR_TRIANGLE_LENGTH = 800
 DEFAULT_SENSOR_TRIANGLE_UPPER_LEFT_POINT = (-400, -300)
 BROWSER_WAIT = 5
+CALIBRATION_READY_WAIT = 20
 
 def click_when_clickable(browser, locator, timeout_s=10):
   """Click an element after ensuring it is interactable and not obscured."""
@@ -593,12 +594,14 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   """
 
   calibration_state = browser.execute_script(calibration_ready_script)
-  if calibration_state.get("hasCalibration") and not calibration_state.get("ready"):
+  if not calibration_state.get("ready"):
+    # The viewport is created only after page images load; it never appears without WebGL.
     try:
-      wait.until(lambda drv: drv.execute_script(calibration_ready_script)["ready"])
-      calibration_state = browser.execute_script(calibration_ready_script)
+      WebDriverWait(browser, CALIBRATION_READY_WAIT).until(
+        lambda drv: drv.execute_script(calibration_ready_script)["ready"])
     except Exception:
-      calibration_state = browser.execute_script(calibration_ready_script)
+      pass
+    calibration_state = browser.execute_script(calibration_ready_script)
 
   if not calibration_state.get("ready"):
     transforms_value = browser.execute_script(
@@ -1487,13 +1490,17 @@ def set_3d_control_input_value(browser, input_element, value):
   )
 
 def get_3d_scene_object_state(browser, object_name):
-  """! Read a named 3D scene object and its optional text label."""
+  """! Read a named 3D scene object and its CSS2D thing label.
+  labelVisible is the label's rendered DOM state, so it only follows the
+  object's visibility after the CSS2DRenderer has drawn a frame.
+  """
   script = """
     const testScene = window.__testScene;
     if (!testScene) return {hooksAvailable: false};
     const node = testScene.getObjectByName(arguments[0]);
     if (!node) return {hooksAvailable: true, found: false};
-    const label = node.getObjectByName("textObject_" + arguments[0]);
+    const label = node.getObjectByName("thingLabel_" + arguments[0]);
+    const labelElement = label ? label.element : null;
     return {
       hooksAvailable: true,
       found: true,
@@ -1502,23 +1509,30 @@ def get_3d_scene_object_state(browser, object_name):
       color: node.material ? node.material.color.getHexString() : null,
       opacity: node.material ? node.material.opacity : null,
       hasLabel: !!label,
-      labelVisible: label ? (label.visible && node.visible) : null,
+      labelVisible: labelElement
+        ? (labelElement.isConnected && labelElement.style.display !== "none")
+        : null,
     };
   """
   return browser.execute_script(script, object_name)
 
-def wait_for_3d_scene_object_state(browser, object_name, predicate, timeout_seconds=30):
-  """! Poll a 3D scene object until its state satisfies a predicate."""
+def wait_for_3d_scene_object_state(browser, object_name, predicate, timeout_seconds=30,
+                                   description="the expected state"):
+  """! Poll a 3D scene object until its state satisfies a predicate.
+  @param    description                Expectation included in the timeout failure message.
+  @return   dict                       The first state that satisfied the predicate.
+  """
   deadline = time.monotonic() + timeout_seconds
-  last_state = None
-  while time.monotonic() < deadline:
-    last_state = get_3d_scene_object_state(browser, object_name)
-    if predicate(last_state):
-      return last_state
+  while True:
+    state = get_3d_scene_object_state(browser, object_name)
+    if predicate(state):
+      return state
+    if time.monotonic() >= deadline:
+      raise AssertionError(
+        f"3D object '{object_name}' did not reach {description} within "
+        f"{timeout_seconds}s; last state: {state}"
+      )
     time.sleep(0.25)
-  assert last_state is not None, f"3D object '{object_name}' state was never available"
-  assert predicate(last_state), f"3D object '{object_name}' never reached the expected state"
-  return last_state
 
 def wait_for_3d_control_enabled(browser, object_name, control_name="show", timeout_seconds=30):
   """! Poll until a named lil-gui checkbox control is enabled."""
@@ -1971,13 +1985,6 @@ class InteractWithPage(ABC):
     """
     raise NotImplementedError("Method not implemented.")
 
-  @abstractmethod
-  def check_successful_interaction(self, params: InteractionParams, checks: CheckInteraction) -> bool:
-    """! Checks that an interaction with a page is successful.
-    @return   bool                     Boolean representing success.
-    """
-    raise NotImplementedError("Method not implemented.")
-
   def upload_file(self) -> bool:
     """! Uploads file based on the classes upload_params.
     @return   correct_address          Address of the upload page.
@@ -2060,7 +2067,9 @@ class InteractWithPage(ABC):
     # For 3D scene checks, compare the rendered canvas directly instead of the
     # full page so static UI chrome does not dominate SSIM.
     if self.interaction_params.page_path.startswith("/scene/detail/"):
-      wait_for_3d_scene_rendered(self.browser)
+      if not wait_for_3d_scene_rendered(self.browser):
+        print("SSIM difference check: 3D canvas did not render => False")
+        return False
       screenshot = capture_3d_canvas(self.browser)
     else:
       screenshot = self.get_page_screenshot()
@@ -2144,20 +2153,14 @@ class InteractWith3DScene(InteractWithPage):
     return False
 
   def get_3D_scene_screenshot(self) -> np.ndarray:
-    """! Take screenshot of current 3D scene.
-    @return   screenshot               Numpy array representing a screenshot.
+    """! Capture the rendered 3D canvas of the current scene.
+    @return   screenshot               Numpy array of the canvas pixels.
     """
     navigate_directly_to_page(self.browser, f"/scene/detail/{TEST_SCENE_ID}/")
-    time.sleep(1)
-    return self.get_page_screenshot()
-
-  def check_3D_asset_visible(self) -> bool:
-    """! Checks 3d asset visibility by checking that the expected filename is in the page source
-    and that the current screenshot differs from the baseline screenshot.
-    @return   object_visible_success   Boolean which is true if both checks pass.
-    """
-    object_visible_checks = CheckInteraction(file_name_in_page=True, screenshots_differ=True)
-    return self.check_successful_interaction(object_visible_checks)
+    # Same settle/render/capture sequence as check_screenshots_differ() so SSIM compares like with like.
+    time.sleep(5)
+    assert wait_for_3d_scene_rendered(self.browser), "3D canvas did not render for the baseline"
+    return capture_3d_canvas(self.browser)
 
   def hide_stats(self) -> bool:
     """! Hides the stats graph so that the graph doesn't affect the MSE during screenshot tests.

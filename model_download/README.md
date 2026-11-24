@@ -31,7 +31,7 @@ to check model initialization.
 - `MODEL_DOWNLOADER_IMAGE` (default: `intel/model-download:latest`)
 - `MODEL_DOWNLOADER_URL` (default: `http://127.0.0.1:8200`)
 - `MODEL_CONFIG_FILE` (default: `models.json`; shared model download and Scenescape config metadata)
-- `MODEL_DOWNLOADER_CMD` (model_downloader startup arguments; default: `--plugins omz`)
+- `MODEL_DOWNLOADER_CMD` (model_downloader startup arguments; default: `--plugins omz,huggingface,ultralytics`)
 
 > [!NOTE]
 > In proxy-enabled environments, set explicit loopback hosts in `NO_PROXY` / `no_proxy`.
@@ -127,7 +127,7 @@ MODEL_DOWNLOADER_CMD ?= --plugins omz,huggingface
 
 - if the model needs DL Streamer post-processing metadata, add `scenescape.model_proc` to the model entry so the generator creates the model-proc file in the models volume.
 
-> [!NOTE] list of available plugins and their configuration can be found in the `model_downloader` [documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/model-download/README.md).
+> [!NOTE] list of available plugins and their configuration can be found in the `model_downloader` [documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/release-2026.3.0/microservices/model-download/README.md).
 
 ## Unit Tests
 

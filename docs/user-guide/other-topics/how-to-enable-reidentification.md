@@ -74,7 +74,7 @@ retail-config:
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml name=detection ! gvainference model=/home/pipeline-server/models/ultralytics/public/mars-small128/mars_small128_fp32.xml model-proc=/home/pipeline-server/models/ultralytics/public/mars-small128/mars-small128.json inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 **Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
@@ -283,7 +283,7 @@ query-no-match; see
 
 ## Storage Bounding
 
-Architecture rationale: [ADR-0014](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0014-reid-descriptor-ttl-retention.md).
+Architecture rationale: [ADR-0014](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0014-reid-descriptor-ttl-retention.md).
 
 TTL retention is a coarse way to bound ReID store growth under memory pressure.
 It intentionally sacrifices long-horizon re-identification: old identities are

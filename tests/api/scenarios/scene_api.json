@@ -216,7 +216,8 @@
           "inlier_threshold": 0.5,
           "geospatial_provider": "google",
           "map_zoom": 15.0,
-          "map_bearing": 0.0
+          "map_bearing": 0.0,
+          "map_contributor": ""
         }
       }
     ]
@@ -283,7 +284,8 @@
           "inlier_threshold": 0.5,
           "geospatial_provider": "google",
           "map_zoom": 15.0,
-          "map_bearing": 0.0
+          "map_bearing": 0.0,
+          "map_contributor": ""
         }
       }
     ]

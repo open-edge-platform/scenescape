@@ -10,6 +10,7 @@ from http import HTTPStatus
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time, get_epoch_time
 from tests.functional.common_scene_obj import SceneObjectMqtt
+from tests.functional.functional import apply_demo_sweep_box
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
@@ -123,7 +124,7 @@ class SensorMqttRoi(SceneObjectMqtt):
       now = time.time()
       camera_id = jdata['id']
       jdata['timestamp'] = get_iso_time(now)
-      jdata['objects'][PERSON][0]['bounding_box']['y'] = location
+      apply_demo_sweep_box(jdata, location, PERSON)
       detection = json.dumps(jdata)
       self.pubsub.publish(
         PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id),
@@ -146,7 +147,7 @@ class SensorMqttRoi(SceneObjectMqtt):
     """
     jdata = self.objData()
     camera_id = jdata['id']
-    jdata['objects'][PERSON][0]['bounding_box']['y'] = finalLocation
+    apply_demo_sweep_box(jdata, finalLocation, PERSON)
     deadline = get_epoch_time() + timeout
     while self.entered and get_epoch_time() < deadline:
       jdata['timestamp'] = get_iso_time()

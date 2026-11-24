@@ -45,8 +45,10 @@ class PipelineGenerator:
     if decode_device not in ['CPU', 'GPU', 'AUTO']:
       raise PipelineGenerationValueError(f"Unsupported decode device: {decode_device}. Supported values are 'CPU', 'GPU', 'AUTO'.")
 
-    # Decoder selection
-    if decode_device == "CPU":
+    # V4L2 sources deliver raw video; decodebin3 fails to link it downstream
+    if self.input[0].startswith('v4l2src'):
+      self.decode = ["videoconvert", "video/x-raw,format=BGR"] if decode_device == "CPU" else ["videoconvert"]
+    elif decode_device == "CPU":
       self.decode = ["decodebin force-sw-decoders=true", "videoconvert", "video/x-raw,format=BGR"]
     else:  # AUTO, GPU
       self.decode = ["decodebin3"]

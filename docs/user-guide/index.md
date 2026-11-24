@@ -5,10 +5,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.3.0">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/README.md">
      Readme
   </a>
     <a class="icon_download" href="https://github.com/open-edge-platform/scenescape/releases">
@@ -56,11 +56,16 @@ For details on the analytics input and output message formats, see [Analytics Me
 
 ### **Deep Learning Streamer Pipeline Server**
 
-Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html).
+Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python-based, interoperable containerized microservice for easy development and deployment of video analytics pipelines. For more information, refer to [Deep Learning Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/index.html).
 
 ### **Auto Camera Calibration**
 
 Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](./microservices/auto-calibration/auto-calibration.md).
+
+### **Observation Processor**
+
+Converts camera detections into mesh-aware world-space measurements through a gRPC service.
+For more information, refer to [Observation Processor Service](./microservices/observation-processor/observation-processor.md).
 
 ### **Positioning**
 
@@ -96,7 +101,7 @@ PostgreSQL database server which stores static information used by the web UI an
 :::{toctree}
 :hidden:
 
-Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.html>
+Go back to Libraries <https://docs.openedgeplatform.intel.com/2026.3/ai-libraries.html>
 
 :::
 
@@ -104,7 +109,7 @@ Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.h
 :hidden:
 :caption: Get Started
 
-Scenescape Overview <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
+Scenescape Overview <https://docs.openedgeplatform.intel.com/2026.3/scenescape/index.html>
 Quick Start <./get-started/quick-start.md>
 Installation <./get-started/installation.md>
 System Requirements <./get-started/system-requirements.md>
@@ -135,6 +140,7 @@ Analytics <./microservices/analytics/analytics.md>
 Auto Camera Calibration <./microservices/auto-calibration/auto-calibration.md>
 Cluster Analytics <./microservices/cluster-analytics/cluster-analytics.md>
 Mapping Service <./microservices/mapping-service/mapping-service.md>
+Observation Processor <./microservices/observation-processor/observation-processor.md>
 Positioning Service <./microservices/positioning/positioning.md>
 Positioning Operations <./microservices/positioning/operations.md>
 Re-ID Service <./microservices/reid-service/reid-service.md>
@@ -153,6 +159,7 @@ Enabling Re-identification <./other-topics/how-to-enable-reidentification.md>
 Enabling Observability (Experimental) <./other-topics/how-to-enable-observability.md>
 Integrating Geti™ AI Models <./other-topics/how-to-integrate-geti-trained-model.md>
 Configuring DL Streamer Video Pipeline <./other-topics/how-to-configure-dlstreamer-video-pipeline.md>
+Using the MLOps Flow (Experimental) <./other-topics/how-to-use-mlops-flow.md>
 Model configuration file format <./other-topics/model-configuration-file-format.md>
 Running License Plate Recognition with 3D Object Detection <./other-topics/how-to-run-LPR-with-3D-object-detection.md>
 Managing Files in Volumes <./other-topics/how-to-manage-files-in-volumes.md>
