@@ -10,8 +10,9 @@ from django.conf import settings
 from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
-from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
-from manager.validators import validate_zip_file
+from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene, Pipeline
+from manager.pipeline_runtime import parse_tag_filter
+from manager.validators import camera_id_topic_error, validate_zip_file
 from manager.ppl_generator import (
   PipelineGenerationValueError,
   PipelineGenerationNotImplementedError,
@@ -25,10 +26,95 @@ from scene_common.cam_fields import (
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
 )
 
-class CamCalibrateForm(ModelForm):
+class PipelineForm(forms.ModelForm):
+  pipeline = forms.CharField(label="Pipeline string", strip=False,
+                             widget=forms.Textarea(attrs={
+                               'class': 'form-control text-monospace',
+                               'rows': 12,
+                               'spellcheck': 'false',
+                             }))
+
+  class Meta:
+    model = Pipeline
+    fields = ['name', 'pipeline']
+    widgets = {'name': forms.TextInput(attrs={'class': 'form-control'})}
+
+  def clean_pipeline(self):
+    pipeline = self.cleaned_data['pipeline']
+    if not pipeline.strip():
+      raise ValidationError("Enter a pipeline string.")
+    return pipeline
+
+
+class PipelineSyncForm(forms.Form):
+  """Optional tag filter for "Sync with ViPPET"."""
+
+  MATCH_ANY = 'any'
+  MATCH_ALL = 'all'
+
+  tags = forms.CharField(
+    label="Tags", required=False, max_length=2000,
+    widget=forms.TextInput(attrs={
+      'class': 'form-control form-control-sm',
+      'placeholder': 'Filter by tags, e.g. Scenescape, Retail',
+      'aria-label': 'Filter ViPPET pipelines by tags (comma-separated)',
+      'size': 32,
+    }))
+  tag_match = forms.ChoiceField(
+    label="Match", initial=MATCH_ANY, required=False,
+    choices=[(MATCH_ANY, 'Any'), (MATCH_ALL, 'All')],
+    widget=forms.RadioSelect(attrs={'class': 'form-check-input'}))
+
+  def __init__(self, *args, disabled=False, **kwargs):
+    super().__init__(*args, **kwargs)
+    if disabled:
+      for field in self.fields.values():
+        field.disabled = True
+
+  def clean(self):
+    cleaned_data = super().clean()
+    match_all = cleaned_data.get('tag_match') == self.MATCH_ALL
+    try:
+      cleaned_data['tag_filter'] = parse_tag_filter(cleaned_data.get('tags'), match_all)
+    except ValueError as e:
+      self.add_error('tags', str(e))
+    return cleaned_data
+
+
+class CameraPipelineForm(forms.ModelForm):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    pipeline_field = self.fields['pipeline']
+    assigned = Cam.objects.filter(pipeline__isnull=False)
+    if self.instance.pk:
+      assigned = assigned.exclude(pk=self.instance.pk)
+    pipeline_field.queryset = Pipeline.objects.exclude(
+      pk__in=assigned.values('pipeline_id'))
+    if not settings.ENABLE_MLOPS_FLOW:
+      # Disabled fields ignore submitted data, so the stored association is kept as is.
+      pipeline_field.disabled = True
+      pipeline_field.widget.attrs['title'] = settings.MLOPS_FLOW_DISABLED_HINT
+
+  def clean_sensor_id(self):
+    """Reject IDs that cannot be an MQTT topic level, as the REST API does."""
+    sensor_id = self.cleaned_data.get('sensor_id')
+    if settings.ENABLE_MLOPS_FLOW:
+      error = camera_id_topic_error(sensor_id)
+      if error:
+        raise ValidationError(f"Camera ID {error}")
+    return sensor_id
+
+
+class CamUpdateForm(CameraPipelineForm):
   class Meta:
     model = Cam
-    fields = CAM_FORM_FIELDS
+    fields = ['sensor_id', 'name', 'scene', 'pipeline']
+
+
+class CamCalibrateForm(CameraPipelineForm):
+  class Meta:
+    model = Cam
+    fields = CAM_FORM_FIELDS + ['pipeline']
 
   def _configurePoseLockedField(self):
     if 'pose_locked' not in self.fields:
@@ -204,10 +290,10 @@ class SingletonForm(forms.Form):
           raise ValidationError("The polygon vertex coordinates must be floating point numbers.")
     return cleaned_data
 
-class CamCreateForm(ModelForm):
+class CamCreateForm(CameraPipelineForm):
   class Meta:
     model = Cam
-    fields = ['sensor_id', 'name', 'scene', 'pose_locked']
+    fields = ['sensor_id', 'name', 'scene', 'pipeline', 'pose_locked']
     labels = {
       'sensor_id': 'Camera ID',
     }

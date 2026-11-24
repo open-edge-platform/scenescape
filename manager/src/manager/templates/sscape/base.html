@@ -117,6 +117,16 @@ SPDX-License-Identifier: Apache-2.0
                 >Object Library <span class="sr-only"></span
               ></a>
             </li>
+            {% if user.is_superuser %}
+              <li class="nav-item">
+                <a
+                  class="nav-link"
+                  id="nav-pipelines"
+                  href="{% url 'pipeline_list' %}"
+                  >Pipelines <span class="sr-only"></span
+                ></a>
+              </li>
+            {% endif %}
             <li class="nav-item">
               <a
                 class="nav-link"
@@ -160,6 +170,9 @@ SPDX-License-Identifier: Apache-2.0
 
     <div class="container-fluid wrapper">
       <div class="content">
+        {% block messages %}
+          {% include 'sscape/messages.html' %}
+        {% endblock %}
         {% block content %}
         {% endblock %}
       </div>

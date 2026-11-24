@@ -32,31 +32,25 @@
     "bounding_box": {
       "type": "object",
       "title": "Bounding Box",
-      "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in normalized camera space.",
+      "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in normalized camera space. The origin is the principal point, so x and y can be negative and values are not limited to [0, 1].",
       "properties": {
         "x": {
           "type": "number",
-          "minimum": 0,
-          "maximum": 1,
           "description": "x coordinate of the top-left corner of bounding box."
         },
         "y": {
           "type": "number",
-          "minimum": 0,
-          "maximum": 1,
           "description": "y coordinate of the top-left corner of bounding box."
         },
         "width": {
           "type": "number",
           "description": "Horizontal width of the bounding box.",
-          "minimum": 0,
-          "maximum": 1
+          "minimum": 0
         },
         "height": {
           "type": "number",
           "description": "Vertical height of the bounding box.",
-          "minimum": 0,
-          "maximum": 1
+          "minimum": 0
         }
       },
       "required": ["x", "y", "width", "height"]
