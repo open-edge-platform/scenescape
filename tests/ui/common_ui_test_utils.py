@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import re
 import cv2
 import json
 import time
@@ -1849,6 +1850,31 @@ def is_within_rectangle(bl, tr, curr_point):
   else:
     return False
 
+def stored_file_name_matches(actual, expected) -> bool:
+  """! Check a stored media name against the uploaded one.
+  Django's FileSystemStorage saves "<root>_<7 random chars><ext>" when "<root><ext>"
+  already exists in MEDIA_ROOT, e.g. left behind by an earlier test on the same stack.
+  @param    actual                     Name or URL shown by the page.
+  @param    expected                   Name or URL of the uploaded file.
+  @return   bool                       True if actual is expected or its collision-renamed form.
+  """
+  if not actual:
+    return False
+  root, ext = os.path.splitext(expected)
+  pattern = rf"{re.escape(root)}(_[A-Za-z0-9]{{7}})?{re.escape(ext)}"
+  return re.fullmatch(pattern, actual) is not None
+
+def find_uploaded_file_link(browser, file_name):
+  """! Find the page link to an uploaded file, tolerating Django collision renames.
+  @param    browser                    Object wrapping the Selenium driver.
+  @param    file_name                  Name of the uploaded file.
+  @return   str                        Link text of the stored file, or None if absent.
+  """
+  for link in browser.find_elements(By.TAG_NAME, "a"):
+    if stored_file_name_matches(link.text, file_name):
+      return link.text
+  return None
+
 ######################################################################################
 # Decorators
 ######################################################################################
@@ -1975,6 +2001,8 @@ class InteractWithPage(ABC):
     """
     self.browser = browser
     self.interaction_params = interaction_params
+    # Name the server actually stored the upload under, set by check_file_uploaded_name().
+    self.stored_file_name = None
     return
 
   @abstractmethod
@@ -2025,10 +2053,11 @@ class InteractWithPage(ABC):
     """
     check_str_root = "Check Uploaded File On Server: "
     upload_success = False
+    stored_name = os.path.basename(self.stored_file_name or self.interaction_params.file_name)
     tmp_dir_path = tempfile.mkdtemp()
-    file_output_path = tmp_dir_path + "/" + self.interaction_params.file_name
+    file_output_path = os.path.join(tmp_dir_path, stored_name)
     parsed_url = urlparse(self.browser.current_url)
-    file_url = parsed_url._replace(path=f"/media/{self.interaction_params.file_name}").geturl()
+    file_url = parsed_url._replace(path=f"/media/{stored_name}").geturl()
 
     cookies = {}
     for item in self.browser.get_cookies():
@@ -2048,9 +2077,9 @@ class InteractWithPage(ABC):
       return upload_success
 
     tmp_files = os.listdir(tmp_dir_path)
-    if (self.interaction_params.file_name in tmp_files) and filecmp.cmp(file_output_path, self.interaction_params.file_path):
+    if (stored_name in tmp_files) and filecmp.cmp(file_output_path, self.interaction_params.file_path):
       upload_success = True
-      print(check_str_root + "Passed")
+      print(check_str_root + f"Passed: file_url={file_url!r}")
     else:
       print(check_str_root + f"Failed: file_url={file_url!r} tmp_files={tmp_files} "
            f"status_code={response.status_code}")
@@ -2105,9 +2134,10 @@ class InteractWithPage(ABC):
     elif self.interaction_params.element_type == "attribute":
       page_file_name = element.get_attribute("value")
 
-    if(page_file_name == self.interaction_params.file_name) and navigate_success:
+    if navigate_success and stored_file_name_matches(page_file_name, self.interaction_params.file_name):
+      self.stored_file_name = page_file_name
       upload_success = True
-      print(check_str_root + "Passed")
+      print(check_str_root + f"Passed: page_file_name={page_file_name!r}")
     else:
       print(check_str_root + f"Failed: navigate_success={navigate_success} "
            f"page_file_name={page_file_name!r} expected={self.interaction_params.file_name!r} "
@@ -2234,6 +2264,8 @@ class InteractWithSceneUpdate(InteractWithPage):
     """
     upload_success = False
     correct_address = self.upload_file()
+    if not correct_address:
+      print(f"Scene update page not reached before upload; current_url={self.browser.current_url!r}")
 
     # Wait for redirect to resolve back to the Scenes page. 3D assets (.glb)
     # can take longer to process server-side (mesh validation, thumbnail
@@ -2252,5 +2284,8 @@ class InteractWithSceneUpdate(InteractWithPage):
     """
     upload_checks = replace(checks, screenshots_differ=False)
     upload_success = self.upload_scene_file(upload_checks)
-    assert upload_success
+    assert upload_success, (
+      f"3D map upload of {self.interaction_params.file_name!r} failed checks {upload_checks}; "
+      f"stored_file_name={self.stored_file_name!r} current_url={self.browser.current_url!r}"
+    )
     return upload_success

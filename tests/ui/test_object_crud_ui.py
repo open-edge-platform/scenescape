@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import random
 from tests.utils.log import get_logger
 from selenium.webdriver.support.ui import Select
@@ -91,8 +92,10 @@ def validate_object_crud(browser, file_path=None):
 
   if file_path:
     log.info('3D object updated!')
-    # Verify 3D model present using file name
-    browser.find_element(By.LINK_TEXT, file_path.split("/")[-1])
+    model_file_name = os.path.basename(file_path)
+    stored_name = common.find_uploaded_file_link(browser, model_file_name)
+    assert stored_name, f"Link to uploaded 3D model {model_file_name!r} not found on object detail page"
+    log.info(f"3D model stored as {stored_name!r}")
     # Test remove 3D model
     browser.find_element(By.ID, 'model_3d-clear_id').click()
     browser.find_element(By.CSS_SELECTOR, "input[value='Update Object']").click()
@@ -111,33 +114,26 @@ def validate_object_crud(browser, file_path=None):
   return True
 
 @pytest.mark.test_name("NEX-T10429")
-def test_object_crud(params, record_xml_attribute, repo_root):
+def test_object_crud(params, repo_root, result_recorder):
   """! Checks that CRUD operations can be performed on an object with and without a 3d model.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @return   exit_code               Indicates test success or failure.
+  @param    result_recorder         Pytest fixture recording the test result.
   """
-  TEST_NAME = "NEX-T10429"
-
-
-  exit_code = 1
+  browser = None
   try:
-    log.info("Executing: " + TEST_NAME)
+    log.info("Executing: NEX-T10429")
     log.info("Test that the user can perform CRUD operations on objects with and without a 3D model.")
 
     browser = Browser()
-    assert common.check_page_login(browser, params)
+    assert common.check_page_login(browser, params), "Login to the web UI failed"
 
     files = [f"{repo_root}/tests/ui/test_media/box.glb", None]
     for file in files:
       log.info(f"Testing and validating CRUD operations on 3D object where file = {file}...")
-      assert validate_object_crud(browser, file)
+      assert validate_object_crud(browser, file), f"Object CRUD validation failed for file={file}"
 
-    exit_code = 0
+    result_recorder.success()
 
   finally:
-    browser.quit()
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0
-  return
+    if browser is not None:
+      browser.quit()
