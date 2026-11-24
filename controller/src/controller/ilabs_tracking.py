@@ -137,9 +137,10 @@ def association_match_params(association_config=None, tracking_radius_m=DEFAULT_
   max_radius_m = config["max_radius_m"]
 
   if method == ASSOCIATION_METHOD_POSITION_MAHALANOBIS:
+    # Gate on (x, y, z) innovation — 3 degrees of freedom.
     return (
       rv.tracking.DistanceType.PositionMahalanobis,
-      rv.tracking.chi2_threshold(gate_probability),
+      rv.tracking.chi2_threshold(gate_probability, 3),
       max_radius_m,
     )
 
@@ -160,12 +161,15 @@ def _circle_window(method, max_radius_m):
 
 
 def build_association_window(association_config, measurement_covariance=None,
-                             tracking_radius_m=DEFAULT_TRACKING_RADIUS):
+                             tracking_radius_m=DEFAULT_TRACKING_RADIUS, z_measured=False):
   """Build MQTT ``association_window`` geometry for UI visualization.
 
   Euclidean association is a circle of radius ``max_radius_m``, or
-  ``tracking_radius_m`` without it. Position Mahalanobis is the χ² ellipse of
-  the 2×2 XY block of ``S_pred``, with each semi-axis clipped to
+  ``tracking_radius_m`` without it. Position Mahalanobis association gates x, y
+  and z (χ² df=3) when the track and the detection both measured z, x and y
+  (df=2) otherwise; the published window is the XY shadow of the track's gate,
+  the ellipse of the 2×2 XY block of ``S_pred`` at df=3 for a track with
+  measured z (``z_measured``) and df=2 without, with each semi-axis clipped to
   ``max_radius_m`` so the drawn region stays inside the hard association
   ceiling; without a usable covariance it falls back to the ``max_radius_m``
   circle.
@@ -192,7 +196,8 @@ def build_association_window(association_config, measurement_covariance=None,
   # published object every frame; numpy.linalg.eigh made this call 5x slower.
   mean = 0.5 * (s00 + s11)
   spread = math.hypot(0.5 * (s00 - s11), s01)
-  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"]))
+  # The XY shadow of the track's gate: position_chi2 picks df from sticky measured z.
+  chi2 = float(rv.tracking.position_chi2(config["gate_probability"], z_measured))
 
   return {
     "method": method,
@@ -362,6 +367,8 @@ class IntelLabsTracking(Tracking):
     rv_object.x = pt.x
     rv_object.y = pt.y
     rv_object.z = pt.z
+    # EuclideanBirth: XY unless both detections have measured Z (3D translation).
+    rv_object.z_measured = bool(getattr(sscape_object, 'has_measured_z', False))
     # length is mapped to x, width is mapped to y and height is to z if intel labs tracker
     size = sscape_object.size if sscape_object.size else [DEFAULT_EDGE_LENGTH] * 3
     rv_object.length = size[0]
@@ -435,6 +442,7 @@ class IntelLabsTracking(Tracking):
             self.association_config,
             getattr(tracked_object, "measurement_covariance", None),
             self.tracking_radius_m,
+            z_measured=bool(getattr(tracked_object, "z_measured", False)),
           )
           return obj
 
@@ -442,7 +450,7 @@ class IntelLabsTracking(Tracking):
 
     sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
                                             tracked_object.z)
-    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
+    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
     # update (sticky orientation_observed), even if this frame's linked
@@ -484,6 +492,7 @@ class IntelLabsTracking(Tracking):
       self.association_config,
       getattr(tracked_object, "measurement_covariance", None),
       self.tracking_radius_m,
+      z_measured=bool(getattr(tracked_object, "z_measured", False)),
     )
 
     return sscape_object

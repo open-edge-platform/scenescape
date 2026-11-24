@@ -6,7 +6,7 @@ analytics/src/analytics/adapters/scene_model.py	AnalyticsScene::_updateRegions	1
 analytics/src/analytics/adapters/scene_model.py	AnalyticsScene::processSensorData	16
 analytics/src/analytics/event_publisher.py	_clear_sensor_values_on_exit	19
 analytics/src/analytics/event_publisher.py	publish_events	14
-analytics/src/analytics/event_serializer.py	serialize_for_event	48
+analytics/src/analytics/event_serializer.py	serialize_for_event	43
 analytics/src/analytics/region.py	update_region_events	94
 analytics/src/analytics/reid_identity.py	ReidIdentityMap::apply	20
 analytics/src/analytics/sensors.py	update_environmental_sensor_readings	13

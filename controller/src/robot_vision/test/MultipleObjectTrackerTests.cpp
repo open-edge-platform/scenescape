@@ -3,14 +3,17 @@
 
 #include <gtest/gtest.h>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <set>
 #include <string>
 #include <vector>
+#include <rv/Utils.hpp>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "support/Scenario.hpp"
@@ -759,6 +762,230 @@ TEST(MultipleObjectTrackerTest, CarEnteringAtSpeedGetsOneReliableTrack)
   EXPECT_GE(reliableFrames, observations.size() - 11) << "reliable from the 11th frame on";
 }
 
+TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
+{
+  // Non-planar path: filter must track measured z and yaw, not stay on z=0.
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-5;
+  trackerConfig.mDefaultMeasurementNoise = 1e-3;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 2.0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  constexpr double totalS = 5.0;
+  constexpr double vx = 0.4;
+  constexpr double vy = 0.2;
+  constexpr double vz = 0.4;
+  const double yaw = std::atan2(vy, vx);
+
+  for (double t = stepS; t < totalS; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = vx * t;
+    measurement.y = vy * t;
+    measurement.z = vz * t;
+    measurement.z_measured = true;
+    measurement.yaw = yaw;
+    measurement.length = 0.5;
+    measurement.width = 0.5;
+    measurement.height = 1.8;
+    measurement.attributes[rv::tracking::orientation::HAS_ORIENTATION] =
+      rv::tracking::orientation::TRUE_VALUE;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  const double expectedT = totalS - stepS;
+  const double expectedZ = vz * expectedT;
+  EXPECT_NEAR(tracks[0].x, vx * expectedT, 0.15);
+  EXPECT_NEAR(tracks[0].y, vy * expectedT, 0.15);
+  EXPECT_NEAR(tracks[0].z, expectedZ, 0.2);
+  EXPECT_NEAR(tracks[0].vz, vz, 0.15);
+  EXPECT_NEAR(tracks[0].yaw, yaw, 0.2);
+}
+
+TEST(MultipleObjectTrackerTest, ConstantZKeepsVzNearZero)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-5;
+  trackerConfig.mDefaultMeasurementNoise = 1e-3;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 2.0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  for (double t = stepS; t < 5.0; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = t;
+    measurement.y = 0.1 * t;
+    measurement.z = 0.0;
+    measurement.length = measurement.width = measurement.height = 0.5;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  EXPECT_NEAR(tracks[0].z, 0.0, 0.05);
+  EXPECT_NEAR(tracks[0].vz, 0.0, 0.05);
+}
+
+TEST(MultipleObjectTrackerTest, CoastsClimbingZWithoutMeasurements)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-5;
+  trackerConfig.mDefaultMeasurementNoise = 1e-3;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 5.0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  constexpr double vz = 0.4;
+  for (double t = stepS; t < 3.0; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = 0.4 * t;
+    measurement.y = 0.0;
+    measurement.z = vz * t;
+    measurement.z_measured = true;
+    measurement.length = measurement.width = measurement.height = 0.5;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracksBeforeCoast = objectTracker.getTracks();
+  ASSERT_EQ(tracksBeforeCoast.size(), 1U);
+  const double zAtCoastStart = tracksBeforeCoast[0].z;
+  const double vzAtCoastStart = tracksBeforeCoast[0].vz;
+  EXPECT_NEAR(vzAtCoastStart, vz, 0.15);
+
+  constexpr double coastS = 1.5;
+  timestamp += std::chrono::milliseconds(static_cast<int>(coastS * 1000));
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  EXPECT_NEAR(tracks[0].z, zAtCoastStart + vzAtCoastStart * coastS, 0.25);
+  EXPECT_NEAR(tracks[0].vz, vzAtCoastStart, 0.15);
+}
+
+TEST(MultipleObjectTrackerTest, ProductionFilterFollowsClimbingZAndCoastsIt)
+{
+  // The same non-planar path with the production IMM {CV, CA, CTRV} and noise, not a single CV model: a target walking
+  // at 1.4 m/s and climbing at 0.5 m/s is followed in z and vz, and keeps climbing through a 1 s coast.
+  using namespace rv::tracking::test;
+  auto trackerConfig = productionConfig();
+  ASSERT_GT(trackerConfig.mMotionModels.size(), 1U);
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  constexpr double totalS = 6.0;
+  constexpr double vx = 1.4;
+  constexpr double vz = 0.5;
+  for (double t = stepS; t < totalS; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = vx * t;
+    measurement.z = vz * t;
+    measurement.z_measured = true;
+    measurement.length = measurement.width = 0.5;
+    measurement.height = 1.8;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  const double lastT = totalS - stepS;
+  EXPECT_NEAR(tracks[0].x, vx * lastT, 0.3);
+  EXPECT_NEAR(tracks[0].z, vz * lastT, 0.3);
+  EXPECT_NEAR(tracks[0].vz, vz, 0.2);
+  const double zAtCoastStart = tracks[0].z;
+  const double vzAtCoastStart = tracks[0].vz;
+
+  constexpr double coastS = 1.0;
+  timestamp += std::chrono::milliseconds(static_cast<int>(coastS * 1000));
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  EXPECT_NEAR(tracks[0].z, zAtCoastStart + vzAtCoastStart * coastS, 0.3);
+  EXPECT_GT(tracks[0].vz, 0.5 * vz);
+}
+
+TEST(MultipleObjectTrackerTest, HandoverBetweenPlanarCameraAndThreeDSensorKeepsOneTrack)
+{
+  // A person walking at 1.4 m/s, seen 2 s by a pixel camera (ground point, z = 0, no measured z) and then 2 s by a
+  // 3D sensor reporting the box centre at height c, or the other way round. The two z references differ by c, but z is
+  // gated only when both sides measured it, so the handover keeps one track with either association method.
+  using namespace rv::tracking::test;
+  const struct
+  {
+    const char *name;
+    rv::tracking::DistanceType distanceType;
+    double threshold;
+    double maxRadiusM;
+    double centreHeight;
+  } methods[] = {
+    {"euclidean", rv::tracking::DistanceType::Euclidean, 2.0, 2.0, 2.5},
+    {"position_mahalanobis", rv::tracking::DistanceType::PositionMahalanobis, rv::chi2Threshold(0.99, 3), 10.0, 2.0},
+  };
+
+  for (const auto &method : methods)
+  {
+    for (const bool cameraFirst : {true, false})
+    {
+      SCOPED_TRACE(std::string(method.name) + (cameraFirst ? ", camera first" : ", 3D sensor first"));
+      rv::tracking::MultipleObjectTracker objectTracker(productionConfig());
+      auto timestamp = std::chrono::system_clock::now();
+      std::set<rv::tracking::Id> trackIds;
+
+      constexpr double stepS = 0.1;
+      for (int frame = 0; frame < 40; ++frame)
+      {
+        const double t = frame * stepS;
+        const bool planar = (frame < 20) == cameraFirst;
+        auto detection = makeDetection(1.4 * t, 0.0, planar ? 0.0 : method.centreHeight, 0.5, 0.5, 1.8);
+        detection.z_measured = !planar;
+        objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{detection}}, timestamp,
+                            method.distanceType, method.threshold, 0.5, method.maxRadiusM);
+        for (const auto &track : objectTracker.getTracks())
+        {
+          trackIds.insert(track.id);
+        }
+        timestamp += std::chrono::milliseconds(100);
+      }
+      EXPECT_EQ(trackIds.size(), 1U);
+    }
+  }
+}
+
 TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
 {
   // A detection 1.5 m from the track, inside the wide gate: the track takes it without a ceiling; with a 1 m ceiling
@@ -790,4 +1017,139 @@ TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
       EXPECT_EQ(perCamera.getTracks().size(), expectedTracks);
     }
   }
+}
+
+TEST(MultipleObjectTrackerTest, StickyMeasuredZKeepsHeightThroughPlanarHandover)
+{
+  // Measured-z climb establishes sticky z_measured and height; later planar ground points at z = 0 must keep one
+  // track (XY association). Planar corrects omit z, so height coasts with estimated vz instead of falling to the floor.
+  using namespace rv::tracking::test;
+  const struct
+  {
+    const char *name;
+    rv::tracking::DistanceType distanceType;
+    double threshold;
+    double maxRadiusM;
+  } methods[] = {
+    {"euclidean", rv::tracking::DistanceType::Euclidean, 2.0, 2.0},
+    {"position_mahalanobis", rv::tracking::DistanceType::PositionMahalanobis, rv::chi2Threshold(0.99, 3), 10.0},
+  };
+
+  for (const auto &method : methods)
+  {
+    SCOPED_TRACE(method.name);
+    auto config = productionConfig();
+    config.mMaxUnreliableTime = 0.0;
+    config.mNonMeasurementTimeDynamic = 5.0;
+    rv::tracking::MultipleObjectTracker tracker(config, method.distanceType, method.threshold, method.maxRadiusM);
+
+    auto timestamp = std::chrono::system_clock::now();
+    tracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+    constexpr double stepS = 0.1;
+    constexpr double vz = 0.5;
+    constexpr double climbS = 3.0;
+    constexpr int planarFrames = 10;
+    for (double t = stepS; t < climbS; t += stepS)
+    {
+      timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+      rv::tracking::TrackedObject measured;
+      measured.x = 1.4 * t;
+      measured.y = 0.0;
+      measured.z = vz * t;
+      measured.z_measured = true;
+      measured.length = measured.width = 0.5;
+      measured.height = 1.8;
+      tracker.track({measured}, timestamp, method.distanceType, method.threshold, 0.0, method.maxRadiusM);
+    }
+
+    auto tracks = tracker.getTracks();
+    ASSERT_EQ(tracks.size(), 1U);
+    EXPECT_TRUE(tracks[0].z_measured);
+    const double zAtHandover = tracks[0].z;
+    const double vzAtHandover = tracks[0].vz;
+    EXPECT_GT(zAtHandover, 1.0);
+    const int trackId = tracks[0].id;
+
+    for (int frame = 0; frame < planarFrames; ++frame)
+    {
+      timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+      rv::tracking::TrackedObject planar;
+      planar.x = 1.4 * (climbS + stepS * (frame + 1));
+      planar.y = 0.0;
+      planar.z = 0.0;
+      planar.z_measured = false;
+      planar.length = planar.width = 0.5;
+      planar.height = 1.8;
+      tracker.track({planar}, timestamp, method.distanceType, method.threshold, 0.0, method.maxRadiusM);
+    }
+
+    tracks = tracker.getTracks();
+    ASSERT_EQ(tracks.size(), 1U) << "planar handover must not birth a second track";
+    EXPECT_EQ(tracks[0].id, trackId);
+    EXPECT_TRUE(tracks[0].z_measured);
+    // Height coasts with vz; it must not be pulled toward the planar ground point at z = 0.
+    EXPECT_NEAR(tracks[0].z, zAtHandover + vzAtHandover * planarFrames * stepS, 0.45);
+    EXPECT_GT(tracks[0].z, 1.0);
+  }
+}
+
+TEST(MultipleObjectTrackerTest, VerticalSpeedAloneUsesDynamicCoastTimeout)
+{
+  // |vz| alone makes isDynamic true, so a coast deletes after the dynamic timeout instead of suspending on the
+  // longer static timeout.
+  rv::tracking::TrackManagerConfig config;
+  config.mMotionModels = {rv::tracking::MotionModel::CV};
+  config.mDefaultProcessNoise = 1e-5;
+  config.mDefaultMeasurementNoise = 1e-3;
+  config.mInitStateCovariance = 1.0;
+  config.mMaxNumberOfUnreliableFrames = 0;
+  config.mNonMeasurementFramesDynamic = 3;
+  config.mNonMeasurementFramesStatic = 20;
+
+  auto runCoast = [&](bool climbing) -> size_t {
+    rv::tracking::MultipleObjectTracker tracker(config, rv::tracking::DistanceType::Euclidean, 2.0);
+    auto timestamp = std::chrono::system_clock::now();
+    tracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+    constexpr double stepS = 0.1;
+    for (double t = stepS; t < 2.0; t += stepS)
+    {
+      timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+      rv::tracking::TrackedObject measurement;
+      measurement.x = 0.0;
+      measurement.y = 0.0;
+      measurement.z = climbing ? (1.2 * t) : 0.0;
+      measurement.z_measured = climbing;
+      measurement.length = measurement.width = 0.5;
+      measurement.height = 1.8;
+      tracker.track({measurement}, timestamp, rv::tracking::DistanceType::Euclidean, 2.0);
+    }
+
+    EXPECT_EQ(tracker.getTracks().size(), 1U);
+    if (tracker.getTracks().size() != 1U)
+    {
+      return tracker.getTracks().size();
+    }
+    if (climbing)
+    {
+      EXPECT_TRUE(tracker.getTracks()[0].isDynamic()) << "vz alone should mark the track dynamic";
+      EXPECT_GT(std::fabs(tracker.getTracks()[0].vz), 1.0);
+    }
+    else
+    {
+      EXPECT_FALSE(tracker.getTracks()[0].isDynamic());
+    }
+
+    // Coast past dynamic timeout (3) but well under static timeout (20).
+    for (int empty = 0; empty < 5; ++empty)
+    {
+      timestamp += std::chrono::milliseconds(100);
+      tracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+    }
+    return tracker.getTracks().size();
+  };
+
+  EXPECT_EQ(runCoast(true), 0U) << "dynamic (vertical) track deleted after dynamic coast timeout";
+  EXPECT_EQ(runCoast(false), 1U) << "static track remains through the shorter dynamic coast window";
 }

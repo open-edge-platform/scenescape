@@ -39,19 +39,19 @@ GEOMETRY_SETTLE = 3
 
 
 @pytest.mark.test_name("NEX-T29241")
-def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(demo_scene,
+def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(scene_factory,
     params, result_recorder):
   """! Analytics accepts Tracker DATA_SCENE envelopes and emits region events.
 
+  @param    scene_factory    Pytest fixture creating a scene removed on teardown.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
   """
   rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
   assert rest.authenticate(params["user"], params["password"])
 
-  scenes = rest.getScenes({"name": "Demo"})
-  assert scenes["count"] > 0, "Demo scene required"
-  scene_id = scenes["results"][0]["uid"]
+  # demo_scene would wait for a tracker, but this profile deploys none.
+  scene_id = scene_factory(params["scene_name"], replace=True)["uid"]
 
   roi = rest.createRegion({
     "scene": scene_id,

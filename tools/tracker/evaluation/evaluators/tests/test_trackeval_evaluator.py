@@ -346,8 +346,8 @@ class TestSetBaseFps:
       ev.process_tracker_outputs(mock_tracker_outputs, mock_ground_truth_file)
 
 
-def write_scenario(directory, frames=20, interval_ms=100, track_offset=0.0):
-  """Write tracks.jsonl and groundtruth.jsonl: one object moving along x, tracked x-shifted."""
+def write_scenario(directory, frames=20, interval_ms=100, track_offset=0.0, track_z_offset=0.0):
+  """Write tracks.jsonl and groundtruth.jsonl: one object moving along x, tracked x- and z-shifted."""
   directory.mkdir(parents=True, exist_ok=True)
   truth, tracks = [], []
   for frame in range(frames):
@@ -357,7 +357,8 @@ def write_scenario(directory, frames=20, interval_ms=100, track_offset=0.0):
     truth.append({"timestamp": timestamp,
                   "objects": [{"id": 1, "category": "person", "translation": [x, 0.0, 0.0]}]})
     tracks.append({"id": "scene", "name": "scene", "timestamp": timestamp, "objects": [
-      {"id": "1", "category": "person", "translation": [x + track_offset, 0.0, 0.0]}]})
+      {"id": "1", "category": "person",
+       "translation": [x + track_offset, 0.0, track_z_offset]}]})
   (directory / "groundtruth.jsonl").write_text("".join(json.dumps(f) + "\n" for f in truth))
   (directory / "tracks.jsonl").write_text("".join(json.dumps(f) + "\n" for f in tracks))
   return directory
@@ -430,3 +431,50 @@ class TestCommandLine:
       ground_truth_fps(single / "groundtruth.jsonl")
     with pytest.raises(SystemExit):
       main([str(single)])
+
+
+def _hota(tmp_path, capsys, *flags, **offsets):
+  """HOTA of a scenario with the given track offsets, as printed by the command line."""
+  scenario = write_scenario(tmp_path / "scenario", **offsets)
+  assert main([str(scenario), "--metrics", "HOTA", *flags]) == 0
+  line = next(line for line in capsys.readouterr().out.splitlines() if "HOTA:" in line)
+  return float(line.split(":")[1])
+
+
+class TestSpace:
+  """The axes of the position distance: x, y and z by default, --xy-only, --z-only."""
+
+  def test_vertical_error_counts_in_3d_and_z_only(self, tmp_path, capsys):
+    """A 1 m height error lowers HOTA in x, y, z and in z, and does not exist in the plane."""
+    both = _hota(tmp_path / "xyz", capsys, track_z_offset=1.0)
+    plane = _hota(tmp_path / "xy", capsys, "--xy-only", track_z_offset=1.0)
+    height = _hota(tmp_path / "z", capsys, "--z-only", track_z_offset=1.0)
+
+    assert plane == pytest.approx(1.0)
+    assert both < 1.0
+    assert height == pytest.approx(both)
+
+  def test_planar_error_counts_in_3d_and_plane(self, tmp_path, capsys):
+    """A 1 m planar error lowers HOTA in x, y, z and in x, y, and does not exist in the height."""
+    both = _hota(tmp_path / "xyz", capsys, track_offset=1.0)
+    plane = _hota(tmp_path / "xy", capsys, "--xy-only", track_offset=1.0)
+    height = _hota(tmp_path / "z", capsys, "--z-only", track_offset=1.0)
+
+    assert height == pytest.approx(1.0)
+    assert both < 1.0
+    assert plane == pytest.approx(both)
+
+  def test_flags_exclude_each_other(self, tmp_path):
+    """--xy-only and --z-only cannot be combined."""
+    scenario = write_scenario(tmp_path / "scenario")
+    with pytest.raises(SystemExit):
+      main([str(scenario), "--xy-only", "--z-only"])
+
+  def test_set_space(self, evaluator):
+    """set_space validates, chains and is cleared by reset()."""
+    assert evaluator.set_space("z") is evaluator
+    assert evaluator._space == "z"
+    with pytest.raises(ValueError, match="space"):
+      evaluator.set_space("xz")
+    assert evaluator._space == "z"
+    assert evaluator.reset()._space == "xyz"

@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <string>
@@ -336,10 +337,10 @@ public:
       json.beginObject();
       json.key("id").value(objectId);
       json.key("category").value(sample.box.category);
-      json.key("translation").value(std::array{sample.x, sample.y, 0.0});
+      json.key("translation").value(std::array{sample.x, sample.y, sample.z});
       json.key("size").value(std::array{sample.box.length, sample.box.width, sample.box.height});
       json.key("rotation").value(yawQuaternion(sample.heading));
-      json.key("velocity").value(std::array{sample.vx(), sample.vy(), 0.0});
+      json.key("velocity").value(std::array{sample.vx(), sample.vy(), sample.vz});
       json.key("truth").beginObject();
       json.key("speed").value(sample.speed);
       json.key("yaw_rate").value(sample.yawRate);
@@ -514,6 +515,13 @@ private:
     return found != mTrackCategories.end() ? found->second : category(trackId);
   }
 
+  // In StateIndex / MeasurementIndex order.
+  static constexpr const char *kStateNames[]
+    = {"x", "y", "vx", "vy", "ax", "ay", "z", "vz", "length", "width", "height", "yaw", "yaw_rate"};
+  static constexpr const char *kMeasurementNames[] = {"x", "y", "z", "length", "width", "height", "yaw"};
+  static_assert(std::size(kStateNames) == TrackedObject::StateSize);
+  static_assert(std::size(kMeasurementNames) == TrackedObject::MeasurementSize);
+
   // `association` is set for TrackerRun tracks, the gate the tracker matched them with.
   static std::string configLine(const MultiModelKalmanEstimator &estimator,
                                 const TrackManagerConfig &config,
@@ -542,13 +550,13 @@ private:
     json.key("min_probability").value(estimator.mMinProbability);
     json.key("max_probability").value(estimator.mMaxProbability);
     json.key("state_names").beginArray();
-    for (const char *name : {"x", "y", "vx", "vy", "ax", "ay", "z", "length", "width", "height", "yaw", "yaw_rate"})
+    for (const char *name : kStateNames)
     {
       json.value(name);
     }
     json.endArray();
     json.key("measurement_names").beginArray();
-    for (const char *name : {"x", "y", "z", "length", "width", "height", "yaw"})
+    for (const char *name : kMeasurementNames)
     {
       json.value(name);
     }
@@ -668,7 +676,7 @@ private:
         json.key("id").value(std::to_string(trackId));
         json.key("category").value(trackCategory(trackId));
         json.key("translation").value(std::array{state.x, state.y, state.z});
-        json.key("velocity").value(std::array{state.vx, state.vy, 0.0});
+        json.key("velocity").value(std::array{state.vx, state.vy, state.vz});
         json.key("size").value(std::array{state.length, state.width, state.height});
         json.key("rotation").value(yawQuaternion(state.yaw));
         json.endObject();
