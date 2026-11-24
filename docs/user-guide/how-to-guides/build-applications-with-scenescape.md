@@ -47,7 +47,7 @@ MQTT is the shared transport for camera and sensor inputs, tracked-object data, 
 
 ## Example: Deploy the Sample Application
 
-The repository includes a [Node-RED sample application](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/sample_data/sample_app/README.md) under `sample_data/sample_app`. Its bundled [flows](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/sample_data/sample_app/flows/flows.json) subscribe to:
+The repository includes a [Node-RED sample application](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/README.md) under `sample_data/sample_app`. Its bundled [flows](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/flows/flows.json) subscribe to:
 
 - `scenescape/regulated/scene/#` for object counts by category.
 - `scenescape/event/region/+/#` for ROI occupancy.
@@ -59,7 +59,7 @@ The flows aggregate these messages into a dashboard. This demonstrates how to co
 
 Complete the [Docker deployment](./deployment/deploy-docker.md) and configure active inputs, or follow [Deploy the Demo](./deployment/deploy-demo.md) for ready-made scenes and video sources.
 
-The sample's Compose file joins the existing Docker network `scenescape_scenescape`. A Scenescape deployment creates this network using the default Compose project name `scenescape`. If you use another project name, update the sample's [Compose network configuration](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/sample_data/sample_app/compose.app.yml) to match your deployment before starting it. The bundled sample deployment does not target Kubernetes.
+The sample's Compose file joins the existing Docker network `scenescape_scenescape`. A Scenescape deployment creates this network using the default Compose project name `scenescape`. If you use another project name, update the sample's [Compose network configuration](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/compose.app.yml) to match your deployment before starting it. The bundled sample deployment does not target Kubernetes.
 
 Port `1880` on the host must be available.
 

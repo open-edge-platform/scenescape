@@ -2,10 +2,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/release-2026.3.0/cluster_analytics">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/cluster_analytics">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/cluster_analytics/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/cluster_analytics/README.md">
      Readme
   </a>
 </div>

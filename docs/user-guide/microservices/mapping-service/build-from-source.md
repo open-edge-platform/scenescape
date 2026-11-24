@@ -29,7 +29,7 @@ Each build produces a container image with a single model. The API and runtime a
   Clone the repository.
 
   ```bash
-  git clone https://github.com/open-edge-platform/scenescape.git -b release-2026.3.0
+  git clone https://github.com/open-edge-platform/scenescape.git -b main
   ```
 
   > **Note:** Adjust the repo link appropriately in case of forked repo.

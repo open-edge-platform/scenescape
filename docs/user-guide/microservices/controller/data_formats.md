@@ -37,7 +37,7 @@ registered as a `Cam` and publishing detections here (RGB, depth, LiDAR or radar
 that emit the same object metadata, and similar sensing that uses pose plus optional
 intrinsics). Environmental / singleton sensors use a different topic and do not carry
 pose or optics. Messages are validated against the `detector` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
 
 ### Top-Level Message Fields
 
@@ -222,7 +222,7 @@ omitted; `embedding_vector` truncated for readability):
 ```
 
 For the full schema definition, see
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
 
 ## External Source Input Message Format
 
@@ -230,7 +230,7 @@ The Scene Controller subscribes to `scenescape/external/{publisher_id}/{thing_ty
 (MQTT template parameter name remains `scene_id` in `PubSub` APIs). The path id is
 always the **publisher** (configured child scene uid or agent `source_id`). Scenes
 attach via consumer-side **bindings**, not by addressing a scene inbox. See
-[ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md).
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md).
 
 Two payload contracts share the topic, distinguished by `source_id`:
 
@@ -249,7 +249,7 @@ Two payload contracts share the topic, distinguished by `source_id`:
     `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for acceptance)
 
 Messages with `source_id` are validated against the `external_source` definition in
-[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/controller/src/schema/metadata.schema.json).
+[metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
 
 This section documents the unified external-source **payload** contract.
 
@@ -501,7 +501,7 @@ other Cartesian objects from the same message are still ingested.
 Identity is trusted based on the `source_id` and `id` values in the payload, not a
 cryptographically verified per-device credential. Scenescape's current MQTT authentication does
 not bind individual publishers to individual source IDs (see
-[ADR 16](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0016-unified-external-source-ingestion.md#future-work)).
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md#future-work)).
 A publisher that can reach the broker can claim either of these values.
 
 ### Tracked External Objects Use Controller-Assigned IDs

@@ -154,7 +154,7 @@ _Figure 4: comment ntpserver for DL Streamer Pipeline Server in `docker-compose.
 
 _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
-> **Note**: Use [sample_data/compose/compose.dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/sample_data/compose/compose.dl-streamer-example.yml) if `docker-compose.yml` does not exist.
+> **Note**: Use [sample_data/compose/compose.dl-streamer-example.yml](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/compose/compose.dl-streamer-example.yml) if `docker-compose.yml` does not exist.
 
 ### 2. Set Up Secure Communication
 
@@ -282,7 +282,7 @@ How a parent scene handles identity depends on the **Retrack** setting of each c
   `will_enroll` / `enrolled`. Durable rematch to enrolled IDs is reliable when
   tracks rematch **sequentially**; two live parent tracks will not both adopt
   the same database UUID
-  ([ADR 0015](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/docs/adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
+  ([ADR 0015](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity)).
   Geometric tracker merge can still collapse detections that project to the same place.
 
 Embeddings a child forwards carry the id of the scene and camera that produced them, along with
