@@ -170,6 +170,17 @@ manifest. Rendering fails if both modes are on or a bound is missing. See
 See the [Positioning Service](../../microservices/positioning/positioning.md)
 and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for runtime behavior.
 
+### Model Download and Web Startup Timeouts
+
+The web Deployment waits for the model-download Job before it becomes ready. Two chart values set the limits:
+
+| Value | Default | Effect |
+|-------|---------|--------|
+| `modelDownload.waitTimeout` | `1800` | Seconds the web init container waits for the Job. On expiry it exits with an error that names the Job. |
+| `web.progressDeadlineSeconds` | `2400` | Web Deployment `progressDeadlineSeconds`. Keep it above `waitTimeout` plus web startup time. |
+
+On a slow network, the first model download can take several minutes. The Kubernetes default deadline (600s) would mark the rollout failed during that wait. Raise `web.progressDeadlineSeconds` and `modelDownload.waitTimeout` together if the download is slower than the defaults, and raise `INSTALL_TIMEOUT` in the Kubernetes Makefile to match, so the web rollout wait does not end first.
+
 ## Verify
 
 Confirm that workloads and claims become ready:

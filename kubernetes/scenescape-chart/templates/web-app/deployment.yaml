@@ -18,6 +18,10 @@ metadata:
     app: {{ .Release.Name }}-web
 spec:
   replicas: 1
+  # Must exceed the worst-case init chain (wait-for-postgres, then
+  # wait-for-model-download bounded by modelDownload.waitTimeout) plus web
+  # startup. The Kubernetes default (600s) can fire while init is still valid.
+  progressDeadlineSeconds: {{ .Values.web.progressDeadlineSeconds | default 2400 | int }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-web
@@ -64,14 +68,22 @@ spec:
           args:
           - |
             marker=/workspace/models-storage/.model-download-config-hash
-            echo "Waiting for model download Job to complete..."
+            timeout="$MODEL_DOWNLOAD_WAIT_TIMEOUT"
+            deadline=$(( $(date +%s) + timeout ))
+            echo "Waiting up to ${timeout}s for model download Job to complete..."
             until [ -f "$marker" ] && [ "$(cat "$marker")" = "$MODEL_DOWNLOAD_CONFIG_HASH" ]; do
+              if [ "$(date +%s)" -ge "$deadline" ]; then
+                echo "ERROR: model download did not complete within ${timeout}s. Check the model-download Job logs in namespace {{ .Release.Namespace }}." >&2
+                exit 1
+              fi
               sleep 2
             done
             echo "Model download Job completed."
           env:
             - name: MODEL_DOWNLOAD_CONFIG_HASH
               value: {{ include "modelDownload.configHash" . | quote }}
+            - name: MODEL_DOWNLOAD_WAIT_TIMEOUT
+              value: {{ .Values.modelDownload.waitTimeout | default 1800 | int | quote }}
           volumeMounts:
           - mountPath: /workspace/models-storage
             name: models-storage

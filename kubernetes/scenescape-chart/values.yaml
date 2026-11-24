@@ -38,6 +38,8 @@ modelDownload:
   commandArgs: "--plugins omz,huggingface,ultralytics"
   parallelDownloads: false
   initialWaitTimeout: 1800
+  # Upper bound, in seconds, for the web init container to wait for this Job.
+  # On expiry the init container exits non-zero with a clear message.
   waitTimeout: 1800
   resources:
     requests:
@@ -82,6 +84,10 @@ web:
   ptzCalibrationResidualThresholdPx: ""
   # Maximum number of GLB layers a scene can hold (GLB_MAX_LAYERS).
   glbMaxLayers: 100
+  # Web Deployment progressDeadlineSeconds. Keep it above modelDownload.waitTimeout
+  # plus web startup time; the Kubernetes default (600s) is too short when the
+  # first model download is slow.
+  progressDeadlineSeconds: 2400
 
 scene:
   image: intel/scenescape-controller
