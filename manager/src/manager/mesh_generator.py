@@ -14,6 +14,7 @@ import tempfile
 import subprocess
 from pathlib import Path
 import mimetypes
+import re
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -36,6 +37,12 @@ ALLOWED_VIDEO_MIME_TYPES = {
 }
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
+
+# Mapping service request ids are uuid4().hex
+_REQUEST_ID_RE = re.compile(r"[0-9a-f]{32}")
+
+def isValidRequestId(request_id):
+  return isinstance(request_id, str) and _REQUEST_ID_RE.fullmatch(request_id) is not None
 
 class CameraImageCollector:
   """Collects calibration images from all cameras in a scene."""
@@ -265,6 +272,8 @@ class MappingServiceClient:
       raise
 
   def getReconstructionStatus(self, request_id: str):
+    if not isValidRequestId(request_id):
+      raise ValueError("Invalid request_id")
     url = f"{self.base_url}/reconstruction/status/{request_id}"
     r = requests.get(url, timeout=self.health_timeout, verify=self.rootcert)
     try:

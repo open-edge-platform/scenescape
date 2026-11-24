@@ -27,7 +27,8 @@ class AutoCalibrationClient(RESTClient):
     # PATCH: POST on this route starts a new registration instead.
     full_path = urljoin(self.url, f"scenes/{sceneId}/registration")
     headers = {'Authorization': f"Token {self.token}"}
-    reply = self.session.patch(full_path, json=data, headers=headers, verify=self.verify_ssl)
+    reply = self.session.patch(full_path, json=data, headers=headers,
+                               verify=self.verify_ssl, timeout=self.timeout)
     return self.decodeReply(reply, HTTPStatus.ACCEPTED)
 
   def calibrateCamera(self, cameraId, data):
