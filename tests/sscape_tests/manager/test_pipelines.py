@@ -275,7 +275,7 @@ class PipelineTests(TestCase):
     executor = MigrationExecutor(connection)
     self.assertEqual(executor.loader.detect_conflicts(), {})
     self.assertEqual(executor.loader.graph.leaf_nodes('manager'),
-                     [('manager', '0013_dlsps_pipeline_integration')])
+                     [('manager', '0014_scene_glb_apply_all')])
     state = executor.loader.project_state()
     historical = state.apps.get_model('manager', 'Pipeline')
     for name in ('id', 'name', 'pipeline', 'vippet_pipeline_id'):

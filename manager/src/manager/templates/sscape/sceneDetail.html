@@ -140,6 +140,26 @@ SPDX-License-Identifier: Apache-2.0
 
   <div class="hide-fullscreen hide-print" id="scene-controls">
     <div class="center">
+      {% if scene.map_type == 'geospatial_map' %}
+        <div class="custom-control custom-switch switch">
+          <input
+            type="checkbox"
+            class="custom-control-input"
+            id="apply-all-glbs"
+            aria-labelledby="apply-all-glbs-label"
+            data-url="{% url 'geospatial_glb_apply_all' scene.id %}"
+            {% if scene.glb_apply_all %}checked{% endif %}
+            {% if not user.is_superuser %}disabled{% endif %}
+          />
+          <label
+            class="custom-control-label"
+            for="apply-all-glbs"
+            title="Apply all stored GLB layers to the scene map, or take them all off"
+            id="apply-all-glbs-label"
+            >Apply&nbsp;All&nbsp;GLBs</label
+          >
+        </div>
+      {% endif %}
       <div class="custom-control custom-switch switch">
         <input
           type="checkbox"
@@ -1311,4 +1331,5 @@ SPDX-License-Identifier: Apache-2.0
     type="module"
     src="/static/js/geospatial/scene-update-osm-roi.js"
   ></script>
+  <script src="/static/js/geospatial/apply-all-glbs.js"></script>
 {% endblock %}

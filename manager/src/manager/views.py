@@ -1584,6 +1584,32 @@ class GeospatialGlbLayer(APIView):
     })
 
 
+class GeospatialGlbApplyAll(APIView):
+  """Set the scene's Apply all GLBs switch.
+
+  PUT {apply: bool}: ON enables every stored GLB layer and places the scene map from them;
+  OFF disables them all and restores the flat base map. The stored flag is returned with the
+  scene-edit values and state token that the page mirrors.
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  @glb_api_errors('apply-all')
+  def put(self, request, scene_uid):
+    data = _glb_request_body(request)
+    apply_all = data.get('apply')
+    if not isinstance(apply_all, bool):
+      raise glb_staging.GlbAlignmentError(400, 'apply must be a boolean')
+    with transaction.atomic():
+      scene = glb_state.get_geospatial_scene(scene_uid, lock=True)
+      glb_state.set_apply_all(scene, apply_all)
+    return JsonResponse({
+      'glb_apply_all': scene.glb_apply_all,
+      'scene_fields': glb_state.scene_form_fields(scene),
+      'state_token': glb_state.scene_state_token(scene),
+    })
+
+
 @login_required
 def geospatial_glb_layer_download(request, scene_uid, layer_id):
   """Download the file of one stored GLB layer."""

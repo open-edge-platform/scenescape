@@ -425,9 +425,19 @@ def build_scene_map(scene):
   scene.saveThumbnail()
 
 
+def sync_apply_all(scene):
+  """Set glb_apply_all from the layers: on only when the scene has layers and all are enabled.
+
+  Call after every write that adds, removes or enables/disables a layer. Caller saves.
+  """
+  layers = scene.glb_layers
+  scene.glb_apply_all = layers.exists() and not layers.filter(enabled=False).exists()
+
+
 def disable_all_layers(scene):
   """Disable every layer and restore the base map; the rows and files are kept. Caller saves."""
   scene.glb_layers.update(enabled=False)
+  sync_apply_all(scene)
   if scene.use_glb_map:
     _restore_base_map(scene)
 
@@ -500,6 +510,7 @@ def commit_layer(scene, token, anchor, layer=None, enable=False, save=True, stor
     layer.save()
     if layer.enabled:
       build_scene_map(scene)
+    sync_apply_all(scene)
     if save:
       scene.save()
 
@@ -534,6 +545,7 @@ def set_layer_enabled(scene, layer, enabled, save=True):
     layer.enabled = enabled
     layer.save(update_fields=['enabled'])
     build_scene_map(scene)
+    sync_apply_all(scene)
     if save:
       scene.save()
 
@@ -569,6 +581,26 @@ def remove_layer(scene, layer):
     layer.delete()
     if was_enabled:
       build_scene_map(scene)
+    sync_apply_all(scene)
+    scene.save()
+
+
+def set_apply_all(scene, apply_all):
+  """Apply every stored GLB layer, or take them all off and restore the flat base map.
+
+  ON enables each layer and places the scene map from them; it needs the flat base map that
+  require_base_map checks. OFF disables every layer. The stored flag is then recomputed from the
+  layers, so ON for a scene without layers leaves it off. Caller holds the scene row lock; this
+  saves the scene once.
+  """
+  with _failing_as('Failed to apply GLBs'), locked_scene_write(scene):
+    if apply_all:
+      require_base_map(scene)
+      scene.glb_layers.update(enabled=True)
+      build_scene_map(scene)
+    else:
+      disable_all_layers(scene)
+    sync_apply_all(scene)
     scene.save()
 
 

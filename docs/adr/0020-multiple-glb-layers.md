@@ -26,9 +26,16 @@ single map with a single pose, so more than one model needs a single combined ar
   concatenated, the result is written to `scene.map`, and the scene pose is identity.
 - `Scene.use_glb_map` stays a stored field. It is written only by the single writer `build_scene_map` and always
   equals `any(layer.enabled)`.
+- `Scene.glb_apply_all` is the stored state of the Apply All GLBs switch. It always equals
+  `layers exist and all(layer.enabled)`: `sync_apply_all` recomputes it in every write that adds, removes, enables or
+  disables layers (`commit_layer`, `set_layer_enabled`, `remove_layer`, `set_apply_all`, `disable_all_layers`), and
+  `Scene._dropGlbForNonGlbMap` sets it to `False` when it disables every layer. A new scene stores `True` until its
+  first such write, because it has no layer to contradict it. The migration `0014_scene_glb_apply_all` sets it for
+  existing geospatial scenes to `use_glb_map and all(layer.enabled)` with at least one layer.
 - The layers are the only source of truth. The earlier dual-write, mirror, adapter and contract phases are not
   needed because the GLB work is unreleased on this branch. The GLB layer migration is squashed into
-  `0013_geospatial_glb_layers`, which depends on the release leaf `0012_scene_map_origin`.
+  `0013_geospatial_glb_layers`, which depends on the release leaf `0012_scene_map_origin`. The `glb_apply_all` field
+  is added by `0014_scene_glb_apply_all`, which also merges that leaf with `0013_dlsps_pipeline_integration`.
 - Maximum layer count comes from `GLB_MAX_LAYERS` (default `1`, which keeps today's behaviour).
 
 ### Bake spike (M0)

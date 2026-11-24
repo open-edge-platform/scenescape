@@ -154,6 +154,8 @@ The following table describes what each action changes. Cameras, regions, sensor
 | **Save position**                                  | Updates the saved position.                                                                                                           | If the model is applied, the scene map moves to the new position immediately. If not, only the saved position changes.                                                                                                                                                                     |
 | **Save Scene Updates** (moved model)               | Updates the saved position in the same save as the other scene fields.                                                                | If the model is applied, the scene map moves to the new position in the same save. If the save fails, neither the position nor the other fields change.                                                                                                                                    |
 | **Remove**                                         | Deletes the model file, its preview, and its position.                                                                                | If the model is applied, the original map is restored first.                                                                                                                                                                                                                               |
+| **Apply All GLBs** on                              | Enables every stored model, which overwrites their individual enabled states. This cannot be undone.                                  | Saves a snapshot of the current scene map as the base map unless a model is already applied, then rebuilds the scene map from the base map and all models. Needs a flat base map image, otherwise it is rejected with `400`.                                                              |
+| **Apply All GLBs** off                             | Disables every stored model, which clears their individual enabled states. The models are kept. This cannot be undone.                | Restores the snapshot taken when the models were applied, in its original file type.                                                                                                                                                                                                       |
 
 ### Uploading a Replacement 3D Model
 
@@ -186,6 +188,23 @@ The layer endpoints are:
 - `GET /api/v1/scene/<scene_uid>/geospatial-glbs/<layer_id>/download`: download the layer's file.
 
 The single-model routes under `/geospatial-glb` were replaced by these routes. Clients that used them must switch to the layer routes.
+
+### Apply All GLBs Switch
+
+The scene home page has an **Apply All GLBs** switch for geospatial scenes. It is shown in the scene controls and is available only to superusers; other users see it disabled.
+
+- **Where the state is stored:** the switch reads and writes a server-side flag on the scene (`glb_apply_all`). It is not kept in the browser, so the switch shows the same state on every browser and after a reload.
+- **Default:** new scenes start with the switch on. Existing geospatial scenes are set once, when the Manager is upgraded: the switch is on only if a 3D model is applied to the scene map (a base map image is in use) and every layer is enabled, and off otherwise. Scenes of other map types have no switch and are not changed.
+- **Switch on:** every stored layer is enabled and the scene map is rebuilt from the base map image and all layers. This overrides per-layer settings, so a layer that was turned off individually is turned back on.
+- **Switch off:** every layer is disabled and the scene map is restored to the base map image.
+- **The switch follows the layers.** It is on only when the scene has at least one layer and every layer is enabled. Enabling or disabling a single layer, adding or removing a layer, and uploading a flat map image over an applied model (which disables every layer) all update the stored value in the same save, so the switch shows the new state when the page is loaded again. A new scene with no layers shows the switch on until its first layer change. Turning the switch on for a scene with no layers is accepted, changes nothing, and leaves the switch off.
+- **Not reversible:** turning the switch on overwrites the per-layer enabled states and turning it off clears them. The previous per-layer states are not remembered, so turning the switch on again does not bring back a layer selection that was made before.
+- Turning the switch on requires a flat base map image for the scene. Without one the request is rejected with `400`, the switch returns to its previous state, and an alert shows the reason. The scene's map and layers are not changed.
+- The page reloads after a successful change, because the map image, scale, and map origin depend on the scene map.
+
+The switch uses this endpoint:
+
+- `PUT /api/v1/scene/<scene_uid>/geospatial-glbs/apply-all`: body `{"apply": true}` or `{"apply": false}`. The response has `glb_apply_all`, `scene_fields`, and `state_token`. A non-boolean `apply` or a scene that is not a geospatial map is rejected with `400`, and an unknown scene with `404`. Superusers only: non-superuser and anonymous callers get `403`.
 
 ### Effect on Running Services
 

@@ -66,6 +66,7 @@ urlpatterns = [
   path('api/v1/scene/<uuid:scene_uid>/osm-rois', views.OsmRois.as_view(), name='osm_rois'),
   path('api/v1/scene/<uuid:scene_uid>/geospatial-glb-preview', views.GeospatialGlbPreview.as_view(), name='geospatial_glb_preview'),
   path('api/v1/scene/<uuid:scene_uid>/geospatial-glbs', views.GeospatialGlbLayers.as_view(), name='geospatial_glbs'),
+  path('api/v1/scene/<uuid:scene_uid>/geospatial-glbs/apply-all', views.GeospatialGlbApplyAll.as_view(), name='geospatial_glb_apply_all'),
   path('api/v1/scene/<uuid:scene_uid>/geospatial-glbs/<uuid:layer_id>', views.GeospatialGlbLayer.as_view(), name='geospatial_glb_layer'),
   path('api/v1/scene/<uuid:scene_uid>/geospatial-glbs/<uuid:layer_id>/download', views.geospatial_glb_layer_download, name='geospatial_glb_layer_download'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],

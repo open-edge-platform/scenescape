@@ -230,6 +230,10 @@ class Scene(models.Model):
     default=False, editable=False,
     help_text='Whether the GLB is currently applied (True) or the snapshot is active (False)'
   )
+  glb_apply_all = models.BooleanField(
+    default=True, editable=False,
+    help_text='Apply All GLBs switch on the scene page: True when the scene has GLB layers and all are enabled'
+  )
   base_map = models.FileField(
     null=True, blank=True, editable=False, upload_to='base_maps/',
     help_text='Snapshot image saved when GLB is applied'
@@ -496,6 +500,7 @@ class Scene(models.Model):
     self.resetRotation()
     self.resetTranslation()
     self.glb_layers.update(enabled=False)
+    self.glb_apply_all = False
 
   def _invalidateMapState(self, glb_from_zip):
     # FieldFile equality is name-based; detect same-name uploads before storage saves them.
