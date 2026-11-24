@@ -98,19 +98,6 @@ def camera_param():
   sParam['mapPts'] = [[0.1, 5.38, 0], [3.04, 5.35, 0], [3.05, 2.42, 0], [0.1, 2.45, 0]]
   return sParam
 
-def get_cent_mass(bBox):
-  """!
-  Given a bounding box DICT returns a center of mass DICT.
-  @param bBox: DICT detected object bounding box.
-  @return centMass: DICT detected object center of mass bounding box.
-  """
-  centMass = {}
-  centMass['width'] = bBox['width']/3
-  centMass['height'] = bBox['height']/4
-  centMass['x'] = bBox['x'] + centMass['width']
-  centMass['y'] = bBox['y'] + centMass['height']
-  return centMass
-
 def fps():
   """! Defines FPS """
   return 15.0
