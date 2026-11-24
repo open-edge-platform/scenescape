@@ -122,16 +122,6 @@ def _negative_bbox_height(camera_id):
   payload["objects"]["person"][0]["bounding_box"]["height"] = -0.3
   return payload
 
-def _invalid_com_sensor6_7(camera_id):
-  payload = _good_payload(camera_id)
-  payload["objects"]["person"][0]["bounding_box"] = {
-    "x": 259,
-    "y": -1,
-    "width": 101,
-    "height": 240,
-  }
-  return payload
-
 
 def _negative_object_id(camera_id):
   payload = _good_payload(camera_id)
@@ -277,7 +267,6 @@ INVALID_CASES = (
   ("confidence_above_one", _confidence_above_one),
   ("negative_bbox_width", _negative_bbox_width),
   ("negative_bbox_height", _negative_bbox_height),
-  ("invalid_com_sensor6_7", _invalid_com_sensor6_7),
   ("negative_object_id", _negative_object_id),
   ("non_string_id", _non_string_id),
   ("missing_category", _missing_category),

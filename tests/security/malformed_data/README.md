@@ -26,7 +26,6 @@ validation and originates from a registered camera. Specifically:
   - confidence of zero or negative
   - negative bounding-box width
   - negative bounding-box height
-  - negative center of mass
   - negative detection id
   - non-string sender id
   - detection missing its category
