@@ -8,11 +8,11 @@ set -euo pipefail
 # tools/pipeline_runner/video) to ts so the gstreamer pipeline can loop them
 # infinitely without deallocating buffers.
 
-docker pull intel/intel-optimized-ffmpeg:avx3
+docker pull linuxserver/ffmpeg:version-9.0-cli
 
 DIRNAME=${PWD}
 FFMPEG_DIR="/app/data"
-FFMPEG_IMAGE="intel/intel-optimized-ffmpeg:avx3"
+FFMPEG_IMAGE="linuxserver/ffmpeg:version-9.0-cli"
 EXTENSION=${1:-mp4}
 
 for mfile in "$DIRNAME"/sample_data/demo_scenes/*/video/*."${EXTENSION}" "$DIRNAME"/tools/pipeline_runner/video/*."${EXTENSION}"; do
@@ -38,7 +38,6 @@ for mfile in "$DIRNAME"/sample_data/demo_scenes/*/video/*."${EXTENSION}" "$DIRNA
     # -c:a copy               : audio stream-copied (no re-encode)
     docker run --rm \
       -v "${DIRNAME}:${FFMPEG_DIR}" \
-      --entrypoint /opt/build/bin/ffmpeg \
       "$FFMPEG_IMAGE" \
       -i "${FFMPEG_DIR}/${reldir}/${basefile}.${EXTENSION}" \
       -c:v libx264 \
