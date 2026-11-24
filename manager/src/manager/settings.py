@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
+import math
 import os
 from datetime import timedelta
 from manager.secrets import *
@@ -189,6 +191,30 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('FILE_UPLOAD_MAX_MEMORY_SIZE_MB', '1
 # Geospatial API Keys
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
 MAPBOX_API_KEY = os.getenv('MAPBOX_API_KEY', '')
+
+# Experimental MLOps Flow: ViPPET / DL Streamer Pipeline Server integration (Pipelines page,
+# camera pipeline selector).
+# Enabled with the webserver --enable-mlops-flow flag or ENABLE_MLOPS_FLOW=true.
+def _env_flag(name, default='False'):
+  return os.getenv(name, default).strip().lower() in ('true', '1', 't', 'yes', 'on')
+
+ENABLE_MLOPS_FLOW = _env_flag('ENABLE_MLOPS_FLOW')
+MLOPS_FLOW_DISABLED_HINT = ("Disabled: start Manager with --enable-mlops-flow (or set "
+                            "ENABLE_MLOPS_FLOW=true) to enable the experimental MLOps Flow "
+                            "(ViPPET and DL Streamer Pipeline Server).")
+# Seconds a camera save waits for DLSPS to confirm that a replaced or cleared pipeline stopped.
+def _dlsps_stop_timeout():
+  try:
+    timeout = float(os.environ.get("DLSPS_STOP_TIMEOUT_S", "10"))
+    if math.isfinite(timeout) and timeout >= 0:
+      return timeout
+  except ValueError:
+    pass
+  logging.getLogger(__name__).warning(
+    "Invalid DLSPS_STOP_TIMEOUT_S; using the default of 10 seconds.")
+  return 10.0
+
+DLSPS_STOP_TIMEOUT_S = _dlsps_stop_timeout()
 
 MODEL_ROOT = os.path.join(BASE_DIR, 'models')
 MODEL_URL = '/models/'
