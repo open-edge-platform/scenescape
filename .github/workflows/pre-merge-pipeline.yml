@@ -110,6 +110,12 @@ jobs:
     secrets:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  tests-mcp:
+    name: "MCP Tests"
+    uses: ./.github/workflows/tests-mcp.yml
+    permissions:
+      contents: read
+
   tracker-service:
     name: "Tracker Service Tests"
     uses: ./.github/workflows/tracker-service.yml

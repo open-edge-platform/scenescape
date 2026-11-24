@@ -140,6 +140,7 @@ updates:
       - "/controller/src/robot_vision"
       - "/manager"
       - "/manager/test"
+      - "/manager/tests/mcp_server"
       - "/mapping"
       - "/mapping/tests"
       - "/positioning"

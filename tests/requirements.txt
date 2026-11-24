@@ -32,6 +32,7 @@ Django==5.2.17
 django-axes==8.0.0
 django-session-timeout==0.1.0
 djangorestframework==3.18.2
+thin-mcp==0.2.1
 jsonschema==4.25.1
 segno==1.6.6
 plyfile==1.0.3

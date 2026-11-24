@@ -1,0 +1,43 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Tests] MCP"
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Scenescape ref to test against"
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - name: Set up Python 3.11
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: python -m pip install -r manager/tests/mcp_server/requirements.txt
+      - name: Run MCP unit tests
+        run: python -m pytest manager/tests/mcp_server -q --junitxml=reports/mcp_results.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mcp-report
+          path: reports/mcp_results.xml

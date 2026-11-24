@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="570" viewBox="0 0 1160 570" role="img" aria-labelledby="title desc">
+  <title id="title">SceneScape: REST integration and agentic MCP tool calling</title>
+  <desc id="desc">A conventional application calls known REST endpoints through client integration code. An AI agent uses the MCP client to discover tool descriptions and schemas, select a tool for its task, and call it. Both interfaces run inside the existing Manager Django app. The new mcp_server module uses thin-mcp and exposes list_scenes and get_scene. Blue marks added components; gray marks existing components.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#526780"/></marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; fill: #19334d; }
+      .label { font-size: 20px; font-weight: 700; }
+      .body { font-size: 16px; }
+      .muted { fill: #526780; }
+      .flow { fill: none; stroke: #526780; stroke-width: 2; marker-end: url(#arrow); }
+      .roundtrip { marker-start: url(#arrow); }
+      .existing { fill: #f3f5f7; stroke: #a6b4c2; }
+    </style>
+  </defs>
+  <rect width="1160" height="570" fill="white"/>
+  <text x="32" y="46" font-size="28" font-weight="700">SceneScape · REST and MCP</text>
+  <text x="48" y="98" class="label">Applications and agents</text>
+  <text x="750" y="98" class="label">Manager · Django app</text>
+  <path d="M 32 114 H 1128 M 362 76 V 466" fill="none" stroke="#dce3ea" stroke-width="1.5"/>
+  <rect x="728" y="132" width="400" height="334" rx="14" fill="#f8fafc" stroke="#a6b4c2"/>
+
+  <rect x="48" y="154" width="276" height="104" rx="12" class="existing"/>
+  <text x="70" y="187" class="label">Application</text>
+  <text x="70" y="217" class="body">Client code selects endpoints</text>
+  <text x="70" y="242" class="body muted">Integration built in advance</text>
+  <rect x="750" y="154" width="356" height="104" rx="10" class="existing"/>
+  <text x="772" y="192" class="label">REST API</text>
+  <text x="772" y="225" class="body">Documented endpoint contracts</text>
+  <path d="M 326 211 H 748" class="flow roundtrip"/>
+  <text x="537" y="192" text-anchor="middle" class="body">HTTPS /api/v1/…</text>
+  <text x="537" y="241" text-anchor="middle" class="body muted">Request / response</text>
+
+  <rect x="48" y="306" width="276" height="138" rx="12" class="existing"/>
+  <text x="70" y="342" class="label">AI agent + MCP client</text>
+  <text x="70" y="374" class="body">Discover → select → call</text>
+  <text x="70" y="405" class="body muted">Tool choice guided by the task</text>
+  <rect x="750" y="306" width="356" height="138" rx="10" fill="#edf6ff" stroke="#0071c5" stroke-width="2"/>
+  <text x="772" y="342" class="label">mcp_server + thin-mcp</text>
+  <text x="772" y="375" class="body">list_scenes · get_scene</text>
+  <text x="772" y="406" class="body muted">Descriptions + typed schemas</text>
+  <text x="537" y="295" text-anchor="middle" class="body">HTTPS /mcp</text>
+  <path d="M 326 347 H 748" class="flow roundtrip"/>
+  <text x="537" y="333" text-anchor="middle" class="body">1. tools/list · discover tools</text>
+  <path d="M 326 409 H 748" class="flow roundtrip"/>
+  <text x="537" y="395" text-anchor="middle" class="body">2. tools/call · execute selected tool</text>
+
+  <text x="580" y="503" text-anchor="middle" class="body">Discover new tools through the same MCP client</text>
+  <circle cx="468" cy="541" r="7" fill="#0071c5"/>
+  <text x="484" y="547" class="body">Added</text>
+  <circle cx="596" cy="541" r="7" fill="#a6b4c2"/>
+  <text x="612" y="547" class="body">Existing</text>
+</svg>
