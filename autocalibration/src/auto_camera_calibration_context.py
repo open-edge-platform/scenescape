@@ -55,7 +55,9 @@ class CameraCalibrationContext:
 
     self.register_thread_lock = threading.Lock()
     self.calibration_thread_lock = threading.Lock()
-    self.current_processing_scene = None
+    # Map updates requested while a registration runs, keyed by scene id.
+    self.pending_map_updates = {}
+    self.pending_map_updates_lock = threading.Lock()
 
     return
 
@@ -72,34 +74,72 @@ class CameraCalibrationContext:
     return
 
   def scene_update_thread_wrapper(self, sceneobj, map_update=False):
-    """! function checks if lock is not acquired and processes the
-    scene with updated metadata.
-    status.
+    """! function starts processing the scene unless a registration is running.
+    A map update received while a registration is running is queued and
+    re-run once that registration finishes, so it is not lost.
     @param   sceneobj      scene object.
     @param   map_update    boolean for re-registering the scene.
 
     @return  None
     """
-    if not self.register_thread_lock.locked():
-      thread = threading.Thread(target=self.process_scene, args=(sceneobj, map_update))
-      thread.start()
+    with self.pending_map_updates_lock:
+      # The lock is taken here, not in the worker thread, so a run is busy from
+      # the moment it is accepted until its queued work is done.
+      if not self.register_thread_lock.acquire(blocking=False):
+        if map_update:
+          self.pending_map_updates[sceneobj.id] = sceneobj
+          log.info(f"Map update for scene {sceneobj.name} queued until the current registration finishes")
+        return
+      try:
+        threading.Thread(target=self.process_scene, args=(sceneobj, map_update)).start()
+      except Exception:
+        self.register_thread_lock.release()
+        raise
     return
 
   def process_scene(self, sceneobj, map_update):
-    """! function processes the uploaded scene(image/glb) and publish back the
-    status.
+    """! function runs the registration for the scene, then re-runs any map
+    update queued while it was running. Called with register_thread_lock held;
+    the lock is released when no queued work remains.
     @param   sceneobj      scene object.
     @param   map_update    boolean for re-registering the scene.
 
     @return  None
     """
-    with self.register_thread_lock:
-      try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].process_scene_for_calibration(sceneobj, map_update)
-      except (FileNotFoundError, KeyError) as e:
-        log.error(f"Error in register dataset : {e}")
-    self.current_processing_scene = {}
+    while sceneobj is not None:
+      self._run_registration(sceneobj, map_update)
+      sceneobj, map_update = self._next_queued_update_or_release()
     return
+
+  def _run_registration(self, sceneobj, map_update):
+    """! runs one registration. A map update starts from a clean scene (reset),
+    inside the locked run so it never races a registration in progress.
+    Any failure is logged so the queue always advances and the lock is released.
+    @param   sceneobj      scene object.
+    @param   map_update    boolean for re-registering the scene.
+
+    @return  None
+    """
+    try:
+      strategy = self.scene_strategies[sceneobj.camera_calibration]
+      if map_update:
+        strategy.reset_scene(sceneobj)
+      strategy.process_scene_for_calibration(sceneobj, map_update)
+    except Exception as e:
+      log.error(f"Error in register dataset for scene {sceneobj.name} : {e}")
+
+  def _next_queued_update_or_release(self):
+    """! takes the next queued map update for this run, or releases the lock.
+    The queue check and the lock release happen under one lock, so an update
+    accepted at any point is either picked up here or starts a new run.
+    @return  tuple of (scene object, True) for the next run, or (None, False) when idle.
+    """
+    with self.pending_map_updates_lock:
+      if self.pending_map_updates:
+        _, sceneobj = self.pending_map_updates.popitem()
+        return sceneobj, True
+      self.register_thread_lock.release()
+      return None, False
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """

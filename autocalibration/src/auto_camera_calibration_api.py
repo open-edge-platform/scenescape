@@ -576,7 +576,6 @@ class CameraCalibrationApi:
       strategy = self._get_calibration_strategy(scene)
 
       if strategy.is_map_updated(scene):
-        strategy.reset_scene(scene)
         self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202

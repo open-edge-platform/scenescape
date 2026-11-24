@@ -107,9 +107,12 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     if sceneobj.map_processed is None or map_update:
       try:
+        # Stamp the start of the run, not its end: a map uploaded during the run
+        # then stays newer than the stamp and is picked up by a re-run.
+        started_at = get_iso_time()
         with self.cam_calib_objs[sceneobj.id].cam_calib_lock:
           sceneobj = self.cam_calib_objs[sceneobj.id].register_dataset(sceneobj)
-          self.save_to_database(sceneobj)
+          self.save_to_database(sceneobj, started_at)
           log.info("Dataset registered")
       except FileNotFoundError as e:
         if "global-feats-netvlad.h5" in str(e):
@@ -154,13 +157,14 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
             self.is_polycam_data_processed(sceneobj)):
       return True
 
-  def save_to_database(self, scene):
+  def save_to_database(self, scene, map_processed=None):
     """! Function updates polycam processed timestamp data into db.
     @param   scene             Scene database object.
+    @param   map_processed     ISO timestamp of when the processed run started; now if omitted.
 
     @return  None
     """
-    self.calibration_data_interface.update_map_processed(scene.id, get_iso_time())
+    self.calibration_data_interface.update_map_processed(scene.id, map_processed or get_iso_time())
     return
 
   def reset_scene(self, scene):
