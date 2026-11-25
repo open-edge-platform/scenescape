@@ -408,9 +408,14 @@ class TestCameraViews(TestCase):
     mock_form = Mock()
     mock_form.instance = Mock()
     mock_form.instance.type = 'camera'
+    mock_form.changed_data = []
 
-    form_valid = create_view.form_valid(mock_form)
+    with patch('manager.views.reconcile_camera_pipeline', return_value=[]) as reconcile:
+      form_valid = create_view.form_valid(mock_form)
     self.assertEqual(form_valid.status_code, 302)
+    reconcile.assert_called_once()
+    self.assertEqual(reconcile.call_args.args, (create_view.object.pk,))
+    self.assertTrue(callable(reconcile.call_args.kwargs['on_warnings']))
     return
 
   def test_success_url_update(self):
@@ -627,11 +632,11 @@ class TestSingletonSensorViews(TestCase):
     return
 
   def test_generic_calibrate_else_point_gt_zero(self):
-    views.len = MagicMock(return_value = 1)
-    with open(str(SENSOR_ICON_PATH), 'rb') as img:
-      dummy = self.sensor_intrinsics.copy()
-      dummy.update({'icon': img})
-      response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
+    with patch.object(views, 'len', return_value=1, create=True):
+      with open(str(SENSOR_ICON_PATH), 'rb') as img:
+        dummy = self.sensor_intrinsics.copy()
+        dummy.update({'icon': img})
+        response = self.client.post('/singleton_sensor/calibrate/1', data = dummy)
     self.assertEqual(response.status_code, 200)
     return
 

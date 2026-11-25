@@ -255,7 +255,10 @@ def publish_data(obj_data, obj_location, client, obj_cat):
   for y_loc in obj_location:
     cam_id = obj_data["id"]
     obj_data["timestamp"] = get_iso_time()
-    obj_data["objects"][obj_cat][0]["bounding_box"]["y"] = y_loc
+    # Keep the box inside the normalized image plane. This camera is not the
+    # Demo pose, so only clamp; do not force the Demo crossing height.
+    height = obj_data["objects"][obj_cat][0]["bounding_box"]["height"]
+    obj_data["objects"][obj_cat][0]["bounding_box"]["y"] = min(float(y_loc), max(0.0, 1.0 - height))
     obj_data["objects"][obj_cat][0]["category"] = obj_cat
     line = json.dumps(obj_data)
 

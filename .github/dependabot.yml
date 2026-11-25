@@ -101,6 +101,7 @@ updates:
       - "/sample_data/lidar_intersection"
       - "/sample_data/sample_app"
       - "/sample_data/spp_demo"
+      - "/sample_data/mlops_flow"
       - "/tests/compose"
       - "/tests/compose/dlstreamer"
       - "/tests/compose/hierarchy"

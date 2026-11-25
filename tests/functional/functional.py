@@ -15,6 +15,34 @@ log = get_logger(__name__)
 # Seconds to wait for the broker handshake before giving up on a connection.
 MQTT_CONNECT_TIMEOUT_S = 10
 
+# Detector bounding boxes are normalized to the image plane and must stay in
+# [0, 1]. The projected foot is the bottom of the box (y + height). A short
+# box lets that foot walk from north of the Demo ROI and tripwire to south of
+# them without leaving the image plane. y in [0.00, 0.70] with height 0.05
+# puts the foot in about [0.05, 0.75].
+DEMO_SWEEP_BOX_HEIGHT = 0.05
+DEMO_SWEEP_Y_STEP = 0.02
+DEMO_SWEEP_Y_MAX = 0.70
+
+
+def demo_sweep_locations(step=DEMO_SWEEP_Y_STEP, y_max=DEMO_SWEEP_Y_MAX):
+  """Normalized box-y samples that cross the Demo scene and stay in [0, 1]."""
+  opposite = np.arange(0.0, y_max + step / 2.0, step)
+  across = np.flip(opposite)[2:]
+  return np.concatenate((opposite, across))
+
+
+def apply_demo_sweep_box(jdata, y, category="person"):
+  """Stamp a schema-valid box whose foot follows the Demo crossing sweep."""
+  box = jdata["objects"][category][0]["bounding_box"]
+  box["height"] = DEMO_SWEEP_BOX_HEIGHT
+  y = float(y)
+  if not 0.0 <= y <= 1.0 or y + box["height"] > 1.0:
+    raise ValueError(
+      f"sweep box leaves normalized image plane: y={y} height={box['height']}")
+  box["y"] = y
+  return jdata
+
 class FunctionalTest(Diagnostic):
   def buildArgparser(self):
     parser = self.argumentParser()
@@ -91,16 +119,7 @@ class FunctionalTest(Diagnostic):
     return jdata
 
   def getLocations(self):
-    step = 0.02
-    opposite = np.arange(-0.5, 0.6, step)
-    across = np.flip(opposite)[2:]
-    locations = np.concatenate((opposite, across))
-
-    gap = np.array([abs(x - y) for x, y in zip(locations[:-1], locations[1:])])
-    too_large = np.where(np.isclose(gap, step) == False)
-    if len(too_large[0]):
-      np.delete(locations, too_large[0])
-    return locations
+    return demo_sweep_locations()
 
   def getScene(self):
     scene_id = getattr(self, 'sceneUID', None) or self.params['scene_id']
