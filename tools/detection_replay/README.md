@@ -78,7 +78,7 @@ docker run --rm --network scenescape_scenescape \
   -v "$PWD/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro" \
   -v "$PWD/sample_data/spp_demo/Rolling-terrain:/workspace:ro" \
   --entrypoint python3 \
-  intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc2 \
+  intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc3 \
   /home/detection_replay/detection_replay.py \
   --camera rt-cam1_front_left /workspace/video/rt-cam1_front_left.mp4 /workspace/metadata/rt-cam1_front_left.json \
   --camera rt-cam2_back_right /workspace/video/rt-cam2_back_right.mp4 /workspace/metadata/rt-cam2_back_right.json

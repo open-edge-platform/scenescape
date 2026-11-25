@@ -24,7 +24,7 @@ services:
   rolling-terrain-replay:
     # The DL Streamer Pipeline Server image provides GStreamer, the GVA
     # elements and gst-python; its pipeline server is not used.
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc3
     networks:
       scenescape:
     entrypoint: ["python3", "/home/detection_replay/detection_replay.py"]
