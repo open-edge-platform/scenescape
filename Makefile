@@ -48,6 +48,13 @@ DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,aprilt
 	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
 	tools/pipeline_runner/video/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/compose.dl-streamer-example.yml
+VIDEO_SOURCE_VIDEOS = $(DLSTREAMER_SAMPLE_VIDEOS)
+# SPP demo: Rolling-terrain scene, Tracker service with the experimental observation processor.
+# The scene replays recorded detections with its mp4 videos (tools/detection_replay), so no videos
+# have to be converted to ts.
+SPP_DEMO_DIR := sample_data/spp_demo
+SPP_DEMO_COMPOSE_ARGS = -f docker-compose.yml -f $(SPP_DEMO_DIR)/compose.spp-demo.yml
+SPP_DEMO_VIDEO_COMPOSE_FILES := -f $(SPP_DEMO_DIR)/compose.rolling-terrain-video.yml
 DEMO_WAIT_SECONDS ?= "0"
 DEPLOY_WAIT_SECONDS ?= $(DEMO_WAIT_SECONDS)
 DEPLOY_PROFILES ?= controller
@@ -164,6 +171,8 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
+	@echo "  demo-spp                    Start the Rolling-terrain demo with the Tracker service and the experimental Observation Processor"
+	@echo "                              (which integrates Spatial Performance Primitives libraries) for non-planar tracking"
 	@echo "  demo-mlops-flow             Start Scenescape + DLSPS 2.0 + the Queuing camera streams,"
 	@echo "                              connected to a running ViPPET"
 	@echo "  demo-mlops-flow-close       Stop the MLOps Flow demo and remove its volumes (ViPPET keeps running)"
@@ -839,9 +848,10 @@ init-pipeline-runner-videos: convert-dls-videos
 # $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
 	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)" DEPLOY_FROM_DEMO=true
-	@touch .scenescape-demo
-	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
-	@$(MAKE) demo-scenes
+	@echo "$(VIDEO_SOURCE_COMPOSE_FILES)" > .scenescape-demo
+	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)" VIDEO_SOURCE_COMPOSE_FILES="$(VIDEO_SOURCE_COMPOSE_FILES)" \
+		VIDEO_SOURCE_VIDEOS="$(VIDEO_SOURCE_VIDEOS)"
+	@$(MAKE) demo-scenes DEMO_SCENES_DIR="$(DEMO_SCENES_DIR)"
 	@echo ""
 	@echo "To stop the demo, run: make demo-close"
 endef
@@ -935,6 +945,13 @@ demo-tracker: $(DEMO_BUILD:build=build-all)
 .PHONY: demo-lidar
 demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
 	$(call start_demo,controller,$(LIDAR_COMPOSE_ARGS))
+
+.PHONY: demo-spp
+demo-spp: VIDEO_SOURCE_COMPOSE_FILES := $(SPP_DEMO_VIDEO_COMPOSE_FILES)
+demo-spp: VIDEO_SOURCE_VIDEOS :=
+demo-spp: DEMO_SCENES_DIR := $(SPP_DEMO_DIR)
+demo-spp: $(DEMO_BUILD:build=build-core tracker reid observation_processor)
+	$(call start_demo,tracker observation-processor,$(SPP_DEMO_COMPOSE_ARGS))
 
 # ViPPET + DL Streamer Pipeline Server 2.0 demo (see sample_data/mlops_flow/README.md)
 .PHONY: check-mlops-flow
@@ -1065,7 +1082,8 @@ demo-close:
 	@if [ "$$(cat .scenescape-demo)" = "$(MLOPS_FLOW_DEMO_MARKER)" ]; then \
 		$(MAKE) demo-mlops-flow-close; \
 	else \
-		$(MAKE) video-source-down && \
+		files="$$(cat .scenescape-demo)" && \
+		$(MAKE) video-source-down $${files:+VIDEO_SOURCE_COMPOSE_FILES="$$files"} && \
 		docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v && \
 		rm -f .scenescape-profile .scenescape-demo; \
 	fi
@@ -1087,7 +1105,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 # can reach the broker/ntpserv aliases and dlsps pipelines can be reached at
 # rtsp://mediaserver:8554/<camera-id>.
 .PHONY: video-source-up
-video-source-up: convert-dls-videos
+video-source-up: $(VIDEO_SOURCE_VIDEOS)
 	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) $(VIDEO_SOURCE_ARGS) up -d
 
 .PHONY: video-source-down
