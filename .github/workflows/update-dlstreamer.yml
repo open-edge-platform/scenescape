@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-name: "[Update] DLStreamer Pipeline Server"
-run-name: "[Update] DLStreamer Pipeline Server"
+name: "[Update] DLStreamer Pipeline Server 2.0"
+run-name: "[Update] DLStreamer Pipeline Server 2.0"
 
 on:
   schedule:
@@ -16,79 +16,29 @@ permissions:
 
 jobs:
   check-and-update:
-    name: "Check and Update DLStreamer Pipeline Server Version"
+    name: "Check and Update DLStreamer Pipeline Server 2.0 Version"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: "Get latest DLStreamer version from DockerHub"
+      - name: "Get latest DLStreamer Pipeline Server 2.0 version from DockerHub"
         id: dockerhub
         run: |
-          # Get all tags with timestamps
-          ALL_TAGS=$(curl -s "https://registry.hub.docker.com/v2/repositories/intel/dlstreamer-pipeline-server/tags?page_size=100")
+          ALL_TAGS=$(curl -fsS "https://registry.hub.docker.com/v2/repositories/intel/dlstreamer-pipeline-server/tags?page_size=100")
 
-          # Get latest stable version (format: YYYY.X.X-ubuntu24) with timestamp
-          LATEST_STABLE=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
-          STABLE_VERSION=$(echo "$LATEST_STABLE" | cut -d'|' -f2)
-          STABLE_DATE=$(echo "$LATEST_STABLE" | cut -d'|' -f1)
-
-          # Get latest weekly version (supports both old and new formats)
-          # New format: YYYY.X.X-YYYYMMDD-weekly-ubuntu24
-          # Old format: weekly-YYYY.X-YYYYMMDD-ubuntu24
-          LATEST_WEEKLY=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^(weekly-[0-9]{4}\\.[0-9]+-[0-9]{8}-ubuntu24|[0-9]{4}\\.[0-9]+\\.[0-9]+-[0-9]{8}-weekly-ubuntu24)$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
-          WEEKLY_VERSION=$(echo "$LATEST_WEEKLY" | cut -d'|' -f2)
-          WEEKLY_DATE=$(echo "$LATEST_WEEKLY" | cut -d'|' -f1)
-
-          # Get latest RC version (format: YYYY.X.X-ubuntu24-rcX or YYYY.X.X-ubuntu24-rcX.Y)
-          LATEST_RC=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+-ubuntu24-rc[0-9]+(\\.[0-9]+)*$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
-          RC_VERSION=$(echo "$LATEST_RC" | cut -d'|' -f2)
-          RC_DATE=$(echo "$LATEST_RC" | cut -d'|' -f1)
-
-          echo "latest_stable=${STABLE_VERSION}" >> $GITHUB_OUTPUT
-          echo "latest_weekly=${WEEKLY_VERSION}" >> $GITHUB_OUTPUT
-          echo "latest_rc=${RC_VERSION}" >> $GITHUB_OUTPUT
-          echo "stable_date=${STABLE_DATE}" >> $GITHUB_OUTPUT
-          echo "weekly_date=${WEEKLY_DATE}" >> $GITHUB_OUTPUT
-          echo "rc_date=${RC_DATE}" >> $GITHUB_OUTPUT
-
-          echo "Latest stable version: ${STABLE_VERSION} (published: ${STABLE_DATE})"
-          echo "Latest weekly version: ${WEEKLY_VERSION} (published: ${WEEKLY_DATE})"
-          echo "Latest RC version:     ${RC_VERSION} (published: ${RC_DATE})"
-
-          # Compare dates and choose the newest among stable, weekly, and RC
-          SELECTED_VERSION="$STABLE_VERSION"
-          SELECTED_TYPE="stable"
-          SELECTED_DATE="$STABLE_DATE"
-
-          if [[ -n "$WEEKLY_VERSION" && "$WEEKLY_DATE" > "$SELECTED_DATE" ]]; then
-            SELECTED_VERSION="$WEEKLY_VERSION"
-            SELECTED_TYPE="weekly"
-            SELECTED_DATE="$WEEKLY_DATE"
-          fi
-
-          if [[ -n "$RC_VERSION" && "$RC_DATE" > "$SELECTED_DATE" ]]; then
-            SELECTED_VERSION="$RC_VERSION"
-            SELECTED_TYPE="rc"
-            SELECTED_DATE="$RC_DATE"
-          fi
-
-          echo "Selected: ${SELECTED_TYPE} build (newest)"
+          # Match ubuntu26 DLSPS 2.0 stable, weekly, and RC tags.
+          LATEST_2=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+(-[0-9]{8}-weekly)?-ubuntu26-2\\.0(-rc[0-9]+(\\.[0-9]+)*)?$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          SELECTED_VERSION=$(echo "$LATEST_2" | cut -d'|' -f2)
+          SELECTED_DATE=$(echo "$LATEST_2" | cut -d'|' -f1)
 
           if [[ -z "$SELECTED_VERSION" ]]; then
-            echo "Error: No valid DLStreamer tag found from DockerHub; aborting update." >&2
+            echo "Error: No valid DLSPS 2.0 tag found on DockerHub; aborting update." >&2
             exit 1
           fi
           echo "latest_version=${SELECTED_VERSION}" >> $GITHUB_OUTPUT
-          echo "selected_type=${SELECTED_TYPE}" >> $GITHUB_OUTPUT
-
-          # DLSPS 2.0 has its own stable, weekly, and RC tags.
-          LATEST_2=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+(-[0-9]{8}-weekly)?-ubuntu24-2\\.0(-rc[0-9]+(\\.[0-9]+)*)?$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
-          VERSION_2=$(echo "$LATEST_2" | cut -d'|' -f2)
-          DATE_2=$(echo "$LATEST_2" | cut -d'|' -f1)
-          echo "latest_version_2=${VERSION_2}" >> $GITHUB_OUTPUT
-          echo "date_2=${DATE_2}" >> $GITHUB_OUTPUT
-          echo "Latest DLSPS 2.0 version: ${VERSION_2} (published: ${DATE_2})"
+          echo "published_date=${SELECTED_DATE}" >> $GITHUB_OUTPUT
+          echo "Latest DLSPS 2.0 version: ${SELECTED_VERSION} (published: ${SELECTED_DATE})"
 
       - name: "Get current version from repository"
         id: current
@@ -102,26 +52,18 @@ jobs:
         id: compare
         env:
           LATEST: ${{ steps.dockerhub.outputs.latest_version }}
-          LATEST_2: ${{ steps.dockerhub.outputs.latest_version_2 }}
           CURRENT: ${{ steps.current.outputs.current_version }}
         run: |
-          # Check each image separately, including files with both image families.
+          CHART_DLSPS_VERSION=$LATEST
+          echo "chart_dlsps_version=${CHART_DLSPS_VERSION}" >> $GITHUB_OUTPUT
+
+          # Update every DLSPS image reference to the selected 2.0 tag.
           OUTDATED_FILES=$(find . -type f \( -name '*.yml' -o -name '*.yaml' -o -name '*.md' \) \( -regex '\./\.github/skills/.*' -o -not -path './.github/*' \) -print  2>/dev/null \
           | while IFS= read -r file; do
             outdated=false
             while IFS= read -r image; do
               version=${image##*:}
-              case "$version" in
-                *-2.0|*-2.0-*)
-                  if [ -z "$LATEST_2" ]; then
-                    echo "Error: No DLSPS 2.0 tag found on Docker Hub for $file" >&2
-                    exit 1
-                  fi
-                  expected=$LATEST_2
-                  ;;
-                *) expected=$LATEST ;;
-              esac
-              if [ "$version" != "$expected" ]; then
+              if [ "$version" != "$LATEST" ]; then
                 outdated=true
               fi
             done < <(grep -oE '(docker\.io/)?intel/dlstreamer-pipeline-server:[[:alnum:]_][[:alnum:]_.-]*' "$file" || true)
@@ -130,9 +72,9 @@ jobs:
             fi
           done)
 
-          if [ "${LATEST}" != "${CURRENT}" ] || [ -n "${OUTDATED_FILES}" ]; then
+          if [ "${CHART_DLSPS_VERSION}" != "${CURRENT}" ] || [ -n "${OUTDATED_FILES}" ]; then
             echo "update_needed=true" >> $GITHUB_OUTPUT
-            echo "Update needed: DLSPS ${CURRENT} -> ${LATEST}; DLSPS 2.0 target: ${LATEST_2:-unavailable}"
+            echo "Update needed: all DLSPS images -> ${LATEST}; Helm chart DLSPS image tag: ${CURRENT} -> ${CHART_DLSPS_VERSION}"
             [ -n "${OUTDATED_FILES}" ] && echo "Files with non-latest versions:" && echo "${OUTDATED_FILES}"
             {
               echo "outdated_files<<EOF"
@@ -150,30 +92,27 @@ jobs:
         env:
           OLD_VERSION: ${{ steps.current.outputs.current_version }}
           NEW_VERSION: ${{ steps.dockerhub.outputs.latest_version }}
-          NEW_VERSION_2: ${{ steps.dockerhub.outputs.latest_version_2 }}
+          CHART_DLSPS_VERSION: ${{ steps.compare.outputs.chart_dlsps_version }}
           OUTDATED_FILES: ${{ steps.compare.outputs.outdated_files }}
         run: |
-          echo "Updating from ${OLD_VERSION} to ${NEW_VERSION}"
+          echo "Updating all DLSPS images to ${NEW_VERSION}"
 
           printf '%s\n' "$OUTDATED_FILES" | while IFS= read -r file; do
             if [ -n "$file" ]; then
               echo "Updating $file"
               while IFS= read -r image; do
                 version=${image##*:}
-                case "$version" in
-                  *-2.0|*-2.0-*) replacement=$NEW_VERSION_2 ;;
-                  *) replacement=$NEW_VERSION ;;
-                esac
                 escaped_version=${version//./\\.}
-                sed -i -E "s#(intel/dlstreamer-pipeline-server:)${escaped_version}([^[:alnum:]_.-]|$)#\1${replacement}\2#g" "$file"
+                sed -i -E "s#(intel/dlstreamer-pipeline-server:)${escaped_version}([^[:alnum:]_.-]|$)#\1${NEW_VERSION}\2#g" "$file"
               done < <(grep -oE '(docker\.io/)?intel/dlstreamer-pipeline-server:[[:alnum:]_][[:alnum:]_.-]*' "$file" | sort -u)
             fi
           done
 
-          # Update Helm values.yaml
-          if grep -q "${OLD_VERSION}" kubernetes/scenescape-chart/values.yaml; then
-            echo "Updating kubernetes/scenescape-chart/values.yaml"
-            sed -i "s|${OLD_VERSION}|${NEW_VERSION}|g" kubernetes/scenescape-chart/values.yaml
+          # Update the DLSPS image tag in the Helm chart.
+          if [ "$OLD_VERSION" != "$CHART_DLSPS_VERSION" ]; then
+            echo "Updating DLSPS image tag in kubernetes/scenescape-chart/values.yaml"
+            escaped_version=${OLD_VERSION//./\\.}
+            sed -i -E "/image: intel\/dlstreamer-pipeline-server/,+2 s#(tag: \")${escaped_version}(\")#\1${CHART_DLSPS_VERSION}\2#" kubernetes/scenescape-chart/values.yaml
           fi
 
           # Capture changed files once; derive count and markdown list from the same variable
@@ -205,18 +144,15 @@ jobs:
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GH_PAT }}
-          commit-message: "DLStreamer: Update images to ${{ steps.dockerhub.outputs.latest_version }} and 2.0 ${{ steps.dockerhub.outputs.latest_version_2 || 'unavailable' }}"
-          title: "[DLStreamer] Update to ${{ steps.dockerhub.outputs.latest_version }} and 2.0 ${{ steps.dockerhub.outputs.latest_version_2 || 'unavailable' }}"
+          commit-message: "DLStreamer 2.0: Update all images to ${{ steps.dockerhub.outputs.latest_version }}"
+          title: "[DLStreamer 2.0] Update all images to ${{ steps.dockerhub.outputs.latest_version }}"
           body: |
             ## DLStreamer Pipeline Server Update
 
-            This PR updates DLStreamer Pipeline Server and DLSPS 2.0 image references. The previous Helm version was `${{ steps.current.outputs.current_version }}`.
+            This PR updates all DLStreamer Pipeline Server image references.
 
-            ### Available Versions
-            - **Latest Stable**: `${{ steps.dockerhub.outputs.latest_stable }}` (published: `${{ steps.dockerhub.outputs.stable_date }}`)
-            - **Latest Weekly**: `${{ steps.dockerhub.outputs.latest_weekly }}` (published: `${{ steps.dockerhub.outputs.weekly_date }}`)
-            - **Latest RC**: `${{ steps.dockerhub.outputs.latest_rc }}` (published: `${{ steps.dockerhub.outputs.rc_date }}`)
-            - **Selected**: `${{ steps.dockerhub.outputs.latest_version }}` (${{ steps.dockerhub.outputs.selected_type }} - chosen as the newest available)
+            ### Target Version
+            - **DLSPS 2.0**: `${{ steps.dockerhub.outputs.latest_version }}` (published: `${{ steps.dockerhub.outputs.published_date }}`)
             ### Files Updated
             ${{ steps.update.outputs.changed_files_list }}
 
@@ -227,7 +163,7 @@ jobs:
             ---
             *This PR was automatically created by the DLStreamer update workflow.*
           base: ${{ github.ref_name }}
-          branch: dlstreamer-update-${{ steps.dockerhub.outputs.latest_version }}-${{ steps.dockerhub.outputs.latest_version_2 || 'unavailable' }}
+          branch: dlstreamer-2.0-ubuntu26-update-${{ steps.dockerhub.outputs.latest_version }}
           delete-branch: true
           labels: |
             dlstreamer
