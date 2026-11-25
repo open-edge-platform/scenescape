@@ -210,15 +210,13 @@ jobs:
           body: |
             ## DLStreamer Pipeline Server Update
 
-            This PR updates `intel/dlstreamer-pipeline-server` references to the selected versions below. The previous Helm version was `${{ steps.current.outputs.current_version }}`.
+            This PR updates DLStreamer Pipeline Server and DLSPS 2.0 image references. The previous Helm version was `${{ steps.current.outputs.current_version }}`.
 
             ### Available Versions
             - **Latest Stable**: `${{ steps.dockerhub.outputs.latest_stable }}` (published: `${{ steps.dockerhub.outputs.stable_date }}`)
             - **Latest Weekly**: `${{ steps.dockerhub.outputs.latest_weekly }}` (published: `${{ steps.dockerhub.outputs.weekly_date }}`)
             - **Latest RC**: `${{ steps.dockerhub.outputs.latest_rc }}` (published: `${{ steps.dockerhub.outputs.rc_date }}`)
             - **Selected**: `${{ steps.dockerhub.outputs.latest_version }}` (${{ steps.dockerhub.outputs.selected_type }} - chosen as the newest available)
-            - **Latest DLSPS 2.0**: `${{ steps.dockerhub.outputs.latest_version_2 }}` (published: `${{ steps.dockerhub.outputs.date_2 }}`)
-
             ### Files Updated
             ${{ steps.update.outputs.changed_files_list }}
 
