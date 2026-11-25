@@ -98,6 +98,16 @@ class TestObservationProcessorSwitch:
     with pytest.raises(ValueError, match="observation_processor"):
       rbbe._set_observation_processor(cfg, True)
 
+  def test_rolling_terrain_reports_height_error(self):
+    """Non-planar GT needs LOC_T_Z; DIST_T alone hides mesh/OP height gains."""
+    for path in rbbe.configs_for("rolling_terrain", association="both"):
+      cfg = yaml.safe_load(path.read_text())
+      diagnostic = next(
+        e for e in cfg["evaluators"]
+        if e["class"].endswith("DiagnosticEvaluator")
+      )
+      assert "LOC_T_Z" in diagnostic["config"]["metrics"], path.name
+
   @pytest.mark.parametrize("flag,expected", [
     ("--observation-processor", True),
     ("--no-observation-processor", False),
