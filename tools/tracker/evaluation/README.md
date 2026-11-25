@@ -214,11 +214,14 @@ python -m run_black_box_evaluation --association both
 ```
 
 **Experimental observation processor**: every black-box YAML (euclidean and mahalanobis) has a
-`harness.config.observation_processor` block. The runner uses the YAML setting
-unless `--observation-processor` / `--no-observation-processor` overrides it for all configs of the
-session; it combines with `--association`. When enabled, the harness starts the service container
-next to the tracker/controller, waits until it is SERVING and sets the experimental client flag.
-The effective config of each run is stored in its `config/` folder.
+`harness.config.observation_processor` block. With no CLI flag, the runner **keeps each YAML**
+(this is not "force off": `rolling_terrain` enables the service; Unity and Wildtrack leave it
+off). `--observation-processor` / `--no-observation-processor` override every config in the
+session; they combine with `--association`. When the effective setting is enabled, the harness
+starts the service container next to the tracker/controller, waits until it is SERVING, sets the
+experimental client flag, and suffixes `pipeline.run_name` with `-ObservationProcessor` so
+session folders stay distinguishable. The effective config of each run is stored in its
+`config/` folder.
 
 ```bash
 python -m run_black_box_evaluation --observation-processor

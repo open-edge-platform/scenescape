@@ -117,6 +117,9 @@ DEFAULT_OUTPUT_BASE = _SCRIPT_DIR / "output" / "black-box-evaluation"
 # Helpers
 # ---------------------------------------------------------------------------
 
+OBSERVATION_PROCESSOR_RUN_SUFFIX = "-ObservationProcessor"
+
+
 def _set_observation_processor(cfg: dict, enabled: bool) -> None:
   """Override ``harness.config.observation_processor.enabled`` in a loaded config.
 
@@ -127,6 +130,22 @@ def _set_observation_processor(cfg: dict, enabled: bool) -> None:
   if not isinstance(harness_cfg.get("observation_processor"), dict):
     raise ValueError("config has no harness.config.observation_processor block")
   harness_cfg["observation_processor"]["enabled"] = enabled
+
+
+def _label_observation_processor_run(cfg: dict) -> None:
+  """Suffix ``pipeline.run_name`` when the observation processor is enabled.
+
+  Keeps OP-on and OP-off session folders distinguishable when the YAML (or an
+  override) turns the service on. Omitting the CLI flag no longer means
+  "force off", so the suffix is the visible signal.
+  """
+  op = cfg.get("harness", {}).get("config", {}).get("observation_processor")
+  if not isinstance(op, dict) or not op.get("enabled"):
+    return
+  pipeline = cfg.setdefault("pipeline", {})
+  name = pipeline.get("run_name", "Run")
+  if not name.endswith(OBSERVATION_PROCESSOR_RUN_SUFFIX):
+    pipeline["run_name"] = name + OBSERVATION_PROCESSOR_RUN_SUFFIX
 
 
 def _run_config(
@@ -142,7 +161,9 @@ def _run_config(
   unchanged (intended for manual runs where the user edits the YAML directly).
   If *observation_processor* is not None, it overrides the experimental
   observation processor setting of the config (see ``_set_observation_processor``).
-  The effective config is stored in the run's ``config/`` folder.
+  When the effective setting is enabled, ``run_name`` gets
+  ``-ObservationProcessor``. The effective config is stored in the run's
+  ``config/`` folder.
 
   Returns the metrics dict from PipelineEngine.evaluate().
   """
@@ -180,6 +201,7 @@ def _run_config(
 
   if observation_processor is not None:
     _set_observation_processor(cfg, observation_processor)
+  _label_observation_processor_run(cfg)
 
   # Write the effective config under its original name so load_configuration()
   # can persist the config copy and run full validation.
@@ -237,7 +259,8 @@ def run_all(
                 ``"rolling_terrain"``).
     observation_processor: ``True``/``False`` overrides the experimental
                 observation processor setting of every config; ``None`` keeps
-                each YAML's own setting.
+                each YAML's own setting (not force-off). OP-on runs get a
+                ``-ObservationProcessor`` run_name suffix.
     association:
       ``"euclidean"`` (default baseline), ``"mahalanobis"`` (HPHt + R gate),
       or ``"both"``.
@@ -284,8 +307,9 @@ def main() -> int:
   )
   parser.add_argument(
       "--observation-processor", action=argparse.BooleanOptionalAction, default=None,
-      help="Override the experimental observation processor setting of every "
-           "config (default: keep each config's own setting)",
+      help="Override observation_processor.enabled for every config. "
+           "Default: keep each YAML (not force-off). rolling_terrain enables "
+           "it; OP-on runs get a -ObservationProcessor run_name suffix.",
   )
   parser.add_argument(
       "--association",

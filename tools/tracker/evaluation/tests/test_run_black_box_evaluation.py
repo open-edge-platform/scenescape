@@ -98,6 +98,26 @@ class TestObservationProcessorSwitch:
     with pytest.raises(ValueError, match="observation_processor"):
       rbbe._set_observation_processor(cfg, True)
 
+  def test_label_suffixes_when_enabled(self):
+    cfg = {
+      "pipeline": {"run_name": "Tracker-Service"},
+      "harness": {"config": {"observation_processor": {"enabled": True}}},
+    }
+    rbbe._label_observation_processor_run(cfg)
+    assert cfg["pipeline"]["run_name"] == (
+      "Tracker-Service" + rbbe.OBSERVATION_PROCESSOR_RUN_SUFFIX
+    )
+    rbbe._label_observation_processor_run(cfg)  # idempotent
+    assert cfg["pipeline"]["run_name"].count(rbbe.OBSERVATION_PROCESSOR_RUN_SUFFIX) == 1
+
+  def test_label_skips_when_disabled(self):
+    cfg = {
+      "pipeline": {"run_name": "Tracker-Service"},
+      "harness": {"config": {"observation_processor": {"enabled": False}}},
+    }
+    rbbe._label_observation_processor_run(cfg)
+    assert cfg["pipeline"]["run_name"] == "Tracker-Service"
+
   def test_rolling_terrain_reports_height_error(self):
     """Non-planar GT needs LOC_T_Z; DIST_T alone hides mesh/OP height gains."""
     for path in rbbe.configs_for("rolling_terrain", association="both"):
