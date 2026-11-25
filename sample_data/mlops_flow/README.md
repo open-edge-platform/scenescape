@@ -96,7 +96,7 @@ The defaults can be changed with these variables:
 | `VIPPET_MODELS_VOLUME` | Detected from a named volume mounted at `/models`                        |
 | `VIPPET_URL`           | `http://vippet:7860/api/v1`                                              |
 | `DLSPS_URL`            | `http://dlsps.scenescape.intel.com:8080`                                 |
-| `DLSPS2_IMAGE`         | `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc3                  |
+| `DLSPS2_IMAGE`         | `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-2.0-rc3                  |
 | `MLOPS_FLOW_RTSP_PORT` | `18554` (ViPPET's own media server already uses `8554`)                  |
 | `DEMO_REBUILD_IMAGES`  | `true`; set to `false` to skip rebuilding images                         |
 
