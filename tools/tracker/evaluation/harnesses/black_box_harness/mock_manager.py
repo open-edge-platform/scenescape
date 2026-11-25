@@ -197,11 +197,23 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
 
 
 def _mesh_file(scene_config):
-  """Local ``.glb`` file referenced by the scene config ``map``, else None."""
+  """Local ``.glb`` file referenced by the scene config ``map``, else None.
+
+  Raises:
+    ValueError: If ``map`` ends with ``.glb`` but is not a readable file.
+      Observation-processor ``full`` mode needs a served mesh; a relative or
+      missing path would otherwise leave a dead ``map`` URL and fail later.
+  """
   map_file = scene_config.get("map")
-  if map_file and map_file.lower().endswith(".glb") and Path(map_file).is_file():
-    return Path(map_file)
-  return None
+  if not map_file or not str(map_file).lower().endswith(".glb"):
+    return None
+  path = Path(map_file)
+  if not path.is_file():
+    raise ValueError(
+      f"scene map '{map_file}' is a .glb but is not a readable file; "
+      "use an absolute path to an existing mesh"
+    )
+  return path
 
 
 def _build_rest_scene(scene_config: dict) -> dict:

@@ -334,10 +334,15 @@ class TestSceneMesh:
   def test_local_glb_map_becomes_media_url(self, mesh_config):
     assert _build_rest_scene(mesh_config)["map"] == "/media/scene.glb"
 
-  @pytest.mark.parametrize("map_file", ["map.png", "/nonexistent/scene.glb"])
-  def test_other_maps_are_kept(self, two_camera_scene_config, map_file):
+  def test_non_glb_map_is_kept(self, two_camera_scene_config):
+    config = {**two_camera_scene_config, "map": "map.png"}
+    assert _build_rest_scene(config)["map"] == "map.png"
+
+  @pytest.mark.parametrize("map_file", ["scene.glb", "/nonexistent/scene.glb"])
+  def test_missing_glb_raises(self, two_camera_scene_config, map_file):
     config = {**two_camera_scene_config, "map": map_file}
-    assert _build_rest_scene(config)["map"] == map_file
+    with pytest.raises(ValueError, match=r"\.glb.*readable file"):
+      _build_rest_scene(config)
 
   def test_mesh_is_served(self, mesh_config):
     server = HTTPServer(("127.0.0.1", 0), MockManagerHandler)
