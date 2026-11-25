@@ -56,23 +56,47 @@ def _extractKeypointsFromGvametaconvert(item):
         }
   return {}
 
-def _extractKeypoints(item):
-  # Format 1: keypoints in tensors (older model-proc based pipelines)
-  for tensor in item.get('tensors', []):
-    if tensor.get('format') == 'keypoints':
-      data = tensor.get('data', [])
-      names = tensor.get('point_names', [])
-      keypoints = [
-        {'name': names[i], 'x': data[i * 2], 'y': data[i * 2 + 1]}
-        for i in range(len(names))
-        if i * 2 + 1 < len(data)
-      ]
-      return {
-        'keypoints': keypoints,
-        'keypoint_connections': tensor.get('point_connections', [])
-      }
+def _isKeypointsTensor(tensor):
+  fmt = tensor.get('format', '')
+  return (tensor.get('type') == 'keypoints' or fmt == 'keypoints'
+          or (isinstance(fmt, str) and fmt.startswith('body-pose/')))
 
-  # Format 2: keypoints from gvametaconvert (yolo11-pose and similar)
+def _extractKeypointsFromTensor(tensor):
+  """Extract keypoints from a keypoints tensor (DL Streamer 2026.2+)."""
+  data = tensor.get('data', [])
+  names = tensor.get('point_names', [])
+  confidences = tensor.get('confidence', [])
+  if not isinstance(confidences, list):
+    confidences = []
+  keypoints = []
+  for i, name in enumerate(names):
+    if i * 2 + 1 >= len(data):
+      break
+    # x, y are relative to the detection bounding box (0..1)
+    keypoint = {'name': name, 'x': data[i * 2], 'y': data[i * 2 + 1]}
+    if i < len(confidences):
+      keypoint['confidence'] = confidences[i]
+    keypoints.append(keypoint)
+
+  connections = []
+  for idx in tensor.get('point_connections', []):
+    if isinstance(idx, str):
+      connections.append(idx)
+    elif isinstance(idx, int) and 0 <= idx < len(names):
+      connections.append(names[idx])
+  if len(connections) % 2:
+    connections = []
+  return {
+    'keypoints': keypoints,
+    'keypoint_connections': connections,
+  }
+
+def _extractKeypoints(item):
+  for tensor in item.get('tensors', []):
+    if _isKeypointsTensor(tensor):
+      return _extractKeypointsFromTensor(tensor)
+
+  # DL Streamer < 2026.2 emitted a top-level 'keypoints' field instead of a tensor
   return _extractKeypointsFromGvametaconvert(item)
 
 def detectionPolicy(pobj, item, fw, fh):
