@@ -82,6 +82,14 @@ jobs:
           echo "latest_version=${SELECTED_VERSION}" >> $GITHUB_OUTPUT
           echo "selected_type=${SELECTED_TYPE}" >> $GITHUB_OUTPUT
 
+          # DLSPS 2.0 has its own stable, weekly, and RC tags.
+          LATEST_2=$(echo "$ALL_TAGS" | jq -r '.results[] | select(.name | test("^[0-9]{4}\\.[0-9]+\\.[0-9]+(-[0-9]{8}-weekly)?-ubuntu24-2\\.0(-rc[0-9]+(\\.[0-9]+)*)?$")) | "\(.last_updated)|\(.name)"' | sort -r | head -1)
+          VERSION_2=$(echo "$LATEST_2" | cut -d'|' -f2)
+          DATE_2=$(echo "$LATEST_2" | cut -d'|' -f1)
+          echo "latest_version_2=${VERSION_2}" >> $GITHUB_OUTPUT
+          echo "date_2=${DATE_2}" >> $GITHUB_OUTPUT
+          echo "Latest DLSPS 2.0 version: ${VERSION_2} (published: ${DATE_2})"
+
       - name: "Get current version from repository"
         id: current
         run: |
@@ -92,24 +100,39 @@ jobs:
 
       - name: "Compare versions"
         id: compare
+        env:
+          LATEST: ${{ steps.dockerhub.outputs.latest_version }}
+          LATEST_2: ${{ steps.dockerhub.outputs.latest_version_2 }}
+          CURRENT: ${{ steps.current.outputs.current_version }}
         run: |
-          LATEST="${{ steps.dockerhub.outputs.latest_version }}"
-          CURRENT="${{ steps.current.outputs.current_version }}"
-
-          # Also scan all relevant YAML files for any DLStreamer version that isn't the latest
-          # This catches new files or files with versions different from values.yaml
-          # Exclude .github/ to avoid the workflow file falsely matching its own PR body template
+          # Check each image separately, including files with both image families.
           OUTDATED_FILES=$(find . -type f \( -name '*.yml' -o -name '*.yaml' -o -name '*.md' \) \( -regex '\./\.github/skills/.*' -o -not -path './.github/*' \) -print  2>/dev/null \
-          | while read f; do
-            if grep -qE "(docker\.io/)?intel/dlstreamer-pipeline-server:[^ \"']+" "$f" 2>/dev/null && \
-               ! grep -qE "(docker\.io/)?intel/dlstreamer-pipeline-server:${LATEST}([[:space:]\"']|$)" "$f" 2>/dev/null; then
-              echo "$f"
+          | while IFS= read -r file; do
+            outdated=false
+            while IFS= read -r image; do
+              version=${image##*:}
+              case "$version" in
+                *-2.0|*-2.0-*)
+                  if [ -z "$LATEST_2" ]; then
+                    echo "Error: No DLSPS 2.0 tag found on Docker Hub for $file" >&2
+                    exit 1
+                  fi
+                  expected=$LATEST_2
+                  ;;
+                *) expected=$LATEST ;;
+              esac
+              if [ "$version" != "$expected" ]; then
+                outdated=true
+              fi
+            done < <(grep -oE '(docker\.io/)?intel/dlstreamer-pipeline-server:[[:alnum:]_][[:alnum:]_.-]*' "$file" || true)
+            if [ "$outdated" = true ]; then
+              printf '%s\n' "$file"
             fi
           done)
 
           if [ "${LATEST}" != "${CURRENT}" ] || [ -n "${OUTDATED_FILES}" ]; then
             echo "update_needed=true" >> $GITHUB_OUTPUT
-            echo "Update needed: ${CURRENT} -> ${LATEST}"
+            echo "Update needed: DLSPS ${CURRENT} -> ${LATEST}; DLSPS 2.0 target: ${LATEST_2:-unavailable}"
             [ -n "${OUTDATED_FILES}" ] && echo "Files with non-latest versions:" && echo "${OUTDATED_FILES}"
             {
               echo "outdated_files<<EOF"
@@ -124,17 +147,26 @@ jobs:
       - name: "Update all files"
         id: update
         if: steps.compare.outputs.update_needed == 'true'
+        env:
+          OLD_VERSION: ${{ steps.current.outputs.current_version }}
+          NEW_VERSION: ${{ steps.dockerhub.outputs.latest_version }}
+          NEW_VERSION_2: ${{ steps.dockerhub.outputs.latest_version_2 }}
+          OUTDATED_FILES: ${{ steps.compare.outputs.outdated_files }}
         run: |
-          OLD_VERSION="${{ steps.current.outputs.current_version }}"
-          NEW_VERSION="${{ steps.dockerhub.outputs.latest_version }}"
-
           echo "Updating from ${OLD_VERSION} to ${NEW_VERSION}"
 
-          # Update files already identified as outdated
-          echo "${{ steps.compare.outputs.outdated_files }}" | while read file; do
+          printf '%s\n' "$OUTDATED_FILES" | while IFS= read -r file; do
             if [ -n "$file" ]; then
               echo "Updating $file"
-              sed -i -E "s|(docker\.io/)?intel/dlstreamer-pipeline-server:[^ \"']+|\1intel/dlstreamer-pipeline-server:${NEW_VERSION}|g" "$file"
+              while IFS= read -r image; do
+                version=${image##*:}
+                case "$version" in
+                  *-2.0|*-2.0-*) replacement=$NEW_VERSION_2 ;;
+                  *) replacement=$NEW_VERSION ;;
+                esac
+                escaped_version=${version//./\\.}
+                sed -i -E "s#(intel/dlstreamer-pipeline-server:)${escaped_version}([^[:alnum:]_.-]|$)#\1${replacement}\2#g" "$file"
+              done < <(grep -oE '(docker\.io/)?intel/dlstreamer-pipeline-server:[[:alnum:]_][[:alnum:]_.-]*' "$file" | sort -u)
             fi
           done
 
@@ -173,18 +205,19 @@ jobs:
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GH_PAT }}
-          commit-message: "DLStreamer: Update intel/dlstreamer-pipeline-server to ${{ steps.dockerhub.outputs.latest_version }}"
-          title: "[DLStreamer] Update to ${{ steps.dockerhub.outputs.latest_version }}"
+          commit-message: "DLStreamer: Update images to ${{ steps.dockerhub.outputs.latest_version }} and 2.0 ${{ steps.dockerhub.outputs.latest_version_2 || 'unavailable' }}"
+          title: "[DLStreamer] Update to ${{ steps.dockerhub.outputs.latest_version }} and 2.0 ${{ steps.dockerhub.outputs.latest_version_2 || 'unavailable' }}"
           body: |
             ## DLStreamer Pipeline Server Update
 
-            This PR updates `intel/dlstreamer-pipeline-server` from `${{ steps.current.outputs.current_version }}` to `${{ steps.dockerhub.outputs.latest_version }}`.
+            This PR updates `intel/dlstreamer-pipeline-server` references to the selected versions below. The previous Helm version was `${{ steps.current.outputs.current_version }}`.
 
             ### Available Versions
             - **Latest Stable**: `${{ steps.dockerhub.outputs.latest_stable }}` (published: `${{ steps.dockerhub.outputs.stable_date }}`)
             - **Latest Weekly**: `${{ steps.dockerhub.outputs.latest_weekly }}` (published: `${{ steps.dockerhub.outputs.weekly_date }}`)
             - **Latest RC**: `${{ steps.dockerhub.outputs.latest_rc }}` (published: `${{ steps.dockerhub.outputs.rc_date }}`)
             - **Selected**: `${{ steps.dockerhub.outputs.latest_version }}` (${{ steps.dockerhub.outputs.selected_type }} - chosen as the newest available)
+            - **Latest DLSPS 2.0**: `${{ steps.dockerhub.outputs.latest_version_2 }}` (published: `${{ steps.dockerhub.outputs.date_2 }}`)
 
             ### Files Updated
             ${{ steps.update.outputs.changed_files_list }}
@@ -196,7 +229,7 @@ jobs:
             ---
             *This PR was automatically created by the DLStreamer update workflow.*
           base: ${{ github.ref_name }}
-          branch: dlstreamer-update-${{ steps.dockerhub.outputs.latest_version }}
+          branch: dlstreamer-update-${{ steps.dockerhub.outputs.latest_version }}-${{ steps.dockerhub.outputs.latest_version_2 || 'unavailable' }}
           delete-branch: true
           labels: |
             dlstreamer
