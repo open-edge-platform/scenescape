@@ -22,7 +22,7 @@
   "pose": {
     "type": "detect",
     "params": {
-      "model": "public/yolo11n-pose/yolo11n-pose.xml"
+      "model": "ultralytics/public/yolo11n-pose/FP32/yolo11n-pose.xml"
     },
     "adapter-params": {
       "metadatagenpolicy": "detectionPolicy"

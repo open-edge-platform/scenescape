@@ -88,7 +88,7 @@ retail=GPU+agegender=GPU
 pose+reid
 ```
 
-> **Note**: The `yolo11n-pose` models is not included in the default model set. It must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
+> **Note**: The `yolo11n-pose` model is installed by `make -C model_download install-models` into `ultralytics/public/yolo11n-pose/` in the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
