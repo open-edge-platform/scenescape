@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - Phase 1 constraints:
   - only batch mode is supported (read/process/write all data at once), although class interfaces and I/O utilities may use streaming API underneath
-  - supported datasets: Unity (default) and Wildtrack
+  - supported datasets: Unity (default), Wildtrack and Rolling Terrain
 
 ## Quick Links
 
@@ -22,7 +22,7 @@ SPDX-License-Identifier: Apache-2.0
 - Main tracker evaluation README (canonical formats, usage, CLI): [README.md](README.md)
 - ADR context: [docs/adr/0009-tracking-evaluation.md](../../../docs/adr/0009-tracking-evaluation.md)
 - Example configurations:
-  - Black-box suite (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
+  - Black-box suite (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/); Rolling Terrain variant (observation processor enabled): [pipeline_configs/black_box_rolling_terrain/](pipeline_configs/black_box_rolling_terrain/)
   - Association variants: euclidean baseline YAMLs plus `*_mahalanobis.yaml` companions (`run_black_box_evaluation.py --association mahalanobis|both`) exercise HPHt + R
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
 
@@ -30,7 +30,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - `.venv/` – local virtual environment for running pytest and CLI commands (never commit contents).
 - `base/` – shared abstractions wiring datasets, harnesses, and evaluators; reference here before extending component folders.
-- `datasets/` – dataset component group; hosts concrete dataset adapters
+- `datasets/` – dataset component group; hosts concrete dataset adapters (`canonical_dataset.py` is the base of the canonical-artifact datasets Wildtrack and Rolling Terrain)
   - `datasets/tests/` - component-specific unit tests
 - `harnesses/` – tracker harness component group; hosts concrete harness adapters with service-specific runners
   - `harnesses/tests/` - component-specific unit tests
@@ -51,6 +51,10 @@ SPDX-License-Identifier: Apache-2.0
     - scene configuration in non-canonical format (however accepted by SceneControllerHarness implementation)
     - JSONL files with camera detections for 1, 10 and 30 FPS in canonical format
     - input camera videos (currently unused)
+- **RollingTerrainDataset**: `datasets/rolling_terrain_dataset.py`
+  - dataset location in the repository: `../../../tests/system/metric/rolling_terrain_dataset/`
+  - one person on a non-planar surface, two cameras (`cam_front_left`, `cam_back_right`), irregular timestamps (~13 Hz, ≥ 58 ms apart; evaluation grid at 20 fps, time chunking at 15 fps; some same-camera frames may still share a chunk because of arrival jitter), scene mesh `scene.glb`
+  - needs `position_mahalanobis` association and the observation processor in `full` mode (the mock Manager serves the mesh)
 - **WildtrackDataset**: `datasets/wildtrack_dataset.py`
   - dataset location in the repository: `../../../tests/system/metric/wildtrack_dataset/` (preprocessed with `datasets/wildtrack/preprocess.py`)
   - single scene, seven cameras (`cam0`–`cam6`), 2 FPS, 400 annotated frames, explicit camera calibration in the scene configuration
@@ -83,10 +87,10 @@ Check `datasets/README.md` for more details
     - `scene_id`: overrides the scene UID derived from `set_scene_config()`.
     - `enable_metrics` (default `false`): run an OTEL Collector sidecar to capture OTLP metrics. Requires `metrics_collector_image` (e.g. `"otel/opentelemetry-collector-contrib:0.155.0"`); optional `metrics_export_interval_s` (default `2`) and `metrics_otlp_port` (default `4317`).
   - **Observability (optional)**: when `enable_metrics` is set, an OTEL Collector container is added to the run network. The controller (via `CONTROLLER_ENABLE_METRICS`/`CONTROLLER_METRICS_ENDPOINT` env) or tracker service (via `observability.metrics` + `infrastructure.otlp` config) push OTLP/gRPC metrics to it; the collector's `file` exporter writes them out, and `metrics_recorder.py` aggregates them into `metrics_summary.txt` (histograms: count/avg/min/max; counters: total + per-export delta stats; gauges: avg/min/max/median). It then verifies dropped frames (`scenescape_controller_mqtt_messages_dropped` + `tracker.mqtt.dropped`) and warns when the loss of any object category exceeds 1% (each category has its own queue and drops independently, so the loss is judged per category against the messages it received and the worst category is used).
-  - **Observation processor (optional, experimental)**: `observation_processor` config block (`enabled` defaults to `false`; `image`, `mode`, `timeout_ms`, `ready_timeout_s`). When enabled, the service container starts after the broker/collector, the harness waits for its readiness service (`docker exec` probe) and only then starts the tracker/controller with `{CONTROLLER,TRACKER}_EXPERIMENTAL_OBSERVATION_PROCESSOR` and `…_OBSERVATION_PROCESSOR_{HOST,PORT,INSECURE,MODE,TIMEOUT_MS}` env vars (`_observation_processor_envs()`). The service loads scenes, cameras and assets from the mock Manager (`/api/v1/cameras?scene=<uid>` returns cameras with flat pose keys) and shares `manager_auth.json` (`_write_manager_auth()`) with the Tracker Service. Keep it disabled in shipped configs; `run_black_box_evaluation.py --observation-processor` enables it for a whole session. Datasets have no scene mesh: use `mode: auto` (frustum only). Writes `observation_processor_logs.txt` and `config/observation_processor.json`.
+  - **Observation processor (optional, experimental)**: `observation_processor` config block (`enabled` defaults to `false`; `image`, `mode`, `timeout_ms`, `ready_timeout_s`). When enabled, the service container starts after the broker/collector, the harness waits for its readiness service (`docker exec` probe) and only then starts the tracker/controller with `{CONTROLLER,TRACKER}_EXPERIMENTAL_OBSERVATION_PROCESSOR` and `…_OBSERVATION_PROCESSOR_{HOST,PORT,INSECURE,MODE,TIMEOUT_MS}` env vars (`_observation_processor_envs()`). The service loads scenes, cameras and assets from the mock Manager (`/api/v1/cameras?scene=<uid>` returns cameras with flat pose keys) and shares `manager_auth.json` (`_write_manager_auth()`) with the Tracker Service.
   - After the run, writes `inputs.json` and `outputs.json` to the output folder (if `set_output_folder()` was called), creating the directory automatically if it does not exist.
   - Also copies the source tracker configuration file into `<output_folder>/config/` (both container types), preserving the original filename. For the Tracker Service the effective `config.json` is derived from this file by the harness (MQTT/Manager endpoints, `max_lag_s=1e15`, optional OTLP/metrics), so the copy captures the source config, not the fully-resolved runtime config.
-  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box_unity/` (default) or `pipeline_configs/black_box_wildtrack/`.
+  - Pair this harness with any evaluator (TrackEval, Diagnostic, Jitter) and configs under `pipeline_configs/black_box_*/` (Unity is the default).
 
 - **CameraProjectionHarness**: `harnesses/camera_projection_harness/camera_projection_harness.py`
   - Bypasses the full tracker and only applies camera-pose projection to isolate per-camera calibration error.
@@ -128,8 +132,8 @@ Check `evaluators/README.md` for more details
 
 ## Code Entry Points
 
-- **Black-box evaluation suite**: [run_black_box_evaluation.py](run_black_box_evaluation.py) — runs all three black-box configs (Controller-NO-TC, Controller-TC, Tracker-Service) in a single timestamped session. Usage: `python -m run_black_box_evaluation [--output <path>] [--dataset unity|wildtrack] [--observation-processor]`. Results land under `<output>/<YYYYMMDD_HHMMSS>/`; see [README.md](README.md) for full output structure.
-- **Mock Manager REST API**: [harnesses/black_box_harness/mock_manager.py](harnesses/black_box_harness/mock_manager.py) — minimal Manager REST server (`/api/v1/auth`, `/api/v1/scenes`, `/api/v1/assets`, `/api/v1/cameras?scene=<uid>`, `/api/v1/camera/<uid>`) started by BlackBoxHarness on the Docker host. Computes camera extrinsics with production-identical math from `PointCorrespondenceTransform`. `/api/v1/assets` serves the harness `object_classes` entries so per-category `shift_type` is applied.
+- **Black-box evaluation suite**: [run_black_box_evaluation.py](run_black_box_evaluation.py) — runs all three black-box configs (Controller-NO-TC, Controller-TC, Tracker-Service) in a single timestamped session. Usage: `python -m run_black_box_evaluation [--output <path>] [--dataset unity|wildtrack|rolling_terrain] [--observation-processor | --no-observation-processor]` (the flags override `observation_processor.enabled` of every config; without them each YAML decides). Results land under `<output>/<YYYYMMDD_HHMMSS>/`; see [README.md](README.md) for full output structure.
+- **Mock Manager REST API**: [harnesses/black_box_harness/mock_manager.py](harnesses/black_box_harness/mock_manager.py) — minimal Manager REST server (`/api/v1/auth`, `/api/v1/scenes`, `/api/v1/assets`, `/api/v1/cameras?scene=<uid>`, `/api/v1/camera/<uid>`, `/media/<name>.glb` scene mesh) started by BlackBoxHarness on the Docker host. Computes camera extrinsics with production-identical math from `PointCorrespondenceTransform`. `/api/v1/assets` serves the harness `object_classes` entries so per-category `shift_type` is applied.
 - **Metrics recorder**: [harnesses/black_box_harness/metrics_recorder.py](harnesses/black_box_harness/metrics_recorder.py) — parses the OTEL Collector `file` exporter output and writes `metrics_summary.txt` (per-metric min/max/avg, plus median for counters/gauges). Exposes `collect_metric_values()` (structured per-metric values) and `check_dropped_frames()` (dropped-frame count + worst-category loss ratio check).
 - **Pipeline orchestration**: [pipeline_engine.py](pipeline_engine.py) (methods `load_configuration()`, `run()`, `evaluate()`, CLI via `python -m pipeline_engine <config>`).
   - `_configure_harness()` forwards `object_classes` from the YAML `harness.config` block to the harness via `set_custom_config({'object_classes': ...})`.
