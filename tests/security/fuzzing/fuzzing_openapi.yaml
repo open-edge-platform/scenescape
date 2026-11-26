@@ -991,6 +991,13 @@ paths:
           schema:
             type: string
           description: "Camera sensor ID"
+        - name: timestamp
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2026-01-01T00:00:00.123Z"
+          description: "ISO timestamp, format YYYY-MM-DDTHH:MM:SS.mmmZ"
       responses:
         "200":
           description: "Frame data"
