@@ -8,7 +8,6 @@
 import open3d as o3d
 import numpy as np
 from scipy.stats import truncnorm
-from .constants import PLANE_DECISION_NML_WEIGHT
 from .intersection_map import DepthMap
 
 class AmodalReasoner:
@@ -109,18 +108,6 @@ class AmodalReasoner:
                                       "avg_point": average_points, "avg_normal": average_normals}
     return average_normals, average_points
 
-  def _cosine_similarity(self, n_one: np.ndarray, n_two: np.ndarray):
-    # Row-wise angular distance (arccos of cosine); used as a cost so lower = more aligned.
-    dot = np.einsum('ij,ij->i', n_one, n_two)
-    denom = np.linalg.norm(n_one, axis=1) * np.linalg.norm(n_two, axis=1)
-    return np.arccos(np.clip(dot / np.maximum(denom, 1e-12), -1.0, 1.0))
-
-  def _calculate_height_from_depth(self, origin_points: np.ndarray, depths: np.ndarray, dir_rays: np.ndarray):
-    # World-up height of the ray hit (o3d: hit = origin + t_hit * dir).
-    z = self.rwc_z_up / np.linalg.norm(self.rwc_z_up)
-    hits = origin_points + depths[:, None] * dir_rays
-    return hits @ z
-
   def _hit_points_from_query(self, probe_points: np.ndarray, depths: np.ndarray):
     """World hit points for the camera-ray t_hit values returned by query()."""
     if depths.ndim > 1:
@@ -193,64 +180,14 @@ class AmodalReasoner:
                              lo_vert_over_prem_depths: np.ndarray,
                              prior_depth_est: np.ndarray,
                              free_3d_mask: np.ndarray,
-                             origins: np.ndarray | None = None,
-                             frame: np.ndarray | None = None,
-                             over_prem_probe_points: np.ndarray | None = None,
-                             num_pins: int = 4,
-                             non_naive: bool = True, eps:float=.1):
-
-    """If no occlusion, depth is set to np.nan (masked at use-time)"""
-    # Base Naive checks (thresholds in std units: sqrt(ray_var) is sigma_d).
+                             eps: float = .1):
+    """Naive occlusion check (Step 8). If no occlusion, depth is set to np.nan (masked at use-time)."""
+    # Thresholds in std units: sqrt(ray_var) is sigma_d.
     sigma_d = np.sqrt(ray_var)
     at_edge_closer_than_exp = np.where(prior_depth_est - lo_vert_at_prem_depths > sigma_d * eps, lo_vert_at_prem_depths, np.nan) #np.nan does not play nice typically, need to find better sentinel val
     hits_dist_too_far = np.where(lo_vert_over_prem_depths - lo_vert_at_prem_depths > sigma_d * eps, lo_vert_over_prem_depths, np.nan)
     # Nearest applicable occluder; nan (no occlusion) where neither side fired. fmin skips nan.
-    occlusion_depth = np.where(free_3d_mask, np.nan, np.fmin(at_edge_closer_than_exp, hits_dist_too_far))
-    if non_naive and frame is not None and origins is not None and over_prem_probe_points is not None:
-      # TODO: Further Research: We can put start depth as .1sigma before and end_depth as .1sigma after
-      # TODO: Use the above naive checks as masks that pass onto here
-      z = self.rwc_z_up / np.linalg.norm(self.rwc_z_up)
-      average_normals, average_points = self._get_avg_local_ground_plane(origins, frame, prior_depth_est - sigma_d*eps, prior_depth_est + sigma_d*eps, num_pins)
-      average_heights = average_points @ z
-      fpj_normals, fpj_depths = self.depth_map.cast_np(frame[:,:,0], over_prem_probe_points)
-      bpj_normals, bpj_depths = self.depth_map.cast_np(-frame[:,:,0], over_prem_probe_points)
-      fpj_heights= self._calculate_height_from_depth(over_prem_probe_points, fpj_depths,frame[:,:,0])
-      bpj_heights= self._calculate_height_from_depth(over_prem_probe_points, bpj_depths, -frame[:,:,0])
-      fpj_height_dif= np.abs(fpj_heights - average_heights)
-      bpj_height_dif= np.abs(bpj_heights - average_heights)
-      nmlzd_height_denom = fpj_height_dif + bpj_height_dif
-      fpj_nmlzd_height = fpj_height_dif / nmlzd_height_denom
-      bpj_nmlzd_height = bpj_height_dif / nmlzd_height_denom
-      fpj_normal_similarity = self._cosine_similarity(average_normals, fpj_normals)
-      bpj_normal_similarity = self._cosine_similarity(average_normals, bpj_normals)
-      nmlzd_sim_denom = fpj_normal_similarity + bpj_normal_similarity
-      fpj_nmlzd_sim = fpj_normal_similarity / nmlzd_sim_denom
-      bpj_nmlzd_sim = bpj_normal_similarity / nmlzd_sim_denom
-      cost_fpj = PLANE_DECISION_NML_WEIGHT * fpj_nmlzd_sim + (1 - PLANE_DECISION_NML_WEIGHT) * fpj_nmlzd_height
-      cost_bpj = PLANE_DECISION_NML_WEIGHT * bpj_nmlzd_sim + (1 - PLANE_DECISION_NML_WEIGHT) * bpj_nmlzd_height
-      # Vectorized pick: per row keep the projection (fpj/bpj) with the lower cost.
-      choose_fpj = cost_fpj < cost_bpj
-      trusted_depths = np.where(choose_fpj, fpj_depths, bpj_depths)
-      trusted_dirs = np.where(choose_fpj[:, None], frame[:, :, 0], -frame[:, :, 0])
-      # fpj/bpj t_hit is measured from the over-premise probe point along the frame axis,
-      # but query()'s lo_vert depths are measured from the camera. Recover the world hit
-      # point, then re-express it as a camera range so both live on the same ruler.
-      trusted_points = over_prem_probe_points + trusted_depths[:, None] * trusted_dirs
-      cam_origin = self.depth_map.camera_extrinsics[:3, 3]
-      trusted_cam_depths = np.linalg.norm(trusted_points - cam_origin, axis=-1)
-
-      # Occlusion: a nearer actual hit means a closer surface occludes the expected floor.
-      at_prem_occluded = np.abs(lo_vert_at_prem_depths - trusted_cam_depths) > eps
-      over_prem_occluded = np.abs(lo_vert_over_prem_depths - trusted_cam_depths) > eps
-
-      # Per-side occluder depth (nan where that side didn't fire); naive checks store a
-      # value/nan, so ~isnan turns them back into masks.
-      over_depth = np.where(over_prem_occluded | ~np.isnan(hits_dist_too_far), lo_vert_over_prem_depths, np.nan)
-      at_depth = np.where(at_prem_occluded | ~np.isnan(at_edge_closer_than_exp), lo_vert_at_prem_depths, np.nan)
-      # Nearest applicable occluder; nan (no occlusion) where neither side fired. fmin skips nan.
-      occlusion_depth = np.where(free_3d_mask, np.nan, np.fmin(at_depth, over_depth))
-      return occlusion_depth
-    return occlusion_depth
+    return np.where(free_3d_mask, np.nan, np.fmin(at_edge_closer_than_exp, hits_dist_too_far))
 
 
   def _get_wall_depth(self, mu: np.ndarray, ray: np.ndarray, depth_est: np.ndarray,

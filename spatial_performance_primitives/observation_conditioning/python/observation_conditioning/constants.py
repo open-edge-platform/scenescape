@@ -6,8 +6,6 @@
 
 import numpy as np
 
-PLANE_DECISION_NML_WEIGHT = .7
-
 PRIORS = {
   "Pedestrian": {
     "mu_x": 0.55,
