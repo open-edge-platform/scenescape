@@ -217,6 +217,15 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
   },
 )
 
+# Queuing cameras run yolo11n-pose; Retail cameras keep the non-pose pipeline.
+POSE_VIDEO = ServiceProfile(
+  name="pose_video",
+  compose_files=FULL_STACK_WITH_VIDEO_AND_RETAIL.compose_files + (
+    f"{DLS}/compose.queuing-video-pose.yml",
+  ),
+  wait_for=FULL_STACK_WITH_VIDEO_AND_RETAIL.wait_for,
+)
+
 TRACK_ANNOTATION_CONTROLLER = ServiceProfile(
   name="track_annotation_controller",
   compose_files=FULL_STACK_WITH_VIDEO_AND_RETAIL.compose_files + (
@@ -678,6 +687,7 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_RETAIL_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
+    POSE_VIDEO,
     TRACK_ANNOTATION_CONTROLLER,
     TRACK_ANNOTATION_TRACKER,
     REID,
