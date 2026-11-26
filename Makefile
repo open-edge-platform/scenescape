@@ -771,7 +771,7 @@ prettier-check: prettier-dependency
 .PHONY: indent-check
 indent-check:
 	@echo "==> Checking Python indentation..."
-	@tests/scripts/checkIndent
+	@python3 -m pytest tests/scripts/test_check_indent.py --confcutdir=tests/scripts -p no:cacheprovider -q -o addopts= -o log_cli=false || (echo "Python indentation check failed" && exit 1)
 	@echo "DONE ==> Checking Python indentation"
 
 # ===================== Format Code ================================

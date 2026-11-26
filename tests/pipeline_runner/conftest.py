@@ -56,6 +56,17 @@ def pytest_configure(config):
   )
 
 
+@pytest.fixture(scope="function", autouse=True)
+def record_test_name(request, record_xml_attribute):
+  """Record the Zephyr test name in the JUnit XML.
+
+  Needed because these tests run with --confcutdir, so tests/conftest.py is not loaded.
+  """
+  marker = request.node.get_closest_marker("test_name")
+  if marker and marker.args:
+    record_xml_attribute("name", marker.args[0])
+
+
 def pytest_collection_modifyitems(config, items):
   """Skip device-specific tests when the hardware is unavailable."""
   skip_gpu = pytest.mark.skip(

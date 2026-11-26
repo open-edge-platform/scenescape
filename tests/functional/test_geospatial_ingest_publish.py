@@ -33,6 +33,8 @@ THING_TYPE = "person"
 CAMERA_ID = "camera1"
 FRAMES_PER_SECOND = 10
 MAX_WAIT_TIMEOUT_S = 30
+TRS_UPDATE_ATTEMPTS = 3
+TRS_ATTEMPT_TIMEOUT_S = 30
 LLA_VALUE = [50, 0, -6.37813751e+06]
 TRANSLATION_VALUE = [-0.3278, -0.3907, 0]
 BOUNDING_BOX = {'x': 0.56, 'y': 0.0, 'width': 0.24, 'height': 0.49}
@@ -183,19 +185,26 @@ class GeospatialIngestPublish(FunctionalTest):
     # single update (map image + map_corners_lla + output_lla) so the test does
     # not depend on pre-existing scene state in the baseline database.
     log.info("Enabling output_lla with map and map corners to trigger TRS computation")
-    res = self.rest.updateScene(self.sceneUID, {
+    update = {
       'output_lla': True,
       'map_corners_lla': json.dumps(MAP_CORNERS_LLA),
       'map': (map_image, map_data),
-    })
-    assert res, (res.statusCode, res.errors)
-
-    scene = self.waitForSceneCondition(
-      lambda s: bool(s.get('trs_matrix')),
-      "trs_matrix to be computed and published by the controller",
-    )
+    }
+    # The controller can miss the scene-update command while the full stack is
+    # still settling, so re-send the update if the matrix is not produced in time.
+    scene = {}
+    for attempt in range(1, TRS_UPDATE_ATTEMPTS + 1):
+      res = self.rest.updateScene(self.sceneUID, update)
+      assert res, (res.statusCode, res.errors)
+      scene = self.waitForSceneCondition(
+        lambda s: bool(s.get('trs_matrix')),
+        f"trs_matrix to be computed and published by the controller (attempt {attempt})",
+        timeout=TRS_ATTEMPT_TIMEOUT_S,
+      )
+      if scene.get('trs_matrix'):
+        break
     assert scene.get('trs_matrix'), (
-      f"trs_matrix not populated within {MAX_WAIT_TIMEOUT_S}s; "
+      f"trs_matrix not populated after {TRS_UPDATE_ATTEMPTS} attempts; "
       f"output_lla={scene.get('output_lla')}, "
       f"map_corners_lla_set={bool(scene.get('map_corners_lla'))}, "
       f"map={scene.get('map')}"
@@ -342,7 +351,6 @@ def _verifyLLA(detected_object):
   if not np.allclose(detected_object['lat_long_alt'], EXPECTED_DETECTION_LLA, rtol=1e-6):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
-@pytest.mark.skip(reason="Flaky in full suite: TRS matrix not computed. Test passed when run in isolation.")
 @pytest.mark.test_name("NEX-T10490")
 def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root, scene_uid=demo_scene)

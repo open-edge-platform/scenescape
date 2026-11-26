@@ -44,6 +44,7 @@ jobs:
       - name: "Check python indent"
         if: always()
         run: |
+          python3 -m pip install pytest
           make indent-check
   optional-linters:
     name: "Run optional linters"

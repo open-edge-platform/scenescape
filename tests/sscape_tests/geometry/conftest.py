@@ -1,9 +1,13 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
 import pytest
 
 import scene_common.geometry as geometry
+
+_THIS_DIR = Path(__file__).resolve().parent
 
 # Class: Point
 
@@ -94,3 +98,10 @@ def region_circle():
   uuid = "39bd9698-8603-43fb-9cb9-06d9a14e6a24"
   name = "test_circle"
   return geometry.Region(uuid, name, info)
+
+
+def pytest_collection_modifyitems(items):
+  """Report every test in this directory under the NEX-T10454 Zephyr ID unless it declares its own."""
+  for item in items:
+    if Path(str(item.fspath)).is_relative_to(_THIS_DIR) and not item.get_closest_marker("test_name"):
+      item.add_marker(pytest.mark.test_name("NEX-T10454"))

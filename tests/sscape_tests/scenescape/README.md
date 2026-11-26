@@ -9,4 +9,4 @@ tests/.venv/bin/pytest tests/sscape_tests/scenescape/ -v
 
 # Expected Results
 
-All tests should pass and should show an output: "NEX-T10450: PASS"
+All tests should pass. In the JUnit XML they are reported under the test name "NEX-T10450".
