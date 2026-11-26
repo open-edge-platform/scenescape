@@ -85,6 +85,7 @@ def test_markerless_moved_camera_calibration_ui(
   moved_uid = rest.getCameras({"name": MOVED_CAMERA})["results"][0]["uid"]
   assert rest.getCamera(moved_uid)["scene"] == other_scene_uid
   assert rest.getCamera(native_uid)["transform_type"] != EULER
+  markerless.wait_for_model(scenescape_env)
   markerless.register_scene(params, scene_uid)
 
   provider = markerless.FrameProvider(params, {

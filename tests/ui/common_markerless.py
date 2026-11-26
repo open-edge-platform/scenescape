@@ -26,6 +26,7 @@ WEAK_MATCH_TOAST = (
 WEAK_MATCH_LOG = "Weak or insufficient matches. This camera might not belong to this scene."
 # Registering the keyframes and loading NetVLAD run on CPU in the test stack.
 REGISTRATION_TIMEOUT_SEC = 900
+MODEL_TIMEOUT_SEC = 900
 BUTTON_TIMEOUT_SEC = 600
 CALIBRATION_TIMEOUT_SEC = 300
 POLL_INTERVAL_SEC = 5
@@ -109,6 +110,19 @@ def read_video_frame(path, position=0.5):
   capture.release()
   assert read, f"Cannot read a frame of {path}"
   return encode_image(frame)
+
+
+def wait_for_model(scenescape_env, timeout=MODEL_TIMEOUT_SEC):
+  """! Waits until the NetVLAD download container has finished; it runs alongside the stack."""
+  container = f"{scenescape_env.project_name}-autocalibration-model-init-1"
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    state = scenescape_env.docker.container.inspect(container).state
+    if not state.running and state.status != "created":
+      assert state.exit_code == 0, f"The NetVLAD download failed, see the {container} log"
+      return
+    time.sleep(POLL_INTERVAL_SEC)
+  raise AssertionError(f"The NetVLAD model was not downloaded within {timeout}s")
 
 
 def register_scene(params, scene_uid):

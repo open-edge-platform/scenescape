@@ -68,6 +68,7 @@ def test_markerless_wrong_scene_notification_ui(
   camera_uid = rest.getCameras({"name": CAMERA_NAME})["results"][0]["uid"]
 
   log.info("Step 2. Register the Polycam dataset")
+  markerless.wait_for_model(scenescape_env)
   markerless.register_scene(params, scene_uid)
 
   log.info("Step 3. Serve a frame of a different scene as the camera's calibration frame")
