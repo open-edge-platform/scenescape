@@ -118,7 +118,7 @@ COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analyt
 	manager/src/manager mapping/src observation_processor/src/observation_processor  reid/src/reid \
 	scene_common/src/scene_common model_download/src \
 	spatial_performance_primitives/frustum_gaussian/python/frustum_gaussian \
-	spatial_performance_primitives/observation_conditioning
+	spatial_performance_primitives/observation_conditioning/python/observation_conditioning
 COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
 COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
 COMPLEXITY_TOP ?= 20
@@ -461,7 +461,7 @@ SPATIAL_PERFORMANCE_UNIT_TESTS := \
 	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/tests \
 	$(CURDIR)/spatial_performance_primitives/observation_conditioning/tests
 SPATIAL_PERFORMANCE_PYTHONPATH := \
-	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/python:$(CURDIR)/spatial_performance_primitives
+	$(CURDIR)/spatial_performance_primitives/frustum_gaussian/python:$(CURDIR)/spatial_performance_primitives/observation_conditioning/python
 UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
 	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
 UNIT_TEST_EXTRA_ARGS ?=

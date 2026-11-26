@@ -14,11 +14,17 @@ RUN apt-get update \
         libtbb-dev libgtest-dev libbenchmark-dev git libgl1 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Pinned Python dependencies live in a venv, never in the system site-packages.
-COPY tests/requirements.txt /tmp/requirements.txt
+# Pinned Python dependencies live in a venv, never in the system site-packages: the
+# library test tools and the Observation Processor runtime (service unit tests, harness).
+# The build context is the repository root (see the package Makefile).
+COPY spatial_performance_primitives/observation_conditioning/tests/requirements.txt /tmp/oc-requirements.txt
+COPY observation_processor/requirements-runtime.txt /tmp/op-requirements.txt
 RUN python3 -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt \
+    && /opt/venv/bin/pip install --no-cache-dir -r /tmp/oc-requirements.txt -r /tmp/op-requirements.txt \
     && /opt/venv/bin/pip install --no-cache-dir "scikit-build-core==1.1.2" "pybind11==3.0.4" "gcovr==8.4"
+# scene_common and fast_geometry come pre-installed in common-base's system site-packages.
+RUN cp -r /usr/local/lib/python3.11/site-packages/scene_common /opt/venv/lib/python3.11/site-packages/ \
+    && cp -r /usr/local/lib/python3.11/site-packages/fast_geometry /opt/venv/lib/python3.11/site-packages/
 ENV PATH="/opt/venv/bin:${PATH}"
 ENV PYTHONDONTWRITEBYTECODE=1
 

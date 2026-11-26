@@ -26,7 +26,7 @@ secret.
 - `src/observation_processor/` — service sources
 - `../spatial_performance_primitives/frustum_gaussian/` — frustum-gaussian library; the C++/TBB
   kernel is built as a wheel (scikit-build-core) in the image builder stage
-- `../spatial_performance_primitives/observation_conditioning/` — amodal reasoner library
+- `../spatial_performance_primitives/observation_conditioning/` — amodal reasoner library (Python package under `python/`)
 
 All Python dependencies, the frustum-gaussian wheel, and `scene_common` are
 installed into a `/opt/venv` virtualenv in the builder stage; the runtime

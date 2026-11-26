@@ -31,16 +31,19 @@ pose, resolution)`. Rebuild if the mesh or camera geometry changes.
 ## Package layout
 
 ```
-amodal_reasoner.py              — AmodalReasoner pipeline (generate)
-intersection_map.py             — DepthMap: dense ray-cast depth/normal bake + query
-constants.py                    — PLANE_DECISION_NML_WEIGHT, class PRIORS
-__init__.py                     — lazy exports: AmodalReasoner, DepthMap
-tests/test_depth_map.py         — unit coverage for DepthMap / generate
+python/observation_conditioning/
+  amodal_reasoner.py            — AmodalReasoner pipeline (generate)
+  intersection_map.py           — DepthMap: dense ray-cast depth/normal bake + query
+  constants.py                  — PLANE_DECISION_NML_WEIGHT, class PRIORS
+  __init__.py                   — lazy exports: AmodalReasoner, DepthMap
+tests/                          — unit tests, scenario corpus (oc_corpus), frozen baselines (data/)
+Makefile, Dockerfile.test       — test environments (make venv / test-container / test-in-container)
 README.md                       — quick start
 amodal_reasoner_algorithm.md    — full algorithm notes (Steps 0–10, Future Work)
+implementation.md               — what the C++ port drops or changes versus the original MVP
 ```
 
-Import root is `spatial_performance_primitives/` on `PYTHONPATH`:
+Import root is `spatial_performance_primitives/observation_conditioning/python/` on `PYTHONPATH`:
 
 ```python
 from observation_conditioning import AmodalReasoner
@@ -124,10 +127,13 @@ intermediates (tests / debugging only).
 ## Build and test
 
 ```bash
-# From repo root, with spatial_performance_primitives on PYTHONPATH:
-PYTHONPATH="spatial_performance_primitives${PYTHONPATH:+:$PYTHONPATH}" \
+# From repo root, with the package's python/ directory on PYTHONPATH:
+PYTHONPATH="spatial_performance_primitives/observation_conditioning/python${PYTHONPATH:+:$PYTHONPATH}" \
   tests/.venv/bin/python -m pytest \
   spatial_performance_primitives/observation_conditioning/tests -q
+
+# Reference environment (Debian 12, GCC 12, Python 3.11), from the package directory:
+make test-in-container
 
 # Or via the Observation Processor unit suite (also exercises integration):
 make run_sscape_unit_suite

@@ -22,7 +22,7 @@ virtualenv:
 pip install numpy "open3d>0.19.0" scipy pytest
 ```
 
-Put `spatial_performance_primitives/` on `PYTHONPATH` (the Observation Processor image and unit
+Put `spatial_performance_primitives/observation_conditioning/python/` on `PYTHONPATH` (the Observation Processor image and unit
 suite do this), then import the package:
 
 ```python
@@ -187,6 +187,6 @@ under `tests/` and the Observation Processor loopback tests for regression cover
 ## 7. Where to look next
 
 - [`amodal_reasoner_algorithm.md`](amodal_reasoner_algorithm.md) — full algorithm (Steps 0–10) and the **Future Work** list.
-- `amodal_reasoner.py` — `AmodalReasoner` (the pipeline).
-- `intersection_map.py` — `DepthMap` (`populate`, `query`, `cast_np`).
-- `constants.py` — per-class shape `PRIORS` and `PLANE_DECISION_NML_WEIGHT`.
+- `python/observation_conditioning/amodal_reasoner.py` — `AmodalReasoner` (the pipeline).
+- `python/observation_conditioning/intersection_map.py` — `DepthMap` (`populate`, `query`, `cast_np`).
+- `python/observation_conditioning/constants.py` — per-class shape `PRIORS` and `PLANE_DECISION_NML_WEIGHT`.

@@ -12,7 +12,7 @@ source =
     positioning/src
     observation_processor/src
     spatial_performance_primitives/frustum_gaussian/python/frustum_gaussian
-    spatial_performance_primitives/observation_conditioning
+    spatial_performance_primitives/observation_conditioning/python/observation_conditioning
 omit =
     */.venv/*
     */site-packages/*

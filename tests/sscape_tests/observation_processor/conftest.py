@@ -15,7 +15,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 for source in (
   REPO_ROOT / "observation_processor" / "src",
-  REPO_ROOT / "spatial_performance_primitives",
+  REPO_ROOT / "spatial_performance_primitives" / "observation_conditioning" / "python",
   REPO_ROOT / "spatial_performance_primitives" / "frustum_gaussian" / "python",
 ):
   if str(source) not in sys.path:

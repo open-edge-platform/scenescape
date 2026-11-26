@@ -12,11 +12,11 @@ VERSION ?= $(shell cat ../../version.txt)
 BASE_IMAGE ?= intel/scenescape-common-base:$(VERSION)
 TEST_IMAGE ?= intel/scenescape-observation-conditioning-test:$(VERSION)
 # Import root of the Python package.
-OC_PYTHONPATH ?= $(abspath ..)
+OC_PYTHONPATH ?= $(abspath python)
 REPO_ROOT := $(abspath ../..)
 BASELINE_DIR := tests/data
 
-.PHONY: venv test-container test-in-container test test-python baseline-original \
+.PHONY: venv test-container test-in-container test test-python test-service baseline-original \
 	baseline-original-in-container
 
 venv: $(VENV)/.stamp
@@ -27,11 +27,11 @@ $(VENV)/.stamp: tests/requirements.txt
 	touch $@
 
 test-container:
-	docker build -f Dockerfile.test \
+	docker build -f $(CURDIR)/Dockerfile.test \
 	  --build-arg BASE_IMAGE=$(BASE_IMAGE) \
 	  --build-arg http_proxy=$(http_proxy) --build-arg https_proxy=$(https_proxy) \
 	  --build-arg no_proxy=$(no_proxy) \
-	  -t $(TEST_IMAGE) .
+	  -t $(TEST_IMAGE) $(REPO_ROOT)
 
 # The whole repository is mounted: tests read the terrain dataset and the MVP sources.
 test-in-container: test-container
@@ -40,13 +40,20 @@ test-in-container: test-container
 define RUN_IN_CONTAINER
 docker run --rm --user $(shell id -u):$(shell id -g) \
   -v $(REPO_ROOT):/work -w /work/spatial_performance_primitives/observation_conditioning \
-  -e OC_PYTHONPATH=/work/spatial_performance_primitives -e OC_BASELINE_STRICT=1 -e HOME=/tmp $(TEST_IMAGE)
+  -e OC_PYTHONPATH=/work/spatial_performance_primitives/observation_conditioning/python -e OC_BASELINE_STRICT=1 -e HOME=/tmp $(TEST_IMAGE)
 endef
 
-test: test-python
+test: test-python test-service
 
 test-python:
 	PYTHONPATH="$(OC_PYTHONPATH)$${PYTHONPATH:+:$$PYTHONPATH}" $(PYTHON) -m pytest tests -q
+
+# Observation Processor service unit suite (uses the package through its public API). The
+# Controller-side client test needs Controller dependencies and is not part of this suite.
+test-service:
+	$(PYTHON) -m pytest $(REPO_ROOT)/tests/sscape_tests/observation_processor \
+	  --ignore=$(REPO_ROOT)/tests/sscape_tests/observation_processor/test_observation_processor_client.py \
+	  --rootdir=$(REPO_ROOT)/tests -q -p no:cacheprovider
 
 # Regenerate the frozen baseline from the original MVP (run in the container).
 baseline-original:

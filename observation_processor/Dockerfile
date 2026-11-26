@@ -60,7 +60,7 @@ RUN apt-get update \
 
 COPY --from=scenescape-observation-processor-builder /opt/venv /opt/venv
 COPY --chown=${USER_ID}:${GROUP_ID} observation_processor/src /app
-COPY --chown=${USER_ID}:${GROUP_ID} spatial_performance_primitives/observation_conditioning /app/observation_conditioning
+COPY --chown=${USER_ID}:${GROUP_ID} spatial_performance_primitives/observation_conditioning/python/observation_conditioning /app/observation_conditioning
 
 USER ${USER_ID}:${GROUP_ID}
 WORKDIR /app
