@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Reference test environment for observation_conditioning: the same OS, compiler and
+# Python as the Observation Processor builder (intel/scenescape-common-base: Debian 12,
+# GCC 12.2, Python 3.11), plus the system dependencies of the C++ build and tests.
+# Build and run through the package Makefile (make test-container / test-in-container).
+
+ARG BASE_IMAGE=intel/scenescape-common-base
+FROM ${BASE_IMAGE}
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libtbb-dev libgtest-dev libbenchmark-dev git libgl1 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pinned Python dependencies live in a venv, never in the system site-packages.
+COPY tests/requirements.txt /tmp/requirements.txt
+RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt \
+    && /opt/venv/bin/pip install --no-cache-dir "scikit-build-core==1.1.2" "pybind11==3.0.4" "gcovr==8.4"
+ENV PATH="/opt/venv/bin:${PATH}"
+ENV PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /work
+CMD ["bash"]

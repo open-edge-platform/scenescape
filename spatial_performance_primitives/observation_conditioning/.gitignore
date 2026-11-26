@@ -1,0 +1,5 @@
+/.venv/
+/build/
+/build-tests/
+/build-coverage/
+__pycache__

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Author(s)**: Tomasz Dorau
 - **Date**: 2026-11-26
-- **Status**: Phase 3 done (awaiting review)
+- **Status**: Phase 4 in progress (WP 4.0 done)
 - **Epic**: ITEP-98710 — probabilistic tracking ([plan](plan-probabilistic-tracking.md), [ADR-0019](../../docs/adr/0019-probabilistic-tracking-association.md), [design](../../docs/design/probabilistic-tracking-association.md))
 - **Service context**: [Observation Processor design](../../docs/design/observation-processor-service.md)
 - **Design (C++)**: [docs/design/observation-conditioning-cpp.md](../../docs/design/observation-conditioning-cpp.md)
@@ -19,7 +19,7 @@ Each phase ends with a review checkpoint.
 1. [x] **MVP analysis**: features, limitations, issues, test coverage, dependencies → [MVP](#mvp)
 2. [x] **Porting challenges**: Python dependencies with no C++ equivalent, test gaps, parity risks → [Porting challenges](#porting-challenges)
 3. [x] **Design and plan**: C++ design that meets the acceptance criteria and scales on HW → [Porting plan](#porting-plan) + design doc
-4. [ ] **Implementation**: C++ library, Python bindings, unit, regression and parity tests, reference baselines
+4. [ ] **Implementation** (in progress): C++ library, Python bindings, unit, regression and parity tests, reference baselines
 5. [ ] **Evaluation**: parity and performance against the Python MVP → [Evaluation](#evaluation)
 
 ### Acceptance criteria (ITEP-98737)

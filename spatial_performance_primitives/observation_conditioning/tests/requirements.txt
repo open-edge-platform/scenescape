@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pinned to the Observation Processor runtime versions
+# (observation_processor/requirements-runtime.txt) so the reference backend and the
+# baselines match what the service runs. Used by `make venv` and Dockerfile.test.
+
+numpy==2.2.6
+scipy==1.17.1
+open3d-cpu==0.19.0
+pytest==9.0.2
+pytest-cov==7.0.0

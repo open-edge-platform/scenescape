@@ -169,6 +169,20 @@ These are kept in the Python implementation, but the C++ library does not implem
 - 3 × 4 extrinsics: `populate()` accepts them, but `query()` inverts the matrix and fails for
   3 × 4. C++ takes a 4 × 4 camera→world pose, as `frustum_gaussian` does.
 
+## 7. Found while building the baseline: unreachable empty-interval fallback — kept
+
+`_update_depth_gaussian` falls back to the midpoint of the two bounds when `a >= b` (L376-379
+`empty`). Through `generate()` this can never happen: the occluder-face rule drops a wall that
+lies within 0.1 m of (or in front of) the occluder, so a remaining wall is always farther than
+the occluder (`a < b`). The scenario corpus raises every other decision flag; `EMPTY_INTERVAL`
+is the only one it cannot, and the baseline records it as unreachable
+(`unreachable_flags` in `tests/data/mvp-original.ocb`).
+
+**Decision:** unlike §1 and §2, this is a cheap defensive branch in the update step itself, so
+the C++ port keeps it and tests it directly at the unit level (`detail::update`), not through
+the corpus. **Open for the authors:** keep it as a guard, or remove it together with the
+midpoint heuristic.
+
 ## Not changed (deliberately)
 
 The behavior issues found during analysis are **ported as-is** and left for the follow-up plan:
