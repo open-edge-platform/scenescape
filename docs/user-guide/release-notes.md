@@ -2,9 +2,78 @@
 
 ## Version 2026.3.0
 
+**Release Date:** December 7, 2026
+
 **Upgrade Notes:**
 
 - **2D map origin for GLB scenes:** The 2D view now places objects using the world position of the map image's bottom-left corner. Previously, it assumed this corner was at world `(0, 0)`, so objects were drawn offset from the floor plan for most GLB scene maps. During the database upgrade, existing GLB scenes have their 2D thumbnail, scale, and origin regenerated. Regions, tripwires, and singleton sensor areas that were drawn in the 2D view before the upgrade will appear shifted on the 2D map. Their stored world coordinates are unchanged, and the new position is where they actually are in the world. Re-check them and redraw any that you placed by eye against the old map. The upgrade logs a warning for each affected scene. See [How to Upgrade](./additional-resources/how-to-upgrade.md#re-check-2d-regions-tripwires-and-sensor-areas-on-glb-scenes).
+- **Pre-populated scenes are required to be uploaded in run-time with a dedicated tool**: Added support for fresh Scenescape deployment. Removed support for loading prepopulated scenes on startup. Introduced Scene Upload Tool embedded into Manager container. To upgrade add a scene upload step on your application's startup. See [link to the documentation TBD]
+
+**New:**
+
+- **PTZ camera support:** New Positioning service, available on Docker Hub at [intel/scenescape-positioning](https://hub.docker.com/r/intel/scenescape-positioning) [link to the feature documentation TBD]:
+  - Polls ONVIF PTZ cameras and publishes a resolved scene pose from a calibrated pan/tilt model
+  - Scene Controller can project detections with that pose.
+  - Import the measured `ptz_calibration` block through the Manager API. The Tracker does not consume PTZ poses in this release
+- **Moving cameras and platforms:**
+  - External sources can publish pixel detections. The Scene Controller projects them with the source pose and camera intrinsics
+  - A moving platform can report observations from several mounted cameras
+  - The 3D view draws platform camera frustums
+  - Added a simulated drone-camera demo that publishes a moving view through the external-source contract [link to the README TBD]
+- **Handheld scenes:** Pair a scene from a handheld app with a scene QR code, upload a map from the device, and follow a moving camera's pose, optics, and measured depth. Operators can preview, activate, or delete source maps per mapping method
+- **Automated ROI creation:** On a geospatial scene, propose regions from OpenStreetMap roads and footways, limit the query to a selected area, edit or merge the proposals, and save the ones you keep [link to the documentation TBD]
+- **Multi-modal fusion along with 3D camera and sensor projection controls:**
+  - Turn projections on or off for every camera and LiDAR/radar sensor, and set a shared projection opacity
+  - Show a live sensor point cloud, with point size and opacity, when the publisher answers `getpointcloud`
+  - Support fusion of 3D detections with yaw and Z measured in the tracker [link to the ADR documentation TBD]
+  - Added a perceptual-sensor CLI tool for the Auto Calibration localization API
+- **Probabilistic tracking and Spatial Performance Primitives (SPP) integration in Tracker and Controller:** [link to the ADR and design documentation TBD]
+  - Experimental Observation Processor service [link to the ADR and design documentation TBD] (Docker Compose profile only) turns 2D detections into world-space measurements and can condition them on the scene mesh. In that mode, published tracks include location uncertainty. It integrates standalone SPP libraries: Frustum Gaussian and Observation Conditioner.
+  - Improvements in Unscented Kalman Filter (UKF) and Interactive Mixing Model (IMM) in robot-vision library including enhanced, velocity-dependent per-model process noise
+  - Optional covariance-aware Mahalanobis association in robot-vision library. The configs shipped with the release keep the legacy Euclidean association method.
+  - Tracking of height and vertical velocity for non-planar motion
+  - Integrated probability-aware tracking in Tracker and Controller enabled with an experimental flag including: geometry-derived measurement noise derived from gRPC call to Observation Processor, uncertainty-weighted multi-camera fusion, IMM/UKF covariance handling and tracked object state uncertainty in the MQTT output
+  - SPP demo and new evaluation dataset for non-planar tracking on Rolling Terrain scene [documentation link TBD]
+- **ReID service:** Extracted the ReID database contract into a standalone service, available on Docker Hub at [intel/scenescape-reid](https://hub.docker.com/r/intel/scenescape-reid) [link to the documentation TBD]:
+  - gRPC API for match, gallery maintenance, and authorized person-of-interest enrollment
+  - The Tracker can publish embeddings to the service and consume ReID decisions
+  - The Scene Controller still uses its in-process ReID path
+- **Track GID labels on camera images:** The video pipeline can draw scene track GIDs on the annotated JPEG used by live view. Off by default
+- **Sample application:** Added a Node-RED sample (`make sample-app-up`) that subscribes to scene counts, ROI occupancy, and tripwire crossings, plus a guide for building an application on Scenescape MQTT and REST [link to the documentation TBD]
+- **Experimental MLOps flow:** Superusers can store GStreamer pipelines, import them from ViPPET, and run a selected pipeline on DL Streamer Pipeline Server 2.0. Off by default, enabled with an experimental flag in Manager and supported on Docker Compose only [link to the documentation TBD]
+
+**Improved:**
+
+- Default person-detection pipelines and the downloaded model set now use YOLOX-S
+- Scene upload through the REST API, with the scene uploader CLI included in the Manager image and configurable import and scene-processing timeouts
+- Faster import of GLB scene maps
+- The Scene Controller follows pagination when it reads REST configuration, so large scenes are loaded in full
+- AprilTag registration runs again when a scene map is replaced
+- Tracker evaluation ground truth uses timestamps instead of frame numbers. Added an offline ReID model evaluator and crop review workflow
+- Lower jitter for the Controller-Immediate tracker configuration, and rotation hysteresis on tracked heading
+- Tracker service feature parity with Controller:
+  - the C++ Tracker accepts 3D detections (`translation`, `size`, and optional `rotation`) in addition to pixel boxes, and projects TYPE_2 object classes the same way as the Scene Controller
+  - [more items TBD]
+- Testing and documentation:
+  - Automated 3D UI coverage for regions, tripwires, camera deletion, and camera position
+  - Pre-merge test coverage check
+  - Deployment documentation split into preparation, Docker, Kubernetes, and demo guides
+
+**Fixed:**
+
+- MQTT skipped messages while live view was turned on
+- Invalidating one scene rebuilt every live scene. A failing hierarchy message rebuilt the scene on every message. Scene-cache rebuilds leaked tracker threads, timers, and ReID clients
+- Remote child MQTT clients reconnected in a loop and leaked Scene Controller threads. Child-scene overlays stayed stale after changes
+- Scene import dropped calibration for orphaned cameras and dropped remote hierarchy links
+- Polycam zip import for markerless calibration
+- Manual calibration could stay on an outlier pose. AprilTag calibration could save an unstable pose, and the preview projection could disagree with the saved pose
+- Camera pose was not reset when the camera was assigned to a different scene
+- Autocalibration failed in Kubernetes. The calibration page did not refresh when registration finished. Mapping could place unrelated cameras too close together, and a map from the Mapping service was not applied to demo scenes
+- V4L2 camera pipelines failed to link on Kubernetes. Classification-model metadata was missing in Kubernetes deployments
+- Geospatial output kept publishing LLA fields after the scene transform had failed
+- GLB thumbnails did not render in a headless Manager
+- The web UI could fail silently when a JavaScript asset did not load
+- Login kept leading and trailing spaces in the username
 
 ## Version 2026.2.0
 
