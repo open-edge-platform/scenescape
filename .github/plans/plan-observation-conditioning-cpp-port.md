@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Author(s)**: Tomasz Dorau
 - **Date**: 2026-11-26
-- **Status**: Phase 2 done (awaiting review)
+- **Status**: Phase 3 done (awaiting review)
 - **Epic**: ITEP-98710 — probabilistic tracking ([plan](plan-probabilistic-tracking.md), [ADR-0019](../../docs/adr/0019-probabilistic-tracking-association.md), [design](../../docs/design/probabilistic-tracking-association.md))
 - **Service context**: [Observation Processor design](../../docs/design/observation-processor-service.md)
-- **Design (C++)**: _Phase 3_
+- **Design (C++)**: [docs/design/observation-conditioning-cpp.md](../../docs/design/observation-conditioning-cpp.md)
 
 ## Phases
 
@@ -18,7 +18,7 @@ Each phase ends with a review checkpoint.
 
 1. [x] **MVP analysis**: features, limitations, issues, test coverage, dependencies → [MVP](#mvp)
 2. [x] **Porting challenges**: Python dependencies with no C++ equivalent, test gaps, parity risks → [Porting challenges](#porting-challenges)
-3. [ ] **Design and plan**: C++ design that meets the acceptance criteria and scales on HW → [Porting plan](#porting-plan) + design doc
+3. [x] **Design and plan**: C++ design that meets the acceptance criteria and scales on HW → [Porting plan](#porting-plan) + design doc
 4. [ ] **Implementation**: C++ library, Python bindings, unit, regression and parity tests, reference baselines
 5. [ ] **Evaluation**: parity and performance against the Python MVP → [Evaluation](#evaluation)
 
@@ -166,7 +166,7 @@ Measured on an Intel Core Ultra 9 288V (8C, no AVX-512) with the service-pinned 
 
 ## Porting challenges
 
-### Decisions recorded (Phase 1 review)
+### Decisions recorded
 
 | ID | Decision |
 | --- | --- |
@@ -174,6 +174,10 @@ Measured on an Intel Core Ultra 9 288V (8C, no AVX-512) with the service-pinned 
 | D2 | **Mesh input is format-agnostic (option A).** The core takes world-frame `float` vertices and `uint32` triangle indices. GLB loading stays with the caller; the service keeps Open3D for it. A C++ GLB loader module (cgltf, behind an opt-in build flag, with parity tests against Open3D and a fuzz target) is a follow-up (option B), for when in-process Tracker integration is scheduled. |
 | D3 | **Service harness** = an in-process gRPC Observation Processor test, run with the Python and C++ backends, comparing responses numerically. |
 | D4 | **Pre-port cleanup of the MVP, with no output change.** Remove I1 (dead non-naive occlusion) and I2 (unused pin-drop and hit points). Consolidate I7 (constants keep their effective values). For I3, change the `num_layers` default from 4 to 1 in the service and `AmodalReasoner`; peeling itself is kept and ported. A baseline from the original MVP is frozen first, and the cleaned MVP must match it exactly. Done as separate commits at the start of Phase 4. Details and open points for the original authors are in [implementation.md](../../spatial_performance_primitives/observation_conditioning/implementation.md). The authors may follow up by integrating or extending some of the removed parts. |
+| D5 | **Embree is built from source:** the pinned 4.3.3 tarball, static, internal tasking, hidden symbols (design §5.7). Conan `embree` is rejected because it brings a second TBB. |
+| D6 | **CI:** add a path-filtered workflow for the C++ build, gtest, coverage gates, Python parity and the service harness (WP 4.9). |
+| D7 | **HW evaluation** covers a Xeon (AVX-512) host in addition to the local Core Ultra 9 288V (AVX2). |
+| D8 | **Threading runtime: oneTBB** in `oc`, the same as `fg`. The Tracker and robot_vision migrate from OpenMP to oneTBB in follow-ups, so there is one runtime per process (and stronger Intel HW stickiness: `task_arena` core-type and NUMA constraints, OpenVINO alignment). **Required order:** (1) migrate the Tracker; (2) migrate robot_vision, ideally after the Controller is deprecated (planned for 2027.0), which avoids Controller image and Open3D TBB-clash work; (3) only then integrate `oc`/`fg` into the Tracker in-process. A mixed TBB + OpenMP Tracker process never ships. See design §8. |
 
 ### C1. Python dependencies without a direct C++ counterpart
 
@@ -266,7 +270,26 @@ The service image still needs `open3d` for GLB loading (D2), so the port does no
 
 ## Porting plan
 
-_Phase 3._
+The design is in [docs/design/observation-conditioning-cpp.md](../../docs/design/observation-conditioning-cpp.md). Work packages run in order. Each ends with all existing suites green, and each lands as its own commit (or commits), after approval.
+
+| WP | Scope | Exit criteria |
+| --- | --- | --- |
+| **4.0 Test environments and baseline freeze** | Pinned Python venv (`make venv`, OP runtime versions) and the dedicated test container (`Dockerfile.test` on common-base: GCC 12.2, Python 3.11), as in design §5.9. Corpus generator: synthetic scenario meshes as code, plus the rolling-terrain GLB, seeded and threshold-edge observations. `.ocb` writer. Generate `mvp-original.ocb` from the original MVP (`5cc7f08a8`). | The venv and the container build reproducibly. Every corpus scenario reaches its target branch (asserted from the MVP `trace`). Baseline committed, generated in the container (Python 3.11). |
+| **4.1 Layout move** | `git mv` to the `fg`-style layout (`python/`, `cpp/`, `tests/`). Update the root `Makefile` (`SPATIAL_PERFORMANCE_*`, `COMPLEXITY_SOURCES`), the OP `Dockerfile`, the OP test `conftest.py` and doc links. | No logic diff. The library and OP unit suites are green. |
+| **4.2 MVP cleanup (D4)** | One commit each for I1, I2, I7 and I3 (defaults, plus the `t_hit_map` test update). Add a debug-only decision trace to the reference. Generate `reference.ocb`. Update the README, AGENTS and algorithm doc pointers. | Bit-exact match against `mvp-original.ocb`. implementation.md status set to "applied". |
+| **4.3 C++ core: geometry and maps** | CMake, pinned Embree source build, `Device`, `SceneGeometry`, `DepthMap` (bake, peel, query, cast), conan for test dependencies, gtest. | Maps match Open3D within the §5.5 targets (via a temporary pybind smoke module or the C++ reader). Unit tests green. |
+| **4.4 Truncated normal** | `detail::truncnorm_mv` plus the SciPy grid fixture generator. | rtol 1e-12 on the grid, including ±inf and the tails. |
+| **4.5 C++ core: reasoner** | `AmodalReasoner::condition`, `DecisionTrace`, `constants.hpp`, TBB path, `ExecutionOptions`. Corpus regression in C++. | Decisions identical, values within tolerance against `reference.ocb`. Concurrency test green. |
+| **4.6 Python bindings and drop-in** | `bindings.cpp`, `_native.py`, backend selection, `pyproject.toml`. Run the library and OP unit suites with each backend. | Both backends pass every existing test. Parity and fuzz tests green. Python coverage ≥ 90%. |
+| **4.7 Service integration and harness** | The OP Dockerfile builds the wheel (Embree build stage). `DEFAULT_NUM_LAYERS = 1`. In-process gRPC harness test with both backends. Log the active backend. | Harness responses aligned (§5.9). The image builds, and `make run_sscape_unit_suite` is green. |
+| **4.8 Benchmarks, coverage and docs** | Google Benchmark suite, Python backend comparison script, gcovr and pytest-cov gates in the package `Makefile`, OP design doc §5.2 update, README and AGENTS for the C++ API. | C++ line ≥ 90%, branch ≥ 50%. Benchmarks run locally. |
+| **4.9 CI** (D6) | Path-filtered workflow: C++ build, gtest, coverage, Python parity, harness. | Workflow green on the PR. |
+
+**Phase 5 (Evaluation)** reports three things:
+
+- Parity: decision agreement and the max/p99 absolute and relative differences per scenario, map ULP statistics, and harness diffs.
+- Performance: bake and `condition`/`generate` (C++ and through Python) against the **cleaned** MVP, plus the harness's per-request latency.
+- HW scaling: thread sweep, ISA (Core Ultra AVX2 vs Xeon AVX-512, D7), and traversal mode.
 
 ## Evaluation
 
