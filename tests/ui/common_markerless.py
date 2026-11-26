@@ -141,6 +141,11 @@ def register_scene(params, scene_uid):
     if body.get("status") == "success":
       return
     assert body.get("status") in ("registering", "busy"), f"Scene registration failed: {body}"
+    if body.get("status") == "busy":
+      body = requests.post(url, json={}, verify=verify, timeout=60).json()
+      if body.get("status") == "success":
+        return
+      assert body.get("status") in ("registering", "busy"), f"Scene registration failed: {body}"
     time.sleep(POLL_INTERVAL_SEC)
   raise AssertionError(f"Scene registration did not finish within {REGISTRATION_TIMEOUT_SEC}s")
 
