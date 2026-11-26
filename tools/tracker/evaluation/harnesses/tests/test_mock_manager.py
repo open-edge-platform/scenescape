@@ -26,6 +26,7 @@ from harnesses.black_box_harness.mock_manager import (
     _are_coplanar,
     _assets_from_object_classes,
     _build_rest_scene,
+    _mesh_file,
     _compute_extrinsics,
     _distortion_to_array,
     _with_flat_pose,
@@ -317,6 +318,47 @@ class TestBuildRestScene:
   def test_fully_json_serializable(self, two_camera_scene_config):
     scene = _build_rest_scene(two_camera_scene_config)
     json.dumps(scene)  # must not raise TypeError for np.float64 etc.
+
+
+# ---------------------------------------------------------------------------
+# Scene mesh
+# ---------------------------------------------------------------------------
+
+class TestSceneMesh:
+  @pytest.fixture
+  def mesh_config(self, two_camera_scene_config, tmp_path):
+    mesh = tmp_path / "scene.glb"
+    mesh.write_bytes(b"glTF-bytes")
+    return {**two_camera_scene_config, "map": str(mesh)}
+
+  def test_local_glb_map_becomes_media_url(self, mesh_config):
+    assert _build_rest_scene(mesh_config)["map"] == "/media/scene.glb"
+
+  def test_non_glb_map_is_kept(self, two_camera_scene_config):
+    config = {**two_camera_scene_config, "map": "map.png"}
+    assert _build_rest_scene(config)["map"] == "map.png"
+
+  @pytest.mark.parametrize("map_file", ["scene.glb", "/nonexistent/scene.glb"])
+  def test_missing_glb_raises(self, two_camera_scene_config, map_file):
+    config = {**two_camera_scene_config, "map": map_file}
+    with pytest.raises(ValueError, match=r"\.glb.*readable file"):
+      _build_rest_scene(config)
+
+  def test_mesh_is_served(self, mesh_config):
+    server = HTTPServer(("127.0.0.1", 0), MockManagerHandler)
+    server.scene = _build_rest_scene(mesh_config)
+    server.mesh = _mesh_file(mesh_config)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+      conn = HTTPConnection("127.0.0.1", server.server_address[1])
+      conn.request("GET", "/media/scene.glb")
+      resp = conn.getresponse()
+      assert (resp.status, resp.read()) == (200, b"glTF-bytes")
+      conn.request("GET", "/media/other.glb")
+      assert conn.getresponse().status == 404
+      conn.close()
+    finally:
+      server.shutdown()
 
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # Most yaml files are go templates, so they're parsed incorrectly
@@ -23,3 +23,9 @@
 **/tests/api/README.md
 **/tests/system/metric/unity_dataset/*.json
 **/tests/system/metric/wildtrack_dataset/*.json
+**/tests/system/metric/rolling_terrain_dataset/*.json
+
+# SPP demo scene data: JSON Lines files (one object per line), generated and
+# compact; prettier cannot parse them as JSON.
+**/sample_data/spp_demo/*/gtLoc.json
+**/sample_data/spp_demo/*/metadata/*.json
