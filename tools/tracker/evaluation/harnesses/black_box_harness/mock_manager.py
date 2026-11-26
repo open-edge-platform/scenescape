@@ -16,6 +16,9 @@ to load scene configuration, matching production behaviour exactly:
                                   the observation processor service)
  GET  /api/v1/camera/<uid>      → <camera>
  POST /api/v1/camera/<uid>      → <camera>   (accepts updateCamera, no-ops)
+ GET  /media/<name>.glb         → scene mesh, when the scene config ``map`` is an
+                                  existing local ``.glb`` file (downloaded by the
+                                  observation processor for ``full`` mode)
 
 Scene format follows the Manager REST serializer (CamSerializer):
  cameras carry ``camera points`` / ``map points`` so Camera.__init__
@@ -36,6 +39,7 @@ Run as a standalone process inside the Docker network:
 import json
 import math
 import sys
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -44,6 +48,7 @@ import cv2
 from scipy.spatial.transform import Rotation
 
 _MOCK_TOKEN = "mock"
+_MEDIA_PREFIX = "/media"
 
 # Distortion key order matches CameraIntrinsics.DISTORTION_KEYS in
 # scene_common/src/scene_common/transform.py.
@@ -191,6 +196,26 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
     return None
 
 
+def _mesh_file(scene_config):
+  """Local ``.glb`` file referenced by the scene config ``map``, else None.
+
+  Raises:
+    ValueError: If ``map`` ends with ``.glb`` but is not a readable file.
+      Observation-processor ``full`` mode needs a served mesh; a relative or
+      missing path would otherwise leave a dead ``map`` URL and fail later.
+  """
+  map_file = scene_config.get("map")
+  if not map_file or not str(map_file).lower().endswith(".glb"):
+    return None
+  path = Path(map_file)
+  if not path.is_file():
+    raise ValueError(
+      f"scene map '{map_file}' is a .glb but is not a readable file; "
+      "use an absolute path to an existing mesh"
+    )
+  return path
+
+
 def _build_rest_scene(scene_config: dict) -> dict:
   """Convert dataset scene config to Manager REST /api/v1/scenes format.
 
@@ -205,9 +230,12 @@ def _build_rest_scene(scene_config: dict) -> dict:
   from the point correspondences so the Tracker Service can load the scene
   without re-running calibration.
 
+  A local ``.glb`` ``map`` is replaced by the ``/media/<name>`` URL the mock serves.
+
   This is exactly what the Manager serializes from its database.
   """
   scene_uid = scene_config.get("uid") or scene_config["name"]
+  mesh = _mesh_file(scene_config)
 
   cameras = []
   for cam_name, info in scene_config.get("sensors", {}).items():
@@ -256,7 +284,7 @@ def _build_rest_scene(scene_config: dict) -> dict:
     "uid": scene_uid,
     "name": scene_config["name"],
     "scale": scene_config.get("scale"),
-    "map": scene_config.get("map"),
+    "map": f"{_MEDIA_PREFIX}/{mesh.name}" if mesh else scene_config.get("map"),
     "cameras": cameras,
     "sensors": [],
     "regions": [],
@@ -354,6 +382,16 @@ class MockManagerHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": f"camera {uid} not found"})
       return
 
+    mesh = getattr(self.server, "mesh", None)
+    if mesh and path == f"{_MEDIA_PREFIX}/{mesh.name}":
+      data = mesh.read_bytes()
+      self.send_response(200)
+      self.send_header("Content-Type", "model/gltf-binary")
+      self.send_header("Content-Length", str(len(data)))
+      self.end_headers()
+      self.wfile.write(data)
+      return
+
     self._send_json(404, {"error": "not found"})
 
 def run(port: int, scene_config: dict) -> None:
@@ -361,6 +399,7 @@ def run(port: int, scene_config: dict) -> None:
   scene = _build_rest_scene(scene_config)
   server = HTTPServer(("0.0.0.0", port), MockManagerHandler)
   server.scene = scene
+  server.mesh = _mesh_file(scene_config)
   server.assets = _assets_from_object_classes(scene_config.get("object_classes"))
   print(
     f"[MockManager] Listening on 0.0.0.0:{port}  scene={scene['uid']}  "
