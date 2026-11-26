@@ -12,7 +12,7 @@ time-chunking rate). Read this when the user wants tracking behavior tuned to th
 matching tuning, see [tuning-reid.md](./tuning-reid.md) instead.
 
 Source of truth for parameter semantics:
-`docs/user-guide/microservices/controller/how-to-configure-tracker.md` in the SceneScape repo.
+`docs/user-guide/microservices/controller/how-to-configure-tracker.md` in the Scenescape repo.
 Where this doc gives a recommended value instead of a hard rule, it says so — the upstream docs
 themselves note that time-based parameters should be "experimentally verified" for a given
 deployment.

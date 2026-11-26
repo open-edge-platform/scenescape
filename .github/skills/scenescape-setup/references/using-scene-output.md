@@ -8,8 +8,8 @@ SPDX-License-Identifier: Apache-2.0
 Read this after every successful full deploy reaches `DEPLOY COMPLETE` (required handoff in
 `SKILL.md`), and whenever the user wants to _use_ the tracked-object data for something — an
 alert, a dashboard, a count, an integration with another system — rather than just view it in the
-web UI. This is the handoff point from "deploy SceneScape" to "build an application on top of
-SceneScape."
+web UI. This is the handoff point from "deploy Scenescape" to "build an application on top of
+Scenescape."
 
 ## Ask what the user is trying to accomplish
 
@@ -25,7 +25,7 @@ The answer determines which of the paths below to take — often more than one a
 
 ## If the user isn't sure — suggest concrete analytics
 
-Some users know their goal already; others just deployed SceneScape and want ideas for what's
+Some users know their goal already; others just deployed Scenescape and want ideas for what's
 possible. If they say "I don't know" / "what can I do with this?", offer a few concrete,
 commonly-useful analytics rather than re-asking the same open question:
 
@@ -81,10 +81,10 @@ docker container run --rm --network <project>_scenescape \
 Each message's `objects` array has one entry per tracked object: `category`/`type`, `translation`
 (scene-metre position), `velocity`, `visibility` (which cameras see it), and a `metadata` map for
 any pipeline-detected attributes (age, gender, license plate, etc. depending on the model). See
-`docs/user-guide/microservices/analytics/data_formats.md` in the SceneScape repo (section
+`docs/user-guide/microservices/analytics/data_formats.md` in the Scenescape repo (section
 "Regulated Scene Output Message Format") for the full field reference.
 
-If you're also rendering positions yourself (not just viewing them in the SceneScape web UI), make
+If you're also rendering positions yourself (not just viewing them in the Scenescape web UI), make
 sure your calibration and your renderer agree that world `(0, 0)` is the **bottom-left** corner of
 the scene, not the center — a mismatch won't error; it just makes the two views look inexplicably
 different. See [scene-and-cameras.md](./scene-and-cameras.md#scene-coordinate-convention).
@@ -134,5 +134,5 @@ the region/tripwire topic and IDs.
   skill.
 - If the user's goal implies a specific downstream system (a ticketing tool, a database, a
   notification service), that integration code is outside this skill's scope — the deliverable
-  here is getting the right SceneScape topic/event wired up and confirmed working (e.g. one
+  here is getting the right Scenescape topic/event wired up and confirmed working (e.g. one
   observed message), then handing off.

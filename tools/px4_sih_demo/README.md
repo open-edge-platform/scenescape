@@ -1,8 +1,8 @@
-# PX4 SIH Drone → SceneScape Demo
+# PX4 SIH Drone → Scenescape Demo
 
-Simulate a quadcopter with [PX4 SIH](https://docs.px4.io/main/en/sim_sih/) (Simulation-In-Hardware), bridge its **MAVLink** telemetry into SceneScape with the existing [`mavlink_to_external_source.py`](../external_source_adapters/mavlink_to_external_source.py) adapter, and verify **spatial analytics** when the drone enters a geospatial **Region of Interest (ROI)**.
+Simulate a quadcopter with [PX4 SIH](https://docs.px4.io/main/en/sim_sih/) (Simulation-In-Hardware), bridge its **MAVLink** telemetry into Scenescape with the existing [`mavlink_to_external_source.py`](../external_source_adapters/mavlink_to_external_source.py) adapter, and verify **spatial analytics** when the drone enters a geospatial **Region of Interest (ROI)**.
 
-SIH runs physics inside PX4 via uORB — no external simulator. PX4 still exposes standard MAVLink (`GLOBAL_POSITION_INT`, `ATTITUDE`) on UDP, which is what the SceneScape adapter consumes.
+SIH runs physics inside PX4 via uORB — no external simulator. PX4 still exposes standard MAVLink (`GLOBAL_POSITION_INT`, `ATTITUDE`) on UDP, which is what the Scenescape adapter consumes.
 
 ## Architecture
 
@@ -22,7 +22,7 @@ PX4 SIH (Docker)          MAVLink adapter              Scene Controller
 
 | Requirement  | Notes                                                                                                                               |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| SceneScape   | `make demo` with `MAPBOX_API_KEY` and `SUPASS`                                                                                      |
+| Scenescape   | `make demo` with `MAPBOX_API_KEY` and `SUPASS`                                                                                      |
 | Docker       | For `px4io/px4-sitl-sih` (no PX4 toolchain needed)                                                                                  |
 | Python 3.10+ | `pip install -r tools/external_source_adapters/requirements.txt`                                                                    |
 | Mapbox token | `MAPBOX_API_KEY` — [configure keys](../../docs/user-guide/how-to-guides/build-a-scene/configure-geospatial-map-service-api-keys.md) |
@@ -31,7 +31,7 @@ Host-side setup/adapter/watch-roi talk to **localhost** and skip TLS hostname ve
 
 ## Quick start
 
-### 1. Start SceneScape
+### 1. Start Scenescape
 
 ```bash
 cd /path/to/scenescape
@@ -66,7 +66,7 @@ export PX4_DEMO_MAP_ZOOM=19
 ./tools/px4_sih_demo/run_demo.sh start
 ```
 
-Uses [`px4io/px4-sitl-sih`](https://hub.docker.com/r/px4io/px4-sitl-sih) with `PX4_HOME_LAT/LON/ALT` from the config so simulated GPS matches the SceneScape map.
+Uses [`px4io/px4-sitl-sih`](https://hub.docker.com/r/px4io/px4-sitl-sih) with `PX4_HOME_LAT/LON/ALT` from the config so simulated GPS matches the Scenescape map.
 
 ### 4. Run the MAVLink adapter (new terminal)
 
@@ -100,7 +100,7 @@ Legacy one-shot square mission: `./tools/px4_sih_demo/run_demo.sh fly --pattern 
 ./tools/px4_sih_demo/run_demo.sh watch-roi
 ```
 
-You should see ROI **enter/exit count** events when the drone crosses the region. Also open the scene in the SceneScape UI — the vehicle appears on the satellite map.
+You should see ROI **enter/exit count** events when the drone crosses the region. Also open the scene in the Scenescape UI — the vehicle appears on the satellite map.
 
 ### Stop
 
@@ -110,7 +110,7 @@ You should see ROI **enter/exit count** events when the drone crosses the region
 
 ## How SIH maps to the MAVLink adapter
 
-| SIH / PX4                                    | MAVLink message       | SceneScape field                                  |
+| SIH / PX4                                    | MAVLink message       | Scenescape field                                  |
 | -------------------------------------------- | --------------------- | ------------------------------------------------- |
 | Simulated GPS (from `PX4_HOME_*` + dynamics) | `GLOBAL_POSITION_INT` | `pose.lat_long_alt` (wgs84)                       |
 | Attitude estimator                           | `ATTITUDE`            | `pose.rotation`, `objects[].rotation`             |

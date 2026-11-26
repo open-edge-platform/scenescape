@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-"""Re-assert secret file modes for SceneScape deployments.
+"""Re-assert secret file modes for Scenescape deployments.
 
 Docker Compose file-backed secrets inherit host file modes; `mode:` in compose
 is ignored by many Compose/Docker builds. Services that do not run as the host

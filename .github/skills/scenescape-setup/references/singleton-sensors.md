@@ -84,7 +84,7 @@ Creating the sensor only registers it — readings must be published separately 
 ```
 
 `value` accepts any JSON value (numeric for `environmental`, or a string/boolean/identifier for
-`attribute`). See `docs/user-guide/microservices/controller/data_formats.md` in the SceneScape
+`attribute`). See `docs/user-guide/microservices/controller/data_formats.md` in the Scenescape
 repo for the full message schema.
 
 ## Notes

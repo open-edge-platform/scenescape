@@ -11,7 +11,7 @@ from scene_common.rest_client import RESTClient
 
 
 @dataclass
-class SceneScapeClients:
+class ScenescapeClients:
   """Composed REST clients for core and optional service endpoints."""
 
   core: RESTClient
@@ -51,7 +51,7 @@ def create_scenescape_clients(
   """
   _add_source_paths(service_src_dirs)
 
-  clients = SceneScapeClients(
+  clients = ScenescapeClients(
       core=RESTClient(
           url=f"{base_url}/api/v1",
           token=token,

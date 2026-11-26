@@ -303,7 +303,7 @@ def run_evaluation(args):
                           for sample in sorted(samples, key=lambda sample: sample["id"])]}
   protocol_hash = hashlib.sha256(json.dumps(protocol, sort_keys=True).encode()).hexdigest()
   warnings = [
-      "Offline crop/embedding retrieval only; not a full SceneScape tracker/ReID replay.",
+      "Offline crop/embedding retrieval only; not a full Scenescape tracker/ReID replay.",
       "Unique-count error, GPU utilization, and end-to-end decision latency are not measured.",
       "Threshold calibration targets observed unknown-query false accepts, not a population guarantee.",
       "L2 is Euclidean distance here; do not reuse thresholds from squared-distance backends.",

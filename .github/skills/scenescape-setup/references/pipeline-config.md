@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # DLStreamer Pipeline Config
 
 Bootstrap sparse-checkouts `model-proc-files/`, `mosquitto/`, and `user_scripts/` from the
-upstream SceneScape repo into `<deploy_dir>/dlstreamer-pipeline-server/`.
+upstream Scenescape repo into `<deploy_dir>/dlstreamer-pipeline-server/`.
 
 `user_scripts/gstplugins/` holds the native GStreamer Python plugins that replace the former
 `gvapython` + `sscape_adapter.py` path:
@@ -102,7 +102,7 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
 ## Notes
 
 - Model: `OpenVINO/yolox_s-int8-ov` via `scripts/download_model.py`
-- External RTSP sources must be reachable from the SceneScape Docker network
+- External RTSP sources must be reachable from the Scenescape Docker network
 - GPU/WSL2 segfaults with dual pipelines: see repo `queuing-config-gpu.json` / sample compose
 - Local video files (folder or explicit list) instead of live RTSP cameras: see
   [video-file-input.md](./video-file-input.md) / [video-file-publishing.md](./video-file-publishing.md)
@@ -125,7 +125,7 @@ that work when possible.
 Two non-obvious constraints:
 
 1. **DL Streamer `gvadetect` can run YOLOv8** when the model-proc JSON sets
-   `"converter": "yolo_v8"`. Upstream examples live outside SceneScape, e.g.
+   `"converter": "yolo_v8"`. Upstream examples live outside Scenescape, e.g.
    `open-edge-platform/dlstreamer` → `samples/gstreamer/model_proc/public/yolo-v8.json`.
 2. **`video-analytics` cannot gain new bind-mount destinations.** Creating a mount for a path
    that does not already exist in the container fails with a read-only-rootfs/`mkdirat` error.

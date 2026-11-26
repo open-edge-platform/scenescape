@@ -188,7 +188,7 @@ def inputs_match(saved: dict[str, Any], candidate: dict[str, Any]) -> bool:
 
 
 def main() -> None:
-  parser = argparse.ArgumentParser(description="Validate and persist SceneScape deployment inputs")
+  parser = argparse.ArgumentParser(description="Validate and persist Scenescape deployment inputs")
   sub = parser.add_subparsers(dest="command", required=True)
 
   write = sub.add_parser("write", help="Validate and write deploy-inputs.json")

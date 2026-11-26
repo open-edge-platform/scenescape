@@ -149,7 +149,7 @@ FrustumObservation project_frustum_3d(
 //
 // `pose_mat` layout (row-major):  [ R | t ]  where R is 3×3 rotation and
 //                                  [ 0 | 1 ]  t is 3×1 translation (meters).
-// This matches the pose_mat used by SceneScape's CameraPose class.
+// This matches the pose_mat used by Scenescape's CameraPose class.
 // ---------------------------------------------------------------------------
 FrustumObservation transform_to_world(
     const FrustumObservation& obs_cam,

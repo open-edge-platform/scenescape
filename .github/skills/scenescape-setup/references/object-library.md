@@ -12,9 +12,9 @@ Read this when the user mentions specific object classes/sizes (e.g. "forklifts 
 
 The Object Library is the manager's `Asset3D` model — one entry per detected object class (name
 must match the pipeline's object type string, e.g. `person`, `vehicle`, or a custom class).
-Defining expected size (and optionally a `.glb` 3D model) lets SceneScape use more accurate models
+Defining expected size (and optionally a `.glb` 3D model) lets Scenescape use more accurate models
 for tracking and spatial analytics instead of a generic cuboid. See
-`docs/user-guide/other-topics/how-to-define-object-properties.md` in the SceneScape repo for the
+`docs/user-guide/other-topics/how-to-define-object-properties.md` in the Scenescape repo for the
 full field reference (rotation, physics properties like mass/damping/restitution, etc.).
 
 This is fully REST-scriptable via `POST /api/v1/asset` (create) and `PUT /api/v1/asset/{uid}`

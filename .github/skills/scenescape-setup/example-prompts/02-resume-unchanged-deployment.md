@@ -10,7 +10,7 @@ Shows the Fast Path for a deployment that already has `deploy-inputs.json`.
 ## Prompt
 
 ```text
-Continue the SceneScape deployment in ~/deployments/warehouse-demo — it stopped partway through.
+Continue the Scenescape deployment in ~/deployments/warehouse-demo — it stopped partway through.
 ```
 
 ## Expected agent behavior

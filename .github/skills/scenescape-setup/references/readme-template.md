@@ -1,7 +1,7 @@
 <!-- Template: substitute every {{...}} token, then write the result to <deploy_dir>/README.md -->
-# SceneScape Deployment — {{SCENE_NAME}}
+# Scenescape Deployment — {{SCENE_NAME}}
 
-Multi-camera detection and cross-camera object tracking built with Intel® SceneScape.
+Multi-camera detection and cross-camera object tracking built with Intel® Scenescape.
 Per-camera detections are fused into one scene-level map so an object moving between
 cameras keeps a single identity.
 
@@ -75,7 +75,7 @@ cameras ─▶ DL Streamer pipelines ─▶ MQTT broker ─▶ scene controller 
 
 ## Tests
 
-The SceneScape repository ships a pytest-based suite (functional, UI, unit, and
+The Scenescape repository ships a pytest-based suite (functional, UI, unit, and
 security) that runs against a Docker Compose or Kubernetes (KinD + Helm) backend.
 From a repository clone:
 
@@ -97,7 +97,7 @@ packages) and the full backend/marker reference.
 
 ## References
 
-- SceneScape repository: https://github.com/open-edge-platform/scenescape
+- Scenescape repository: https://github.com/open-edge-platform/scenescape
 - User guide: https://github.com/open-edge-platform/scenescape/tree/main/docs/user-guide
 - Tests guide: https://github.com/open-edge-platform/scenescape/blob/main/tests/README.md
 

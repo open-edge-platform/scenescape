@@ -22,7 +22,7 @@ _UPLOAD_SCENES_DIR = _REPO_ROOT / "tools" / "upload_scenes"
 if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
-from uploader import SceneScapeClient  # noqa: E402
+from uploader import ScenescapeClient  # noqa: E402
 
 
 @pytest.fixture
@@ -41,8 +41,8 @@ def scene_zip(tmp_path):
 
 @pytest.fixture
 def fake_client():
-  """A SceneScapeClient double with the defaults most tests want."""
-  client = MagicMock(spec=SceneScapeClient)
+  """A ScenescapeClient double with the defaults most tests want."""
+  client = MagicMock(spec=ScenescapeClient)
   client.restore_ids = False
   client.reuse_existing = False
   client.asset_exists.return_value = False

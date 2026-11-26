@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
-# RTSP gate check from the SceneScape Docker network.
+# RTSP gate check from the Scenescape Docker network.
 # Usage: verify_rtsp.sh <deploy_dir> <rtsp_url> [<rtsp_url> ...]
 
 set -euo pipefail

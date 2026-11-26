@@ -1216,7 +1216,7 @@ export default class SceneCamera extends THREE.Object3D {
   syncPointCloudPose() {
     if (!this.pointCloudViz || !this.sceneCamera) return;
     // Use the THREE (y-up) camera matrix; PointCloudVisualizer converts
-    // SceneScape/OpenCV sensor points with (x, -y, -z).
+    // Scenescape/OpenCV sensor points with (x, -y, -z).
     this.pointCloudViz.setPoseFromCamera(this.sceneCamera);
   }
 

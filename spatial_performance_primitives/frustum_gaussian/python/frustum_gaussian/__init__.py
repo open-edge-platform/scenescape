@@ -140,7 +140,7 @@ def transform_to_world_batch(
 ) -> dict[str, np.ndarray]:
   """Transform camera-frame batch Gaussians to world frame.
 
-  ``pose_mat`` is camera→world 4×4 (row-major), matching SceneScape CameraPose.
+  ``pose_mat`` is camera→world 4×4 (row-major), matching Scenescape CameraPose.
   """
   pm = np.asarray(pose_mat, dtype=np.float32)
   if pm.shape != (4, 4):
@@ -181,7 +181,7 @@ def from_scenescape_detections(
   sigma_px: float = 2.0,
   axis_aware: bool | np.ndarray = True,
 ) -> dict[str, np.ndarray]:
-  """Convert SceneScape detection dicts to a batch frustum result (camera frame).
+  """Convert Scenescape detection dicts to a batch frustum result (camera frame).
 
   ``axis_aware`` may be a single bool or a length-N mask (or per-detection
   ``axis_aware`` / ``axis_aware_sizing`` keys on each detection dict).

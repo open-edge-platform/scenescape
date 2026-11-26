@@ -23,7 +23,7 @@ Compose runs Positioning as the host UID/GID so it can read `0600` ONVIF
 credential files. Certificate generation keeps the CA private key at mode `0600`;
 it is only used on the host to sign certificates.
 Positioning connects to the standard broker TLS listener on port 1883, like other
-SceneScape services. It verifies the broker with the CA certificate (`--rootcert`)
+Scenescape services. It verifies the broker with the CA certificate (`--rootcert`)
 and connects with the `positioning.auth` credentials; no client certificate is
 required.
 
@@ -83,7 +83,7 @@ it:
    or **Network services** in the web UI. On Axis, ONVIF settings are under
    **System > ONVIF** after the first web user exists. On TP-Link VIGI, look under
    the network settings for ONVIF.
-2. **Create a dedicated ONVIF account** for SceneScape. Some vendors keep ONVIF users
+2. **Create a dedicated ONVIF account** for Scenescape. Some vendors keep ONVIF users
    separate from web UI users (Axis: **System > Accounts > ONVIF accounts**).
    Choose the lowest role that allows PTZ status and events, typically **Operator**.
    Do not reuse the administrator account.
@@ -93,7 +93,7 @@ it:
 4. **Make sure a media profile has a PTZ configuration.** The poller uses the first
    profile that has one, or the profile named by `profile_token`.
 5. **Synchronize the camera clock with NTP.** Point the camera at the same NTP
-   source as the SceneScape host (**Date and time** settings). WS-Security
+   source as the Scenescape host (**Date and time** settings). WS-Security
    authentication depends on the camera clock; see
    [Troubleshoot ONVIF Access](#troubleshoot-onvif-access).
 6. **Keep the camera's security features enabled.** The poller works with replay
@@ -101,7 +101,7 @@ it:
    Use HTTPS (`"scheme": "https"`, the default) in production and keep certificate
    verification enabled. Set `tls_ca_file` for a private camera CA. If a camera has no
    HTTPS support, explicitly select HTTP only on an isolated network or protected tunnel.
-7. **Allow network access** from the SceneScape host to the camera's ONVIF port. For
+7. **Allow network access** from the Scenescape host to the camera's ONVIF port. For
    move events, the poller uses PullPoint subscriptions, so the camera does not need
    to reach the host. Host HTTP proxy variables are ignored for camera traffic.
 

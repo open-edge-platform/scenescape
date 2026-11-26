@@ -31,7 +31,7 @@ an explicit risk to be measured, not a blocker.
 
 ### Where we are today
 
-SceneScape began as a single monolithic **Controller** that performed
+Scenescape began as a single monolithic **Controller** that performed
 projection, tracking, analytics, event detection, and persistence in one
 Python process (calling C++ via pybind11 for hot paths). ADR 7
 ([Tracker Service](./0007-tracker-service.md)) took the first decomposition

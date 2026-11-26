@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Write the deployment environment file from generated SceneScape secrets.
+"""Write the deployment environment file from generated Scenescape secrets.
 
 Usage:
   python write_deployment_env.py --deploy-dir <deploy_dir>

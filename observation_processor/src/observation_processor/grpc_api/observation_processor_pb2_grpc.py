@@ -34,7 +34,7 @@ class ObservationProcessorServiceStub(object):
   """Converts one camera frame of 2D detections into world-space measurements that are assigned
   directly to robot-vision tracker inputs (rv::tracking::TrackedObject).
 
-  Static data is resolved by the service from the SceneScape database and is not part of this
+  Static data is resolved by the service from the Scenescape database and is not part of this
   contract:
   - camera_id -> camera intrinsics, distortion, image size and pose (extrinsics);
   - scene_id  -> scene mesh and mesh pose (mesh_translation / mesh_rotation / mesh_scale);
@@ -74,7 +74,7 @@ class ObservationProcessorServiceServicer(object):
   """Converts one camera frame of 2D detections into world-space measurements that are assigned
   directly to robot-vision tracker inputs (rv::tracking::TrackedObject).
 
-  Static data is resolved by the service from the SceneScape database and is not part of this
+  Static data is resolved by the service from the Scenescape database and is not part of this
   contract:
   - camera_id -> camera intrinsics, distortion, image size and pose (extrinsics);
   - scene_id  -> scene mesh and mesh pose (mesh_translation / mesh_rotation / mesh_scale);
@@ -123,7 +123,7 @@ class ObservationProcessorService(object):
   """Converts one camera frame of 2D detections into world-space measurements that are assigned
   directly to robot-vision tracker inputs (rv::tracking::TrackedObject).
 
-  Static data is resolved by the service from the SceneScape database and is not part of this
+  Static data is resolved by the service from the Scenescape database and is not part of this
   contract:
   - camera_id -> camera intrinsics, distortion, image size and pose (extrinsics);
   - scene_id  -> scene mesh and mesh pose (mesh_translation / mesh_rotation / mesh_scale);

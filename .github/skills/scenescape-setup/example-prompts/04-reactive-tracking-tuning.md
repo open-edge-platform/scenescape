@@ -11,7 +11,7 @@ running deployment, never proactively during initial Step 1 gathering.
 ## Prompt
 
 ```text
-The SceneScape deployment in ~/deployments/warehouse-demo is up, but tracked people keep
+The Scenescape deployment in ~/deployments/warehouse-demo is up, but tracked people keep
 disappearing and getting new IDs whenever they walk behind a shelf. Can you fix this?
 ```
 

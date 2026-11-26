@@ -225,7 +225,7 @@ Covariance of angular velocity is not published yet.
 
 See [ADR-0019 §Alternatives](../adr/0019-probabilistic-tracking-association.md#alternatives-considered). Design-level notes:
 
-- Full 7D Mahalanobis rejected for association because size/yaw innovation is poorly conditioned for SceneScape projections.
+- Full 7D Mahalanobis rejected for association because size/yaw innovation is poorly conditioned for Scenescape projections.
 - Widening Euclidean radius to “absorb” multi-cam bias rejected; that conflates motion gating with measurement noise and belongs in Phase 2 `R`.
 
 ## 7. Risks and Mitigations

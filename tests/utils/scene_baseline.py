@@ -19,7 +19,7 @@ _UPLOAD_SCENES_DIR = _REPO_ROOT / "tools" / "upload_scenes"
 if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
-from uploader import SceneScapeClient, parse_auth, upload_one, is_application_ready, read_object_library, upload_object_library  # noqa: E402
+from uploader import ScenescapeClient, parse_auth, upload_one, is_application_ready, read_object_library, upload_object_library  # noqa: E402
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
 _OBJECT_LIBRARY_PATH = _RESOURCES_DIR / "object-library.json"
@@ -46,7 +46,7 @@ def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
   @param    archive_keys            keys into SCENE_ARCHIVES to upload
   @return                 dict mapping scene name -> uid
   """
-  client = SceneScapeClient(resturl, verify=rootcert)
+  client = ScenescapeClient(resturl, verify=rootcert)
   user, password = parse_auth(str(auth_path))
   # The port-forward/rollout being ready doesn't mean the server is already
   # accepting connections; retry rather than fail on the first attempt.

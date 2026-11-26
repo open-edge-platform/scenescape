@@ -31,7 +31,7 @@ RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors", "calibration_mark
 log = logging.getLogger("upload-scenes")
 
 
-class SceneScapeClient:
+class ScenescapeClient:
   """The handful of REST calls needed to import a scene and its dependencies."""
 
   def __init__(self, url, verify, restore_ids=False, remote_credentials=None, reuse_existing=False,

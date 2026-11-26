@@ -9,7 +9,7 @@ Replace the skill's hardcoded `download_detection_models.sh` / `check_detection_
 (which fetches `person-detection-retail-0013` directly from `storage.openvinotoolkit.org`) with the
 [Model Download Microservice](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/model-download)
 ephemeral container path. The migration makes the detection model configurable, removes the hard
-dependency on the Open Model Zoo bucket, and aligns SceneScape's model acquisition with the
+dependency on the Open Model Zoo bucket, and aligns Scenescape's model acquisition with the
 shared Open Edge Platform model-download ecosystem.
 
 Basic deployments that omit a `model_id` input continue using the current default model
@@ -95,7 +95,7 @@ support is prioritized.
 
 **Relevant files**
 
-Paths are repo-relative to the SceneScape checkout.
+Paths are repo-relative to the Scenescape checkout.
 
 - `.github/skills/scenescape-setup/SKILL.md` — step 7 prose updated **[done]**; Step 1 inputs table model fields still pending Phase 1.
 - `.github/skills/scenescape-setup/references/pipeline-config.md` — "Planned" note updated to reflect the implemented call **[done]**.

@@ -17,14 +17,14 @@ When placing cameras or interpreting tracked positions on a blueprint/mesh/geosp
 `(0, 0)` is the scene's **bottom-left corner** (not the center). Ground-plane coordinates are in
 meters over `[0, floorWidth] × [0, floorHeight]` (`floorWidth = image_px_width / scale`, similarly
 for height). **Z is up**, ground at `z = 0`. Poses outside that positive range still publish on
-MQTT but fall outside SceneScape's web-UI viewport. Full detail (including OpenCV camera-frame
+MQTT but fall outside Scenescape's web-UI viewport. Full detail (including OpenCV camera-frame
 axes): [scene-and-cameras.md](./scene-and-cameras.md#scene-coordinate-convention).
 
 ## Caveat: manual calibration is required
 
 Auto-reconstruction estimates camera pose (position + orientation) as a side effect of building
 the mesh from captured frames. A pre-made blueprint/GLB/geospatial map has no such frames to
-estimate pose from, so cameras must be calibrated **manually** through the SceneScape web UI (2D
+estimate pose from, so cameras must be calibrated **manually** through the Scenescape web UI (2D
 or 3D calibration UI) after the scene is created. This skill cannot automate that step — it
 requires interactively adding/dragging correspondence points in a browser. Confirm the user
 accepts this tradeoff before proceeding.
@@ -68,7 +68,7 @@ TOKEN=$(curl -sk -X POST https://localhost/api/v1/auth \
 
 ## Computing pixels per meter (floor blueprint only)
 
-A 2D floor blueprint has no inherent scale, so SceneScape needs a `scale` value in
+A 2D floor blueprint has no inherent scale, so Scenescape needs a `scale` value in
 **pixels per meter** to convert calibrated pixel positions to real-world meters. (`.glb`/`.ply`
 meshes and geospatial maps are scaled automatically — skip this section for those.)
 
@@ -104,7 +104,7 @@ curl -sk -X POST https://localhost/api/v1/scene \
   -F "camera_calibration=Manual"
 ```
 
-- `scale` is required (and meaningful) for 2D image maps; for `.glb`/`.ply` meshes SceneScape
+- `scale` is required (and meaningful) for 2D image maps; for `.glb`/`.ply` meshes Scenescape
   auto-computes and overwrites `scale` from an orthographic projection of the mesh — you can omit
   it or pass a placeholder.
 - `camera_calibration=Manual` matches the caveat above and is the default; use `Markerless` instead
@@ -117,7 +117,7 @@ Register a placeholder camera per `camera_id` using
 [scene-and-cameras.md](./scene-and-cameras.md#camera-registration) with this `scene_uid`, then tell
 the user the scene/cameras are created and calibration must be completed manually:
 
-> Log in to the SceneScape web UI at `https://<manager-host>`, open **`<scene_name>`**, click each
+> Log in to the Scenescape web UI at `https://<manager-host>`, open **`<scene_name>`**, click each
 > camera, and use the 2D or 3D calibration UI to align the camera view with the map (add ≥4
 > correspondence points, ideally 8+, avoiding collinear points). Tracked objects will appear once
 > calibration is saved.

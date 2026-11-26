@@ -35,7 +35,7 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 - Keep the existing 7D measurement model **(x, y, z, length, width, height, yaw)**.
 - Do **not** add pitch/roll Kalman states in this decision.
 - The CTRV motion model turns yaw with the estimated turn rate in predict (new with this decision), so yaw follows a turning target between orienting detections.
-- Mark measurements with attribute `has_orientation=true` when the SceneScape detection carried detector `rotation` (`MovingObject.has_detection_rotation`).
+- Mark measurements with attribute `has_orientation=true` when the Scenescape detection carried detector `rotation` (`MovingObject.has_detection_rotation`).
 - On Kalman **correct**:
   - If `has_orientation`: unwrap and correct yaw as today (`deltaTheta`).
   - Else: leave yaw out of the update (reduced update without the yaw row) so position/size still update and yaw only predicts.

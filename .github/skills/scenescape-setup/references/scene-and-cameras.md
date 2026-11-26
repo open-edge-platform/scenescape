@@ -34,14 +34,14 @@ coordinates span `[0, floorWidth] × [0, floorHeight]` in meters, where
 (`scale` is pixels-per-meter). **Z is up**; the ground plane is at `z = 0`.
 
 Camera `translation` / `rotation` values outside that positive XY range are still valid MQTT
-data, but they will not appear in SceneScape's own web UI (the orthographic viewport frames
+data, but they will not appear in Scenescape's own web UI (the orthographic viewport frames
 `bottom = 0` … `top = floorHeight`). A custom consumer that assumes a center origin will look
-correct in isolation while the SceneScape UI looks empty or clustered at a corner — that is an
+correct in isolation while the Scenescape UI looks empty or clustered at a corner — that is an
 origin mismatch, not a tracker or topic bug.
 
-Axes and camera local frame follow OpenCV / SceneScape convention (right-handed, Z-up scene;
+Axes and camera local frame follow OpenCV / Scenescape convention (right-handed, Z-up scene;
 camera identity looks along +Z with image X-right and Y-down). See
-`docs/user-guide/how-to-guides/integrate-cameras-and-sensors.md` in the SceneScape repo.
+`docs/user-guide/how-to-guides/integrate-cameras-and-sensors.md` in the Scenescape repo.
 
 ## Camera Registration
 

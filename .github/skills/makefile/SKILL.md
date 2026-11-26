@@ -1,6 +1,6 @@
 ---
 name: makefile
-description: Use when adding or reviewing SceneScape services or container images, or changing Makefiles, build targets, and build-and-publish CI.
+description: Use when adding or reviewing Scenescape services or container images, or changing Makefiles, build targets, and build-and-publish CI.
 ---
 
 # Makefile Standards for Scenescape

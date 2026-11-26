@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Prompt
 
 ```text
-Deploy SceneScape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have
+Deploy Scenescape in ~/deployments/retail-demo with scene name 'Retail Demo'. I don't have
 live RTSP cameras — use these two recorded videos as the camera feeds instead:
 - cam1: https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam1.mp4
 - cam2: https://github.com/open-edge-platform/scenescape/blob/main/sample_data/demo_scenes/Queuing/video/qcam2.mp4

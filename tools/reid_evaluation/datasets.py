@@ -50,7 +50,7 @@ def import_market1501(root: Path) -> dict:
   return {"dataset": {
     "name": "market1501", "source": "dataset-provided filename annotations",
     "importer": "market1501", "excluded_junk_samples": excluded,
-    "protocol": "SceneScape evaluator; not the official Market-1501 scoring protocol",
+    "protocol": "Scenescape evaluator; not the official Market-1501 scoring protocol",
     "notes": [
       "Training images are not imported. Gallery PID 0 distractors are retained.",
       "Default scoring excludes all same-camera gallery images, including other identities; "

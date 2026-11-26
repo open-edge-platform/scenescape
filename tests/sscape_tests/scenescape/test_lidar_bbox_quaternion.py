@@ -49,7 +49,7 @@ def test_bbox3d_to_quaternion_is_xyzw_y_rotation_matching_velodyne_yaw(bbox3d_to
   q = bbox3d_to_quaternion(yaw)
   assert len(q) == 4
   assert abs(q[0]) < 1e-9 and abs(q[2]) < 1e-9
-  # SceneScape / scipy xyzw: conjugate of Velodyne Rz is Ry(-yaw) packing [0,-sin,0,cos]
+  # Scenescape / scipy xyzw: conjugate of Velodyne Rz is Ry(-yaw) packing [0,-sin,0,cos]
   recovered = -2.0 * math.atan2(q[1], q[3])
   recovered = (recovered + math.pi) % (2 * math.pi) - math.pi
   expected = (yaw + math.pi) % (2 * math.pi) - math.pi

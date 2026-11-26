@@ -9,7 +9,7 @@ import open3d as o3d
 import numpy as np
 import pytest
 
-pytest.importorskip("hloc.pipelines.SceneScape")
+pytest.importorskip("hloc.pipelines.Scenescape")
 
 from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
 from scene_common.mesh_util import extractMeshFromGLB, extractMeshFromImage

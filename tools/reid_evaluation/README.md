@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # ReID Model Evaluation
 
-Create a repeatable offline scorecard for SceneScape's default
+Create a repeatable offline scorecard for Scenescape's default
 `mars-small128` model and future replacements. This tool
 evaluates labeled person crops or cached vectors without modifying a live gallery.
 It does not infer person identities from Tracker IDs.
@@ -38,7 +38,7 @@ namespaced to prevent accidental identity/camera overlap with other datasets.
 excludes all same-camera gallery observations by default, whereas the official
 protocol excludes same-person/same-camera observations. Neither this setting nor
 `--allow-same-camera` reproduces the official protocol. Use these results for
-comparisons under the recorded SceneScape protocol, not published benchmark claims.
+comparisons under the recorded Scenescape protocol, not published benchmark claims.
 No calibration split or unknown-person protocol is automatically invented.
 
 ### NVIDIA PhysicalAI-SmartSpaces Videos
@@ -181,7 +181,7 @@ run on the same 537 queries. It is kept for comparison only.
 | Incorrect accepted matches                       | 0 / 537            |
 | Rejected known-person queries                    | 321 / 537 (59.78%) |
 
-The model is no longer installed in the SceneScape models volume. To reproduce it,
+The model is no longer installed in the Scenescape models volume. To reproduce it,
 download the IR with the Open Model Zoo downloader and run the evaluator with the
 default preprocessing (no `--color-order` override):
 
@@ -319,7 +319,7 @@ tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate --help
 ```
 
 You need Python 3.11+, disk space for crops, and Docker only if copying models
-from a SceneScape volume. Cropping and evaluation themselves run on the host;
+from a Scenescape volume. Cropping and evaluation themselves run on the host;
 Manager, MQTT, Tracker, and the vector database do not need to be running.
 All commands below assume the same repository-root working directory.
 
@@ -692,7 +692,7 @@ are `null`, never fabricated zeros. Peak RSS is process-wide host memory, not GP
 memory or a model-only allocation measurement. CPU time includes the complete
 evaluation; inference/preprocessing have separate timing distributions.
 
-**Not measured:** unique-person-count error, SceneScape's multi-frame voting,
+**Not measured:** unique-person-count error, Scenescape's multi-frame voting,
 enrollment/TTL behavior, GPU utilization, or end-to-end decision latency. Those
 require labeled temporal replay through Tracker/ReID/Analytics, and can build on
 the existing [tracker evaluation harness](../tracker/evaluation/README.md).
