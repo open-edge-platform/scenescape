@@ -26,6 +26,7 @@ class TestConfigsFor:
   @pytest.mark.parametrize("dataset,folder", [
     ("unity", "black_box_unity"),
     ("wildtrack", "black_box_wildtrack"),
+    ("rolling_terrain", "black_box_rolling_terrain"),
   ])
   def test_euclidean_keys_resolve_to_existing_files(self, dataset, folder):
     paths = rbbe.configs_for(dataset, association="euclidean")
@@ -36,6 +37,7 @@ class TestConfigsFor:
   @pytest.mark.parametrize("dataset,folder", [
     ("unity", "black_box_unity"),
     ("wildtrack", "black_box_wildtrack"),
+    ("rolling_terrain", "black_box_rolling_terrain"),
   ])
   def test_mahalanobis_keys_resolve_to_existing_files(self, dataset, folder):
     paths = rbbe.configs_for(dataset, association="mahalanobis")
@@ -67,46 +69,73 @@ class TestConfigsFor:
 
 
 class TestObservationProcessorSwitch:
-  """The service is disabled in shipped configs and enabled only on request."""
+  """Shipped configs set the service; the CLI flag optionally overrides them."""
 
-  @pytest.mark.parametrize("dataset", ["unity", "wildtrack"])
-  def test_disabled_in_every_shipped_config(self, dataset):
+  @pytest.mark.parametrize("dataset,enabled", [
+    ("unity", False),
+    ("wildtrack", False),
+    ("rolling_terrain", True),
+  ])
+  def test_shipped_setting(self, dataset, enabled):
     for path in rbbe.configs_for(dataset, association="both"):
       cfg = yaml.safe_load(path.read_text())
       block = cfg["harness"]["config"]["observation_processor"]
-      assert block["enabled"] is False, path.name
+      assert block["enabled"] is enabled, path.name
       assert block["image"], path.name
 
-  @pytest.mark.parametrize("dataset", ["unity", "wildtrack"])
-  def test_enable_works_for_every_shipped_config(self, dataset):
+  @pytest.mark.parametrize("dataset", ["unity", "wildtrack", "rolling_terrain"])
+  @pytest.mark.parametrize("enabled", [True, False])
+  def test_override_works_for_every_shipped_config(self, dataset, enabled):
     for path in rbbe.configs_for(dataset, association="both"):
       cfg = yaml.safe_load(path.read_text())
-      rbbe._enable_observation_processor(cfg)
-      assert cfg["harness"]["config"]["observation_processor"]["enabled"] is True, path.name
-      assert cfg["pipeline"]["run_name"].endswith(rbbe.OBSERVATION_PROCESSOR_RUN_SUFFIX), path.name
+      name = cfg["pipeline"]["run_name"]
+      rbbe._set_observation_processor(cfg, enabled)
+      assert cfg["harness"]["config"]["observation_processor"]["enabled"] is enabled, path.name
+      assert cfg["pipeline"]["run_name"] == name
 
-  def test_enable_sets_flag_and_suffixes_run_name(self):
-    cfg = yaml.safe_load(rbbe.configs_for()[0].read_text())
-    name = cfg["pipeline"]["run_name"]
-    rbbe._enable_observation_processor(cfg)
-    assert cfg["harness"]["config"]["observation_processor"]["enabled"] is True
-    assert cfg["pipeline"]["run_name"] == name + rbbe.OBSERVATION_PROCESSOR_RUN_SUFFIX
-
-  def test_enable_without_block_raises(self):
+  def test_override_without_block_raises(self):
     cfg = {"pipeline": {"run_name": "X"}, "harness": {"config": {}}}
     with pytest.raises(ValueError, match="observation_processor"):
-      rbbe._enable_observation_processor(cfg)
+      rbbe._set_observation_processor(cfg, True)
 
-  def test_cli_flag_reaches_run_all(self, monkeypatch):
+  def test_label_suffixes_when_enabled(self):
+    cfg = {
+      "pipeline": {"run_name": "Tracker-Service"},
+      "harness": {"config": {"observation_processor": {"enabled": True}}},
+    }
+    rbbe._label_observation_processor_run(cfg)
+    assert cfg["pipeline"]["run_name"] == (
+      "Tracker-Service" + rbbe.OBSERVATION_PROCESSOR_RUN_SUFFIX
+    )
+    rbbe._label_observation_processor_run(cfg)  # idempotent
+    assert cfg["pipeline"]["run_name"].count(rbbe.OBSERVATION_PROCESSOR_RUN_SUFFIX) == 1
+
+  def test_label_skips_when_disabled(self):
+    cfg = {
+      "pipeline": {"run_name": "Tracker-Service"},
+      "harness": {"config": {"observation_processor": {"enabled": False}}},
+    }
+    rbbe._label_observation_processor_run(cfg)
+    assert cfg["pipeline"]["run_name"] == "Tracker-Service"
+
+  def test_rolling_terrain_reports_height_error(self):
+    """Non-planar GT needs LOC_T_Z; DIST_T alone hides mesh/OP height gains."""
+    for path in rbbe.configs_for("rolling_terrain", association="both"):
+      cfg = yaml.safe_load(path.read_text())
+      diagnostic = next(
+        e for e in cfg["evaluators"]
+        if e["class"].endswith("DiagnosticEvaluator")
+      )
+      assert "LOC_T_Z" in diagnostic["config"]["metrics"], path.name
+
+  @pytest.mark.parametrize("flag,expected", [
+    ("--observation-processor", True),
+    ("--no-observation-processor", False),
+    (None, None),
+  ])
+  def test_cli_flag_reaches_run_all(self, monkeypatch, flag, expected):
     seen = {}
     monkeypatch.setattr(rbbe, "run_all", lambda **kw: seen.update(kw) or [])
-    monkeypatch.setattr(sys, "argv", ["prog", "--observation-processor"])
+    monkeypatch.setattr(sys, "argv", ["prog"] + ([flag] if flag else []))
     assert rbbe.main() == 0
-    assert seen["observation_processor"] is True
-
-  def test_cli_default_is_disabled(self, monkeypatch):
-    seen = {}
-    monkeypatch.setattr(rbbe, "run_all", lambda **kw: seen.update(kw) or [])
-    monkeypatch.setattr(sys, "argv", ["prog"])
-    rbbe.main()
-    assert seen["observation_processor"] is False
+    assert seen["observation_processor"] is expected

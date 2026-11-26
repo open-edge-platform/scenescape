@@ -28,7 +28,7 @@ SUPASS='<choose-a-strong-admin-password>' DEMO_REBUILD_IMAGES=false make demo
 
 ### Docker Demo Targets
 
-The Docker demo targets start the common sample video sources and upload the standard demo scenes, then select these services or overlays:
+Most Docker demo targets start the common Retail and Queuing sample video sources and upload those standard demo scenes, then select the services or overlays below. `demo-spp` is different: it uses only the Rolling-terrain scene and its own detection-replay video source (no Retail or Queuing).
 
 | Target                   | Services / behavior                                                                                                                                                                                             |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -38,8 +38,9 @@ The Docker demo targets start the common sample video sources and upload the sta
 | `demo-cluster-analytics` | `demo` plus Cluster Analytics; no Mapping or ReID override.                                                                                                                                                     |
 | `demo-tracker`           | Tracker + Analytics instead of the Scene Controller.                                                                                                                                                            |
 | `demo-lidar`             | `demo` plus the LiDAR/camera intersection fusion overlay. It requires a manually downloaded dataset and first-run model setup; see [Run the LiDAR-Intersection Fusion Demo](../run-lidar-intersection-demo.md). |
+| `demo-spp`               | Tracker + Analytics with the experimental Observation Processor, on the Rolling-terrain scene and its own video source only; see [SPP demo README](../../../../sample_data/spp_demo/README.md).                 |
 
-The `demo-all`, `demo-cluster-analytics`, and `demo-tracker` targets build all service images by default. `demo-lidar` builds the dedicated LiDAR variant. Set `DEMO_REBUILD_IMAGES=false` to skip building when the required images already exist.
+The `demo-all`, `demo-cluster-analytics`, and `demo-tracker` targets build all service images by default; `demo-spp` builds the core, Tracker, ReID and Observation Processor images. `demo-lidar` builds the dedicated LiDAR variant. Set `DEMO_REBUILD_IMAGES=false` to skip building when the required images already exist.
 
 The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
 
@@ -52,7 +53,7 @@ See [Docker Compose Profiles](./deploy-docker.md#docker-compose-profiles) for th
 
 ### Verify
 
-Connect and sign in as described in [Deploy on Docker](./deploy-docker.md#verify-a-successful-deployment). Scenescape provides two scenes, Retail and Queuing, that you can explore running from stored video data.
+Connect and sign in as described in [Deploy on Docker](./deploy-docker.md#verify-a-successful-deployment). For most Docker demo targets, Scenescape provides two scenes, Retail and Queuing, that you can explore running from stored video data. For `demo-spp`, verify the Rolling-terrain scene instead; see the [SPP demo README](../../../../sample_data/spp_demo/README.md).
 
 ### Uploading Your Own Scenes
 
