@@ -540,7 +540,7 @@ def test_real_mesh_and_depth_map_are_ready_before_first_access(tmp_path):
     provider = SceneProvider(media_root=str(tmp_path))
     assert _probe_readiness(provider, False)
     reasoner = provider.get_reasoner("scene", "camera")
-    assert np.isclose(reasoner.depth_map.t_hit_map[5, 5, 0], 3.0, atol=1e-4)
+    assert np.isclose(reasoner.depth_map.t_hit_map[5, 5], 3.0, atol=1e-4)
     first_mesh = provider.get_world_mesh("scene")
     _write_plane_glb(path, 1)
     provider.invalidate()
@@ -551,4 +551,4 @@ def test_real_mesh_and_depth_map_are_ready_before_first_access(tmp_path):
       assert provider.get_world_mesh("scene") is not first_mesh
       refreshed = provider.get_reasoner("scene", "camera")
       assert refreshed is not reasoner
-      assert np.isclose(refreshed.depth_map.t_hit_map[5, 5, 0], 2.0, atol=1e-4)
+      assert np.isclose(refreshed.depth_map.t_hit_map[5, 5], 2.0, atol=1e-4)

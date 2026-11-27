@@ -166,8 +166,8 @@ print(updated_depth, updated_var)
 - **World frame everywhere, `mu` = camera origin.** Occluder/wall depths are camera ranges, so the
   observation rays must emanate from the camera (`mu == extrinsics[:3,3]`). The upstream
   frustum-gaussian "camera frame" schema must be transformed to world before calling here.
-- **`num_layers`.** `1` (first hit) is typical; `> 1` enables depth-peeling (the reasoner keeps the
-  front hit). Default is `4`.
+- **`num_layers`.** Default `1` (first hit only); `> 1` enables depth-peeling (the reasoner keeps
+  the front hit, so results do not change; maps get a layer axis).
 - **Rebuild per camera pose.** The depth map is baked at construction for one `(K, extrinsics)`; make
   a new `AmodalReasoner` if the camera moves. The mesh must be static.
 - **Downward-ish camera.** The floor/occlusion logic assumes a camera angled toward the scene

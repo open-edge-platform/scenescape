@@ -111,7 +111,8 @@ documenting changes in Future Work over silent retunes.
 ## Input / output contract
 
 **Constructor:** mesh, `rwc_z_up` `(3,)`, `K` 3×3 or 3×4, camera→world `4×4`,
-`width`, `height`, optional `num_layers` (default 4; use 1 for first-hit only).
+`width`, `height`, optional `num_layers` (default 1, first hit only; `> 1` enables depth peeling, which no
+step reads beyond the front hit).
 
 **`generate(gaus_rays)` reads:** `mu`, `Sigma`, `ray`, `depth_est`, `depth_lo`,
 `depth_hi`. Other frustum fields (`depth_sigma`, `score`, `edge_valid`) may be

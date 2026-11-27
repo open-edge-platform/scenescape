@@ -10,8 +10,8 @@ The values are exactly those the original implementation used as inline literals
 default arguments (see implementation.md §3); the C++ library mirrors this table 1:1.
 """
 
-# Depth map
-DEFAULT_NUM_LAYERS = 4    # AmodalReasoner depth-peeling layers (DepthMap itself defaults to 1)
+# Depth map (the original AmodalReasoner defaulted to 4 layers; see implementation.md §4)
+DEFAULT_NUM_LAYERS = 1    # depth-peeling layers (first hit only); every consumer reads layer 0
 PEEL_EPS = 1e-4           # ray-advance nudge past each hit (m)
 
 # Frames and probes (Steps 1-6)

@@ -43,7 +43,7 @@ DEFAULT_REST_URL = "https://web.scenescape.intel.com/api/v1"
 DEFAULT_AUTH = "/run/secrets/observation_processor.auth"
 DEFAULT_ROOTCERT = "/run/secrets/certs/scenescape-ca.pem"
 DEFAULT_MEDIA_ROOT = "/workspace/media"
-DEFAULT_NUM_LAYERS = 4
+DEFAULT_NUM_LAYERS = 1  # first hit only; deeper layers are never read
 MAX_SCENE_MESH_BYTES = 100 * 1024 * 1024
 # Cap amodal depth-map bake cost (width * height). 4K UHD is the hard ceiling.
 DEFAULT_MAX_CAMERA_PIXELS = 3840 * 2160
