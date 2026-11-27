@@ -232,10 +232,13 @@ Following are step-by-step instructions for enabling pose estimation for the out
    ```
 
    > [!NOTE]
-   > If the volume already contains `model_configs/model_config.json` from an earlier run, the download is skipped. Remove that file and re-run `make -C model_download install-models` to fetch newly added models:
+   > `install-models` does nothing if the models volume was already populated by an earlier run, so models added since then (such as `yolo11n-pose`) are missing. In that case, delete the `model_configs/model_config.json` marker file that marks the volume as installed, then install again. Already downloaded models are kept.
    >
    > ```bash
+   > # Delete the marker file from the models volume
    > docker run --rm -v scenescape_vol-models:/models alpine rm /models/model_configs/model_config.json
+   > # Re-run the model installation, which also recreates the marker file
+   > make -C model_download install-models
    > ```
 
 2. **Use the predefined pipeline configuration** [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json):
