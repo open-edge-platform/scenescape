@@ -18,7 +18,10 @@ NAMESPACE=scenescape
 WORKINGDIR=$(shell dirname $(shell pwd))
 DEPLOYMENT_TEST=
 TEST_FLAGS=
-# it may need to be increased if all models are being downloaded (see values.yaml)
+# it may need to be increased if all models are being downloaded (see values.yaml).
+# This also bounds the web rollout wait below. The web Deployment's
+# progressDeadlineSeconds defaults to 2400s (web.progressDeadlineSeconds), so
+# raise INSTALL_TIMEOUT to at least that value if the first model download is slow.
 INSTALL_TIMEOUT?=1800s
 
 ifeq ($(DEPLOYMENT_TEST), 1)

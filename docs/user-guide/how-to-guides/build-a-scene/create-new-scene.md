@@ -144,6 +144,10 @@ Using the above example, the form should look like this for the `video0` camera:
 
 Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions for [Calibration with the 2D UI](../calibrate-cameras/use-2D-UI-for-calibration.md) or [Calibration with the 3D UI](../calibrate-cameras/use-3D-UI-for-calibration.md) to manually calibrate each one. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](../calibrate-cameras/autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md).
 
+## Scene Home Page Controls
+
+For a geospatial scene, the scene home page has an **Apply All GLBs** switch in the scene controls. Superusers can turn it on to enable every stored 3D model layer on the scene map, or off to disable all of them. The switch is on by default for new scenes and follows the layers: it is on only when the scene has layers and all of them are enabled. Turning it on or off overrides any per-layer settings. See [Apply All GLBs Switch](configure-geospatial-coordinates.md#apply-all-glbs-switch) for details.
+
 ## Exporting and Importing the scene
 
 Scenescape provides a way to easily transfer a scene configuration from deployment to another through export and import functionality. This greatly reduces time, effort and discrepancies between development and deployment configuration of a scene.

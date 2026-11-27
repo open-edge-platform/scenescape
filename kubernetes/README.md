@@ -113,12 +113,17 @@ helm install scenescape scenescape-chart -n <NAMESPACE> --create-namespace \
 
 Model preparation runs in a separate Job. A lightweight init container in the
 web Deployment waits for its completion marker before web readiness; the
-controller and kubeclient wait for web before starting. Set
+controller and kubeclient wait for web before starting. The init wait is bounded
+by `modelDownload.waitTimeout` (default 1800s). On timeout the init container
+exits with an error that names the model-download Job, instead of waiting
+indefinitely. The web Deployment sets `progressDeadlineSeconds` from
+`web.progressDeadlineSeconds` (default 2400s), so the Kubernetes default of
+600s does not mark a slow first model download as failed. Set
 `modelDownload.enabled=false` only when model files and configuration are
 already available on the models volume.
 The Kubernetes Makefile waits for the web Deployment specifically after Helm
 install; direct Helm users should run
-`kubectl rollout status deployment/scenescape-web-dep -n <NAMESPACE> --timeout=1800s`
+`kubectl rollout status deployment/scenescape-web-dep -n <NAMESPACE> --timeout=2400s`
 to detect model initialization failures without waiting on unrelated services.
 
 The chart manages its PVCs as ordinary release resources. `helm uninstall`

@@ -43,7 +43,7 @@ export OHSOME_API_KEY="your_ohsome_api_key_here"
 1. Sign up for a free key at [HeiGIT's ohsome account portal](https://account.heigit.org/signup).
 2. Set it as the `OHSOME_API_KEY` environment variable. Without it, the `Suggest ROIs with OSM` button is disabled.
 
-Optionally, set `OSM_MAX_ROI_FEATURES` to change the maximum number of OpenStreetMap ways processed per query (default `200`, allowed range `1`–`1000`). Queries returning more ways fail with a request to select a smaller area. Invalid values fall back to the default.
+Optionally, set `OSM_MAX_ROI_FEATURES` to change the maximum number of OpenStreetMap ways processed per query (default `200`, allowed range `1`–`1000`). Queries returning more ways fail with a request to select a smaller area. With an area selection, the limit applies to the selected area plus a 30 m margin rather than the whole scene. Invalid values fall back to the default.
 
 ### Docker Deployment
 

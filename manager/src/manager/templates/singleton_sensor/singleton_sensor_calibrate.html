@@ -70,13 +70,8 @@ SPDX-License-Identifier: Apache-2.0
             />
             <input
               type="hidden"
-              id="map-origin-x"
-              value="{{ objinst.scene.map_origin_x }}"
-            />
-            <input
-              type="hidden"
-              id="map-origin-y"
-              value="{{ objinst.scene.map_origin_y }}"
+              id="map-origin"
+              value="{{ objinst.scene.mapOrigin|join:',' }}"
             />
           </div>
           <svg id="svgout"></svg>

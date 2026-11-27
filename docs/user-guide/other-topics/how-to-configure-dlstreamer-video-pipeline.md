@@ -239,7 +239,7 @@ Once you have an RTSP source reachable from the cluster:
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
 - File-based video sources are not supported for Kubernetes camera pipelines - the per-camera pipeline Pod has no video-file volume mounted. Serve your video over RTSP instead, see [Using Your Own Video Files](#using-your-own-video-files).
 - Cross-stream batching is not supported since in Scenescape Kubernetes deployment each camera pipeline is running in a separate Pod.
-- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
+- Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
 - Pose estimation pipelines using `gvatrack` + `gvainference` (e.g. `yolo11n-pose` + `mars-small128`) are not compatible with `reidPolicy`. These cameras must use `detectionPolicy`. Additionally, the controller `--pose-adjustment` flag cannot be used together with Extended ReID.
 
@@ -284,7 +284,7 @@ This example is taken from the bundled Queuing demo scene: its `mediaserver` ser
 
 `appsink` is the final element in the pipeline, which consumes the processed video and metadata. The `sync=true` parameter ensures the pipeline operates in sync with the video stream.
 
-Read the [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html) for details on how to further configure DL Streamer pipeline and learn how to customize:
+Read the [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/index.html) for details on how to further configure DL Streamer pipeline and learn how to customize:
 
 - Input sources (video files, USB, RTSP streams)
 - Processing parameters
@@ -475,7 +475,7 @@ DL Streamer Pipeline Server supports grouping multiple frames into a single batc
 
 `batch-size` is an optional parameter which specifies the number of input frames grouped together in a single batch.
 
-Read the instructions on how to configure cross stream batching in [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
+Read the instructions on how to configure cross stream batching in [DL Streamer Pipeline Server documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/advanced-guide/detailed_usage/how-to-advanced/cross-stream-batching.html)
 
 ### Adding custom models or input video files to Docker volumes
 

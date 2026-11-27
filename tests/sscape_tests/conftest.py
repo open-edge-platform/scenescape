@@ -13,16 +13,33 @@ works on the host (inside Docker this mapping is done by the Dockerfile
 COPY step).
 """
 
+import functools
 import importlib
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 # Directories that require C++ extensions not available on the host.
 # Listed as paths relative to this conftest's directory.
 _NATIVE_ONLY_DIRS = {"robot_vision"}
+
+@functools.lru_cache(maxsize=None)
+def _glbRendererWorks():
+  """True when the real GLB renderer can be created.
+  Probed in a child process: a broken EGL setup segfaults instead of raising.
+  """
+  probe = "import open3d.visualization.rendering as r; r.OffscreenRenderer(8, 8)"
+  try:
+    result = subprocess.run([sys.executable, "-c", probe], capture_output=True,
+                            timeout=120, check=False)
+  except (OSError, subprocess.TimeoutExpired):
+    return False
+  return result.returncode == 0
 
 # Import controller module
 _controller_src = Path(__file__).resolve().parent.parent.parent / "controller" / "src"
@@ -35,6 +52,15 @@ def pytest_ignore_collect(collection_path, config):
     return True
   if collection_path.name == "test_auto_cam.py" and collection_path.parent.name == "autocamcalib":
     return True
+
+def pytest_collection_modifyitems(config, items):
+  """Skip real GLB render tests when the renderer cannot run here."""
+  marked = [item for item in items if item.get_closest_marker("real_glb_render")]
+  if not marked or _glbRendererWorks():
+    return
+  skip = pytest.mark.skip(reason="needs the real GLB renderer (EGL)")
+  for item in marked:
+    item.add_marker(skip)
 
 # Ensure repo root is on sys.path so "tests.sscape_tests.settings_unittest"
 # and other top-level imports resolve.
@@ -115,3 +141,37 @@ def shutdown_uuid_managers(monkeypatch):
   yield managers
   for manager in managers:
     manager.shutdown()
+
+
+# Stand-ins for the GLB top-view renderer, used only when it cannot run here. Each entry is the
+# (module, attribute) that manager code calls; only modules already imported are patched.
+def _fakeOrthoView(*_args, **_kwargs):
+  return np.zeros((4, 4, 3), dtype=np.uint8), 1.0, [0.0, 0.0]
+
+def _fakeOrthoViewWithMask(*_args, **_kwargs):
+  return np.zeros((4, 4, 3), dtype=np.uint8), 1.0, np.ones((4, 4), dtype=bool)
+
+_GLB_RENDER_STUBS = (
+  ("manager.glb_staging", "generateOrthoView", _fakeOrthoView),
+  ("manager.models", "generateOrthoView", _fakeOrthoView),
+  ("manager.glb_composite", "generateOrthoViewWithMask", _fakeOrthoViewWithMask),
+)
+
+@pytest.fixture(autouse=True)
+def _stub_glb_render_without_egl(request, monkeypatch):
+  """Keep GLB previews off the renderer when it cannot run; real-render tests opt out."""
+  if request.node.get_closest_marker("real_glb_render") or request.node.get_closest_marker("no_glb_stub") or _glbRendererWorks():
+    return
+  for module_name, attr, fake in _GLB_RENDER_STUBS:
+    module = sys.modules.get(module_name)
+    if module is not None:
+      monkeypatch.setattr(module, attr, fake)
+
+@pytest.fixture
+def node_runtime():
+  """Skip locally when Node.js is missing; fail in CI so the JS suites cannot pass by skipping."""
+  if shutil.which("node") is not None:
+    return
+  if os.environ.get("CI", "").strip().lower() in ("1", "true", "yes"):
+    pytest.fail("node is required in CI for the geospatial JS tests")
+  pytest.skip("node not on PATH")

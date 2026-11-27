@@ -52,7 +52,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 1. Click the **Edit** button (pencil icon).
 1. Set `Output geospatial coordinates` to `Yes`.
 1. Input the geospatial coordinates of the four map corners in the JSON format. See the [Conventions](#conventions) section for details on how to specify the input value.
-1. Click the **Save Scene Updates** button. Check for any errors reported and fix them if they appear.
+1. Click the **Save Scene Updates** button. Check for any errors reported and fix them if they appear. A scene with `Output geospatial coordinates` set to `Yes` must keep a map: ticking **Clear** on the map is rejected, so upload a replacement map instead.
 
 ### Conventions
 
@@ -85,6 +85,131 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 **Expected Result**: the `.object[].lat_long_alt` field in the messages contains correct geospatial coordinates of detected objects.
 
+## Using a 3D Model as Scene Map
+
+For scenes that use a 3D model (GLB file) as the map:
+
+### 3D Model Prerequisites
+
+- The scene's **Map Type** is **Geospatial Map**. The 3D model section and the REST endpoints reject other map types.
+- The scene has a saved map centre (latitude and longitude). Until the scene is saved with a map centre, the file picker is disabled and the preview request returns `400`. Select a location on the map as described in [Steps to Leverage Built-In Geospatial Map Creation](#steps-to-leverage-built-in-geospatial-map-creation) and click **Save Scene**.
+- The `.glb` file is no larger than the upload limit. The limit is 132 MB by default and is set by the `GLB_UPLOAD_MAX_SIZE_MB` environment variable of the Manager service (value in MB). A larger file is rejected with `413`. The stock `docker-compose.yml` does not forward this variable, so add it to the Manager service's `environment` to change it. The number of 3D models a scene can hold is set by `GLB_MAX_LAYERS` (see [Multiple 3D Models](#multiple-3d-models)).
+- The scene map is a flat image, not a `.glb`. A model can only be shown on the scene map over a flat base map image. If the scene map is a `.glb`, or a model is applied but no base map image is stored, applying or saving the model is rejected with `400`. Replace the scene map with an image first.
+- Saving, applying, moving, or removing a model requires a superuser account.
+
+### Anchor and Heading
+
+The position of the model on the map is stored as an anchor:
+
+- **Anchor** (`lat`, `lng`): the latitude and longitude of the centre of the model's footprint (its bounding rectangle on the ground plane). A new model starts at the scene's saved map centre. The anchor must be within 50 km of the map centre; the UI warns about a farther position and the API rejects it with `400`.
+- **Heading** (`heading_deg`): the clockwise rotation of the model's +Y axis from true north, in degrees. `0` points north and `90` points east. The UI limits the heading to 0-359.9; the API normalises any value to the range 0 to below 360.
+
+The saved anchor of each model is also reported by `GET /api/v1/scene/<scene_uid>/geospatial-glbs` (see [Multiple 3D Models](#multiple-3d-models)).
+
+### Axis Convention
+
+Scenescape expects an uploaded `.glb` to be Y-up, the glTF standard, and rotates it by `90.0` degrees about X (the scene's **X Rotation**) to bring it into the Z-up scene frame. This is the same convention as for every other uploaded `.glb` map, and a map downloaded from a scene can be uploaded to another scene as is. In the scene frame the X and Y axes span the ground plane and +Z points up. The footprint is the bounding rectangle of the rotated model in the XY plane, and the model is placed so that its lowest point sits at ground level (`z = 0`). The heading is measured from the +Y axis of the model in that Z-up frame (see [Anchor and Heading](#anchor-and-heading)).
+
+Export the model as Y-up. A model that is already Z-up would be rotated onto its side.
+
+### Hybrid View
+
+When a model is shown on the scene map, Scenescape keeps the scene's flat map image as a base layer and places the model over it:
+
+- The 3D scene view draws the base map image as a flat plane at ground level, with the model on top. The **Floor Plane** switch hides or shows the flat plane; the model stays visible.
+- The 3D view frames the base map and the model together.
+- The scene thumbnail shows the model's top-down view composited over the base map image.
+- A scene whose map is a `.glb` with no base map image (a model uploaded directly as the scene map) is a legacy GLB-only scene. It shows only the model, with no flat plane, and the 3D view frames the model alone. Replace its map with an image to use the hybrid view.
+
+### Staging and Saving a Model
+
+1. Click the **Edit** button on the scene.
+1. Scroll to the **3D model (GLB)** section.
+1. Click **Choose File** and select a `.glb` file to upload. The name of the staged file appears beside the button, or **No file selected** when none is chosen. If a model is already staged or saved, you are first asked to confirm replacing it; declining keeps the current model, and a saved model stays in place until you save the new one.
+1. Once the preview appears, set the 3D model's rotation (degrees clockwise from north) by dragging the knob of the rotation dial at the center of the preview. The dial appears when you hover over the preview (or tap it, or focus the knob with the keyboard) and while you rotate; it is hidden while you press or drag the preview, and it never grows beyond 75% of the preview's size when you zoom out. Dragging snaps lightly to 0, 90, 180 and 270 degrees (within 5 degrees); hold **Shift** while dragging to turn snapping off and rotate at a quarter of the speed for fine adjustment. With the knob focused, the arrow keys change the heading by 1 degree (15 with **Shift**). The preview is semi-transparent, so the map beneath stays visible while you match colors and boundaries. The map view does not move when the model is uploaded; pan or zoom the map to find the preview if it sits outside the current view.
+1. Drag the model's preview on the map to reposition it as needed.
+1. Press and hold the model, or drag it, to make it transparent so the map underneath shows through; it returns to its normal opacity when you release.
+1. Click **Save Scene Updates** to store the 3D model and its position with the scene, in the same save as the other scene fields; if that save fails validation, the model is not stored. If the scene has a flat base map image, the model is also applied to the scene map at once; a scene without one keeps the model stored but not applied. You can unapply and reapply the model with the **Show saved 3D model on scene map** checkbox (see below). **Cancel**, next to the file picker, discards the staged model.
+
+### Managing Saved 3D Models
+
+Once a 3D model is saved to a scene:
+
+- The **Saved 3D model** block displays the model filename with **Download** and **Remove** options.
+- The model's top-down preview is drawn on the map as an overlay whenever the scene page loads, whether or not the model is applied to the scene. The same preview image is used in both states; only the outline colour changes. It is drawn semi-transparent, a little less so than the preview shown while staging, so the map underneath stays visible, and it becomes more transparent while you press, drag or rotate it. The overlay is drawn at the scene's saved map view, so pan the map to find it if the model sits outside that view. If the preview cannot be generated, a message appears in the 3D model section instead of the overlay.
+- The **Show saved 3D model on scene map** checkbox controls whether the model is shown on the scene map over the base map image (checked) or shown as a reference overlay only (unchecked). See [Hybrid View](#hybrid-view). A newly saved model starts checked when the scene has a flat base map image. Unchecking the checkbox unapplies the model, and checking it again applies it from the saved state. Changing the checkbox takes effect immediately. The checkbox does not change the model's position. The model's overlay on the map has a green dashed outline while the model is applied and a red dashed outline when it is not applied. While you stage a replacement model, the **Saved 3D model** block and the outline are hidden until you save or cancel.
+- To move or rotate a saved model, drag its overlay on the map and rotate it with the rotation dial on the overlay. To discard unsaved changes to a saved model, reload the page.
+- After the overlay is moved or rotated, a **Save position** button appears next to **Download** and **Remove**. Click it to persist the new position and heading. The button hides again once the saved position matches the overlay. Saving a position while the model is applied also moves the scene map to the new position.
+- **Save Scene Updates** also persists a moved or rotated model. Use it when you are changing other scene settings at the same time: the new position is saved in the same request as those settings. If the save fails validation, nothing is saved, including the moved position. Fix the error, then move the model again.
+- Click **Remove** to delete the saved 3D model (a confirmation dialog appears first). This cannot be undone.
+- If the scene's map, pose, or 3D model was changed (for example from another browser tab) after the page was loaded, **Save Scene Updates** is rejected and the page reloads with the current values. Re-enter your edits and save again.
+
+The following table describes what each action changes. Cameras, regions, sensors, and the scene's local coordinates are never changed by these actions. A placed model uses the local coordinate frame of the map it sits on, with its origin at the south-west corner of that map, so regions, cameras, and sensors stay at the same place on the map, and objects keep the same latitude and longitude, when a model is applied, unapplied, moved, or replaced. The 2D scene views offset the model's image by its position in that frame, so a region drawn on an applied model is stored in the same frame as one drawn on the map.
+
+| Action                                             | Stored model and position                                                                                                             | Scene map                                                                                                                                                                                                                                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Save Scene Updates** (first save or replacement) | Stores the new model file and position. A replaced model and its preview are deleted only after the new model is stored successfully. | If the scene has a flat base map image and the model was not applied, the new model is applied at the saved position. If the model was already applied, the new model replaces it at the saved position. Otherwise the scene map is unchanged.                                             |
+| Checkbox checked (apply)                           | Sets the applied state. The model is kept.                                                                                            | Saves a snapshot of the current scene map in its own file type as the base map, then shows the model over it at the saved position.                                                                                                                                                        |
+| Checkbox unchecked (unapply)                       | Clears the applied state. The model is kept.                                                                                          | Restores the snapshot taken when the model was applied, in its original file type. After a replacement, this is still the original map, not the replaced model. If the scene had no map when the model was applied, the scene map is left empty and must be replaced before the next save. |
+| **Save position**                                  | Updates the saved position.                                                                                                           | If the model is applied, the scene map moves to the new position immediately. If not, only the saved position changes.                                                                                                                                                                     |
+| **Save Scene Updates** (moved model)               | Updates the saved position in the same save as the other scene fields.                                                                | If the model is applied, the scene map moves to the new position in the same save. If the save fails, neither the position nor the other fields change.                                                                                                                                    |
+| **Remove**                                         | Deletes the model file, its preview, and its position.                                                                                | If the model is applied, the original map is restored first.                                                                                                                                                                                                                               |
+| **Apply All GLBs** on                              | Enables every stored model, which overwrites their individual enabled states. This cannot be undone.                                  | Saves a snapshot of the current scene map as the base map unless a model is already applied, then rebuilds the scene map from the base map and all models. Needs a flat base map image, otherwise it is rejected with `400`.                                                              |
+| **Apply All GLBs** off                             | Disables every stored model, which clears their individual enabled states. The models are kept. This cannot be undone.                | Restores the snapshot taken when the models were applied, in its original file type.                                                                                                                                                                                                       |
+
+### Uploading a Replacement 3D Model
+
+To replace a saved 3D model:
+
+1. Upload a new file using the file picker; the new model appears as a preview on the map, with a **Cancel** button next to the picker.
+1. Adjust the heading and position as needed (the preview starts at the saved model's position).
+1. Click **Save Scene Updates** to replace the saved model. If the scene has a flat base map image, the new model is applied at the new position, as with a first save. Otherwise the scene map is unchanged and the new model stays unapplied. If the save fails, the saved model is kept unchanged.
+1. Click **Cancel** to discard the staged file and return to the saved model.
+
+### Multiple 3D Models
+
+A scene can hold up to `GLB_MAX_LAYERS` 3D models, called layers. The default is `100`. Set `GLB_MAX_LAYERS` in the Manager service's environment to a different number to change the limit, or to `1` for the single-model behaviour described above. With Docker Compose the stock `docker-compose.yml` forwards `GLB_MAX_LAYERS` from the shell or `.env` file (default `100`). With the Helm chart, set `web.glbMaxLayers` (default `100`). The add-layer control in the 3D model section appears only when the limit is above `1`.
+
+- Each layer has its own file, anchor and heading, and applied state.
+- Layers are numbered 1, 2, and so on in draw order, and the order cannot be changed. When the scene has two or more layers, each layer's panel shows its number as a badge at the top-left corner of the panel. The number is also shown in a badge at the NW corner of the layer's footprint on the scene map. A single layer is not numbered. Numbers follow the saved draw order, so removing a layer renumbers the layers after it.
+- A saved layer's panel shows the first 8 characters of its ID after the file name. Hover over the ID to see the full ID.
+- The frame of each layer on the scene map is 5 px wide. Its colour shows whether the layer is applied (green) or not (red).
+- A new layer is placed on the scene map only when it is enabled and the scene has a flat base map image. Otherwise it is stored disabled. The enabled layers are combined into the scene map.
+- Replacing the file of an existing layer does not count toward the limit. Adding a layer to a scene that already holds `GLB_MAX_LAYERS` layers is rejected with `409`.
+- Removing a layer deletes its file and preview. If it was enabled, the scene map is rebuilt without it.
+- The 50 km anchor limit, the file size limit, and the superuser requirement apply to each layer.
+
+The layer endpoints are:
+
+- `GET /api/v1/scene/<scene_uid>/geospatial-glbs`: list the layers and `max_layers`.
+- `POST /api/v1/scene/<scene_uid>/geospatial-glbs`: store a staged file as a new layer, or as the new file of `layer_id`.
+- `PUT /api/v1/scene/<scene_uid>/geospatial-glbs/<layer_id>`: move a layer or place it on the map (`enabled`).
+- `DELETE /api/v1/scene/<scene_uid>/geospatial-glbs/<layer_id>`: remove a layer.
+- `GET /api/v1/scene/<scene_uid>/geospatial-glbs/<layer_id>/download`: download the layer's file.
+
+The single-model routes under `/geospatial-glb` were replaced by these routes. Clients that used them must switch to the layer routes.
+
+### Apply All GLBs Switch
+
+The scene home page has an **Apply All GLBs** switch for geospatial scenes. It is shown in the scene controls and is available only to superusers; other users see it disabled.
+
+- **Where the state is stored:** the switch reads and writes a server-side flag on the scene (`glb_apply_all`). It is not kept in the browser, so the switch shows the same state on every browser and after a reload.
+- **Default:** new scenes start with the switch on. Existing geospatial scenes are set once, when the Manager is upgraded: the switch is on only if a 3D model is applied to the scene map (a base map image is in use) and every layer is enabled, and off otherwise. Scenes of other map types have no switch and are not changed.
+- **Switch on:** every stored layer is enabled and the scene map is rebuilt from the base map image and all layers. This overrides per-layer settings, so a layer that was turned off individually is turned back on.
+- **Switch off:** every layer is disabled and the scene map is restored to the base map image.
+- **The switch follows the layers.** It is on only when the scene has at least one layer and every layer is enabled. Enabling or disabling a single layer, adding or removing a layer, and uploading a flat map image over an applied model (which disables every layer) all update the stored value in the same save, so the switch shows the new state when the page is loaded again. A new scene with no layers shows the switch on until its first layer change. Turning the switch on for a scene with no layers is accepted, changes nothing, and leaves the switch off.
+- **Not reversible:** turning the switch on overwrites the per-layer enabled states and turning it off clears them. The previous per-layer states are not remembered, so turning the switch on again does not bring back a layer selection that was made before.
+- Turning the switch on requires a flat base map image for the scene. Without one the request is rejected with `400`, the switch returns to its previous state, and an alert shows the reason. The scene's map and layers are not changed.
+- The page reloads after a successful change, because the map image, scale, and map origin depend on the scene map.
+
+The switch uses this endpoint:
+
+- `PUT /api/v1/scene/<scene_uid>/geospatial-glbs/apply-all`: body `{"apply": true}` or `{"apply": false}`. The response has `glb_apply_all`, `scene_fields`, and `state_token`. A non-boolean `apply` or a scene that is not a geospatial map is rejected with `400`, and an unknown scene with `404`. Superusers only: non-superuser and anonymous callers get `403`.
+
+### Effect on Running Services
+
+Every save that changes the scene, including applying, unapplying, moving, replacing, or removing a 3D model, makes the Manager publish a database update notice over MQTT when the change is committed. The Scene Controller and Analytics services react to it by reloading the scenes from the Manager, so no restart is needed. When the scene data changed, the Scene Controller builds a new scene with a new tracker, so tracking in that scene starts over and object IDs can change.
+
 ## REST API Reference
 
 Geospatial output can also be configured without the UI by creating the scene first (see
@@ -110,5 +235,5 @@ curl -sk -X PUT https://<manager-host>/api/v1/scene/<scene_uid> \
 - `map_corners_lla` is required whenever `output_lla` is `true` — the request is rejected
   otherwise.
 - The four corners follow the same counterclockwise-from-lower-left convention described in
-  [Conventions](#conventions) above.
+  [Conventions](#conventions) above (clockwise from the lower left is accepted as well).
 - Full field reference: [API Reference](../../api-reference.md) (`Scene` schema).

@@ -1225,7 +1225,9 @@ class SceneSerializer(NonNullSerializer):
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
               'map_center_lat', 'map_center_lng', 'map_bearing', 'map_contributor',
-              'source', 'map_source', 'mapping_artifacts', 'calibration_markers']
+              'source', 'map_source', 'mapping_artifacts', 'calibration_markers',
+              'base_map', 'base_scale']
+    read_only_fields = ['base_map', 'base_scale']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:

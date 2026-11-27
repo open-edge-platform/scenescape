@@ -24,7 +24,7 @@ separate, opt-in Scenescape demo that fuses a recorded LiDAR point-cloud
 stream with a recorded camera image sequence of the same real-world
 intersection. It is fully independent from the default apriltag/queuing demo:
 all of its data, scene configuration, and pipeline assets live under
-[sample_data/lidar_intersection/](https://github.com/open-edge-platform/scenescape/tree/main/sample_data/lidar_intersection)
+[sample_data/lidar_intersection/](https://github.com/open-edge-platform/scenescape/tree/release-2026.3.0/sample_data/lidar_intersection)
 and it is started with its own dedicated `make demo-lidar` target, so it
 never affects the standard `make demo` deployment.
 
@@ -90,7 +90,7 @@ in the steps below watches it).
 ### PointPillars model initialization
 
 `lidar-model-init` runs
-[model_installer/install-pointpillars](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/lidar_intersection/model_installer/install-pointpillars),
+[model_installer/install-pointpillars](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/sample_data/lidar_intersection/model_installer/install-pointpillars),
 which turns a pinned upstream commit into everything `g3dinference` needs at
 runtime, all written into `vol-models`:
 
@@ -164,8 +164,8 @@ full dataset, license terms, and citation details.
   fine without a GPU). Install/verify drivers with the
   [DL Streamer prerequisites script](https://github.com/open-edge-platform/dlstreamer/blob/main/scripts/DLS_install_prerequisites.sh)
   (`./DLS_install_prerequisites.sh`) or see the
-  [DL Streamer system requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
-  and [install guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html)
+  [DL Streamer system requirements](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/get_started/system_requirements.html)
+  and [install guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/get_started/install/install_guide_ubuntu.html)
   for details (NPU is not used by this demo, but the same script covers it).
   > **Performance note:** running the LiDAR branch without a GPU
   > (`LIDAR_DEVICE=CPU`, see [Using GPU acceleration](#using-gpu-acceleration))
@@ -272,7 +272,7 @@ and finishes in seconds:
 
 `lidar-scene-init` waits for the Manager (`web`) to become healthy, then
 imports
-[sample_data/lidar_intersection/LidarIntersection-scene-import.zip](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/lidar_intersection/LidarIntersection-scene-import.zip)
+[sample_data/lidar_intersection/LidarIntersection-scene-import.zip](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/sample_data/lidar_intersection/LidarIntersection-scene-import.zip)
 via the Scene Import REST API (`POST /api/v1/import-scene/`) - no manual
 step, and no Manager source or DB-fixture changes are needed. It checks
 `GET /api/v1/scenes` first and skips the import if a scene named "Lidar

@@ -126,11 +126,19 @@ def calculateHeading(trs_mat, map_pt, velocity):
   bearing = math.atan2(x, y)
   return np.rad2deg(bearing) % 360
 
-def _signedArea(xs, ys):
+def signedArea(xs, ys):
   """! Shoelace signed area of the polygon with vertices (xs[i], ys[i]).
   @returns    float    Positive when the vertices run counterclockwise, negative when clockwise
   """
   return 0.5 * np.sum(xs * np.roll(ys, -1) - np.roll(xs, -1) * ys)
+
+def _geographicSignedArea(lla_pts):
+  """! Signed area of the corner polygon in (longitude offset from the first corner, latitude).
+  Longitude differences are wrapped to [-180, 180) so a polygon crossing the antimeridian keeps its winding.
+  @returns    float    Positive when the corners run counterclockwise, negative when clockwise
+  """
+  lon_diff = _wrapDegrees180(lla_pts[:, 1] - lla_pts[0, 1])
+  return signedArea(lon_diff, lla_pts[:, 0])
 
 def alignCornerWinding(map_xyz_pts, lla_pts):
   """! Orders four geographic map corners so they run in the same rotational direction as the
@@ -151,10 +159,8 @@ def alignCornerWinding(map_xyz_pts, lla_pts):
   lla_pts = np.asarray(lla_pts)
   if map_xyz_pts.shape[0] != 4 or lla_pts.shape[0] != 4:
     return lla_pts
-  local_area = _signedArea(map_xyz_pts[:, 0], map_xyz_pts[:, 1])
-  # Wrap longitude differences to [-180, 180) so a map crossing the antimeridian keeps its winding
-  lon_diff = (lla_pts[:, 1] - lla_pts[0, 1] + 180.0) % 360.0 - 180.0
-  geo_area = _signedArea(lon_diff, lla_pts[:, 0])
+  local_area = signedArea(map_xyz_pts[:, 0], map_xyz_pts[:, 1])
+  geo_area = _geographicSignedArea(lla_pts)
   if np.sign(local_area) * np.sign(geo_area) < 0:
     return lla_pts[[0, 3, 2, 1]]
   return lla_pts
@@ -197,3 +203,124 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float 
                                                  lla_pts[:, 2] + z_shift])])
   trs_mat = convertLLAToCartesianTRS(map_xyz_pts, lla_pts)
   return trs_mat
+
+def llaToFrameLocalXY(frame_corners_lla, lat, lng):
+  """! Local (x, y) metres of a geographic point in a map frame.
+
+  The frame's origin is its south-west corner and its axes follow the frame's own edges, the same
+  frame as the local coordinates of an image map spanning frame_corners_lla.
+
+  @param      frame_corners_lla  Four frame corners in LLA, in either winding
+  @param      lat                Latitude of the point in degrees
+  @param      lng                Longitude of the point in degrees
+  @returns    numpy.ndarray      [x, y] in metres
+  """
+  _, _, _, width, height = footprintAnchorFromCornersLLA(frame_corners_lla)
+  frame_corners_local = np.array([
+    [0.0, 0.0, 0.0],
+    [width, 0.0, 0.0],
+    [width, height, 0.0],
+    [0.0, height, 0.0]
+  ])
+  frame_trs = calculateTRSLocal2LLAFromSurfacePoints(frame_corners_local, frame_corners_lla)
+  point_ecef = convertLLAToECEF([lat, lng, 0.0])
+  return (np.linalg.inv(frame_trs[:3, :3]) @ (point_ecef - frame_trs[:3, 3]))[:2]
+
+def _wrapDegrees180(deg):
+  """! Wrap an angle in degrees into [-180, 180)."""
+  return ((deg + 180.0) % 360.0) - 180.0
+
+def _localTangentRadii(lat_rad):
+  """! WGS-84 meridional radius (M), prime-vertical radius (N), and cos(lat) at a latitude.
+
+  @param      lat_rad         Latitude in radians
+  @returns    tuple           (M, N, cos_lat) in metres and unitless
+  """
+  e_sq = 1.0 - POLAR_RADIUS**2 / EQUATORIAL_RADIUS**2
+  denom = math.sqrt(1.0 - e_sq * math.sin(lat_rad)**2)
+  M = EQUATORIAL_RADIUS * (1.0 - e_sq) / (denom**3)
+  N = EQUATORIAL_RADIUS / denom
+  return M, N, math.cos(lat_rad)
+
+def _orderCornersSWSENENW(corners_lla):
+  """! Return four LLA corners in SW, SE, NE, NW order, accepting either winding.
+
+  Map providers emit SW, NW, NE, SE (clockwise) while mesh footprints emit SW, SE, NE, NW
+  (counter-clockwise). Clockwise input is reversed after SW so SW stays first. Degenerate
+  (zero-area) input is returned unchanged.
+
+  @param      corners_lla     Corners as (4,N) array with lat, lng in the first two columns
+  @returns    ndarray         Corners in SW, SE, NE, NW order
+  """
+  if _geographicSignedArea(corners_lla) < 0:
+    return corners_lla[[0, 3, 2, 1]]
+  return corners_lla
+
+def footprintAnchorFromCornersLLA(corners_lla):
+  """! Recover footprint centre, heading, and dimensions from LLA corners.
+  Inverse of a centre/heading/size footprint construction, using the same local-tangent approximation.
+  Accepts SW, SE, NE, NW (counter-clockwise) or SW, NW, NE, SE (clockwise, as emitted by
+  the map providers); the winding is detected from the corner positions.
+
+  @param      corners_lla     Corners as (4,3) array: [lat,lng,alt] in either winding
+  @returns    tuple           (lat, lng, heading_deg, width_m, height_m)
+  """
+  corners_lla = np.asarray(corners_lla)
+
+  # Validate input
+  if corners_lla.ndim != 2:
+    raise ValueError(f"Corners must be a 2-D array, got shape {corners_lla.shape}")
+  if corners_lla.shape[0] != 4:
+    raise ValueError(f"Expected exactly 4 corners, got {corners_lla.shape[0]}")
+  if corners_lla.shape[1] < 2:
+    raise ValueError(f"Each corner must have at least lat,lng, got shape {corners_lla.shape}")
+  if not np.isfinite(corners_lla).all():
+    raise ValueError("All corner coordinates must be finite (not NaN or inf)")
+
+  corners_lla = _orderCornersSWSENENW(corners_lla)
+
+  # Extract corners: SW, SE, NE, NW
+  sw = corners_lla[0, :2]  # [lat, lng]
+  se = corners_lla[1, :2]
+  ne = corners_lla[2, :2]
+  nw = corners_lla[3, :2]
+
+  # Centre is the mean of the four corners. Longitudes are unwrapped relative to SW before
+  # averaging so a footprint crossing the antimeridian is not centred near 0°.
+  center_lat = np.mean([sw[0], se[0], ne[0], nw[0]])
+  lngs_unwrapped = [sw[1]] + [sw[1] + _wrapDegrees180(p[1] - sw[1]) for p in (se, ne, nw)]
+  center_lng = _wrapDegrees180(np.mean(lngs_unwrapped))
+
+  lat_rad = np.deg2rad(center_lat)
+  M, N, cos_lat = _localTangentRadii(lat_rad)
+
+  # Helper: convert LLA difference to local (east, north) metres at centre
+  def lla_to_local(pt_lla):
+    pt_lat_rad = np.deg2rad(pt_lla[0])
+    dlat_rad = pt_lat_rad - lat_rad
+    dlng_rad = np.deg2rad(_wrapDegrees180(pt_lla[1] - center_lng))
+    north = dlat_rad * M
+    east = dlng_rad * N * cos_lat
+    return east, north
+
+  # Convert corners to local (east, north)
+  se_east, se_north = lla_to_local(se)
+  sw_east, sw_north = lla_to_local(sw)
+  nw_east, nw_north = lla_to_local(nw)
+
+  # Width = |SE - SW| (along local y=0 line), Height = |NW - SW| (along x=0 line)
+  se_minus_sw_east = se_east - sw_east
+  se_minus_sw_north = se_north - sw_north
+  width_m = math.sqrt(se_minus_sw_east**2 + se_minus_sw_north**2)
+
+  nw_minus_sw_east = nw_east - sw_east
+  nw_minus_sw_north = nw_north - sw_north
+  height_m = math.sqrt(nw_minus_sw_east**2 + nw_minus_sw_north**2)
+
+  # Heading: local +X axis (SW->SE) direction has (east, north) = (cos psi, -sin psi)
+  # So psi = atan2(-north_of_SE_minus_SW, east_of_SE_minus_SW)
+  heading_rad = math.atan2(-se_minus_sw_north, se_minus_sw_east)
+  heading_deg = np.rad2deg(heading_rad)
+  heading_deg = heading_deg % 360.0  # Normalise to [0, 360)
+
+  return (center_lat, center_lng, heading_deg, width_m, height_m)

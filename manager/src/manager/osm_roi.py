@@ -19,7 +19,7 @@ import numpy as np
 from shapely import BufferCapStyle
 from shapely.geometry import LineString, Polygon, box
 
-from scene_common.earth_lla import convertLLAToECEF
+from scene_common.earth_lla import convertLLAToECEF, convertXYZToLLA
 
 from . import osm_query
 from .models import Scene
@@ -52,6 +52,9 @@ ROAD_WIDTH_BY_TYPE_M = {
   "motorway": 14.0,
 }
 DEFAULT_ROAD_WIDTH_M = 4.0
+
+# shortcut: fixed margin, roads wider than 60 m at the selection edge may be missed; upgrade to per-way width if needed
+SELECTION_MARGIN_M = 30.0
 
 # Human-readable labels for OSM way types
 OSM_TYPE_LABELS = {
@@ -428,12 +431,13 @@ def _cache_is_current(scene: Scene, current_bbox: List[float]) -> bool:
 
 def _get_or_fetch_ways(scene: Scene) -> List[Dict[str, Any]]:
   """Return OSM ways for the scene, using the cache when it's still valid for the current bbox."""
-  if not scene.map_corners_lla:
+  frame_corners = scene.frameCornersLLA()
+  if not frame_corners:
     raise OsmRoiError(
       "Scene map corners (map_corners_lla) not set; cannot derive OSM query bounding box"
     )
 
-  south, west, north, east = bbox_from_map_corners(scene.map_corners_lla)
+  south, west, north, east = bbox_from_map_corners(frame_corners)
   current_bbox = [south, west, north, east]
 
   if _cache_is_current(scene, current_bbox):
@@ -444,6 +448,23 @@ def _get_or_fetch_ways(scene: Scene) -> List[Dict[str, Any]]:
   scene.osm_ways_cache_bbox = current_bbox
   scene.save(update_fields=["osm_ways_cache", "osm_ways_cache_bbox"])
   return ways
+
+
+def _selection_query_bbox(trs_matrix: List[List[float]], bounds: Dict[str, float]) -> Tuple[float, float, float, float]:
+  """LLA (south, west, north, east) box around a scene-local selection plus SELECTION_MARGIN_M."""
+  trs = np.asarray(trs_matrix, dtype=float)
+  x0, x1 = bounds["minX"] - SELECTION_MARGIN_M, bounds["maxX"] + SELECTION_MARGIN_M
+  y0, y1 = bounds["minY"] - SELECTION_MARGIN_M, bounds["maxY"] + SELECTION_MARGIN_M
+  corners = [convertXYZToLLA(trs, np.array([x, y, 0.0])) for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+  lats = [c[0] for c in corners]
+  lngs = [c[1] for c in corners]
+  return min(lats), min(lngs), max(lats), max(lngs)
+
+
+def _fetch_selection_ways(trs_matrix: List[List[float]], bounds: Dict[str, float]) -> List[Dict[str, Any]]:
+  """Uncached, unclipped query for a selection; a partial result must not overwrite the scene cache."""
+  south, west, north, east = _selection_query_bbox(trs_matrix, bounds)
+  return osm_query.query_osm_ways_geometry(south, west, north, east, clip=False)
 
 
 def _way_local_coords(trs_inv, coords_lla) -> Optional[List[Tuple[float, float]]]:
@@ -477,17 +498,21 @@ def _previews_for_way(way: Dict[str, Any], trs_inv) -> List[Dict[str, Any]]:
   ]
 
 
-def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
+def build_roi_previews(scene: Scene, bounds: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
   """Fetch OSM ways, convert to local coordinates, buffer to polygons, name them, assign UUID.
 
-  The bounding box is derived from the scene's saved map_corners_lla, so no
-  per-call bbox input is needed. Raw OSM way geometries are cached on the
-  scene (osm_ways_cache + osm_ways_cache_bbox) so repeated ROI generation doesn't
-  re-hit the OSM API. The cache is automatically invalidated if map_corners_lla
-  changes, ensuring previews always reflect the current map location.
+  Without bounds, the bounding box is derived from the scene's saved map_corners_lla.
+  Raw OSM way geometries are cached on the scene (osm_ways_cache + osm_ways_cache_bbox)
+  so repeated ROI generation doesn't re-hit the OSM API. The cache is automatically
+  invalidated if map_corners_lla changes, ensuring previews always reflect the current
+  map location.
+
+  With bounds (scene-local selection), only ways near the selection are fetched and
+  nothing is cached, so the feature cap applies to the selection rather than the scene.
 
   Args:
     scene: Scene object with trs_matrix and map_corners_lla populated.
+    bounds: optional {minX, minY, maxX, maxY} selection in scene-local meters.
 
   Returns:
     list of preview dicts: {"uuid": str, "type": str, "points": [[x,y],...],
@@ -499,7 +524,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
   if not scene.trs_matrix:
     raise OsmRoiError(TRS_MATRIX_NOT_READY_MSG)
 
-  ways = _get_or_fetch_ways(scene)
+  ways = _get_or_fetch_ways(scene) if bounds is None else _fetch_selection_ways(scene.trs_matrix, bounds)
 
   trs_inv = _invert_trs(scene.trs_matrix)
   previews = []

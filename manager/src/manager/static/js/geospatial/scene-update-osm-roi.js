@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+/* global requestJson */
+
 /**
  * OSM ROI generation for Regions tab.
  *
@@ -64,35 +66,21 @@ async function generateRoisFromOsm() {
     '<div class="alert alert-info">Generating ROI preview...</div>';
 
   try {
-    const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
-    if (!csrfToken) {
-      throw new Error("CSRF token not found");
-    }
-
     // If the user dragged out a selection area, ask the server to keep only
     // ROIs that at least partially overlap it (full shape intact, not clipped).
     const selectionBounds = getSelectionBoundsMeters();
 
-    const previewResponse = await fetch(
+    const previewResult = await requestJson(
       `/api/v1/scene/${encodeURIComponent(sceneUID.value)}/osm-roi-previews`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": csrfToken.value,
-        },
-        body: JSON.stringify({
+        requireCsrf: true,
+        errorMessage: (status) => `Preview failed (${status})`,
+        body: {
           ...(selectionBounds && { bounds: selectionBounds }),
-        }),
+        },
       },
     );
-
-    const previewResult = await previewResponse.json();
-    if (!previewResponse.ok) {
-      throw new Error(
-        previewResult.error || `Preview failed (${previewResponse.status})`,
-      );
-    }
 
     if (!previewResult.rois || previewResult.rois.length === 0) {
       statusDiv.innerHTML = selectionBounds

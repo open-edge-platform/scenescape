@@ -1,5 +1,7 @@
-// SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+
+/* global getCsrfToken, requestJson */
 
 "use strict";
 
@@ -33,9 +35,7 @@ document.addEventListener("DOMContentLoaded", function () {
       generateButton.innerHTML = "Generating...";
 
       // Get CSRF token
-      const csrfToken = document.querySelector(
-        "[name=csrfmiddlewaretoken]",
-      )?.value;
+      const csrfToken = getCsrfToken();
 
       console.log("Pipeline generator: CSRF token found:", !!csrfToken);
 
@@ -93,21 +93,11 @@ document.addEventListener("DOMContentLoaded", function () {
       );
 
       // Make request to generate pipeline
-      fetch(generatePipelineUrl, {
+      requestJson(generatePipelineUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": csrfToken,
-        },
-        body: JSON.stringify(formData),
+        csrfToken,
+        body: formData,
       })
-        .then((response) => {
-          console.log(
-            "Pipeline generator: Response received:",
-            response.status,
-          );
-          return response.json();
-        })
         .then((data) => {
           console.log("Pipeline generator: Response data:", data);
           if (data.pipeline) {
@@ -125,6 +115,10 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .catch((error) => {
           console.error("Pipeline generator: Error:", error);
+          if (error.data?.error) {
+            alert("Error generating pipeline: " + error.data.error);
+            return;
+          }
           alert(
             "Error generating pipeline. Please check the console for details.",
           );

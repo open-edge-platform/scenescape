@@ -47,6 +47,10 @@ _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
 _CERTMANAGER_READY_TIMEOUT = 600
 _WEB_RESTART_TIMEOUT = 600
+# Web rollout budget. Must cover the chart's web.progressDeadlineSeconds default
+# (2400s), which itself covers the bounded model-download wait (1800s).
+_WEB_ROLLOUT_TIMEOUT = 2400
+_ROLLOUT_TIMEOUT = 1200
 
 # Core images required by the default k8s test Helm values (reid enabled;
 # mapping / clusterAnalytics remain disabled). Matches `make build-core`.
@@ -372,8 +376,10 @@ class K8sManager:
       f'supass: "{self._supass}"\n'
       f'pgserver:\n'
       f'  password: "{self._supass}"\n'
-      # KinD/CI often cannot finish the ~550MB NetVLAD fetch before the
-      # deployment progress deadline; smoke tests do not need markerless.
+      # Smoke tests use AprilTag calibration only. Skipping the autocalibration
+      # NetVLAD sidecar avoids its ~550MB markerless fetch, which is not needed
+      # here. The model-download Job still runs for the rest of the stack
+      # (modelDownload.enabled stays true), and web init waits for it.
       f'autocalibration:\n'
       f'  skipModelDownload: true\n'
       f'reid:\n'
@@ -428,12 +434,17 @@ class K8sManager:
     logger.info("Waiting for core services...")
     for resource in _CORE_RESOURCES:
       logger.info("  Waiting: %s ...", resource)
+      timeout = (
+        _WEB_ROLLOUT_TIMEOUT
+        if resource == f"deployment/{_RELEASE_NAME}-web-dep"
+        else _ROLLOUT_TIMEOUT
+      )
       try:
         self._cluster.kubectl([
           "rollout", "status", resource,
           "-n", _NAMESPACE,
-          "--timeout=1200s",
-        ], as_dict=False, timeout=1260)
+          f"--timeout={timeout}s",
+        ], as_dict=False, timeout=timeout + 60)
       except Exception:
         self._log_resource_failure(resource)
         raise

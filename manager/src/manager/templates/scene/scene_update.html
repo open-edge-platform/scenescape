@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -32,6 +32,17 @@ SPDX-License-Identifier: Apache-2.0
     <div class="card-body">
       <form enctype="multipart/form-data" method="post" id="scene_update_form">
         {% csrf_token %}
+        <input
+          type="hidden"
+          name="glb_state_token"
+          id="id_glb_state_token"
+          value="{{ glb_state_token }}"
+        />
+        {% if stale_form_notice %}
+          <div class="alert alert-warning" role="alert">
+            {{ stale_form_notice }}
+          </div>
+        {% endif %}
         {% if form.non_field_errors %}
           <div class="alert alert-danger" role="alert">
             {% for error in form.non_field_errors %}
@@ -192,6 +203,220 @@ SPDX-License-Identifier: Apache-2.0
           <label class="col-sm-2 col-form-label">Map</label>
           <div class="col-sm-10">
             <div id="map"></div>
+          </div>
+        </div>
+
+        <!-- GLB alignment - only visible for geospatial -->
+        <div
+          class="form-group row"
+          id="glbAlignRow"
+          style="display:none;"
+          data-scene-id="{{ scene.id }}"
+          data-max-upload-bytes="{{ glb_max_upload_bytes|stringformat:'d' }}"
+          data-max-anchor-km="{{ glb_max_anchor_km }}"
+          data-max-layers="{{ glb_max_layers }}"
+        >
+          <label class="col-sm-2 col-form-label" for="glbFileInput"
+            >3D model (GLB)</label
+          >
+          <div class="col-sm-10">
+            <small id="glbAlignHint" class="form-text text-muted"></small>
+            <div id="glbPanels">
+              <div
+                id="glbLayerPanel"
+                class="glb-layer-panel mb-3 p-3 border rounded bg-light"
+              >
+                <div class="d-flex align-items-center">
+                  <span
+                    id="glbLayerBadge"
+                    class="glb-layer-badge mr-2"
+                    role="img"
+                    style="display:none;"
+                  ></span>
+                  <div id="glbFileWrap" class="glb-file-picker">
+                    <input
+                      type="file"
+                      id="glbFileInput"
+                      class="glb-file-input"
+                      accept=".glb"
+                    />
+                    <label
+                      id="glbFileLabel"
+                      for="glbFileInput"
+                      class="btn btn-sm btn-outline-secondary mb-0"
+                      >Choose File</label
+                    >
+                    <span
+                      id="glbFileStatus"
+                      class="glb-file-status text-muted"
+                    ></span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary ml-2"
+                    id="glbCancel"
+                    style="display:none;"
+                    title="Discard the uploaded 3D model"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <small id="glbFootprint" class="form-text text-muted"></small>
+                <div
+                  id="glbAlignStatus"
+                  role="status"
+                  aria-live="polite"
+                  class="mt-2"
+                ></div>
+                <div id="glbSavedBlock" style="display:none;" class="mt-3">
+                  <div class="mb-2">
+                    <strong>Saved 3D model:</strong>
+                    <span id="glbSavedFilename"></span>
+                    <small
+                      id="glbLayerId"
+                      class="text-monospace text-muted ml-2"
+                    ></small>
+                  </div>
+                  <div class="mb-2">
+                    <a
+                      id="glbDownloadLink"
+                      href="#"
+                      class="btn btn-sm btn-outline-primary"
+                      download
+                      >Download</a
+                    >
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      id="glbRemoveBtn"
+                    >
+                      Remove
+                    </button>
+                    <span id="glbSavePositionWrap" class="d-inline-block">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        id="glbSavePosition"
+                        style="display:none;"
+                      >
+                        Save position
+                      </button>
+                    </span>
+                  </div>
+                  <div class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      id="glbUse"
+                    />
+                    <label class="form-check-label" for="glbUse"
+                      >Show saved 3D model on scene map</label
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-dark mt-2"
+              id="glbAddLayer"
+              style="display:none;"
+            >
+              Add 3D model
+            </button>
+            <!-- Markup of one extra GLB layer panel; the script clones it and suffixes the ids. -->
+            <template id="glbPanelTemplate">
+              <div class="glb-layer-panel mb-3 p-3 border rounded bg-light">
+                <div class="d-flex align-items-center">
+                  <span
+                    id="glbLayerBadge"
+                    class="glb-layer-badge mr-2"
+                    role="img"
+                    style="display:none;"
+                  ></span>
+                  <div id="glbFileWrap" class="glb-file-picker">
+                    <input
+                      type="file"
+                      id="glbFileInput"
+                      class="glb-file-input"
+                      accept=".glb"
+                    />
+                    <label
+                      id="glbFileLabel"
+                      for="glbFileInput"
+                      class="btn btn-sm btn-outline-secondary mb-0"
+                      >Choose File</label
+                    >
+                    <span
+                      id="glbFileStatus"
+                      class="glb-file-status text-muted"
+                    ></span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary ml-2"
+                    id="glbCancel"
+                    style="display:none;"
+                    title="Discard the uploaded 3D model"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <small id="glbFootprint" class="form-text text-muted"></small>
+                <div
+                  id="glbAlignStatus"
+                  role="status"
+                  aria-live="polite"
+                  class="mt-2"
+                ></div>
+                <div id="glbSavedBlock" style="display:none;" class="mt-3">
+                  <div class="mb-2">
+                    <strong>Saved 3D model:</strong>
+                    <span id="glbSavedFilename"></span>
+                    <small
+                      id="glbLayerId"
+                      class="text-monospace text-muted ml-2"
+                    ></small>
+                  </div>
+                  <div class="mb-2">
+                    <a
+                      id="glbDownloadLink"
+                      href="#"
+                      class="btn btn-sm btn-outline-primary"
+                      download
+                      >Download</a
+                    >
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      id="glbRemoveBtn"
+                    >
+                      Remove
+                    </button>
+                    <span id="glbSavePositionWrap" class="d-inline-block">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-primary"
+                        id="glbSavePosition"
+                        style="display:none;"
+                      >
+                        Save position
+                      </button>
+                    </span>
+                  </div>
+                  <div class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      id="glbUse"
+                    />
+                    <label class="form-check-label" for="glbUse"
+                      >Show saved 3D model on scene map</label
+                    >
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -634,11 +859,13 @@ SPDX-License-Identifier: Apache-2.0
   <!-- API Keys from environment variables (CSP-compliant using json_script) -->
   {{ google_maps_api_key|json_script:"google-maps-api-key" }}
   {{ mapbox_api_key|json_script:"mapbox-api-key" }}
+  <script src="/static/js/geospatial/geo-overlay-math.js"></script>
   <script src="/static/js/geospatial/map-interface.js"></script>
   <script src="/static/js/geospatial/google-maps-plugin.js"></script>
   <script src="/static/js/geospatial/mapbox-plugin.js"></script>
   <script src="/static/js/geospatial/geomanager.js"></script>
   <script src="/static/js/geospatial/scene-form.js"></script>
+  <script src="/static/js/geospatial/glb-alignment.js"></script>
   <div class="display-none">
     <button class="btn btn-secondary" id="connect">Connect</button>
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+/* global getCsrfToken, requestJson */
+
 "use strict";
 
 import {
@@ -2222,6 +2224,7 @@ function setupGenerateMesh() {
 
     try {
       const startResult = await generateMeshFromCameras(sceneId, form);
+      if (!startResult) return;
 
       const requestId = startResult.request_id;
       if (!requestId) {
@@ -2260,15 +2263,10 @@ async function pollMeshStatus(sceneId, requestId) {
       throw new Error("Timed out waiting for mesh generation.");
     }
 
-    const resp = await fetch(
+    const data = await requestJson(
       `/scene/generate-mesh-status/${sceneId}/?request_id=${encodeURIComponent(requestId)}`,
+      { csrfToken: null, errorMessage: () => "Status check failed" },
     );
-
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      throw new Error(data?.error || "Status check failed");
-    }
 
     if (data.success === false) {
       throw new Error(data?.error || "Mesh generation failed");
@@ -2287,31 +2285,39 @@ async function pollMeshStatus(sceneId, requestId) {
   }
 }
 
-async function generateMeshFromCameras(sceneId, form) {
+async function generateMeshFromCameras(sceneId, form, overrideGlb = false) {
   const url = `/scene/generate-mesh/${sceneId}/`;
 
   const formData = new FormData(form);
+  if (overrideGlb) formData.append("override_glb", "true");
 
   // Make sure CSRF is sent (Django)
-  const csrfToken =
-    document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-    getCookie("csrftoken");
+  const csrfToken = getCsrfToken() || getCookie("csrftoken");
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "X-CSRFToken": csrfToken,
-      Accept: "application/json",
-    },
-    body: formData,
-  });
+  let data;
+  try {
+    data = await requestJson(url, {
+      method: "POST",
+      csrfToken,
+      headers: { Accept: "application/json" },
+      body: formData,
+      errorMessage: (status) => `Generate mesh failed (HTTP ${status})`,
+    });
+  } catch (error) {
+    if (error.status === 409 && error.data?.glb_applied && !overrideGlb) {
+      const confirmed = confirm(
+        "A GLB map is applied to this scene. Generating a mesh replaces it " +
+          "with the generated mesh. The uploaded GLB stays stored and can be " +
+          "applied again later. Continue?",
+      );
+      if (!confirmed) return null;
+      return generateMeshFromCameras(sceneId, form, true);
+    }
+    throw error;
+  }
 
-  const data = await resp.json().catch(() => ({}));
-
-  if (!resp.ok || data.success === false) {
-    throw new Error(
-      data?.error || `Generate mesh failed (HTTP ${resp.status})`,
-    );
+  if (data.success === false) {
+    throw new Error(data.error || "Generate mesh failed");
   }
 
   // expects { success: true, request_id: "..." }
@@ -2622,11 +2628,8 @@ $(document).ready(function () {
   if ($("#scale").val() !== "") {
     scale = $("#scale").val();
   }
-  if ($("#map-origin-x").length) {
-    setMapOrigin([
-      parseFloat($("#map-origin-x").val()),
-      parseFloat($("#map-origin-y").val()),
-    ]);
+  if ($("#map-origin").val()) {
+    setMapOrigin($("#map-origin").val().split(",").map(parseFloat));
   }
 
   is_coloring_enabled = localStorage.getItem("visualize_rois") === "true";

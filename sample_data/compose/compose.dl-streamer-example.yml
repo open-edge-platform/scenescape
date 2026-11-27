@@ -215,6 +215,8 @@ services:
       - PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
       - OHSOME_API_KEY=${OHSOME_API_KEY}
       - OSM_MAX_ROI_FEATURES=${OSM_MAX_ROI_FEATURES:-200}
+      # Max 3D model layers per scene. Set to 1 for single-model behaviour.
+      - GLB_MAX_LAYERS=${GLB_MAX_LAYERS:-100}
       # Per-request timeout (seconds) for the Manager's internal REST calls while
       # importing a scene. Raise if imports of scenes with large .glb maps time out.
       - SCENE_IMPORT_REST_TIMEOUT_S=${SCENE_IMPORT_REST_TIMEOUT_S:-300}

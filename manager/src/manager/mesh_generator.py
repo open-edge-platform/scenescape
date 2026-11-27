@@ -19,6 +19,7 @@ import re
 import numpy as np
 from scipy.spatial.transform import Rotation
 from django.core.files.base import ContentFile
+from django.db import transaction
 import paho.mqtt.client as mqtt
 import trimesh
 
@@ -27,6 +28,7 @@ from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh, checkMeshConnectivity
 from scene_common.options import POSE_ORIGIN_MANAGER_MESH, QUATERNION
 from scene_common import log
+from manager import glb_state
 
 ALLOWED_VIDEO_MIME_TYPES = {
     "video/mp4",
@@ -696,12 +698,19 @@ class MeshGenerator:
       glb_exported_bytes = aligned_mesh.export(file_type='glb')
 
       log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
-      scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
+      # One transaction: the GLB unapply and the mesh save commit or roll back together
+      with transaction.atomic():
+        glb_state.lock_scene_row(scene)
+        scene.refresh_from_db()
+        with glb_state.discard_files_on_failure(scene):
+          # Disables every GLB layer and restores the pre-GLB base map before the mesh overwrites scene.map
+          glb_state.disable_all_layers(scene)
+          scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
 
-      scene.map_processed = get_iso_time()
-      scene._original_map = None
-      scene._from_generate_mesh = True
-      scene.save()
+          scene.map_processed = get_iso_time()
+          scene._original_map = None
+          scene._from_generate_mesh = True
+          scene.save()
 
       log.info(f"Saved generated mesh to scene {scene.name}")
       return mesh_transform

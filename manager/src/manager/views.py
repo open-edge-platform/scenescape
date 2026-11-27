@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import functools
 import json
 import math
 import os
@@ -37,11 +38,12 @@ from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
+from rest_framework.exceptions import ParseError
 from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 
 from manager.api import IsAdminOrReadOnly
-from manager import osm_query, osm_roi
+from manager import osm_query, osm_roi, glb_staging, glb_state
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.pipeline_runtime import PipelineSyncError, reconcile_camera_pipeline, \
   reconcile_pipeline_cameras, sync_vippet_pipelines
@@ -525,7 +527,85 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     context = super().get_context_data(**kwargs)
     context['google_maps_api_key'] = settings.GOOGLE_MAPS_API_KEY
     context['mapbox_api_key'] = settings.MAPBOX_API_KEY
+    context['glb_max_upload_bytes'] = glb_staging.MAX_GLB_BYTES
+    context['glb_max_layers'] = settings.GLB_MAX_LAYERS
+    context['glb_max_anchor_km'] = glb_state.MAX_ANCHOR_DISTANCE_KM
+    # The form carries the state it was rendered with; a re-render of a posted form keeps the posted one
+    posted_token = self.request.POST.get('glb_state_token') if self.request.method == 'POST' else None
+    context.setdefault(
+      'glb_state_token',
+      posted_token or glb_state.scene_state_token(Scene.objects.get(pk=self.object.pk)))
     return context
+
+  def get_queryset(self):
+    # POST locks the scene row before the form binds, so the save works on the current row
+    queryset = super().get_queryset()
+    if self.request.method == 'POST':
+      queryset = queryset.select_for_update()
+    return queryset
+
+  def post(self, request, *args, **kwargs):
+    with transaction.atomic():
+      return super().post(request, *args, **kwargs)
+
+  @staticmethod
+  def _parse_glb_changes(raw):
+    try:
+      changes = json.loads(raw or '[]')
+    except json.JSONDecodeError:
+      raise glb_staging.GlbAlignmentError(400, 'Invalid GLB changes')
+    if not isinstance(changes, list) or not all(isinstance(change, dict) for change in changes):
+      raise glb_staging.GlbAlignmentError(400, 'Invalid GLB changes')
+    return changes
+
+  @staticmethod
+  def _save_glb_change(scene, change, stored_names):
+    """Stage one layer change on scene: store or replace a staged GLB, or move and toggle a stored layer."""
+    if 'enabled' in change:
+      _require_bool_enabled(change['enabled'])
+    layer = glb_state.get_layer(scene, change['layer_id']) if change.get('layer_id') else None
+    if change.get('token'):
+      if scene.map_type != 'geospatial_map':
+        raise glb_staging.GlbAlignmentError(400, 'Scene map type must be geospatial_map')
+      glb_state.commit_layer(
+        scene, change['token'], change.get('anchor'), layer=layer,
+        enable=change.get('enabled', False), save=False, stored_names=stored_names)
+      return
+    if layer is None:
+      raise glb_staging.GlbAlignmentError(400, 'GLB change needs a token or a layer_id')
+    if change.get('anchor'):
+      glb_state.move_layer(scene, layer, change['anchor'], save=False)
+    if 'enabled' in change and change['enabled'] != layer.enabled:
+      glb_state.set_layer_enabled(scene, layer, change['enabled'], save=False)
+
+  def _save_glb_changes(self, form, stored_names):
+    """Stage the GLB layer changes on form.instance; the caller saves it.
+
+    Raises GlbAlignmentError on failure.
+    """
+    for change in self._parse_glb_changes(self.request.POST.get('glb_changes')):
+      self._save_glb_change(form.instance, change, stored_names)
+
+  def _save_form_with_glb(self, form):
+    """Save the scene form and its GLB changes with one save; reject an out-of-date form first.
+
+    The caller holds the transaction and the scene row lock.
+    """
+    stored = Scene.objects.select_for_update().get(pk=form.instance.pk)
+    glb_state.reject_stale_form(stored, self.request.POST.get('glb_state_token'))
+    with glb_state.discard_files_on_failure(form.instance) as stored_names:
+      # The GLB changes are persisted in the same transaction as the form, like the Accept and Save position buttons
+      self._save_glb_changes(form, stored_names)
+      self.object = form.save()
+
+  def _render_current_scene(self, notice):
+    """Re-render the edit page with the stored values, so a retry does not repost the stale ones."""
+    self.object = Scene.objects.get(pk=self.object.pk)
+    form = self.get_form_class()(instance=self.object)
+    context = self.get_context_data(
+      form=form, stale_form_notice=notice,
+      glb_state_token=glb_state.scene_state_token(self.object))
+    return self.render_to_response(context, status=409)
 
   def form_valid(self, form):
     # Check if a generated map filename was provided
@@ -533,7 +613,15 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     if generated_filename:
       # Set the map field to the generated file
       form.instance.map = generated_filename
-    return super().form_valid(form)
+    try:
+      with transaction.atomic():
+        self._save_form_with_glb(form)
+    except glb_staging.GlbAlignmentError as e:
+      if e.status == 409:
+        return self._render_current_scene(e.message)
+      form.add_error(None, e.message)
+      return self.form_invalid(form)
+    return HttpResponseRedirect(self.get_success_url())
 
 class SceneImportView(SuperUserCheck, CreateView):
   model = SceneImport
@@ -1164,12 +1252,13 @@ def _invalid_bounds(bounds):
 def _bearing_pivot(scene):
   """Scene-local (x, y) pivot for the bearing rotation, in the same frame as ROI points.
 
-  Prefers the scene's saved map center; falls back to the map_corners_lla bbox midpoint.
+  Prefers the scene's saved map center; falls back to the frame_corners_lla bbox midpoint.
   """
   if scene.map_center_lat is not None and scene.map_center_lng is not None:
     center_lat, center_lng = scene.map_center_lat, scene.map_center_lng
   else:
-    south, west, north, east = osm_roi.bbox_from_map_corners(scene.map_corners_lla)
+    frame_corners = scene.frameCornersLLA()
+    south, west, north, east = osm_roi.bbox_from_map_corners(frame_corners)
     center_lat, center_lng = (south + north) / 2.0, (west + east) / 2.0
   return osm_roi.lla_to_local_xy(scene.trs_matrix, center_lat, center_lng)
 
@@ -1177,7 +1266,7 @@ def _bearing_pivot(scene):
 class OsmRoiPreviews(APIView):
   """Preview OSM-derived polygon ROIs before creation.
 
-  Derives the query bounding box from the scene's saved map_corners_lla.
+  Derives the query bounding box from the scene's frame_corners_lla (invariant frame).
   Fetches line geometries from OSM (cached on the scene after first fetch),
   converts to scene-local coordinates, buffers to polygons, and returns a
   preview list with temporary UUIDs without persisting to DB.
@@ -1205,13 +1294,14 @@ class OsmRoiPreviews(APIView):
       except (Scene.DoesNotExist, ValueError):
         return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
 
-      if not scene.map_corners_lla:
+      frame_corners = scene.frameCornersLLA()
+      if not frame_corners:
         return JsonResponse({
           'error': 'Scene map corners not set. '
                    'Click "Generate Geospatial Bounds & Snapshot" in scene editor first.'
         }, status=400)
 
-      previews = osm_roi.build_roi_previews(scene)
+      previews = osm_roi.build_roi_previews(scene, bounds)
       if bounds is not None:
         previews = osm_roi.filter_by_bounds(previews, bounds)
 
@@ -1349,6 +1439,203 @@ class OsmRois(APIView):
     return JsonResponse({'created': created})
 
 
+def _require_bool_enabled(value):
+  """A layer's enabled flag must be a JSON boolean; a string such as "yes" is not."""
+  if not isinstance(value, bool):
+    raise glb_staging.GlbAlignmentError(400, 'enabled must be a boolean')
+
+
+def glb_api_errors(operation):
+  """Answer a GLB endpoint's GlbAlignmentError with its status, and any other failure with a logged 500."""
+  def decorate(handler):
+    @functools.wraps(handler)
+    def wrapper(*args, **kwargs):
+      try:
+        return handler(*args, **kwargs)
+      except glb_staging.GlbAlignmentError as e:
+        return JsonResponse({'error': e.message}, status=e.status)
+      except Exception as e:
+        log.error(f"Error in geospatial GLB {operation}: {e}")
+        log.error(f"Traceback: {traceback.format_exc()}")
+        return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+    return wrapper
+  return decorate
+
+
+class GeospatialGlbPreview(APIView):
+  """Stage an uploaded GLB and return a top-down preview PNG, its footprint and a default anchor.
+
+  The anchor defaults to the scene's saved map centre with heading 0. Nothing on the scene
+  is modified; the staged files are removed after the TTL or when the request fails.
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  @glb_api_errors('preview')
+  def post(self, request, scene_uid):
+    scene = glb_state.get_geospatial_scene(scene_uid)
+    if scene.map_center_lat is None or scene.map_center_lng is None:
+      return JsonResponse({'error': 'Scene map centre is not set'}, status=400)
+    upload = request.FILES.get('file')
+    if upload is None or not upload.name.lower().endswith('.glb'):
+      return JsonResponse({'error': 'A .glb file is required in the "file" field'}, status=400)
+
+    token = glb_staging.stage_glb(upload)
+    try:
+      footprint, px_per_m = glb_staging.build_preview(token)
+    except Exception:
+      glb_staging.remove_staged_files(token)
+      raise
+    return JsonResponse({
+      'token': token,
+      'preview_url': f'{settings.MEDIA_URL}{glb_staging.STAGING_SUBDIR}/{token}.png',
+      'footprint_m': footprint,
+      'anchor': {'lat': scene.map_center_lat, 'lng': scene.map_center_lng, 'heading_deg': 0.0},
+      'px_per_m': px_per_m,
+    })
+
+
+def _glb_request_body(request):
+  """The JSON object of a GLB request body; GlbAlignmentError(400) otherwise."""
+  try:
+    data = request.data
+  except ParseError:
+    data = None
+  if not isinstance(data, dict):
+    raise glb_staging.GlbAlignmentError(400, 'Request body must be a JSON object')
+  return data
+
+
+def _glb_alignment_response(scene, layer):
+  """Layer alignment plus the scene-edit form values and state token the page must mirror."""
+  response = glb_state.write_response(layer)
+  response['scene_fields'] = glb_state.scene_form_fields(scene)
+  response['state_token'] = glb_state.scene_state_token(scene)
+  return JsonResponse(response)
+
+
+class GeospatialGlbLayers(APIView):
+  """List or store the geospatial GLB layers of a scene.
+
+  GET: returns {max_layers, layers} with the layers in draw order
+  POST {token, anchor, enabled?, layer_id?}: store the staged GLB as a new layer, or replace the file of layer_id
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  @glb_api_errors('list')
+  def get(self, request, scene_uid):
+    scene = glb_state.get_geospatial_scene(scene_uid)
+    return JsonResponse({'max_layers': settings.GLB_MAX_LAYERS, 'layers': glb_state.list_layers(scene)})
+
+  @glb_api_errors('POST')
+  def post(self, request, scene_uid):
+    data = _glb_request_body(request)
+    token = data.get('token')
+    anchor = data.get('anchor')
+    enabled = data.get('enabled', False)
+    if not token or not anchor:
+      return JsonResponse({'error': 'token and anchor are required'}, status=400)
+    _require_bool_enabled(enabled)
+    with transaction.atomic():
+      scene = glb_state.get_geospatial_scene(scene_uid, lock=True)
+      layer = glb_state.get_layer(scene, data['layer_id']) if data.get('layer_id') else None
+      layer = glb_state.commit_layer(scene, token, anchor, layer=layer, enable=enabled)
+    # The preview render is kept out of the write transaction
+    return JsonResponse(glb_state.write_response(layer))
+
+
+class GeospatialGlbLayer(APIView):
+  """Move, place or remove one geospatial GLB layer.
+
+  PUT {anchor?, enabled?}: MOVE the anchor and/or PLACE/TAKE OFF the layer
+  DELETE: remove the layer
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  @glb_api_errors('PUT')
+  def put(self, request, scene_uid, layer_id):
+    data = _glb_request_body(request)
+    has_enabled = 'enabled' in data
+    if has_enabled:
+      _require_bool_enabled(data['enabled'])
+    with transaction.atomic():
+      scene = glb_state.get_geospatial_scene(scene_uid, lock=True)
+      layer = glb_state.get_layer(scene, layer_id)
+      # A move followed by a failed placement rolls back together, files included
+      with glb_state.discard_files_on_failure(scene):
+        if data.get('anchor') is not None:
+          glb_state.move_layer(scene, layer, data['anchor'])
+        if has_enabled and data['enabled'] != layer.enabled:
+          glb_state.set_layer_enabled(scene, layer, data['enabled'])
+    return _glb_alignment_response(scene, layer)
+
+  @glb_api_errors('DELETE')
+  def delete(self, request, scene_uid, layer_id):
+    with transaction.atomic():
+      scene = glb_state.get_geospatial_scene(scene_uid, lock=True)
+      glb_state.remove_layer(scene, glb_state.get_layer(scene, layer_id))
+    scene.refresh_from_db()
+    return JsonResponse({
+      'success': True,
+      'scene_fields': glb_state.scene_form_fields(scene),
+      'state_token': glb_state.scene_state_token(scene),
+    })
+
+
+class GeospatialGlbApplyAll(APIView):
+  """Set the scene's Apply all GLBs switch.
+
+  PUT {apply: bool}: ON enables every stored GLB layer and places the scene map from them;
+  OFF disables them all and restores the flat base map. The stored flag is returned with the
+  scene-edit values and state token that the page mirrors.
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  @glb_api_errors('apply-all')
+  def put(self, request, scene_uid):
+    data = _glb_request_body(request)
+    apply_all = data.get('apply')
+    if not isinstance(apply_all, bool):
+      raise glb_staging.GlbAlignmentError(400, 'apply must be a boolean')
+    with transaction.atomic():
+      scene = glb_state.get_geospatial_scene(scene_uid, lock=True)
+      glb_state.set_apply_all(scene, apply_all)
+    return JsonResponse({
+      'glb_apply_all': scene.glb_apply_all,
+      'scene_fields': glb_state.scene_form_fields(scene),
+      'state_token': glb_state.scene_state_token(scene),
+    })
+
+
+@login_required
+def geospatial_glb_layer_download(request, scene_uid, layer_id):
+  """Download the file of one stored GLB layer."""
+  # Not glb_api_errors: a file download answers with plain-text bodies, not the JSON error object.
+  try:
+    try:
+      scene = glb_state.get_geospatial_scene(scene_uid)
+      layer = glb_state.get_layer(scene, layer_id)
+    except glb_staging.GlbAlignmentError as e:
+      return HttpResponse(e.message, status=e.status)
+    if not layer.file:
+      return HttpResponse('Not found', status=404)
+
+    # Validate filename to prevent path traversal
+    filename = os.path.basename(layer.file.name)
+    if not filename.lower().endswith('.glb'):
+      return HttpResponse('Invalid file', status=400)
+
+    response = FileResponse(layer.file.open('rb'), content_type='model/gltf-binary')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+  except Exception as e:
+    log.error(f"Error downloading GLB: {e}")
+    return HttpResponse('An error occurred', status=500)
+
+
 @superuser_required
 def generate_camera_pipeline(request, sensor_id):
   """Generate camera pipeline preview for a specific camera sensor."""
@@ -1449,6 +1736,14 @@ def generate_mesh(request, pk):
 
     # Get scene object
     scene = get_object_or_404(Scene, pk=pk)
+
+    # Generating a mesh replaces an applied GLB, so require explicit confirmation
+    if scene.use_glb_map and request.POST.get("override_glb") != "true":
+      return JsonResponse({
+        "success": False,
+        "error": "A GLB map is applied to this scene. Confirm to replace it with the generated mesh.",
+        "glb_applied": True,
+      }, status=409)
 
     # Initialize mesh generator
     mesh_type = request.POST.get("mesh_type", "mesh")

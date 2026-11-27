@@ -10,6 +10,10 @@ import validateInputControls from "/static/js/thing/controls/validateinputcontro
 import RESTClient from "/static/js/restclient.js";
 import { REST_URL, SUCCESS } from "/static/js/constants.js";
 import { PTZ_AWAY_MESSAGE } from "/static/js/ptzpose.js";
+import {
+  basePlaneLayout,
+  hybridFrameSize,
+} from "/static/js/thing/scenemapgeometry.js";
 
 const DEFAULT_FLOOR_WIDTH = 1280;
 const DEFAULT_FLOOR_HEIGHT = 720;
@@ -95,8 +99,8 @@ export default class Scene {
     }
   }
 
-  computePerspectiveCameraPose(floorWidth, floorHeight) {
-    const center = { x: floorWidth / 2, y: floorHeight / 2 };
+  computePerspectiveCameraPose(floorWidth, floorHeight, minX = 0, minY = 0) {
+    const center = { x: minX + floorWidth / 2, y: minY + floorHeight / 2 };
     let cameraZ =
       floorHeight /
       (2 * Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov / 2)));
@@ -108,6 +112,9 @@ export default class Scene {
     let progressWrapper = document.getElementById("loader-progress-wrapper");
     let progressBar = progressWrapper.querySelector(".progress-bar");
     let currentProgressClass = "width0";
+    // Hybrid scenes also show the flat base map under the GLB. This resolves to
+    // null for legacy scenes, so the GLB still loads on its own.
+    const basePlaneLoaded = this.loadBaseMapPlane(sceneDetails);
 
     gltfLoader.load(
       sceneDetails.map,
@@ -162,23 +169,11 @@ export default class Scene {
         };
         this.addControlPanel(true);
         this.addDragControls(this.perspectiveCamera, this.orbitControls);
-        sceneBoundingBox.setFromObject(this.sceneMesh);
-        const size = new THREE.Vector3();
-        sceneBoundingBox.getSize(size);
-
-        let floorWidth = size.x;
-        let floorHeight = size.z;
-        var { cameraZ, center } = this.computePerspectiveCameraPose(
-          floorWidth,
-          floorHeight,
-        );
-
-        this.initializeScene(cameraZ, center, floorHeight, floorWidth);
-
-        loadThings();
-
-        document.getElementById("loader-progress-wrapper").style.display =
-          "none";
+        basePlaneLoaded.then((floor) => {
+          this.finish3DMap(sceneBoundingBox, loadThings, floor);
+          document.getElementById("loader-progress-wrapper").style.display =
+            "none";
+        });
       },
       // called while loading is progressing
       (xhr) => {
@@ -196,6 +191,82 @@ export default class Scene {
         console.log("Error loading glTF: " + error);
       },
     );
+  }
+
+  // Loads base_map as the flat plane under a hybrid scene. Resolves to null when
+  // there is no base_map (legacy scenes) or the texture fails, so the GLB still loads.
+  loadBaseMapPlane(sceneDetails) {
+    if (!sceneDetails.base_map || !sceneDetails.base_scale) {
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      new THREE.TextureLoader().load(
+        sceneDetails.base_map,
+        (tex) => {
+          const layout = basePlaneLayout(
+            tex.image.width,
+            tex.image.height,
+            sceneDetails.base_scale,
+          );
+          const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(layout.width, layout.height),
+            new THREE.MeshLambertMaterial({
+              map: tex,
+              opacity: 0.8,
+              transparent: true,
+              // Push the plane back so the GLB wins depth ties at z = 0.
+              polygonOffset: true,
+              polygonOffsetFactor: 1,
+              polygonOffsetUnits: 1,
+            }),
+          );
+          floor.name = "floor";
+          floor.position.set(layout.centerX, layout.centerY, 0);
+          resolve(floor);
+        },
+        undefined,
+        (error) => {
+          console.log("Error loading base map: " + error);
+          resolve(null);
+        },
+      );
+    });
+  }
+
+  // Runs once the GLB and the base map plane have settled. Adds the plane,
+  // frames the view on the union of both, and calls loadThings() once.
+  finish3DMap(sceneBoundingBox, loadThings, floor) {
+    sceneBoundingBox.setFromObject(this.sceneMesh);
+    const glbBox = sceneBoundingBox.clone();
+    if (floor) {
+      this.floorMesh = floor;
+      this.scene.add(floor);
+      sceneBoundingBox.union(new THREE.Box3().setFromObject(floor));
+      floor.visible = this.axesHelper["visible"] = this.initFloorPlaneVisible();
+    }
+    const { floorWidth, floorHeight, minX, minY } = this.get3DFrameSize(glbBox);
+    var { cameraZ, center } = this.computePerspectiveCameraPose(
+      floorWidth,
+      floorHeight,
+      minX,
+      minY,
+    );
+    this.initializeScene(cameraZ, center, floorHeight, floorWidth, minX, minY);
+    loadThings();
+  }
+
+  // Ground frame in metres for the 3D map. Hybrid scenes cover the GLB and the
+  // flat plane; legacy GLB-only scenes keep their existing framing.
+  get3DFrameSize(glbBox) {
+    if (this.floorMesh) {
+      return hybridFrameSize(
+        glbBox,
+        new THREE.Box3().setFromObject(this.floorMesh),
+      );
+    }
+    const size = new THREE.Vector3();
+    glbBox.getSize(size);
+    return { floorWidth: size.x, floorHeight: size.z };
   }
 
   load2DMap(sceneDetails, loadThings, sceneBoundingBox) {
@@ -371,8 +442,9 @@ export default class Scene {
         this.clearMapPreview();
         this._previewMesh = gltf.scene;
         this.scene.add(this._previewMesh);
-        const activeMap = this.sceneMesh || this.floorMesh;
-        if (activeMap) activeMap.visible = false;
+        // Hide the GLB and any flat base map under it while the preview shows.
+        if (this.sceneMesh) this.sceneMesh.visible = false;
+        if (this.floorMesh) this.floorMesh.visible = false;
         this._previewMethod = method;
         this._previewLoading = false;
         this.updateMapSourceSelection();
@@ -557,7 +629,14 @@ export default class Scene {
     }
   }
 
-  initializeScene(cameraZ, center, floorHeight, floorWidth) {
+  initializeScene(
+    cameraZ,
+    center,
+    floorHeight,
+    floorWidth,
+    minX = 0,
+    minY = 0,
+  ) {
     this.perspectiveCamera.position.set(center.x, center.y, cameraZ);
 
     // Calculate the delta between the canvas width and the floor width
@@ -569,7 +648,8 @@ export default class Scene {
       floorHeight * this.perspectiveCamera.aspect - delta;
     this.orthographicCamera.top = floorHeight;
     this.orthographicCamera.bottom = 0;
-    this.orthographicCamera.position.set(0, 0, cameraZ);
+    // Frustum bounds are camera-local, so the floor origin offsets the position only.
+    this.orthographicCamera.position.set(minX, minY, cameraZ);
     this.orthographicCamera.updateProjectionMatrix();
 
     // Directional scene lighting - matching Open3D sun light setup
@@ -778,16 +858,23 @@ export default class Scene {
   updateSceneObjects() {
     // Update the scale and position of the scene objects based on the new pixels per meter value
     if (this.sceneMesh) {
-      const size = new THREE.Vector3();
-      const sceneBoundingBox = new THREE.Box3().setFromObject(this.sceneMesh);
-      sceneBoundingBox.getSize(size);
-      let floorWidth = size.x;
-      let floorHeight = size.z;
+      const glbBox = new THREE.Box3().setFromObject(this.sceneMesh);
+      const { floorWidth, floorHeight, minX, minY } =
+        this.get3DFrameSize(glbBox);
       var { cameraZ, center } = this.computePerspectiveCameraPose(
         floorWidth,
         floorHeight,
+        minX,
+        minY,
       );
-      this.initializeScene(cameraZ, center, floorHeight, floorWidth);
+      this.initializeScene(
+        cameraZ,
+        center,
+        floorHeight,
+        floorWidth,
+        minX,
+        minY,
+      );
     } else {
       // Handle 2D map case
       let floorWidth =

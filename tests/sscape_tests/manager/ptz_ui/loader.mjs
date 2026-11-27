@@ -33,6 +33,8 @@ const REAL_MODULES = new Set([
   "js/thing/controls/thingtransformcontrols.js",
   "js/thing/scene.js",
   "js/thing/scenecamera.js",
+  "js/thing/scenemapgeometry.js",
+  "js/utils.js",
   "js/viewport.js",
 ]);
 

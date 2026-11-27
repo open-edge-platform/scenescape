@@ -191,9 +191,9 @@ window.saveCurrentMapSettings = function saveCurrentMapSettings() {
   const providerField = document.getElementById("id_geospatial_provider");
   const rotationField = document.getElementById("id_map_bearing");
 
-  // Handle different coordinate access patterns (Google vs Mapbox)
-  const lat = center.lat;
-  const lng = center.lng;
+  // Google LatLng exposes lat()/lng() methods; Mapbox LngLat exposes properties
+  const lat = typeof center.lat === "function" ? center.lat() : center.lat;
+  const lng = typeof center.lng === "function" ? center.lng() : center.lng;
 
   if (latField) latField.value = lat;
   if (lngField) lngField.value = lng;
@@ -344,7 +344,17 @@ document.addEventListener("DOMContentLoaded", function () {
   // Add event listener to save geospatial settings before form submission
   const form = document.querySelector("form");
   if (form) {
-    form.addEventListener("submit", function () {
+    form.addEventListener("submit", async function (event) {
+      // Hold submit until an in-flight snapshot has saved its filename into the form
+      const strategy = window.mapManager?.getMapStrategy?.();
+      if (strategy?.snapshotPending) {
+        event.preventDefault();
+        await strategy.snapshotPending;
+        strategy.snapshotPending = null;
+        form.requestSubmit();
+        return;
+      }
+
       if (getMapType() === "geospatial") {
         saveCurrentGeospatialSettings();
 
