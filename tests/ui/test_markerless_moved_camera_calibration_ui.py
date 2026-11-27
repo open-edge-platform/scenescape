@@ -46,7 +46,6 @@ def wait_for_saved_pose(rest, camera_uid):
 
 
 @common.mock_display
-@pytest.mark.basic_acceptance
 @pytest.mark.test_name("NEX-T10577")
 def test_markerless_moved_camera_calibration_ui(
     polycam_zip, scenescape_env, params, scene_factory, repo_root, result_recorder):
