@@ -69,7 +69,7 @@ For more information, refer to [Observation Processor Service](./microservices/o
 
 ### **Positioning**
 
-Provides the deployment boundary for future live-pose resolution for sources such as ONVIF PTZ cameras. The current service shell publishes MQTT liveness only; pose resolution is not yet implemented. For more information, refer to [Positioning Service](./microservices/positioning/positioning.md).
+Resolves live poses of PTZ cameras. It polls each camera over ONVIF, loads the camera calibration from the Scene Manager, and publishes the resolved poses over MQTT. The Scene Controller uses these poses when its PTZ mode is enabled. For more information, refer to [Positioning Service](./microservices/positioning/positioning.md).
 
 ### **MQTT Broker**
 
