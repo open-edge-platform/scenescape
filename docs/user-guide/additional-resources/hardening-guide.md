@@ -334,7 +334,7 @@ OpenSCAP, a free and open-source security compliance solution, comes with config
 
 If your enterprise has an Ubuntu Pro subscription, the Ubuntu Security Guide utility that ships with Ubuntu 20.04 and later can be used to automatically apply CIS recommendations to an Ubuntu system.
 
-<https://ubuntu.com/security/certifications/docs/usg>
+<https://ubuntu.com/security/cis>
 
 ## 8: Securing Third-Party API Keys in the Web Client
 
