@@ -28,6 +28,7 @@ CAMERA_NAME = "markerless_cam"
 
 
 @common.mock_display
+@pytest.mark.basic_acceptance
 @pytest.mark.test_name("NEX-T10578")
 def test_markerless_wrong_scene_notification_ui(
     polycam_zip, scenescape_env, params, scene_factory, repo_root, result_recorder):
