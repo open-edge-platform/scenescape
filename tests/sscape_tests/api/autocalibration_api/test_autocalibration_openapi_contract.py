@@ -51,6 +51,7 @@ _CAMERA_SCENE = "77777777-7777-4777-8777-777777777777"
 _ACTIVE_SCENE = "88888888-8888-4888-8888-888888888888"
 _REJECTED_SCENE = "99999999-9999-4999-8999-999999999999"
 _TOO_FEW_TAGS = "Cannot auto calibrate. Check scene to ensure there are at least 4 april tags"
+_ACTIVE_SCENE_NAME = "Active Scene"
 
 _CAM_SUCCESS = "atag-qcam1"
 _CAM_STORED = "atag-qcam-stored"
@@ -175,7 +176,7 @@ class _ReadyContext:
       _ERROR_SCENE: _Scene(_ERROR_SCENE, _FAILING),
       _REGISTERING_SCENE: _Scene(_REGISTERING_SCENE, _MARKERLESS),
       _BUSY_SCENE: _Scene(_BUSY_SCENE, _MARKERLESS),
-      _ACTIVE_SCENE: _Scene(_ACTIVE_SCENE, _MARKERLESS),
+      _ACTIVE_SCENE: _Scene(_ACTIVE_SCENE, _MARKERLESS, name=_ACTIVE_SCENE_NAME),
       _REJECTED_SCENE: _Scene(_REJECTED_SCENE, _APRILTAG),
       _NO_STRATEGY_SCENE: _Scene(_NO_STRATEGY_SCENE, _MISSING_STRATEGY),
       _MANUAL_SCENE: _Scene(_MANUAL_SCENE, _MANUAL),
@@ -194,6 +195,7 @@ class _ReadyContext:
     }
     self.register_thread_lock = _ViewLock({_BUSY_SCENE, _ACTIVE_SCENE})
     self.current_processing_scene = _ACTIVE_SCENE
+    self.current_processing_scene_name = _ACTIVE_SCENE_NAME
     # The AprilTag worker saved map_processed, then rejected the scene for too few tags.
     self.registration_results = {
       _SUCCESS_SCENE: {"status": "success"},
@@ -229,11 +231,11 @@ class _ReadyContext:
   def request_scene_registration(self, scene):
     """Start, report active, or queue the scene like the real context."""
     if self.current_processing_scene == scene.id:
-      return "active"
+      return "active", scene.id, self.current_processing_scene_name
     if self.scene_update_thread_wrapper(scene, map_update=True):
-      return "started"
+      return "started", scene.id, scene.name
     self.pending_registrations.add(scene.id)
-    return "busy"
+    return "busy", self.current_processing_scene, self.current_processing_scene_name
 
   def begin_sync_registration(self, scene_id):
     """No concurrent workers are simulated, so any generation works."""
@@ -392,6 +394,56 @@ def test_registration_distinguishes_active_scene(scene_id, http_status, status):
     response = client.post(f"{API_PREFIX}/scenes/{scene_id}/registration", json={})
   assert response.status_code == http_status
   assert response.get_json()["status"] == status
+
+
+def test_busy_registration_names_the_registering_scene(monkeypatch):
+  """A busy response for scene B must identify active scene A without asking the Manager."""
+  context = _api.calibrationContext
+  monkeypatch.setattr(context, "pending_registrations", set())
+  lookup = context.calibration_data_interface.scene_with_id
+
+  def lookup_without_active_scene(scene_id):
+    if scene_id == _ACTIVE_SCENE:
+      pytest.fail("busy reply looked up the registering scene in the Manager")
+    return lookup(scene_id)
+
+  monkeypatch.setattr(
+    context.calibration_data_interface, "scene_with_id", lookup_without_active_scene)
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
+  body = response.get_json()
+  assert response.status_code == 200
+  assert body["status"] == "busy"
+  assert body["sceneId"] == _BUSY_SCENE
+  assert body["registeringSceneId"] == _ACTIVE_SCENE
+  assert body["registeringSceneName"] == _ACTIVE_SCENE_NAME
+  assert "sceneName" not in body
+
+
+def test_busy_registration_omits_unknown_registering_scene_name(monkeypatch):
+  """A registering scene without a known name is reported by ID only."""
+  context = _api.calibrationContext
+  monkeypatch.setattr(context, "pending_registrations", set())
+  monkeypatch.setattr(context, "current_processing_scene_name", None)
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
+  body = response.get_json()
+  assert response.status_code == 200
+  assert body["status"] == "busy"
+  assert body["registeringSceneId"] == _ACTIVE_SCENE
+  assert "registeringSceneName" not in body
+  assert _BUSY_SCENE in context.pending_registrations
+
+
+@pytest.mark.parametrize("scene_id", [_REGISTERING_SCENE, _ACTIVE_SCENE, _SUCCESS_SCENE])
+def test_non_busy_registration_has_no_registering_scene(scene_id):
+  """Only busy responses point at another registering scene."""
+  with _api.app.test_client() as client:
+    response = client.post(f"{API_PREFIX}/scenes/{scene_id}/registration", json={})
+  body = response.get_json()
+  assert body["status"] != "busy"
+  assert "registeringSceneId" not in body
+  assert "registeringSceneName" not in body
 
 
 @pytest.mark.parametrize("scene_id,status,message", [
