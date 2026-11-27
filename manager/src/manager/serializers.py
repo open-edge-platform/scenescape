@@ -6,7 +6,6 @@ from collections.abc import Mapping
 import math
 import json
 import logging
-import math
 import os
 import tempfile
 from uuid import UUID
@@ -21,13 +20,16 @@ from django.core.files import File
 from django.db import transaction
 
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
 
-from manager.validators import validate_scene_name
+from manager.validators import camera_id_topic_error, validate_scene_name
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
-  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+  RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport, \
+  sendUpdateCommand
+from manager.pipeline_runtime import reconcile_camera_pipeline
 from manager.ptz_calibration import PTZCalibrationError, validate_ptz_calibration
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
@@ -367,13 +369,7 @@ class CamSerializer(NonNullSerializer):
 
   @staticmethod
   def camera_id_topic_error(value):
-    if not isinstance(value, str) or not value:
-      return "must be a non-empty MQTT topic segment."
-    if len(value) > 20:
-      return "must contain no more than 20 characters."
-    if any(character in value for character in ('/', '+', '#', '\x00')):
-      return "must be a single MQTT topic segment without '/', '+', '#', or NUL."
-    return None
+    return camera_id_topic_error(value)
 
   def validate_sensor_id(self, value):
     error = self.camera_id_topic_error(value)
@@ -452,11 +448,7 @@ class CamSerializer(NonNullSerializer):
           validated_data['sensor_id'] = sensor_id
         instance = super().create(validated_data)
       else:
-        instance._pose_supplied = 'transforms' in validated_data
-        try:
-          super().update(instance, validated_data)
-        finally:
-          instance._pose_supplied = False
+        self.update_camera(instance, validated_data)
 
       try:
         self.create_camera_instance(instance)
@@ -464,11 +456,52 @@ class CamSerializer(NonNullSerializer):
         raise serializers.ValidationError({'transforms': f"Cannot compute camera pose."})
     return instance
 
+  def update_camera(self, instance, validated_data):
+    previous_sensor_id = instance.sensor_id
+    instance._pose_supplied = 'transforms' in validated_data
+    try:
+      super().update(instance, validated_data)
+    finally:
+      instance._pose_supplied = False
+    if instance.sensor_id != previous_sensor_id:
+      self.rebind_camera_pipeline(instance)
+
+  @staticmethod
+  def rebind_camera_pipeline(instance):
+    """Restart the camera's DLSPS pipeline so it publishes under the new camera ID."""
+    if not settings.ENABLE_MLOPS_FLOW:
+      return
+    sensor_id = instance.sensor_id
+
+    def report_warnings(warnings):
+      for warning in warnings:
+        log.warning(f"REST update of camera {sensor_id}: {warning}")
+
+    reconcile_camera_pipeline(instance.pk, on_warnings=report_warnings)
+
   def create(self, validated_data):
     return self.create_update(validated_data)
 
   def update(self, instance, validated_data):
-    return self.create_update(validated_data, instance)
+    if not settings.ENABLE_MLOPS_FLOW:
+      return self.create_update(validated_data, instance)
+    with transaction.atomic():
+      self.refresh_locked(instance)
+      return self.create_update(validated_data, instance)
+
+  @staticmethod
+  def refresh_locked(instance):
+    """Lock the camera row and reload it before applying the update.
+
+    The view loads the camera before validation, so without this a concurrent change (for example
+    a pipeline selected in the UI) would be overwritten with the stale values of the fields this
+    request does not set, and the DLSPS pipeline would no longer match the camera.
+    """
+    if Cam.objects.select_for_update().filter(pk=instance.pk).first() is None:
+      raise NotFound(f"Camera {instance.sensor_id} no longer exists.")
+    instance.refresh_from_db()
+    instance._original_sensor_id = instance.sensor_id
+    instance._original_name = instance.name
 
   def map_resolution_fields(self, validated_data):
     resolution = self.initial_data.get('resolution', None)
@@ -1108,6 +1141,7 @@ class SceneSerializer(NonNullSerializer):
     instance.saveThumbnail()
     Scene.objects.filter(pk=instance.pk).update(
       thumbnail=instance.thumbnail, scale=instance.scale,
+      map_origin_x=instance.map_origin_x, map_origin_y=instance.map_origin_y,
       rotation_x=instance.rotation_x, rotation_y=instance.rotation_y, rotation_z=instance.rotation_z,
       translation_x=instance.translation_x, translation_y=instance.translation_y,
       translation_z=instance.translation_z,
@@ -1375,6 +1409,7 @@ class ChildSceneSerializer(NonNullSerializer):
       ChildScene.objects.filter(pk=instance.pk).update(**update_values)
       for key, value in update_values.items():
         setattr(instance, key, value)
+      transaction.on_commit(sendUpdateCommand)
       return instance
 
     # For partial updates, inherit current type from instance

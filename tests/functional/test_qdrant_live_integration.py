@@ -2,58 +2,31 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Live integration tests against a running Qdrant instance (no full compose stack)."""
+"""Live integration tests against the Qdrant service of the ReID core stack."""
 
-import os
 import uuid
 
 import numpy as np
 import pytest
 
-from controller.qdrant_adapter import QdrantDatabase
-from controller.reid_env import (
-  DEFAULT_HOSTNAME,
-  DEFAULT_PORT,
-  get_reid_ca_cert,
+from reid.qdrant_adapter import QdrantDatabase
+from tests.functional.reid_backend import configure_host_reid_certs
+from tests.utils.profiles import REID_CORE_QDRANT
+from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+
+SCENESCAPE_SPEC = FuncTestSpec(
+  profile=REID_CORE_QDRANT,
+  auth=AUTH_CONTROLLER,
 )
 
 
-def _connect_candidates():
-  """Prefer shared TLS defaults (compose), then plain localhost for ad-hoc Qdrant."""
-  secrets_dir = os.environ.get(
-    "SECRETSDIR",
-    os.path.join(os.path.dirname(__file__), "..", "..", "manager", "secrets"),
-  )
-  ca_default = os.path.join(secrets_dir, "certs", "scenescape-ca.pem")
-  ca_cert = get_reid_ca_cert()
-  if ca_cert.startswith("/run/secrets/") and os.path.isfile(ca_default):
-    ca_cert = ca_default
-
-  yield {
-    "hostname": DEFAULT_HOSTNAME,
-    "port": int(DEFAULT_PORT),
-    "use_tls": True,
-    "ca_cert": ca_cert,
-  }
-  yield {
-    "hostname": "localhost",
-    "port": int(DEFAULT_PORT),
-    "use_tls": False,
-  }
-
-
 @pytest.fixture
-def qdrant_db():
-  last_error = None
-  for kwargs in _connect_candidates():
-    db = QdrantDatabase(**kwargs)
-    db.connect()
-    if db.connected:
-      return db
-    last_error = kwargs
-  pytest.skip(
-    f"Qdrant is not available (tried TLS {DEFAULT_HOSTNAME}:{DEFAULT_PORT} "
-    f"and plain localhost:{DEFAULT_PORT}; last={last_error})")
+def qdrant_db(scenescape_env):
+  configure_host_reid_certs()
+  db = QdrantDatabase()
+  db.connect()
+  assert db.connected, f"Failed to connect to Qdrant at {db.hostname}:{db.port}"
+  return db
 
 
 @pytest.mark.test_name("NEX-T29230")

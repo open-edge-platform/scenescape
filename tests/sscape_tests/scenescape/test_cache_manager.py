@@ -1229,6 +1229,42 @@ class TestCacheManagerUnchangedSceneReuse:
     assert injected.isdisjoint(cache_mgr.data_source.scenes[0])
 
 
+class TestCacheManagerFilterConfig:
+  """The controller's filter block is injected into the scene data, next to association_config."""
+
+  def _tracker_config(self, **extra):
+    return {
+      'max_unreliable_time': 5.0, 'non_measurement_time_dynamic': 2.0,
+      'non_measurement_time_static': 10.0, 'effective_object_update_rate': 30,
+      'time_chunking_enabled': False, 'time_chunking_rate_fps': 30,
+      'suspended_track_timeout_secs': 60, **extra,
+    }
+
+  def test_filter_config_reaches_the_scene_data(self):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    filter_config = {'process_noise': 2e-4, 'base_measurement_noise': 0.5, 'init_state_covariance': 16.0}
+    cache_mgr.tracker_config_data = self._tracker_config(filter=filter_config)
+    cache_mgr.reid_config_data = {}
+
+    scene_data = cache_mgr._withRuntimeConfig({'uid': 'a', 'name': 'A'})
+
+    assert scene_data['filter_config'] == filter_config
+
+  def test_without_a_filter_block_the_scene_data_has_no_filter_config(self):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.tracker_config_data = self._tracker_config()
+    cache_mgr.reid_config_data = {}
+
+    assert 'filter_config' not in cache_mgr._withRuntimeConfig({'uid': 'a', 'name': 'A'})
+
+  def test_without_a_tracker_config_nothing_is_injected(self):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+
+    assert cache_mgr._withRuntimeConfig({'uid': 'a', 'name': 'A'}) == {'uid': 'a', 'name': 'A'}
+
+
 class TestCacheManagerRefreshCameras:
   """Test camera refresh functionality."""
 

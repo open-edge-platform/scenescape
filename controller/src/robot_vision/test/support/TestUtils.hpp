@@ -17,18 +17,19 @@ namespace rv::tracking::test {
 namespace idx {
 enum : int
 {
-  X,
-  Y,
-  Vx,
-  Vy,
-  Ax,
-  Ay,
-  Z,
-  Length,
-  Width,
-  Height,
-  Yaw,
-  YawRate
+  X = StateIndex::X,
+  Y = StateIndex::Y,
+  Vx = StateIndex::VX,
+  Vy = StateIndex::VY,
+  Ax = StateIndex::AX,
+  Ay = StateIndex::AY,
+  Z = StateIndex::Z,
+  Vz = StateIndex::VZ,
+  Length = StateIndex::LENGTH,
+  Width = StateIndex::WIDTH,
+  Height = StateIndex::HEIGHT,
+  Yaw = StateIndex::YAW,
+  YawRate = StateIndex::YAW_RATE
 };
 } // namespace idx
 
@@ -79,6 +80,17 @@ inline TrackedObject makeDetection(double x, double y, double z, double length, 
   object.width = width;
   object.height = height;
   return object;
+}
+
+// Diagonal per-detection R with the given x/y/z variances and `rest` on length, width, height and yaw.
+inline TrackedObject::MeasurementMatrix
+diagonalMeasurementNoise(double varX, double varY, double varZ, double rest = 0.2)
+{
+  TrackedObject::MeasurementMatrix noise = TrackedObject::MeasurementMatrix::eye() * rest;
+  noise(MeasurementIndex::X, MeasurementIndex::X) = varX;
+  noise(MeasurementIndex::Y, MeasurementIndex::Y) = varY;
+  noise(MeasurementIndex::Z, MeasurementIndex::Z) = varZ;
+  return noise;
 }
 
 } // namespace rv::tracking::test

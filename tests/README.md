@@ -163,9 +163,14 @@ make run_ui_tests
 
 # Run all unit tests
 make run_unit_tests
-
-
 ```
+
+Observation Processor cache and projection tests are part of the unit suite.
+They mock the frustum projection kernel so its behavior is covered by the
+library's own tests. `make run_unit_tests` generates the Observation Processor
+protobuf bindings with the test virtualenv for the duration of the pytest run.
+Existing generated bindings are restored, and newly generated files are removed
+afterward.
 
 ### OpenAPI schema drift checks
 
@@ -216,7 +221,7 @@ pytest tests/ui/test_out_of_box.py --backend=kubernetes
 pytest --backend=kubernetes
 
 # Run only tests that require Kubernetes
-pytest -m kubernetes_only --backend=kubernetes
+pytest -m kubernetes_only
 
 # Run all tests against both backends (parametrized)
 pytest --backend=all
@@ -299,9 +304,9 @@ pytest tests/sscape_tests
 
 ## Test markers
 
-| Marker            | Description                                                                       |
-| ----------------- | --------------------------------------------------------------------------------- |
-| `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
+| Marker            | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| `kubernetes_only` | Test always runs against Kubernetes, regardless of `--backend` |
 
 ## Test isolation
 

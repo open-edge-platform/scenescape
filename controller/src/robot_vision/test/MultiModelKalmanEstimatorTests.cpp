@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -13,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <rv/tracking/MultiModelKalmanEstimator.hpp>
+#include <rv/tracking/TrackManager.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "support/Scenario.hpp"
@@ -22,6 +24,38 @@ namespace {
 using namespace rv::tracking::test;
 using rv::tracking::MotionModel;
 using rv::tracking::MultiModelKalmanEstimator;
+
+struct CorrectedEstimate
+{
+  rv::tracking::TrackedObject state;
+  cv::Mat modelProbability;
+};
+
+// One predict + correct from rest, with the detection 1 m along x carrying the given R.
+CorrectedEstimate correctWithNoise(const std::optional<rv::tracking::TrackedObject::MeasurementMatrix> &noise,
+                                   const std::vector<MotionModel> &models)
+{
+  rv::tracking::TrackedObject object;
+  object.length = object.width = object.height = 1.0;
+
+  MultiModelKalmanEstimator estimator;
+  estimator.initialize(object,
+                       std::chrono::system_clock::time_point{},
+                       rv::tracking::kProductionProcessNoise,
+                       rv::tracking::kProductionMeasurementNoise,
+                       rv::tracking::kProductionInitStateCovariance,
+                       models);
+  estimator.predict(0.1);
+
+  rv::tracking::TrackedObject measurement = object;
+  measurement.x = 1.0;
+  measurement.measurementNoiseCov = noise;
+  estimator.correct(measurement);
+  return {estimator.currentState(), estimator.getModelProbability()};
+}
+
+const std::vector<std::vector<MotionModel>> kSingleAndProductionModels{{MotionModel::CV},
+                                                                       rv::tracking::kProductionMotionModels};
 
 } // namespace
 
@@ -142,7 +176,7 @@ TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
 }
 
 // Pins the sigma-point weights (kappa = 3 - n): they reproduce a Gaussian's fourth moment, which keeps CTRV's predicted
-// mean exact enough under a large turn-rate uncertainty. kappa = 0 gives 2.51 m/s here instead of 1.82.
+// mean exact enough under a large turn-rate uncertainty. kappa = 0 gives 2.56 m/s here instead of 1.82.
 TEST(MultiModelKalmanEstimatorTest, CtrvPredictionKeepsGaussianMeanUnderTurnRateUncertainty)
 {
   constexpr double kSpeed = 3.0;
@@ -209,6 +243,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
                               expected.acceleration,
                               expected.acceleration,
                               kMeasurementNoise,
+                              expected.velocity,
                               kMeasurementNoise,
                               kMeasurementNoise,
                               kMeasurementNoise,
@@ -221,30 +256,35 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
 TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
 {
   // Velocity noise is aligned with the motion (along >> cross), scales linearly with dt and has a floor. CA repeats it
-  // on the acceleration and CTRV adds turn-rate noise; states a model resets to 0 get a small floor. Position, z and
-  // size get no direct noise.
+  // on the acceleration and CTRV adds turn-rate noise; states a model resets to 0 get a small floor. vz uses the same
+  // (1+|speed|) inflation on |vz|. Position, z and size get no direct noise.
   struct Case
   {
     const char *name;
     double processNoise;
     double vx;
     double vy;
+    double inputVz;
     double deltaT;
     double alongX;
     double alongY;
     double along;
     double cross;
+    double vz; // expected Q[vz,vz]
     double yaw;
     double turnRate; // CTRV only
     double reset;    // states the model resets to 0
   };
   const Case cases[] = {
-    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-7, 1e-2, 1e-7},
-    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-7, 1e-2, 1e-7},
-    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-7, 2e-2, 2e-7},
-    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-9, 1e-4, 1e-9},
+    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-2, 2e-7, 2e-2, 2e-7},
+    {"climbing inflates vertical velocity noise", 1e-4, 0.0, 0.0, 5.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 6e-2, 1e-7, 1e-2,
+     1e-7},
+    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-9, 1e-4, 1e-9},
     {"tiny process noise hits the velocity and turn-rate floor",
      1e-8,
+     0.0,
      0.0,
      0.0,
      0.1,
@@ -252,6 +292,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
      0.0,
      1e-4,
      1e-6,
+     1e-4,
      1e-11,
      1e-4,
      1e-7},
@@ -265,7 +306,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
     {
       SCOPED_TRACE(std::string(modelName) + ": " + testCase.name);
       const cv::Mat noise = MultiModelKalmanEstimator::processNoiseCov(
-        model, testCase.processNoise, testCase.vx, testCase.vy, testCase.deltaT);
+        model, testCase.processNoise, testCase.vx, testCase.vy, testCase.inputVz, testCase.deltaT);
       const cv::Mat velocityBlock = noise(cv::Rect(idx::Vx, idx::Vx, 2, 2));
       const cv::Mat accelerationBlock = noise(cv::Rect(idx::Ax, idx::Ax, 2, 2));
       const cv::Mat along = (cv::Mat_<double>(2, 1) << testCase.alongX, testCase.alongY);
@@ -273,6 +314,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
 
       EXPECT_LT(cv::norm(velocityBlock * along, testCase.along * along, cv::NORM_INF), kTolerance);
       EXPECT_LT(cv::norm(velocityBlock * cross, testCase.cross * cross, cv::NORM_INF), kTolerance);
+      EXPECT_NEAR(noise.at<double>(idx::Vz, idx::Vz), testCase.vz, kTolerance);
       EXPECT_NEAR(noise.at<double>(idx::Yaw, idx::Yaw), testCase.yaw, kTolerance);
 
       const cv::Mat expectedAcceleration
@@ -284,6 +326,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
       cv::Mat rest = noise.clone();
       rest(cv::Rect(idx::Vx, idx::Vx, 2, 2)).setTo(0.0);
       rest(cv::Rect(idx::Ax, idx::Ax, 2, 2)).setTo(0.0);
+      rest.at<double>(idx::Vz, idx::Vz) = 0.0;
       rest.at<double>(idx::Yaw, idx::Yaw) = 0.0;
       rest.at<double>(idx::YawRate, idx::YawRate) = 0.0;
       EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
@@ -316,13 +359,16 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
   {
     double vx = 0.0;
     double vy = 0.0;
+    double vz = 0.0;
     for (size_t i = 0; i < before.size(); ++i)
     {
-      vx += mixing.at<double>(static_cast<int>(i), static_cast<int>(j)) * before[i].vx;
-      vy += mixing.at<double>(static_cast<int>(i), static_cast<int>(j)) * before[i].vy;
+      const double w = mixing.at<double>(static_cast<int>(i), static_cast<int>(j));
+      vx += w * before[i].vx;
+      vy += w * before[i].vy;
+      vz += w * before[i].vz;
     }
     const cv::Mat expected = MultiModelKalmanEstimator::processNoiseCov(
-      config.mMotionModels[j], config.mDefaultProcessNoise, vx, vy, kDeltaT);
+      config.mMotionModels[j], config.mDefaultProcessNoise, vx, vy, vz, kDeltaT);
     EXPECT_LT(cv::norm(run.estimator.mKalmanFilters[j]->getProcessNoiseCov(), expected, cv::NORM_INF), 1e-12)
       << "model " << j;
   }
@@ -336,7 +382,7 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
   const auto state = single.state();
   single.estimator.predict(kDeltaT);
   const cv::Mat expected = MultiModelKalmanEstimator::processNoiseCov(
-    MotionModel::CV, config.mDefaultProcessNoise, state.vx, state.vy, kDeltaT);
+    MotionModel::CV, config.mDefaultProcessNoise, state.vx, state.vy, state.vz, kDeltaT);
   EXPECT_LT(cv::norm(single.estimator.mKalmanFilters[0]->getProcessNoiseCov(), expected, cv::NORM_INF), 1e-12);
 
   // Without a model list the estimator runs CTRV, CV and CA, in that order.
@@ -351,9 +397,346 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
   ASSERT_EQ(defaults.mKalmanFilters.size(), std::size(defaultModels));
   for (size_t i = 0; i < std::size(defaultModels); ++i)
   {
-    const cv::Mat stationary
-      = MultiModelKalmanEstimator::processNoiseCov(defaultModels[i], config.mDefaultProcessNoise, 0.0, 0.0, kDeltaT);
+    const cv::Mat stationary = MultiModelKalmanEstimator::processNoiseCov(defaultModels[i], config.mDefaultProcessNoise,
+                                                                          0.0, 0.0, 0.0, kDeltaT);
     EXPECT_LT(cv::norm(defaults.mKalmanFilters[i]->getProcessNoiseCov(), stationary, cv::NORM_INF), 1e-12)
       << "model " << i;
   }
+}
+
+TEST(MultiModelKalmanEstimatorTest, TrackKeepsZMeasuredOnceMeasured)
+{
+  // A track born from a planar detection gets z_measured with its first measured-z update and keeps it through planar
+  // updates and coasting, as orientation_observed does for yaw. One model and the production IMM.
+  for (const auto &models :
+       {std::vector<rv::tracking::MotionModel>{rv::tracking::MotionModel::CV}, rv::tracking::kProductionMotionModels})
+  {
+    SCOPED_TRACE(models.size());
+    rv::tracking::TrackedObject planar;
+    planar.length = planar.width = 0.5;
+    planar.height = 1.8;
+    rv::tracking::TrackedObject measured = planar;
+    measured.z = 0.9;
+    measured.z_measured = true;
+
+    rv::tracking::MultiModelKalmanEstimator estimator;
+    auto timestamp = std::chrono::system_clock::now();
+    estimator.initialize(planar, timestamp, 1e-4, 0.2, 1.0, models);
+    EXPECT_FALSE(estimator.currentState().z_measured);
+
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    estimator.correct(planar);
+    EXPECT_FALSE(estimator.currentState().z_measured) << "planar update";
+
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    estimator.correct(measured);
+    EXPECT_TRUE(estimator.currentState().z_measured) << "measured-z update";
+    const double zAfterMeasured = estimator.currentState().z;
+
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    estimator.correct(planar);
+    EXPECT_TRUE(estimator.currentState().z_measured) << "planar update after a measured one";
+    // Planar detections omit z from the UKF update so they do not pull sticky measured-z height to the floor.
+    EXPECT_NEAR(estimator.currentState().z, zAfterMeasured, 0.15) << "planar must not collapse measured z";
+
+    timestamp += std::chrono::milliseconds(500);
+    estimator.predict(timestamp);
+    EXPECT_TRUE(estimator.currentState().z_measured) << "coast";
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, PlanarCorrectAfterMeasuredDoesNotPullZ)
+{
+  // Explicit height regression: measured z at 1.2 m, then planar ground points at z = 0 for several frames.
+  rv::tracking::TrackedObject planar;
+  planar.x = 1.0;
+  planar.y = 2.0;
+  planar.z = 0.0;
+  planar.length = planar.width = 0.5;
+  planar.height = 1.8;
+  rv::tracking::TrackedObject measured = planar;
+  measured.z = 1.2;
+  measured.z_measured = true;
+
+  rv::tracking::MultiModelKalmanEstimator estimator;
+  auto timestamp = std::chrono::system_clock::now();
+  estimator.initialize(measured, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  ASSERT_TRUE(estimator.currentState().z_measured);
+  EXPECT_NEAR(estimator.currentState().z, 1.2, 1e-6);
+
+  for (int frame = 0; frame < 5; ++frame)
+  {
+    timestamp += std::chrono::milliseconds(100);
+    estimator.predict(timestamp);
+    planar.x = 1.0 + 0.1 * (frame + 1);
+    estimator.correct(planar);
+    EXPECT_TRUE(estimator.currentState().z_measured) << "frame " << frame;
+    EXPECT_NEAR(estimator.currentState().z, 1.2, 0.2) << "frame " << frame;
+    EXPECT_NEAR(estimator.currentState().vz, 0.0, 0.15) << "frame " << frame;
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, NeverMeasuredPlanarCorrectStillUpdatesZ)
+{
+  // Purely planar tracks still correct z (floor lock). Omitting z is only for sticky measured height.
+  rv::tracking::TrackedObject seed;
+  seed.x = 1.0;
+  seed.y = 2.0;
+  seed.z = 0.4;
+  seed.length = seed.width = 0.5;
+  seed.height = 1.8;
+
+  rv::tracking::MultiModelKalmanEstimator estimator;
+  auto timestamp = std::chrono::system_clock::now();
+  estimator.initialize(seed, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  ASSERT_FALSE(estimator.currentState().z_measured);
+  EXPECT_NEAR(estimator.currentState().z, 0.4, 1e-6);
+
+  rv::tracking::TrackedObject planar = seed;
+  planar.z = 0.0;
+  timestamp += std::chrono::milliseconds(100);
+  estimator.predict(timestamp);
+  estimator.correct(planar);
+  EXPECT_FALSE(estimator.currentState().z_measured);
+  EXPECT_NEAR(estimator.currentState().z, 0.0, 0.05);
+}
+
+TEST(MultiModelKalmanEstimatorTest, PredictIntegratesVzWithoutMeasurement)
+{
+  rv::tracking::MultiModelKalmanEstimator estimator;
+  rv::tracking::TrackedObject seed;
+  seed.x = 0.0;
+  seed.y = 0.0;
+  seed.z = 2.5;
+  seed.vz = 0.5;
+  seed.yaw = 0.3;
+  seed.length = 0.5;
+  seed.width = 0.5;
+  seed.height = 1.8;
+
+  auto timestamp = std::chrono::system_clock::now();
+  estimator.initialize(seed, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  constexpr double coastDt = 2.0;
+  estimator.predict(timestamp + std::chrono::seconds(2));
+  auto state = estimator.currentState();
+  EXPECT_NEAR(state.z, 2.5 + 0.5 * coastDt, 0.05);
+  EXPECT_NEAR(state.vz, 0.5, 0.05);
+  EXPECT_NEAR(state.yaw, 0.3, 1e-3);
+}
+
+TEST(MultiModelKalmanEstimatorTest, CorrectUsesPerMeasurementNoise)
+{
+  for (const auto &models : kSingleAndProductionModels)
+  {
+    SCOPED_TRACE(models.size() == 1 ? "single model" : "production IMM");
+    const auto legacy = correctWithNoise(std::nullopt, models);
+    const auto explicitDefault = correctWithNoise(diagonalMeasurementNoise(0.2, 0.2, 0.2), models);
+    const auto sharp = correctWithNoise(diagonalMeasurementNoise(1e-4, 0.2, 0.2), models);
+    const auto blurry = correctWithNoise(diagonalMeasurementNoise(100.0, 0.2, 0.2), models);
+
+    // An explicit default R reproduces the update without R, model probabilities included.
+    EXPECT_NEAR(explicitDefault.state.x, legacy.state.x, 1e-12);
+    EXPECT_LT(cv::norm(explicitDefault.modelProbability, legacy.modelProbability, cv::NORM_INF), 1e-12);
+    EXPECT_GT(sharp.state.x, 0.95);
+    EXPECT_LT(blurry.state.x, 0.05);
+    EXPECT_GT(sharp.state.x, legacy.state.x);
+    EXPECT_LT(blurry.state.x, legacy.state.x);
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, CorrectWithoutNoiseAfterCorrectWithNoiseUsesDefaultR)
+{
+  // Two corrections without a predict between them: the second, without R, must not reuse the first one's R.
+  for (const auto &models : kSingleAndProductionModels)
+  {
+    SCOPED_TRACE(models.size() == 1 ? "single model" : "production IMM");
+    auto correctTwice = [&](const std::optional<rv::tracking::TrackedObject::MeasurementMatrix> &secondNoise) {
+      rv::tracking::TrackedObject object;
+      object.length = object.width = object.height = 1.0;
+      MultiModelKalmanEstimator estimator;
+      estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 0.2, 1.0, models);
+      estimator.predict(0.1);
+
+      auto first = object;
+      first.x = 1.0;
+      first.measurementNoiseCov = diagonalMeasurementNoise(1e-4, 0.2, 0.2);
+      estimator.correct(first);
+      auto second = object;
+      second.y = 1.0;
+      second.measurementNoiseCov = secondNoise;
+      estimator.correct(second);
+      return CorrectedEstimate{estimator.currentState(), estimator.getModelProbability()};
+    };
+
+    const auto withoutR = correctTwice(std::nullopt);
+    const auto explicitDefault = correctTwice(diagonalMeasurementNoise(0.2, 0.2, 0.2));
+    EXPECT_NEAR(withoutR.state.y, explicitDefault.state.y, 1e-12);
+    EXPECT_LT(
+      cv::norm(cv::Mat(withoutR.state.errorCovariance), cv::Mat(explicitDefault.state.errorCovariance), cv::NORM_INF),
+      1e-12);
+    EXPECT_LT(cv::norm(withoutR.modelProbability, explicitDefault.modelProbability, cv::NORM_INF), 1e-12);
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, PerMeasurementNoiseYawIgnoredWithoutOrientation)
+{
+  // A detection without orientation leaves yaw out of the update, so the yaw entry of its R has no effect.
+  for (const auto &models : kSingleAndProductionModels)
+  {
+    SCOPED_TRACE(models.size() == 1 ? "single model" : "production IMM");
+    auto correctWithYawNoise = [&](double yawNoise) {
+      rv::tracking::TrackedObject object;
+      object.length = object.width = object.height = 1.0;
+      MultiModelKalmanEstimator estimator;
+      estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 0.2, 1.0, models);
+      estimator.predict(0.1);
+
+      auto measurement = object;
+      measurement.x = 1.0;
+      measurement.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+      (*measurement.measurementNoiseCov)(rv::tracking::MeasurementIndex::YAW, rv::tracking::MeasurementIndex::YAW)
+        = yawNoise;
+      estimator.correct(measurement);
+      return CorrectedEstimate{estimator.currentState(), estimator.getModelProbability()};
+    };
+
+    const auto sharp = correctWithYawNoise(1e-4);
+    const auto blurry = correctWithYawNoise(100.0);
+    EXPECT_NEAR(sharp.state.x, blurry.state.x, 1e-12);
+    EXPECT_LT(
+      cv::norm(cv::Mat(sharp.state.errorCovariance), cv::Mat(blurry.state.errorCovariance), cv::NORM_INF), 1e-12);
+    EXPECT_LT(cv::norm(sharp.modelProbability, blurry.modelProbability, cv::NORM_INF), 1e-12);
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, PlanarCorrectWithMeasurementNoiseLeavesZOutOfTheUpdate)
+{
+  // A track with measured z leaves z out of a planar update, and R's z row with it: its z variance has no effect.
+  for (const auto &models : kSingleAndProductionModels)
+  {
+    SCOPED_TRACE(models.size() == 1 ? "single model" : "production IMM");
+    auto correctWithZNoise = [&](double zNoise, bool zMeasured) {
+      rv::tracking::TrackedObject track;
+      track.z = 1.2;
+      track.length = track.width = 0.5;
+      track.height = 1.8;
+      track.z_measured = true;
+      MultiModelKalmanEstimator estimator;
+      estimator.initialize(track, std::chrono::system_clock::time_point{}, 1e-4, 0.2, 1.0, models);
+      estimator.predict(0.1);
+
+      auto detection = track;
+      detection.x = 0.3;
+      detection.z = 0.0;
+      detection.z_measured = zMeasured;
+      detection.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, zNoise);
+      estimator.correct(detection);
+      return CorrectedEstimate{estimator.currentState(), estimator.getModelProbability()};
+    };
+
+    const auto sharp = correctWithZNoise(1e-6, false);
+    const auto blurry = correctWithZNoise(100.0, false);
+    EXPECT_GT(sharp.state.x, 0.1);
+    EXPECT_NEAR(sharp.state.z, 1.2, 1e-3);
+    EXPECT_NEAR(sharp.state.z, blurry.state.z, 1e-12);
+    EXPECT_LT(
+      cv::norm(cv::Mat(sharp.state.errorCovariance), cv::Mat(blurry.state.errorCovariance), cv::NORM_INF), 1e-12);
+    EXPECT_LT(cv::norm(sharp.modelProbability, blurry.modelProbability, cv::NORM_INF), 1e-12);
+    // Control: the same R on a measured-z detection pulls z to it.
+    EXPECT_LT(correctWithZNoise(1e-6, true).state.z, 0.1);
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, ModelProbabilityUsesPerMeasurementNoise)
+{
+  // The IMM likelihood must use S = H P H^T + R_detection, not the default S from predict.
+  const auto legacy = correctWithNoise(std::nullopt, rv::tracking::kProductionMotionModels);
+  const auto sharp = correctWithNoise(diagonalMeasurementNoise(1e-4, 0.2, 0.2), rv::tracking::kProductionMotionModels);
+
+  EXPECT_GT(cv::norm(sharp.modelProbability, legacy.modelProbability, cv::NORM_INF), 1e-6);
+}
+
+TEST(MultiModelKalmanEstimatorTest, PredictPublishesMeasurementCovarianceWithoutNoise)
+{
+  for (const auto &models : kSingleAndProductionModels)
+  {
+    SCOPED_TRACE(models.size() == 1 ? "single model" : "production IMM");
+    rv::tracking::TrackedObject object;
+    object.length = object.width = object.height = 1.0;
+
+    MultiModelKalmanEstimator estimator;
+    estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 0.2, 1.0, models);
+    estimator.predict(0.1);
+    auto measurement = object;
+    measurement.x = 0.3;
+    estimator.correct(measurement);
+    estimator.predict(0.1);
+    const auto state = estimator.currentState();
+
+    // Same H P H^T as the UKF of the model chosen for association (highest probability, first on ties).
+    cv::Point bestModel;
+    cv::minMaxLoc(estimator.getModelProbability(), nullptr, nullptr, nullptr, &bestModel);
+    const cv::Mat expected = estimator.mKalmanFilters[bestModel.y]->getPredictedMeasurementCovWithoutNoise();
+    EXPECT_LT(cv::norm(cv::Mat(state.predictedStateMeasurementCov), expected, cv::NORM_INF), 1e-12);
+    // S = H P H^T + R_default.
+    const rv::tracking::TrackedObject::MeasurementMatrix noise
+      = state.predictedMeasurementCov - state.predictedStateMeasurementCov;
+    EXPECT_LT(cv::norm(noise, rv::tracking::TrackedObject::MeasurementMatrix::eye() * 0.2, cv::NORM_INF), 1e-12);
+    EXPECT_GT(minEigenvalue(cv::Mat(state.predictedStateMeasurementCov)), 0.0);
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, PredictKeepsMeasurementCovarianceWithoutNoiseUnderLargeDefaultNoise)
+{
+  // Born from a detection with R 0.2, so H P H^T(x, x) is about 0.21 after a step, under a default r of 1e16: S - r I
+  // rounds it to 0 and the gate of a detection with R would ignore the track's uncertainty (Copilot review of #2129).
+  for (const auto &models : kSingleAndProductionModels)
+  {
+    SCOPED_TRACE(models.size() == 1 ? "single model" : "production IMM");
+    rv::tracking::TrackedObject object;
+    object.length = object.width = object.height = 1.0;
+    object.measurementNoiseCov = diagonalMeasurementNoise(0.2, 0.2, 0.2);
+
+    MultiModelKalmanEstimator estimator;
+    estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 1e16, 1.0, models);
+    estimator.predict(0.1);
+    const auto state = estimator.currentState();
+
+    cv::Point bestModel;
+    cv::minMaxLoc(estimator.getModelProbability(), nullptr, nullptr, nullptr, &bestModel);
+    const cv::Mat expected = estimator.mKalmanFilters[bestModel.y]->getPredictedMeasurementCovWithoutNoise();
+    EXPECT_LT(cv::norm(cv::Mat(state.predictedStateMeasurementCov), expected, cv::NORM_INF), 1e-12);
+    EXPECT_GT(state.predictedStateMeasurementCov(rv::tracking::MeasurementIndex::X, rv::tracking::MeasurementIndex::X),
+              0.2);
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, InitializeSeedsErrorCovarianceFromMeasurementNoise)
+{
+  using rv::tracking::MeasurementIndex;
+  using rv::tracking::StateIndex;
+
+  rv::tracking::TrackedObject object;
+  object.length = object.width = object.height = 1.0;
+  object.measurementNoiseCov = diagonalMeasurementNoise(4.0, 0.5, 0.3);
+  (*object.measurementNoiseCov)(MeasurementIndex::X, MeasurementIndex::Y) = 1.0;
+  (*object.measurementNoiseCov)(MeasurementIndex::Y, MeasurementIndex::X) = 1.0;
+  (*object.measurementNoiseCov)(MeasurementIndex::HEIGHT, MeasurementIndex::HEIGHT) = 0.7;
+
+  MultiModelKalmanEstimator estimator;
+  estimator.initialize(object, std::chrono::system_clock::time_point{}, 1e-4, 0.2, 1.0, {MotionModel::CV});
+
+  const cv::Mat P = estimator.getKalmanFilterErrorCovariance(0);
+  EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::X, StateIndex::X), 4.0);
+  EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::Y, StateIndex::Y), 0.5);
+  EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::Z, StateIndex::Z), 0.3);
+  EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::X, StateIndex::Y), 1.0);
+  EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::HEIGHT, StateIndex::HEIGHT), 0.7);
+  // Velocity keeps init_state_covariance and yaw its cap; the detection's yaw variance does not seed P.
+  EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::VX, StateIndex::VX), 1.0);
+  EXPECT_DOUBLE_EQ(P.at<double>(StateIndex::YAW, StateIndex::YAW), 0.05);
+  EXPECT_FALSE(estimator.currentState().measurementNoiseCov) << "tracks must not carry a detection R";
 }

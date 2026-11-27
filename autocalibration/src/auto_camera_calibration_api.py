@@ -7,7 +7,7 @@ import os
 import base64
 
 from flask import Flask, jsonify, request
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
 from point_cloud_registration import PointCloudRegistration, PointCloudRegistrationError
@@ -398,6 +398,55 @@ class CameraCalibrationApi:
       raise StrategyNotFoundError()
     return strategy
 
+  def _needs_registration_worker(self, scene, strategy):
+    # The worker may save map_processed before it finishes, so check the active scene first.
+    if self.calibrationContext.current_processing_scene == scene.id:
+      return True
+    if scene.id in self.calibrationContext.pending_registrations:
+      return True
+    return strategy.is_map_updated(scene)
+
+  def _request_scene_update(self, scene):
+    self.calibrationContext.request_scene_registration(scene)
+
+  def _request_scene_registration(self, scene_id: str, scene) -> dict:
+    status = self.OpenApi.Status
+    outcome, message = {
+        "active": (status.REGISTERING, "Registration is in progress"),
+        "started": (status.REGISTERING, "Registration started"),
+        "busy": (status.BUSY, "Registration is currently busy"),
+    }[self.calibrationContext.request_scene_registration(scene)]
+    response = {
+        self.OpenApi.STATUS: outcome,
+        self.OpenApi.SCENE_ID: scene_id,
+        self.OpenApi.MESSAGE: message,
+    }
+    if outcome == status.BUSY:
+      response["sceneName"] = getattr(scene, "name", None)
+    return response
+
+  def _scene_registration_status(self, scene, strategy):
+    status = self.OpenApi.Status
+    context = self.calibrationContext
+    if context.current_processing_scene == scene.id:
+      return status.REGISTERING, "Registration is in progress"
+    if scene.id in context.pending_registrations:
+      if context.register_thread_lock.locked():
+        return status.BUSY, "Registration is currently busy"
+      return status.BUSY, "Registration is waiting to start"
+    # map_processed can be saved before validation fails, so map freshness is not proof of success.
+    result = context.registration_results.get(scene.id)
+    if result and result["status"] != status.SUCCESS:
+      return status.ERROR, result["message"]
+    if strategy.is_map_updated(scene):
+      if context.register_thread_lock.locked():
+        return status.BUSY, "Registration is currently busy"
+      return status.BUSY, "Registration is waiting to start"
+    if result:
+      return status.SUCCESS, "Registration is complete"
+    # No worker result yet (e.g. after a restart): ask the client to POST rather than infer success.
+    return status.BUSY, "Registration is waiting to start"
+
   def _register_socket_events(self):
     @self.socketio.on("connect")
     def handle_connect():
@@ -451,7 +500,7 @@ class CameraCalibrationApi:
         return
 
       sid = request.sid
-      self.calibrationContext.socket_scene_clients[scene_id] = sid
+      join_room(self.calibrationContext.scene_room(scene_id))
       log.info(f"Registered scene '{scene_id}' with socket id {sid}")
       return
 
@@ -496,30 +545,15 @@ class CameraCalibrationApi:
       scene = self._get_scene(sceneId)
       self._validate_scene_for_operation(scene, "registered")
       strategy = self._get_calibration_strategy(scene)
-      strategy.socketio = self.socketio
-      strategy.socket_scene_clients = self.calibrationContext.socket_scene_clients
 
-      if strategy.is_map_updated(scene):
-        log.info(f"Scene map updated for {sceneId}")
-        if self.calibrationContext.register_thread_lock.locked():
-          log.info(f"Registration busy for {sceneId}")
-          register_response = {
-              self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
-              self.OpenApi.SCENE_ID: sceneId,
-              "sceneName": getattr(scene, "name", None),
-              self.OpenApi.MESSAGE: "Registration is currently busy"
-          }
-        else:
-          log.info(f"Registration triggered for {sceneId}")
-          register_response = {
-              self.OpenApi.STATUS: self.OpenApi.Status.REGISTERING,
-              self.OpenApi.SCENE_ID: sceneId,
-              self.OpenApi.MESSAGE: "Registration started"
-          }
-          self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
+      if self._needs_registration_worker(scene, strategy):
+        log.info(f"Scene map updated or registering for {sceneId}")
+        register_response = self._request_scene_registration(sceneId, scene)
       else:
         log.info(f"Processing scene for calibration: {sceneId}")
+        generation = self.calibrationContext.begin_sync_registration(scene.id)
         result = strategy.process_scene_for_calibration(scene)
+        self.calibrationContext.finish_sync_registration(scene.id, generation, result)
         status = result.get(self.OpenApi.STATUS, self.OpenApi.Status.ERROR) if result else self.OpenApi.Status.ERROR
 
         if status == self.OpenApi.Status.SUCCESS:
@@ -545,18 +579,7 @@ class CameraCalibrationApi:
       scene = self._get_scene(sceneId)
       self._validate_scene_for_operation(scene, "queried")
       strategy = self._get_calibration_strategy(scene)
-
-      if strategy.is_map_updated(scene):
-        if self.calibrationContext.register_thread_lock.locked():
-          status = self.OpenApi.Status.BUSY
-          message = "Registration is currently busy"
-        else:
-          status = self.OpenApi.Status.REGISTERING
-          message = "Registration is in progress"
-      else:
-        status = self.OpenApi.Status.SUCCESS
-        message = "Registration is complete"
-
+      status, message = self._scene_registration_status(scene, strategy)
       response = {
           self.OpenApi.STATUS: status,
           self.OpenApi.SCENE_ID: sceneId,
@@ -577,7 +600,7 @@ class CameraCalibrationApi:
 
       if strategy.is_map_updated(scene):
         strategy.reset_scene(scene)
-        self.calibrationContext.scene_update_thread_wrapper(scene, map_update=True)
+        self._request_scene_update(scene)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202
       else:
