@@ -544,3 +544,28 @@ def test_start_mesh_generation_does_not_send_db_poses_as_priors(
   camera_location_order = mesh_generator.mapping_client.startReconstructMesh.call_args[0][2]
   assert camera_order == ["camera1", "camera2", "atag-qcam1"]
   assert camera_location_order == [None, None, None]
+
+
+@pytest.mark.parametrize("request_id", ["", "../health", "a/b", "abc?x=1", "0" * 31, "0" * 33, "g" * 32, None])
+def test_get_reconstruction_status_rejects_invalid_request_id(request_id):
+  mesh_generator = MeshGenerator()
+
+  with patch("manager.mesh_generator.requests.get") as mock_get:
+    with pytest.raises(ValueError):
+      mesh_generator.mapping_client.getReconstructionStatus(request_id)
+
+  mock_get.assert_not_called()
+
+
+def test_get_reconstruction_status_accepts_uuid_hex():
+  mesh_generator = MeshGenerator()
+  request_id = "0123456789abcdef0123456789abcdef"
+
+  with patch("manager.mesh_generator.requests.get") as mock_get:
+    mock_get.return_value.json.return_value = {"state": "running"}
+    mock_get.return_value.ok = True
+    mock_get.return_value.status_code = 200
+    result = mesh_generator.mapping_client.getReconstructionStatus(request_id)
+
+  assert mock_get.call_args[0][0].endswith(f"/reconstruction/status/{request_id}")
+  assert result["success"] is True
