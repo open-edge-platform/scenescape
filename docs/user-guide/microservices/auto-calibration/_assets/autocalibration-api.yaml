@@ -364,6 +364,9 @@ paths:
       description: |
         Registers a scene for calibration processing.
         This is the first step in the auto-calibration workflow.
+        The request does not reset the scene's existing calibration data. If another
+        registration is running, it returns a `busy` status and the scene is queued
+        and registered after the running registration finishes.
       operationId: registerScene
       parameters:
         - name: sceneId
@@ -392,11 +395,11 @@ paths:
                     sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
                     message: "Error details"
                 busy:
-                  summary: Registration is busy
+                  summary: Registration is busy, the update is queued
                   value:
                     status: "busy"
                     sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
-                    message: "Registration is currently busy"
+                    message: "Registration is currently busy, the update is queued"
         "202":
           description: Registration started asynchronously
           content:
@@ -461,7 +464,9 @@ paths:
       summary: Notify of scene updates
       description: |
         Notifies the calibration service that a scene has been updated
-        and needs to be re-processed
+        and needs to be re-processed. The scene is reset and registered again
+        from its current map. If a registration is already running, the update
+        is queued and processed after it finishes, so it is not lost.
       operationId: updateScene
       parameters:
         - name: sceneId

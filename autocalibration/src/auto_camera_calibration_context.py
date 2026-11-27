@@ -1,8 +1,9 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
 import threading
+from collections import OrderedDict
 
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 from auto_camera_calibration_model import CameraCalibrationModel
@@ -55,8 +56,8 @@ class CameraCalibrationContext:
 
     self.register_thread_lock = threading.Lock()
     self.calibration_thread_lock = threading.Lock()
-    # Map updates requested while a registration runs, keyed by scene id.
-    self.pending_map_updates = {}
+    # Requests received while a registration runs, keyed by scene id, oldest first.
+    self.pending_map_updates = OrderedDict()
     self.pending_map_updates_lock = threading.Lock()
 
     return
@@ -69,77 +70,143 @@ class CameraCalibrationContext:
     all_scene_objects = self.calibration_data_interface.all_scenes()
     for scene_object in all_scene_objects:
       if scene_object.camera_calibration != "Manual":
-        self.scene_update_thread_wrapper(scene_object, map_update=False)
+        self.scene_update_thread_wrapper(scene_object, map_update=self._is_map_stale(scene_object),
+                                         queue_if_busy=True)
         log.info(f"Validating Scene = {scene_object.name} on start.")
     return
 
-  def scene_update_thread_wrapper(self, sceneobj, map_update=False):
-    """! function starts processing the scene unless a registration is running.
-    A map update received while a registration is running is queued and
-    re-run once that registration finishes, so it is not lost.
+  def _is_map_stale(self, sceneobj):
+    """! checks whether the scene map changed since it was last processed.
+    A scene that cannot be checked is treated as not stale, so one bad scene
+    cannot stop the others from being processed.
     @param   sceneobj      scene object.
-    @param   map_update    boolean for re-registering the scene.
 
-    @return  None
+    @return  True/False
+    """
+    strategy = self.scene_strategies.get(sceneobj.camera_calibration)
+    if strategy is None:
+      return False
+    try:
+      return bool(strategy.is_map_stale(sceneobj))
+    except Exception as e:
+      log.error(f"Could not check whether the map of scene {sceneobj.name} changed : {e}")
+      return False
+
+  def scene_update_thread_wrapper(self, sceneobj, map_update=False, reset=False,
+                                  queue_if_busy=False):
+    """! function starts processing the scene unless a registration is running.
+    When busy, the request is queued if queue_if_busy is set, and run once the
+    current registration finishes; otherwise it is dropped.
+    @param   sceneobj        scene object.
+    @param   map_update      boolean for re-registering the scene.
+    @param   reset           boolean for resetting the scene before the run.
+    @param   queue_if_busy   boolean for queueing the request when a registration is running.
+
+    @return  True if this call started the run, False otherwise.
     """
     with self.pending_map_updates_lock:
       # The lock is taken here, not in the worker thread, so a run is busy from
       # the moment it is accepted until its queued work is done.
       if not self.register_thread_lock.acquire(blocking=False):
-        if map_update:
-          self.pending_map_updates[sceneobj.id] = sceneobj
-          log.info(f"Map update for scene {sceneobj.name} queued until the current registration finishes")
-        return
+        if queue_if_busy:
+          self._queue_update(sceneobj, map_update, reset)
+        return False
       try:
-        threading.Thread(target=self.process_scene, args=(sceneobj, map_update)).start()
+        threading.Thread(target=self.process_scene, args=(sceneobj, map_update, reset)).start()
       except Exception:
         self.register_thread_lock.release()
         raise
-    return
+    return True
 
-  def process_scene(self, sceneobj, map_update):
-    """! function runs the registration for the scene, then re-runs any map
-    update queued while it was running. Called with register_thread_lock held;
-    the lock is released when no queued work remains.
+  def _queue_update(self, sceneobj, map_update, reset):
+    """! queues a request for a scene, merging it with one already queued.
+    Called with pending_map_updates_lock held.
+    """
+    queued = self.pending_map_updates.get(sceneobj.id)
+    if queued:
+      _, queued_map_update, queued_reset = queued
+      map_update = map_update or queued_map_update
+      reset = reset or queued_reset
+    # Re-assigning an existing key keeps its place in the queue.
+    self.pending_map_updates[sceneobj.id] = (sceneobj, map_update, reset)
+    log.info(f"Scene {sceneobj.name} queued until the current registration finishes")
+
+  def process_scene(self, sceneobj, map_update, reset=False):
+    """! function runs the registration for the scene, then runs any request
+    queued while it was running. Called with register_thread_lock held;
+    the lock is released when no queued work remains, or on any exit.
     @param   sceneobj      scene object.
     @param   map_update    boolean for re-registering the scene.
+    @param   reset         boolean for resetting the scene before the run.
 
     @return  None
     """
-    while sceneobj is not None:
-      self._run_registration(sceneobj, map_update)
-      sceneobj, map_update = self._next_queued_update_or_release()
+    request = (sceneobj, map_update, reset)
+    lock_held = True
+    try:
+      while request is not None:
+        self._run_registration(*request)
+        request = self._next_queued_update_or_release()
+      lock_held = False
+    finally:
+      if lock_held:
+        self.register_thread_lock.release()
     return
 
-  def _run_registration(self, sceneobj, map_update):
-    """! runs one registration. A map update starts from a clean scene (reset),
-    inside the locked run so it never races a registration in progress.
+  def _run_registration(self, sceneobj, map_update, reset):
+    """! runs one registration. A reset starts from a clean scene, inside the
+    locked run so it never races a registration in progress.
     Any failure is logged so the queue always advances and the lock is released.
     @param   sceneobj      scene object.
     @param   map_update    boolean for re-registering the scene.
+    @param   reset         boolean for resetting the scene before the run.
 
     @return  None
     """
     try:
       strategy = self.scene_strategies[sceneobj.camera_calibration]
-      if map_update:
+      if reset:
         strategy.reset_scene(sceneobj)
       strategy.process_scene_for_calibration(sceneobj, map_update)
     except Exception as e:
       log.error(f"Error in register dataset for scene {sceneobj.name} : {e}")
 
   def _next_queued_update_or_release(self):
-    """! takes the next queued map update for this run, or releases the lock.
-    The queue check and the lock release happen under one lock, so an update
+    """! takes the oldest queued request that still needs to run, or releases the lock.
+    The queue check and the lock release happen under one lock, so a request
     accepted at any point is either picked up here or starts a new run.
-    @return  tuple of (scene object, True) for the next run, or (None, False) when idle.
+    @return  tuple of (scene object, map_update, reset) for the next run, or None when idle.
     """
-    with self.pending_map_updates_lock:
-      if self.pending_map_updates:
-        _, sceneobj = self.pending_map_updates.popitem()
-        return sceneobj, True
-      self.register_thread_lock.release()
-      return None, False
+    while True:
+      with self.pending_map_updates_lock:
+        if not self.pending_map_updates:
+          self.register_thread_lock.release()
+          return None
+        _, request = self.pending_map_updates.popitem(last=False)
+      # Refreshing calls the manager, so it runs outside pending_map_updates_lock.
+      request = self._refresh_queued_request(request)
+      if request is not None:
+        return request
+
+  def _refresh_queued_request(self, request):
+    """! reloads the scene of a queued request, so the run sees current data, and
+    drops a map update the previous run already processed.
+    @param   request       tuple of (scene object, map_update, reset).
+
+    @return  the request to run, or None when it is no longer needed.
+    """
+    sceneobj, map_update, reset = request
+    try:
+      current = self.calibration_data_interface.scene_with_id(sceneobj.id)
+    except Exception as e:
+      log.warning(f"Could not reload queued scene {sceneobj.name}, using the queued copy : {e}")
+      current = None
+    if current is None:
+      return request
+    if map_update and not self._is_map_stale(current):
+      log.info(f"Skipping queued update for scene {sceneobj.name}: its map is already processed")
+      return None
+    return current, map_update, reset
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """

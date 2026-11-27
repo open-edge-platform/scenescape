@@ -47,6 +47,10 @@ class PerceptualSensorCalibrationController(ABC):
     """Report whether the scene map needs (re)processing."""
     raise NotImplementedError
 
+  def is_map_stale(self, sceneobj):
+    """Side-effect free is_map_updated; override when is_map_updated resets the scene."""
+    return self.is_map_updated(sceneobj)
+
   @abstractmethod
   def generate_calibration(self, sceneobj, sensor_config, msg):
     """Localize the sensor against the scene and return transform + metrics."""

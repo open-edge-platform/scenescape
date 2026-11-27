@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 
 from markerless_camera_calibration_controller import MarkerlessCameraCalibrationController
 from scene_common.timestamp import get_datetime_from_string
+from scene_common.timestamp import get_iso_time as real_get_iso_time
 
 
 def make_scene():
@@ -113,3 +114,99 @@ def test_map_uploaded_during_run_stays_unprocessed_after_run_saves(tmp_path):
 
   assert scene.map_processed is not None
   assert controller.is_map_updated(scene), "upload made during the run was marked processed by that run"
+
+
+class FakeClock:
+  """! Deterministic stand-in for get_iso_time: each call advances one second. """
+
+  def __init__(self):
+    self.now = time.time() - 600
+
+  def get_iso_time(self, timestamp=None):
+    if timestamp is not None:
+      return real_get_iso_time(timestamp)
+    self.now += 1
+    return real_get_iso_time(self.now)
+
+  def between_ticks(self):
+    """! A moment after the last stamp handed out and before the next one. """
+    return self.now + 0.5
+
+
+def make_scene_with_files(tmp_path, clock):
+  """! Scene whose map and polycam files were both last written before the run. """
+  scene = make_scene()
+  for attr, name in (("map", "box.glb"), ("polycam_data", "poly.zip")):
+    path = tmp_path / name
+    path.write_bytes(b"old")
+    os.utime(path, (clock.now - 100, clock.now - 100))
+    setattr(scene, attr, str(path))
+  return scene
+
+
+def make_stamping_controller(scene):
+  data_interface = MagicMock()
+
+  def save_stamp(scene_id, stamp):
+    scene.map_processed = get_datetime_from_string(stamp)
+
+  data_interface.update_map_processed.side_effect = save_stamp
+  controller = MarkerlessCameraCalibrationController(calibration_data_interface=data_interface)
+  controller.notify_scene_registration = MagicMock()
+  return controller
+
+
+def run_markerless(controller, scene, clock, preprocess):
+  controller.preprocess_polycam_dataset = MagicMock(side_effect=preprocess)
+  fake_module = MagicMock(CameraCalibrationMonocularPoseEstimate=MagicMock())
+  with patch.dict(sys.modules, {"markerless_camera_calibration": fake_module}), \
+          patch("markerless_camera_calibration_controller.get_iso_time", clock.get_iso_time):
+    controller.process_scene_for_calibration(scene, map_update=True)
+
+
+def test_upload_between_preprocess_read_and_stamp_stays_pending(tmp_path):
+  """! Positive: a polycam upload landing right after the zip was read is still pending after the run. """
+  clock = FakeClock()
+  scene = make_scene_with_files(tmp_path, clock)
+  controller = make_stamping_controller(scene)
+
+  def preprocess(_scene):
+    uploaded_at = clock.between_ticks()  # upload lands after the zip was read
+    os.utime(scene.polycam_data, (uploaded_at, uploaded_at))
+    return {"status": "success", "dataset_dir": "/tmp/ds", "output_dir": "/tmp/out"}
+
+  run_markerless(controller, scene, clock, preprocess)
+
+  assert scene.map_processed is not None
+  assert controller.is_map_updated(scene), "upload after the zip was read was marked processed"
+
+
+def test_upload_consumed_by_the_run_is_not_pending_again(tmp_path):
+  """! Negative: a polycam file written before the run started is processed, so no re-run is needed. """
+  clock = FakeClock()
+  scene = make_scene_with_files(tmp_path, clock)
+  controller = make_stamping_controller(scene)
+
+  def preprocess(_scene):
+    return {"status": "success", "dataset_dir": "/tmp/ds", "output_dir": "/tmp/out"}
+
+  run_markerless(controller, scene, clock, preprocess)
+
+  assert scene.map_processed is not None
+  assert not controller.is_map_updated(scene), "an upload the run consumed was left pending"
+
+
+def test_markerless_is_map_stale_returns_bool_and_does_not_reset(tmp_path):
+  """! The markerless check returns a real boolean and never touches the scene's output. """
+  clock = FakeClock()
+  scene = make_scene_with_files(tmp_path, clock)
+  controller = make_stamping_controller(scene)
+  controller.reset_scene = MagicMock()
+
+  assert controller.is_map_stale(scene) is True
+  scene.map_processed = get_datetime_from_string(real_get_iso_time(clock.now))
+  assert controller.is_map_stale(scene) is False
+  assert controller.is_map_updated(scene) is False
+  scene.polycam_data = None
+  assert controller.is_map_stale(scene) is False
+  controller.reset_scene.assert_not_called()

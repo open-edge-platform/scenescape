@@ -66,6 +66,15 @@ class CameraCalibrationController(ABC):
     """
     raise NotImplementedError
 
+  def is_map_stale(self, sceneobj):
+    """! side-effect free check whether the map needs (re)processing.
+    Defaults to is_map_updated; override when that one resets the scene.
+    @param   sceneobj      scene object.
+
+    @return  True/False
+    """
+    return self.is_map_updated(sceneobj)
+
   def is_map_processed(self, sceneobj):
     """! function used to check if the map is processed.
     @param   sceneobj      scene object.

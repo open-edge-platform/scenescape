@@ -90,6 +90,8 @@ The workflow below illustrates the Auto Camera Calibration process. Camera pose 
    - Once the service confirms it is operational, the Client sends a POST request to `/v1/scenes/{sceneId}/registration` endpoint.
    - The Microservice processes the scene map for AprilTag-based calibration or the RGBD dataset for markerless calibration.
    - After processing, the service returns the register status back to the Client, confirming successful registration.
+   - Registrations run one at a time. A registration requested while another is running is queued and run afterwards; the queued scene is reloaded first and skipped if the running registration already processed its latest map.
+   - On startup, the service registers every non-manual scene, and re-registers any scene whose map or dataset changed while the service was down.
 
 2. **Localization**:
    - The Client then sends a POST to `/v1/cameras/{cameraId}/calibration` with the camera image and optional camera intrinsics.

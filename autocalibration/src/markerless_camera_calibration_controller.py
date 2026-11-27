@@ -77,6 +77,9 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     """
     response_dict = {'status': "success"}
     log.info("processing markerless scene for calibration")
+    # Stamp the start of the run, not its end: an upload landing after the input
+    # is read then stays newer than the stamp and is picked up by a re-run.
+    started_at = get_iso_time()
     try:
       preprocess = self.preprocess_polycam_dataset(sceneobj)
     except (FileNotFoundError, ValueError) as exc:
@@ -107,9 +110,6 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     if sceneobj.map_processed is None or map_update:
       try:
-        # Stamp the start of the run, not its end: a map uploaded during the run
-        # then stays newer than the stamp and is picked up by a re-run.
-        started_at = get_iso_time()
         with self.cam_calib_objs[sceneobj.id].cam_calib_lock:
           sceneobj = self.cam_calib_objs[sceneobj.id].register_dataset(sceneobj)
           self.save_to_database(sceneobj, started_at)
@@ -146,16 +146,23 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
         os.path.getmtime(sceneobj.polycam_data), tz=timezone(TIMEZONE)))
 
   def is_map_updated(self, sceneobj):
-    """! function used to check if the map is updated and reset the scene when map is None.
+    """! function used to check if the map is updated.
+    @param   sceneobj      scene object.
+
+    @return  True/False
+    """
+    return self.is_map_stale(sceneobj)
+
+  def is_map_stale(self, sceneobj):
+    """! side-effect free check whether the map or polycam data needs (re)processing.
     @param   sceneobj      scene object.
 
     @return  True/False
     """
     if not sceneobj.map or not sceneobj.polycam_data:
       return False
-    elif (sceneobj.map_processed is None) or (self.is_map_processed(sceneobj)) or (
-            self.is_polycam_data_processed(sceneobj)):
-      return True
+    return bool((sceneobj.map_processed is None) or self.is_map_processed(sceneobj)
+                or self.is_polycam_data_processed(sceneobj))
 
   def save_to_database(self, scene, map_processed=None):
     """! Function updates polycam processed timestamp data into db.

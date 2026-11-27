@@ -213,9 +213,9 @@ class _ReadyContext:
     self.socket_clients = {}
     self.socket_scene_clients = {}
 
-  def scene_update_thread_wrapper(self, scene, map_update=False):
-    """Accept an update trigger without starting a thread."""
-    return None
+  def scene_update_thread_wrapper(self, scene, map_update=False, reset=False, queue_if_busy=False):
+    """Accept an update trigger without starting a thread; report it started unless busy."""
+    return not self.register_thread_lock.locked()
 
   def calibrate_camera_thread_wrapper(self, scene, camera_id, intrinsics, frame):
     """Accept calibration, or fail for the camera that must return 500."""
