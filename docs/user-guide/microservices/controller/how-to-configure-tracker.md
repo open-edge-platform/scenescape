@@ -358,7 +358,7 @@ The shipped configs have no `filter` block. Treat any change as a tuning step:
 By default, the Scene Controller and the Tracker service project each pixel bounding box onto the
 ground plane with the camera calibration. With an observation processor, they instead send the pixel boxes
 of each camera frame to an external observation processor service
-([`observation_processor.proto`](https://github.com/open-edge-platform/scenescape/blob/main/observation_processor/proto/observation_processor.proto)).
+([`observation_processor.proto`](https://github.com/open-edge-platform/scenescape/blob/release-2026.3.0/observation_processor/proto/observation_processor.proto)).
 For each box, the service returns a world position, a size and a measurement noise covariance (R)
 that describes the uncertainty of that position, for example a long uncertainty along the camera's
 viewing ray. The tracker uses R for multi-camera fusion, association gating and the Kalman update.
