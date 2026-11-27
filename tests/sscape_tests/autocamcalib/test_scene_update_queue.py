@@ -406,6 +406,59 @@ def test_normal_run_releases_lock_exactly_once(make_context):
   assert ctx.register_thread_lock.locked() is False
 
 
+def test_request_queued_during_refresh_survives_mark_running(make_context):
+  """! Positive: a PATCH queued while the next entry is refreshed is run next, not dropped. """
+  ctx = make_context(MagicMock())
+  old_scene = make_scene()
+  new_scene = make_scene()
+  assert ctx.register_thread_lock.acquire(blocking=False)
+  ctx.pending_registrations[old_scene.id] = (old_scene, True, False)
+
+  def patch_arrives(_scene_id):
+    ctx.scene_update_thread_wrapper(new_scene, map_update=True, reset=True, queue_if_busy=True)
+    return None
+
+  ctx.calibration_data_interface.scene_with_id.side_effect = patch_arrives
+  first = ctx._take_next_queued_request()
+  ctx.calibration_data_interface.scene_with_id.side_effect = None
+  second = ctx._take_next_queued_request()
+
+  assert first[0] is old_scene
+  assert second[0] is new_scene
+  assert second[1:] == (True, True)
+
+
+def test_queued_reset_is_kept_when_map_looks_current(make_context):
+  """! Positive: a queued reset runs even when the scene map is not stale. """
+  strategy = MagicMock()
+  strategy.is_map_stale.return_value = False
+  ctx = make_context(strategy)
+  queued = make_scene()
+  reloaded = make_scene()
+  ctx.calibration_data_interface.scene_with_id.return_value = reloaded
+  assert ctx.register_thread_lock.acquire(blocking=False)
+  ctx.pending_registrations[queued.id] = (queued, True, True)
+
+  request = ctx._take_next_queued_request()
+
+  assert request[0] is reloaded
+  assert request[1:] == (True, True)
+
+
+def test_queued_map_update_is_skipped_when_map_is_current(make_context):
+  """! Negative: a queued map update without reset is dropped when the map is already processed. """
+  strategy = MagicMock()
+  strategy.is_map_stale.return_value = False
+  ctx = make_context(strategy)
+  queued = make_scene()
+  ctx.calibration_data_interface.scene_with_id.return_value = make_scene()
+  assert ctx.register_thread_lock.acquire(blocking=False)
+  ctx.pending_registrations[queued.id] = (queued, True, False)
+
+  assert ctx._take_next_queued_request() is None
+  assert ctx.register_thread_lock.locked() is False
+
+
 def make_markerless_scene_with_output(tmp_path, monkeypatch):
   """! Real markerless strategy (registration mocked) and a scene with an existing output_dir. """
   monkeypatch.chdir(tmp_path)
@@ -596,8 +649,7 @@ def test_queued_map_update_already_processed_is_skipped(make_context):
   ctx = make_context(strategy)
   ctx.calibration_data_interface.scene_with_id.return_value = make_scene("run")
 
-  run_with_first_scene_blocked(ctx, state, [{"sceneobj": make_scene("run"), "map_update": True,
-                                             "reset": True}], 1)
+  run_with_first_scene_blocked(ctx, state, [{"sceneobj": make_scene("run"), "map_update": True}], 1)
   wait_until_idle(ctx)
 
   assert state.calls == [True]
@@ -655,3 +707,58 @@ def test_queued_entry_runs_with_queued_copy_when_reload_fails(make_context):
   run_with_first_scene_blocked(ctx, state, [{"sceneobj": queued_scene, "map_update": True}], 2)
 
   assert state.objects[1] is queued_scene
+
+
+def test_queued_update_runs_when_map_check_raises(make_context):
+  """! Positive: a queued map update whose staleness check raises is retained and runs. """
+  strategy, state = make_blocking_strategy(expected_calls=2)
+  strategy.is_map_stale.side_effect = PermissionError("polycam zip unreadable")
+  ctx = make_context(strategy)
+  ctx.calibration_data_interface.scene_with_id.return_value = make_scene("a")
+
+  run_with_first_scene_blocked(ctx, state, [{"sceneobj": make_scene("a"), "map_update": True}], 2)
+
+  assert state.scenes == ["run", "a"]
+  assert state.calls == [True, True]
+
+
+def test_queued_update_with_missing_strategy_is_retained_and_reports_error(make_context):
+  """! Negative: a queued update whose scene has no strategy is not dropped; its run reports an error. """
+  strategy, state = make_blocking_strategy(expected_calls=1)
+  ctx = make_context(strategy)
+  ctx.calibration_data_interface.scene_with_id.return_value = make_scene("a", calibration="Unknown")
+
+  run_with_first_scene_blocked(ctx, state, [{"sceneobj": make_scene("a"), "map_update": True}], 1)
+  wait_until_idle(ctx)
+
+  assert state.scenes == ["run"]
+  assert ctx.registration_results["a"]["status"] == "error"
+
+
+def test_queued_map_update_is_skipped_when_reloaded_check_says_current(make_context):
+  """! Negative: a queued map update is skipped only when the reloaded scene's check says it is current. """
+  strategy, state = make_blocking_strategy(expected_calls=1)
+  strategy.is_map_stale.return_value = False
+  ctx = make_context(strategy)
+  reloaded = make_scene("a")
+  ctx.calibration_data_interface.scene_with_id.return_value = reloaded
+
+  run_with_first_scene_blocked(ctx, state, [{"sceneobj": make_scene("a"), "map_update": True}], 1)
+  wait_until_idle(ctx)
+
+  strategy.is_map_stale.assert_called_once_with(reloaded)
+  assert state.scenes == ["run"]
+
+
+def test_startup_map_check_failure_is_not_stale(make_context):
+  """! Negative: at startup a scene whose staleness check raises is validated, not re-registered. """
+  strategy, state = make_blocking_strategy(expected_calls=1)
+  strategy.is_map_stale.side_effect = PermissionError("polycam zip unreadable")
+  state.release.set()
+  ctx = make_context(strategy)
+  ctx.calibration_data_interface.all_scenes.return_value = [make_scene("a")]
+
+  ctx.preprocess_scenes()
+
+  assert state.done.wait(WAIT_TIMEOUT)
+  assert state.calls == [False]

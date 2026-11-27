@@ -103,6 +103,22 @@ class CameraCalibrationContext:
       log.error(f"Could not check whether the map of scene {sceneobj.name} changed : {e}")
       return False
 
+  def _is_queued_map_stale(self, sceneobj):
+    """! checks the map of a queued scene. A failed check or a missing strategy counts
+    as stale, so the queued request is kept and runs or reports its own error.
+    @param   sceneobj      scene object.
+
+    @return  True/False
+    """
+    strategy = self.scene_strategies.get(sceneobj.camera_calibration)
+    if strategy is None:
+      return True
+    try:
+      return bool(strategy.is_map_stale(sceneobj))
+    except Exception as e:
+      log.warning(f"Retaining queued update for scene {sceneobj.name}, map check failed : {e}")
+      return True
+
   def request_scene_registration(self, sceneobj, reset=False):
     """! Start registering a scene, or queue it while a registration runs.
     @param   sceneobj      scene object.
@@ -149,7 +165,6 @@ class CameraCalibrationContext:
   def _mark_running(self, sceneobj):
     """! records that the scene owns the worker slot. Called with registration_state_lock held. """
     self.current_processing_scene = sceneobj.id
-    self.pending_registrations.pop(sceneobj.id, None)
     self.registration_results.pop(sceneobj.id, None)
     self._bump_registration_generation(sceneobj.id)
 
@@ -276,7 +291,7 @@ class CameraCalibrationContext:
       current = None
     if current is None:
       return request
-    if map_update and not self._is_map_stale(current):
+    if map_update and not reset and not self._is_queued_map_stale(current):
       log.info(f"Skipping queued update for scene {sceneobj.name}: its map is already processed")
       return None
     return current, map_update, reset
