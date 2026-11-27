@@ -566,6 +566,24 @@ PTZ_SHADOW = ServiceProfile(
   },
 )
 
+SCENE_PERSIST_SUB_ATTR = ServiceProfile(
+  name="scene_persist_sub_attr",
+  compose_files=(
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.scene-persist-sub-attr.yml",
+    f"{COMPOSE}/compose.web.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+  },
+)
+
 MARKERLESS = ServiceProfile(
   name="markerless",
   compose_files=(
@@ -696,6 +714,7 @@ PROFILE_REGISTRY: dict = {
     SCENE_NO_DB,
     PTZ_ENFORCE,
     PTZ_SHADOW,
+    SCENE_PERSIST_SUB_ATTR,
     MARKERLESS,
     INFERENCE_PERF,
     STABILITY,

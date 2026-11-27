@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Scene Controller persisting the car license plate text along a track. Layer after compose.scene.yml.
+services:
+  scene:
+    volumes:
+      - ./controller/config/tracker-config-persist-sub-attr.json:/home/scenescape/Scenescape/tracker-config.json
