@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from observation_conditioning import AmodalReasoner  # noqa: E402
 from oc_corpus import baseline  # noqa: E402
-from oc_corpus.capture import capture_decisions, evaluate_core, reached_flags  # noqa: E402
+from oc_corpus.capture import (  # noqa: E402
+  capture_decisions, evaluate_core, native_decisions, reached_flags)
 from oc_corpus.legacy import BACKUPS, load_legacy  # noqa: E402
 from oc_corpus.ocb import read_ocb, write_ocb  # noqa: E402
 from oc_corpus.scenarios import FLAGS, build_corpus  # noqa: E402
@@ -107,6 +108,24 @@ def test_current_implementation_reproduces_the_original_outputs(name):
   for key, value in decisions.items():
     if not key.startswith("dec/_"):
       assert_same(value, stored[key], f"{name}/{key}")
+
+
+@pytest.mark.parametrize("name", SCENARIOS)
+def test_native_decision_trace_matches_the_recorded_decisions(name):
+  """The reference's own `trace["decisions"]` equals what the original's stages implied."""
+  scenario = baseline.load_scenario(ARRAYS, META, name)
+  stored = baseline.stored_results(ARRAYS, name)
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    decisions = native_decisions(scenario, AmodalReasoner)
+  assert set(decisions) == {key for key in stored if key.startswith("dec/")}
+  for key, value in decisions.items():
+    assert_same(value, stored[key], f"{name}/{key}")
+
+
+def test_decision_flag_bits_match_the_corpus():
+  from observation_conditioning.amodal_reasoner import DECISION_FLAGS
+  assert DECISION_FLAGS == FLAGS == META["flags"]
 
 
 def test_legacy_backups_are_the_original_files():

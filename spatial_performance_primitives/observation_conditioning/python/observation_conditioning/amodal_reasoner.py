@@ -15,6 +15,13 @@ from .constants import (
   VERT_BAND_LOW_DEG, WALL_OCCLUDER_MARGIN_M)
 from .intersection_map import DepthMap
 
+# Bits of the per-object decision mask in trace["decisions"]["flags"]; mirrored by the C++ DecisionFlags.
+DECISION_FLAGS = {
+  "FREE_3D": 1 << 0, "OCCLUDED": 1 << 1, "WALL_VERTICAL": 1 << 2, "WALL_SPECTRUM": 1 << 3,
+  "TOTAL_OCCLUSION": 1 << 4, "WALL_DROPPED": 1 << 5, "EMPTY_INTERVAL": 1 << 6, "UPDATED": 1 << 7,
+}
+
+
 class AmodalReasoner:
   """Class for bayesian projection and intersection into a triangualar mesh for a single-camera (i.e one instantiation per-camera)"""
   debug = False   # class-level default so instances built without __init__ (e.g. tests) are safe
@@ -198,7 +205,8 @@ class AmodalReasoner:
     wall_depth = np.where(is_vertical, cand_depths, np.nan)
     wall_depth = np.where(spec_only, spec_depth, wall_depth)
     if self.debug:
-      self.trace["wall"] = {"is_vertical": is_vertical, "is_wall": is_wall, "wall_depth": wall_depth}
+      self.trace["wall"] = {"is_vertical": is_vertical, "is_wall": is_wall, "wall_depth": wall_depth,
+                            "signed_angle": a_s, "spectrum_only": spec_only}
     return wall_depth
 
   def _total_occlusion(self, probe_points: np.ndarray, n: int,
@@ -272,6 +280,30 @@ class AmodalReasoner:
     var_new = np.where(update, np.maximum(var_t, 0.0), sigma_d_sq)
     return mu_new, var_new
 
+  def _decisions(self, free_3d_mask, total_occ, occlusion_pre, wall_pre, occlusion_post, wall_post):
+    """Per-object decisions of the last generate() call, for tests and debugging.
+
+    "pre" depths are the occlusion and wall stage outputs, "post" the bounds handed to the
+    update after the total-occlusion override. The flag logic restates the update's own rules.
+    """
+    wall = self.trace["wall"]
+    occluded = np.isfinite(occlusion_post)
+    walled = np.isfinite(wall_post)
+    dropped = occluded & walled & (wall_post <= occlusion_post + WALL_OCCLUDER_MARGIN_M)
+    walled = walled & ~dropped
+    empty = np.where(occluded, occlusion_post, -np.inf) >= np.where(walled, wall_post, np.inf)
+    updated = ~free_3d_mask & (occluded | walled)
+    masks = {"FREE_3D": free_3d_mask, "OCCLUDED": occluded, "WALL_VERTICAL": wall["is_vertical"],
+             "WALL_SPECTRUM": wall["spectrum_only"], "TOTAL_OCCLUSION": total_occ,
+             "WALL_DROPPED": dropped, "EMPTY_INTERVAL": empty & updated, "UPDATED": updated}
+    flags = np.zeros(len(free_3d_mask), dtype=np.uint16)
+    for name, mask in masks.items():
+      flags |= np.where(mask, DECISION_FLAGS[name], 0).astype(np.uint16)
+    return {"flags": flags, "signed_angle": wall["signed_angle"],
+            "total_occ_fraction": self.trace["total_occ_frac"],
+            "occlusion_pre": occlusion_pre, "wall_pre": wall_pre,
+            "occlusion_post": occlusion_post, "wall_post": wall_post}
+
   def generate(self, gaus_rays: dict[str, np.ndarray]):
     """Condition each object's depth Gaussian on the scene geometry; returns (depth, var).
 
@@ -304,6 +336,7 @@ class AmodalReasoner:
     wall_depth = self._get_wall_depth(gaus_rays['mu'], gaus_rays['ray'], at_prem_probe_points,
                                           at_prem_depths, at_prem_normals, centroid_points)
 
+    occlusion_pre, wall_pre = occlusion_depth, wall_depth
     total_occ, nearest_block = self._total_occlusion(at_prem_probe_points, n)
     # A fully-occluded detection cannot lie behind the surface (nothing would be visible), so the
     # depth prior is wrong: drop the occluder (lower bound) and treat the nearest blocker as a
@@ -315,6 +348,8 @@ class AmodalReasoner:
       gaus_rays['depth_est'], decons_cov[:, 0, 0], occlusion_depth, wall_depth, free3d_mask)
 
     if self.debug:
+      self.trace["decisions"] = self._decisions(free3d_mask, total_occ, occlusion_pre, wall_pre,
+                                                occlusion_depth, wall_depth)
       lov = slice(3 * n, 4 * n)
       self.trace["camera"] = self.depth_map.camera_extrinsics[:3, 3]
       self.trace["centroids"] = centroid_points

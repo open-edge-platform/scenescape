@@ -113,6 +113,17 @@ def capture_decisions(scenario, reasoner_cls):
   }
 
 
+def native_decisions(scenario, reasoner_cls):
+  """Per-object decisions from the implementation's own debug trace (`trace["decisions"]`)."""
+  reasoner = build_reasoner(scenario, reasoner_cls)
+  reasoner.debug = True
+  obs = {key: value.copy() for key, value in scenario.observations.items()}
+  with np.errstate(all="ignore"):
+    reasoner.generate(obs)
+  decisions = reasoner.trace["decisions"]
+  return {f"dec/{key}": np.asarray(value) for key, value in decisions.items()}
+
+
 def reached_flags(flags):
   """Names of the decision flags raised by at least one object."""
   return sorted(name for name, bit in FLAGS.items() if np.any(flags & bit))

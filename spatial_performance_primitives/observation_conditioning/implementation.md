@@ -11,8 +11,8 @@ git show 5cc7f08a8:spatial_performance_primitives/observation_conditioning/amoda
 
 All line numbers below refer to that commit.
 
-**Status:** planned. The changes are applied to the Python implementation before the C++ port,
-so both implementations share one reference behavior. The C++ port implements only what
+**Status:** applied (§1-§5) to the Python implementation before the C++ port, so both
+implementations share one reference behavior. The C++ port implements only what
 remains. The plan is in
 [plan-observation-conditioning-cpp-port.md](../../.github/plans/plan-observation-conditioning-cpp-port.md)
 (decision D4).
@@ -180,6 +180,11 @@ Setting `reasoner.debug = True` fills `reasoner.trace`. These keys disappear wit
 `trace["pin_drop"]`, `trace["wall"]["cand_points"]`, `trace["wall"]["ground_point"]` and
 `trace["wall"]["ground_normal"]`. All other keys are unchanged. There are no consumers in this
 repository. The visualization demos are not vendored here.
+
+**Added:** `trace["decisions"]` (debug only) with the per-object decision flags (`DECISION_FLAGS`),
+the signed wall angle, the total-occlusion fraction and the occlusion and wall bounds before and
+after the total-occlusion override. `trace["wall"]` gains `signed_angle` and `spectrum_only`.
+It is the reference the C++ decision trace is compared with.
 
 ## 6. Not ported to C++ (Python only)
 
