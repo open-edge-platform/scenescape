@@ -1,0 +1,139 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% block content %}
+  {% if user.is_superuser %}
+    {% if ENABLE_MLOPS_FLOW %}
+      <div class="float-right form-inline pipeline-actions">
+        <form
+          class="form-inline"
+          method="post"
+          action="{% url 'pipeline_sync' %}"
+          id="pipeline-sync-form"
+        >
+          {% csrf_token %}
+          {% include 'pipeline/sync_filter_fields.html' %}
+          <button type="submit" class="btn btn-secondary" id="pipeline-sync">
+            Sync with ViPPET
+          </button>
+        </form>
+        <a class="btn btn-primary" href="{% url 'pipeline_create' %}"
+          >+ New Pipeline</a
+        >
+      </div>
+    {% else %}
+      <div
+        class="float-right form-inline pipeline-actions mlops-flow-disabled"
+        id="pipeline-actions-disabled"
+        title="{{ MLOPS_FLOW_DISABLED_HINT }}"
+        tabindex="0"
+      >
+        {% include 'pipeline/sync_filter_fields.html' %}
+        <button
+          type="button"
+          class="btn btn-secondary"
+          id="pipeline-sync"
+          disabled
+          aria-disabled="true"
+        >
+          Sync with ViPPET
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="pipeline-create"
+          disabled
+          aria-disabled="true"
+        >
+          + New Pipeline
+        </button>
+      </div>
+    {% endif %}
+  {% endif %}
+  <h2 class="form-title">Pipelines</h2>
+  <p>
+    Pipelines imported from ViPPET are refreshed by "Sync with ViPPET".
+    Selecting a pipeline on a camera starts it on DL Streamer Pipeline Server.
+  </p>
+  {% if not ENABLE_MLOPS_FLOW %}
+    <p class="text-muted" id="mlops-flow-disabled-note">
+      The MLOps Flow is disabled; pipelines are shown read-only.
+    </p>
+  {% endif %}
+  <table class="table table-fluid pipeline-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>ViPPET pipeline / variant ID</th>
+        <th>Pipeline string</th>
+        {% if user.is_superuser %}
+          <th>Update</th>
+          <th>Delete</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for pipeline in object_list %}
+        <tr>
+          <td>{{ pipeline.name }}</td>
+          <td class="text-muted">
+            {{ pipeline.vippet_pipeline_id|default_if_none:"Not assigned" }}
+          </td>
+          <td class="pipeline-string-cell">
+            <pre
+              tabindex="0"
+              aria-label="Pipeline string of {{ pipeline.name }}"
+            >
+{{ pipeline.pipeline }}</pre>
+          </td>
+          {% if user.is_superuser and ENABLE_MLOPS_FLOW %}
+            <td>
+              <a
+                href="{% url 'pipeline_update' pipeline.pk %}"
+                aria-label="Update {{ pipeline.name }}"
+                ><i class="bi bi-wrench"></i
+              ></a>
+            </td>
+            <td>
+              <a
+                href="{% url 'pipeline_delete' pipeline.pk %}"
+                aria-label="Delete {{ pipeline.name }}"
+                ><i class="bi bi-trash"></i
+              ></a>
+            </td>
+          {% elif user.is_superuser %}
+            <td>
+              <span
+                class="mlops-flow-disabled text-muted"
+                title="{{ MLOPS_FLOW_DISABLED_HINT }}"
+                tabindex="0"
+                aria-disabled="true"
+                aria-label="Update {{ pipeline.name }} (disabled)"
+                ><i class="bi bi-wrench"></i
+              ></span>
+            </td>
+            <td>
+              <span
+                class="mlops-flow-disabled text-muted"
+                title="{{ MLOPS_FLOW_DISABLED_HINT }}"
+                tabindex="0"
+                aria-disabled="true"
+                aria-label="Delete {{ pipeline.name }} (disabled)"
+                ><i class="bi bi-trash"></i
+              ></span>
+            </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if user.is_superuser %}5{% else %}3{% endif %}">
+            No pipelines have been created.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

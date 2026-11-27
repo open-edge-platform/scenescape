@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 Create a YAML configuration file (see `pipeline_configs/` directory):
 
-**Full tracker evaluation** (black-box suite under [`pipeline_configs/black_box_unity/`](pipeline_configs/black_box_unity/); Wildtrack under [`pipeline_configs/black_box_wildtrack/`](pipeline_configs/black_box_wildtrack/)):
+**Full tracker evaluation** (black-box suite under [`pipeline_configs/black_box_unity/`](pipeline_configs/black_box_unity/); other datasets under `pipeline_configs/black_box_*/`):
 
 Example pipeline shape (see the YAML files in those directories for complete, runnable configs):
 
@@ -162,10 +162,11 @@ against the same tracker outputs independently.
 ### Black-Box Evaluation Suite
 
 `run_black_box_evaluation.py` runs the complete black-box evaluation across all three
-production container types in a single timestamped session. Two config sets are
-available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
-and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
-`--dataset wildtrack`).
+production container types in a single timestamped session. Three config sets are
+available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default),
+the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, `--dataset wildtrack`) and
+the Rolling Terrain dataset (`pipeline_configs/black_box_rolling_terrain/`,
+`--dataset rolling_terrain`).
 
 **Association.** The default suite uses the euclidean meter gate (legacy baseline). Pass
 `--association mahalanobis` to run the companion jobs that use `position_mahalanobis`
@@ -207,20 +208,24 @@ Use `--output` to override, and `--dataset` to choose the config set (default `u
 ```bash
 python -m run_black_box_evaluation --output /custom/output/path
 python -m run_black_box_evaluation --dataset wildtrack
+python -m run_black_box_evaluation --dataset rolling_terrain
 python -m run_black_box_evaluation --association mahalanobis
 python -m run_black_box_evaluation --association both
 ```
 
-**Experimental observation processor** (disabled by default): every black-box YAML (euclidean and
-mahalanobis) has a `harness.config.observation_processor` block with `enabled: false`. Set
-`enabled: true` in a YAML, or pass `--observation-processor` to enable it for all configs of the
-session (run names get the suffix `-ObservationProcessor`); it combines with `--association`. The
-harness then starts the service container next to the tracker/controller, waits until it is SERVING and sets the experimental client flag, so the
-results can be compared with a legacy run of the same dataset. Both datasets have no scene
-mesh, so the service runs frustum-only (`mode: auto`).
+**Experimental observation processor**: every black-box YAML (euclidean and mahalanobis) has a
+`harness.config.observation_processor` block. With no CLI flag, the runner **keeps each YAML**
+(this is not "force off": `rolling_terrain` enables the service; Unity and Wildtrack leave it
+off). `--observation-processor` / `--no-observation-processor` override every config in the
+session; they combine with `--association`. When the effective setting is enabled, the harness
+starts the service container next to the tracker/controller, waits until it is SERVING, sets the
+experimental client flag, and suffixes `pipeline.run_name` with `-ObservationProcessor` so
+session folders stay distinguishable. The effective config of each run is stored in its
+`config/` folder.
 
 ```bash
 python -m run_black_box_evaluation --observation-processor
+python -m run_black_box_evaluation --dataset rolling_terrain --no-observation-processor
 ```
 
 Extra prerequisite: the `intel/scenescape-observation-processor` image (built from the

@@ -8,7 +8,7 @@
       {
         "name": "drone-cam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/drone-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_drone_motion_sim name=dronesim config=/home/dronesim/drone_sim_config.json ! gvadetect name=detector threshold=0.9 model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_external_source_publish name=extpub ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/drone-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_drone_motion_sim name=dronesim config=/home/dronesim/drone_sim_config.json ! gvadetect name=detector threshold=0.9 model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_external_source_publish name=extpub ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",

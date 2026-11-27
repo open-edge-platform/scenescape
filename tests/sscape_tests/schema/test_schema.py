@@ -40,6 +40,29 @@ def test_validate2DDetectionMessage(schemaObject, data, expected, format, reques
   assert result == expected
   return
 
+@pytest.mark.parametrize(("path", "value"), [
+  (("rate",), -1000),
+  (("objects", "person", 0, "confidence"), 5.0),
+  (("objects", "person", 0, "bounding_box", "width"), -0.1),
+  (("objects", "person", 0, "bounding_box", "height"), -0.1),
+])
+def test_validateDetectorRejectsOutOfRangeValues(schemaObject, objData, path, value):
+  target = objData
+  for key in path[:-1]:
+    target = target[key]
+  target[path[-1]] = value
+
+  assert not schemaObject.validateMessage("detector", objData)
+
+@pytest.mark.parametrize("box", [
+  {"x": -0.284, "y": -0.153, "width": 0.652, "height": 0.454},
+  {"x": 0.9, "y": 0.8, "width": 1.4, "height": 1.2},
+])
+def test_validateDetectorAcceptsNormalizedCameraBox(schemaObject, objData, box):
+  objData["objects"]["person"][0]["bounding_box"] = box
+
+  assert schemaObject.validateMessage("detector", objData)
+
 @pytest.mark.parametrize("data, expected, format", [("objData3D", True, False),
                                             ("objData3D", False, False),
                                             ("objData3D", True, True)])

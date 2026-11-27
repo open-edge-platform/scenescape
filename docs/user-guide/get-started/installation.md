@@ -27,7 +27,7 @@ Note that these operations must be executed when logged in as a standard (non-ro
 Clone the repository and change directories to the cloned repository:
 
 ```bash
-git clone https://github.com/open-edge-platform/scenescape.git -b main
+git clone https://github.com/open-edge-platform/scenescape.git -b release-2026.3.0
 cd scenescape/
 ```
 

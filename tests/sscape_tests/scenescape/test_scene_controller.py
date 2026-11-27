@@ -6,16 +6,17 @@
 import json
 import os
 import queue
+import tempfile
 import struct
 import threading
-
-import orjson
-from pathlib import Path
-import pytest
-import tempfile
 from collections import defaultdict
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import orjson
+import pytest
 
 import robot_vision as rv
 from controller.child_scene_controller import ChildSceneController
@@ -189,8 +190,7 @@ class TestSceneControllerExtractTrackerConfigFilter:
   """Top-level ``filter`` block (q, r, P0) of tracker-config.json."""
 
   @pytest.mark.parametrize('config_file', [
-    'tracker-config.json', 'tracker-config-immediate.json', 'tracker-config-persist-attr.json',
-    'tracker-config-mahalanobis.json',
+    'tracker-config.json', 'tracker-config-persist-attr.json',
   ])
   def test_shipped_configs_keep_the_production_constants(self, config_file):
     # The shipped configs have no filter block, so the constants are used as they are (bit for bit).
@@ -2130,6 +2130,83 @@ class TestUpdateSubscriptionsExternalWildcard:
     # No per-scene inbox subscribe.
     assert PubSub.formatTopic(
       PubSub.DATA_EXTERNAL, scene_id='scene-1', thing_type='+') not in topics
+
+  def test_applies_local_child_transform(self):
+    """Local ChildScene link transform must refresh child cameraPose on all axes."""
+    from scene_common.transform import CameraPose
+
+    controller = SceneController.__new__(SceneController)
+    controller.cache_manager = MagicMock()
+    parent = SimpleNamespace(
+      uid='parent-1', cameras={}, sensors={}, children=['child'])
+    child = SimpleNamespace(
+      uid='child-1', cameras={}, sensors={}, retrack=True,
+      cameraPose=CameraPose(
+        {'translation': [0.0, 0.0, 0.0], 'rotation': [0.0, 0.0, 0.0],
+         'scale': [1.0, 1.0, 1.0]}, None))
+    controller.cache_manager.allScenes.return_value = [parent]
+    controller.cache_manager.sceneWithID.side_effect = (
+      lambda uid: child if uid == 'child-1' else None)
+    # Distinct per-axis values so X/Y/Z are each verified on cameraPose.
+    link_translation = [1.5, 2.5, 3.5]
+    controller.cache_manager.data_source.getChildScenes.return_value = {
+      'results': [{
+        'child_type': 'local',
+        'child': 'child-1',
+        'retrack': False,
+        'transform': {
+          'translation': link_translation,
+          'rotation': [0.0, 0.0, 0.0],
+          'scale': [1.0, 1.0, 1.0],
+        },
+      }],
+    }
+    controller.pubsub = MagicMock()
+    controller.subscribed = set()
+    controller.subscribed_children = {}
+    controller.root_cert = None
+
+    controller.updateSubscriptions()
+
+    assert child.retrack is False
+    assert child.cameraPose is not None
+    np.testing.assert_allclose(
+      child.cameraPose.translation.asCartesianVector, link_translation, atol=1e-6)
+
+  def test_local_child_without_transform_keeps_existing_pose(self):
+    """Negative: missing transform in getChildScenes must not clear cameraPose."""
+    from scene_common.transform import CameraPose
+
+    controller = SceneController.__new__(SceneController)
+    controller.cache_manager = MagicMock()
+    parent = SimpleNamespace(
+      uid='parent-1', cameras={}, sensors={}, children=['child'])
+    existing_translation = [1.0, 2.0, 3.0]
+    existing = CameraPose(
+      {'translation': existing_translation, 'rotation': [0.0, 0.0, 0.0],
+       'scale': [1.0, 1.0, 1.0]}, None)
+    child = SimpleNamespace(
+      uid='child-1', cameras={}, sensors={}, retrack=True, cameraPose=existing)
+    controller.cache_manager.allScenes.return_value = [parent]
+    controller.cache_manager.sceneWithID.side_effect = (
+      lambda uid: child if uid == 'child-1' else None)
+    controller.cache_manager.data_source.getChildScenes.return_value = {
+      'results': [{
+        'child_type': 'local',
+        'child': 'child-1',
+        'retrack': True,
+      }],
+    }
+    controller.pubsub = MagicMock()
+    controller.subscribed = set()
+    controller.subscribed_children = {}
+    controller.root_cert = None
+
+    controller.updateSubscriptions()
+
+    assert child.cameraPose is existing
+    np.testing.assert_allclose(
+      child.cameraPose.translation.asCartesianVector, existing_translation, atol=1e-6)
 
 
 class TestSceneControllerRemoteChildParent:

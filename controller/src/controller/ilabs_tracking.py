@@ -323,6 +323,85 @@ def _kalman_yaw_disagrees_with_velocity(tracked_object,
   return abs(_wrap_angle(velocity_heading - tracked_object.yaw)) > max_agree_rad
 
 
+# Indices into robot_vision's state vector (rv::tracking::StateIndex):
+# [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
+_STATE_X, _STATE_Y, _STATE_VX, _STATE_VY, _STATE_Z, _STATE_VZ = 0, 1, 2, 3, 6, 7
+_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT = 8, 9, 10
+_STATE_SIZE = 13
+
+
+def _finite_block(block):
+  """Row-major list of a finite covariance block, ``None`` when any value is not finite."""
+  if not np.all(np.isfinite(block)):
+    return None
+  return block.reshape(-1).tolist()
+
+
+def build_track_uncertainty(error_covariance, z_measured):
+  """Covariance of the published track state (MQTT ``uncertainty``), from the filter's P.
+
+  Only for a centre-of-mass track (experimental observation processor). Each value is a row-major
+  3x3 block of P as 9 numbers; cross-block terms are not published and a block with a non-finite
+  value is absent. With the observation processor the Controller publishes the filter's size, so
+  ``size`` is included the same way as on the Tracker service.
+
+  - ``translation`` [m²]: x, y and the published z, the footprint base z - height / 2, so the z
+    entries are J P Jᵀ with J(z_pub) = [1 on z, -1/2 on height].
+  - ``velocity`` [m²/s²]: vx, vy, vz.
+  - ``size`` [m²]: length, width, height.
+  - Without measured z the z row and column of translation and velocity are 0.
+
+  Yaw variance is deferred; see the probabilistic-tracking plan.
+
+  Returns ``None`` when no value is finite.
+  """
+  covariance = np.asarray(error_covariance, dtype=float)
+  if covariance.shape != (_STATE_SIZE, _STATE_SIZE):
+    return None
+  covariance = 0.5 * (covariance + covariance.T)
+
+  # Only the states of a block enter it: a non-finite value elsewhere in P must not leak into it.
+  if z_measured:
+    position_index = [_STATE_X, _STATE_Y, _STATE_Z, _STATE_HEIGHT]
+    to_published = np.array([[1.0, 0.0, 0.0, 0.0],
+                             [0.0, 1.0, 0.0, 0.0],
+                             [0.0, 0.0, 1.0, -0.5]])
+    translation = to_published @ covariance[np.ix_(position_index, position_index)] @ to_published.T
+  else:
+    # The z row and column are 0, so the unused z and height variances must not enter the block
+    # (a non-finite one would spread into x and y through 0 * nan).
+    translation = np.zeros((3, 3))
+    translation[:2, :2] = covariance[np.ix_([_STATE_X, _STATE_Y], [_STATE_X, _STATE_Y])]
+  velocity_index = [_STATE_VX, _STATE_VY, _STATE_VZ]
+  size_index = [_STATE_LENGTH, _STATE_WIDTH, _STATE_HEIGHT]
+  blocks = {
+    "translation": translation,
+    "velocity": covariance[np.ix_(velocity_index, velocity_index)].copy(),
+    "size": covariance[np.ix_(size_index, size_index)].copy(),
+  }
+
+  uncertainty = {}
+  for name, block in blocks.items():
+    if not z_measured and name in ("translation", "velocity"):
+      block[2, :] = 0.0
+      block[:, 2] = 0.0
+    values = _finite_block(block)
+    if values is not None:
+      uncertainty[name] = values
+  return uncertainty or None
+
+
+def _uses_kalman_yaw(tracked_object, sscape_object):
+  """True when the track's yaw comes from an orienting sensor, so the filter yaw is published
+  (unless it disagrees with the velocity heading)."""
+  attrs = tracked_object.attributes or {}
+  return (
+    attrs.get('orientation_observed') == 'true'
+    or attrs.get('has_orientation') == 'true'
+    or sscape_object.has_detection_rotation
+  )
+
+
 class IntelLabsTracking(Tracking):
   # The last frame's gate when association gates on tracking_radius; also the drawn association window.
   tracking_radius_m = DEFAULT_TRACKING_RADIUS
@@ -475,6 +554,24 @@ class IntelLabsTracking(Tracking):
       z -= tracked_object.height / 2.0
     return Point(tracked_object.x, tracked_object.y, z)
 
+  def _publishFilterSize(self, sscape_object, tracked_object):
+    """With an observation processor, publish the filter's size so it matches ``uncertainty.size``.
+
+    Legacy output keeps the detection's or object-class size.
+    """
+    if getattr(self, 'observation_processor', None) is None:
+      return
+    sscape_object.size = [tracked_object.length, tracked_object.width, tracked_object.height]
+
+  def _publishedUncertainty(self, tracked_object):
+    """Covariance of the published state with an observation processor, ``None`` otherwise (legacy
+    output carries no uncertainty).
+    """
+    if getattr(self, 'observation_processor', None) is None:
+      return None
+    return build_track_uncertainty(tracked_object.error_covariance,
+                                   bool(getattr(tracked_object, "z_measured", False)))
+
   def _warn_ignored_tracking_radius(self, objects):
     if self._ignored_tracking_radius_warned:
       return
@@ -534,12 +631,19 @@ class IntelLabsTracking(Tracking):
             self.tracking_radius_m,
             z_measured=bool(getattr(tracked_object, "z_measured", False)),
           )
+          # The object keeps its previously published rotation, so its yaw provenance is kept too.
+          self._publishFilterSize(obj, tracked_object)
+          obj.angular_velocity = [0.0, 0.0, float(tracked_object.w)]
+          obj.uncertainty = self._publishedUncertainty(tracked_object)
           return obj
 
     sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
 
     sscape_object.location[0].point = self._publishedPoint(tracked_object)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
+    # Filter estimates yaw rate about world Z only; ωx and ωy stay 0.
+    sscape_object.angular_velocity = [0.0, 0.0, float(tracked_object.w)]
+    self._publishFilterSize(sscape_object, tracked_object)
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
     # update (sticky orientation_observed), even if this frame's linked
@@ -549,12 +653,7 @@ class IntelLabsTracking(Tracking):
     #
     # If motion heading disagrees with Kalman yaw while moving, publish
     # velocity heading (covers stale/frozen detector yaw on any modality).
-    attrs = tracked_object.attributes or {}
-    use_kalman_yaw = (
-      attrs.get('orientation_observed') == 'true'
-      or attrs.get('has_orientation') == 'true'
-      or sscape_object.has_detection_rotation
-    )
+    use_kalman_yaw = _uses_kalman_yaw(tracked_object, sscape_object)
 
     sscape_object.rv_id = tracked_object.id
     found = False
@@ -566,12 +665,14 @@ class IntelLabsTracking(Tracking):
     if not found:
       sscape_object.setGID(object_uuid)
 
+    sscape_object.filter_yaw_published = False
     if use_kalman_yaw:
       if _kalman_yaw_disagrees_with_velocity(tracked_object):
         heading = math.atan2(tracked_object.vy, tracked_object.vx)
         sscape_object.rotation = _yaw_to_quaternion(heading)
       else:
         sscape_object.rotation = _yaw_to_quaternion(tracked_object.yaw)
+        sscape_object.filter_yaw_published = True
     else:
       sscape_object.inferRotationFromVelocity()
 
@@ -583,6 +684,7 @@ class IntelLabsTracking(Tracking):
       self.tracking_radius_m,
       z_measured=bool(getattr(tracked_object, "z_measured", False)),
     )
+    sscape_object.uncertainty = self._publishedUncertainty(tracked_object)
 
     return sscape_object
 

@@ -12,7 +12,7 @@ from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time, get_epoch_time
 
 from tests.functional.event_asserts import check_event_contains_data
-from tests.functional import FunctionalTest
+from tests.functional import FunctionalTest, apply_demo_sweep_box
 from tests.utils.log import get_logger
 
 ROI_NAME = "Automated_ROI"
@@ -160,7 +160,7 @@ class SceneObjectMqtt(FunctionalTest):
     for location in objLocation:
       camera_id = jdata['id']
       jdata['timestamp'] = get_iso_time()
-      jdata['objects'][PERSON][0]['bounding_box']['y'] = location
+      apply_demo_sweep_box(jdata, location, PERSON)
       detection = json.dumps(jdata)
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_CAMERA,
                                         camera_id=camera_id), detection)
@@ -254,7 +254,7 @@ class SceneObjectMqtt(FunctionalTest):
                                    scene_id=self.sceneUID, thing_type=PERSON)
     publishTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=objData['id'])
     objLocation = self.getLocations()
-    objData['objects'][PERSON][0]['bounding_box']['y'] = objLocation[0]
+    apply_demo_sweep_box(objData, objLocation[0], PERSON)
     self.sceneReady(MAX_ATTEMPTS, waitTopic, publishTopic, objData)
 
     self.getScene()
@@ -287,7 +287,7 @@ class SceneObjectMqtt(FunctionalTest):
     debounced exit needs extra frames past DEBOUNCE_DELAY to be flushed."""
     jdata = self.objData()
     camera_id = jdata['id']
-    jdata['objects'][PERSON][0]['bounding_box']['y'] = finalLocation
+    apply_demo_sweep_box(jdata, finalLocation, PERSON)
     deadline = get_epoch_time() + timeout
     while self.expectedExit and get_epoch_time() < deadline:
       time.sleep(0.6)

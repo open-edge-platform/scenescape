@@ -4,6 +4,42 @@
   "models": [
     {
       "model_downloader": {
+        "name": "OpenVINO/yolox_s-fp16-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolox_s-fp16",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_yolox_s-fp16-ov/yolox_s.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
+        "name": "OpenVINO/yolox_s-int8-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolox_s-int8",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
         "name": "person-detection-retail-0013",
         "hub": "omz"
       },
@@ -53,18 +89,35 @@
     },
     {
       "model_downloader": {
-        "name": "person-reidentification-retail-0277",
-        "hub": "omz"
+        "name": "mars-small128",
+        "hub": "ultralytics"
       },
       "scenescape": {
         "name": "reid",
         "config": {
           "type": "inference",
           "params": {
-            "model": "omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml"
+            "model": "ultralytics/public/mars-small128/mars_small128_fp32.xml"
           },
           "adapter-params": {
             "metadatagenpolicy": "reidPolicy"
+          }
+        },
+        "model_proc": {
+          "path": "ultralytics/public/mars-small128/mars-small128.json",
+          "content": {
+            "json_schema_version": "2.0.0",
+            "input_preproc": [
+              {
+                "layer_name": "x",
+                "format": "image",
+                "params": {
+                  "resize": "no-aspect-ratio",
+                  "color_space": "RGB"
+                }
+              }
+            ],
+            "output_postproc": []
           }
         }
       }

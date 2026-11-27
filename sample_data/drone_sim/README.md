@@ -47,7 +47,7 @@ rtspsrc (drone-cam1 loop)
   → decode → BGR
   → sscape_drone_motion_sim      warp frame per flight profile; attach pose,
   │                              mount, and zoomed intrinsics as GVA JSON meta
-  → gvadetect                    person-detection-retail-0013
+  → gvadetect                    OpenVINO_yolox_s-int8-ov
   → gvametaconvert
   → sscape_external_source_publish
                                  build the external_source message and publish to
@@ -72,7 +72,7 @@ see below).
 ## Set up the demo
 
 Prerequisites: a running Scenescape stack with the
-`person-detection-retail-0013` model in the models volume (see the
+`OpenVINO_yolox_s-int8-ov` model in the models volume (see the
 [DL Streamer Pipeline Server guide](../../dlstreamer-pipeline-server/README.md)).
 
 ### 1. Create a scene

@@ -392,8 +392,7 @@ class Scene(SceneModel):
       # originating scene already owns that crop's contribution to the shared database.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
-      if 'rotation' in info:
-        mobj.rotation = info['rotation']
+      self._promoteTrustedChildState(mobj, info)
       log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
@@ -402,6 +401,21 @@ class Scene(SceneModel):
         child_objects.append(mobj)
 
     return objects, child_objects
+
+  @staticmethod
+  def _promoteTrustedChildState(mobj, info):
+    """Promote child-published fields that prepareObjDict reads from the object attribute.
+
+    retrack=False trusts the child's state, including filter covariances and angular velocity.
+    add_uncertainty / add_angular_velocity only emit from the object attribute (not from ``info``),
+    so promote them with rotation.
+    """
+    if 'rotation' in info:
+      mobj.rotation = info['rotation']
+    if 'angular_velocity' in info:
+      mobj.angular_velocity = info['angular_velocity']
+    if 'uncertainty' in info:
+      mobj.uncertainty = info['uncertainty']
 
   @staticmethod
   def _sceneObservationToWorld(observation: dict, pose: CameraPose) -> Optional[dict]:
@@ -413,7 +427,9 @@ class Scene(SceneModel):
         return None
       info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
     point = Point(info['translation'])
-    info['translation'] = (pose.pose_mat @ np.hstack([point.asNumpyCartesian, [1]]))[:3]
+    # Materialize a length-3 list so callers do not share a numpy view of the
+    # homogeneous vector.
+    info['translation'] = (pose.pose_mat @ np.hstack([point.asNumpyCartesian, [1]]))[:3].tolist()
     if 'rotation' in info:
       rotation = Rotation.from_matrix(pose.pose_mat[:3, :3]) * Rotation.from_quat(info['rotation'])
       info['rotation'] = rotation.as_quat().tolist()

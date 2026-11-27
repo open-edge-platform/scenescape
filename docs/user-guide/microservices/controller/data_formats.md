@@ -126,7 +126,7 @@ Explicit detection sizes and library size priors remain unchanged.
 | `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres ③                                                                                                                  |
 | `lat_long_alt`         | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally                                                                              |
 | `size`                 | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                 |
-| `confidence`           | number > 0         |    No    | Inference confidence score for this detection                                                                                                                  |
+| `confidence`           | number (0, 1]      |    No    | Inference confidence score for this detection                                                                                                                  |
 | `id`                   | integer ≥ 0        |  Yes ②   | Per-frame detection index                                                                                                                                      |
 | `rotation`             | array[4] of number |    No    | Object orientation as a quaternion                                                                                                                             |
 | `distance`             | number             |    No    | Distance from the camera to the detection in metres                                                                                                            |
@@ -701,6 +701,7 @@ tracked object contains the following fields:
 | `translation`          | array[3] of number         | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
 | `size`                 | array[3] of number         | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
 | `velocity`             | array[3] of number         | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
+| `angular_velocity`     | array[3] of number         | Angular velocity (`ωx`, `ωy`, `ωz`) in radians per second; only `ωz` is filter-estimated (yaw rate), `ωx` and `ωy` are 0                                                                                                                                         |
 | `rotation`             | array[4] of number         | Orientation quaternion                                                                                                                                                                                                                                           |
 | `visibility`           | array of string            | Camera IDs currently observing this object                                                                                                                                                                                                                       |
 | `source_ids`           | array of strings, optional | External publishers that have contributed observations during this active track's lifetime. Retained until the track expires; this is provenance, not camera visibility                                                                                          |
@@ -715,6 +716,7 @@ tracked object contains the following fields:
 | `metadata`             | object                     | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
 | `camera_bounds`        | object                     | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
 | `association_window`   | object or absent           | Association gate geometry for UI visualization. Present when the producer publishes gate parameters. See note below.                                                                                                                                             |
+| `uncertainty`          | object or absent           | Covariance of the published track state. Present only with the experimental observation processor enabled. See note below.                                                                                                                                       |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)
@@ -783,6 +785,29 @@ subject to the existing identity-collision checks.
 > track without a detection in that frame and off by the Kalman correction otherwise.
 > Analytics passes the field through on regulated scene output when present.
 
+> **Note on `uncertainty`**: Produced by the Scene Controller and Tracker service only when the
+> experimental observation processor is enabled; legacy output carries no `uncertainty`. It is the
+> covariance of the track state that is published, taken from the filter's posterior covariance
+> after the update (or the coast prediction). Each block is row-major: a 3×3 covariance matrix as
+> 9 numbers. Cross-block terms are not published.
+>
+> | Key           | Unit  | Describes                      |
+> | ------------- | ----- | ------------------------------ |
+> | `translation` | m²    | `translation` (x, y, z)        |
+> | `velocity`    | m²/s² | `velocity` (x, y, z)           |
+> | `size`        | m²    | `size` (length, width, height) |
+>
+> - `translation` describes the published point, so its z entries are those of the footprint base
+>   (z of the centre of mass minus half the height), not of the centre of mass.
+> - `translation` and `velocity` are always 3×3. For a track without measured z the z-related
+>   values (the z row and column, the vz row and column) are 0.
+> - `size`: both producers publish the filter's size with the observation processor, so both carry
+>   a block. Without an observation processor the Scene Controller keeps the detection's or the
+>   object class's size and publishes no `uncertainty` at all.
+> - Yaw variance (`uncertainty.yaw`) is deferred; see the probabilistic-tracking plan.
+> - A block with a non-finite value is omitted.
+> - Analytics passes the field through on regulated scene output when present.
+
 ## Data Scene Output Message Format
 
 Published on MQTT topic: `scenescape/data/scene/{scene_id}/{thing_type}`
@@ -828,6 +853,7 @@ by `source_ids`.
       "translation": [2.463, 3.61, 0.0],
       "size": [0.5, 0.5, 1.85],
       "velocity": [-0.045, 0.012, 0.0],
+      "angular_velocity": [0.0, 0.0, 0.02],
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "metadata": {
