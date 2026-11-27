@@ -77,6 +77,7 @@
 - GLB thumbnails did not render in a headless Manager
 - The web UI could fail silently when a JavaScript asset did not load
 - Login kept leading and trailing spaces in the username
+- Manager could fail to import large scene zips
 
 ## Version 2026.2.0
 
