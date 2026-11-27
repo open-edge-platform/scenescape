@@ -343,6 +343,16 @@
             },
             {
               "uid": "4",
+              "username": "positioning",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": false,
+              "first_name": "",
+              "last_name": "",
+              "email": ""
+            },
+            {
+              "uid": "5",
               "username": "admin",
               "is_active": true,
               "is_staff": true,
@@ -352,7 +362,7 @@
               "email": "admin@domain.com"
             },
             {
-              "uid": "${USER_ID}",
+              "uid": "6",
               "username": "${USER_NAME_MINIMAL}",
               "is_active": true,
               "is_staff": false,
@@ -362,7 +372,7 @@
               "email": ""
             },
             {
-              "uid": "${USER_ID_FULL}",
+              "uid": "7",
               "username": "${USER_NAME_FULL}",
               "is_active": true,
               "is_staff": false,

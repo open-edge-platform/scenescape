@@ -76,6 +76,7 @@ evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
       metrics: [HOTA, MOTA, IDF1]
+      # space: xy   # optional: measure the ground plane (xy) or the height (z) only, default x, y and z
   - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
     config:
       metrics: [LOC_T_X, LOC_T_Y, DIST_T]
@@ -164,13 +165,22 @@ against the same tracker outputs independently.
 production container types in a single timestamped session. Two config sets are
 available: the legacy Unity dataset (`pipeline_configs/black_box_unity/`, the default)
 and the WILDTRACK dataset (`pipeline_configs/black_box_wildtrack/`, selected with
-`--dataset wildtrack`). Both sets share the same three config filenames:
+`--dataset wildtrack`).
 
-| Config                                | Container               | Description                                                   |
-| ------------------------------------- | ----------------------- | ------------------------------------------------------------- |
-| `black_box_controller_immediate.yaml` | `scenescape-controller` | Controller in immediate mode (`time_chunking_enabled: false`) |
-| `black_box_controller_tc.yaml`        | `scenescape-controller` | Controller with time-chunking enabled                         |
-| `black_box_tracker_service.yaml`      | `scenescape-tracker`    | Standalone Tracker Service                                    |
+**Association.** The default suite uses the euclidean meter gate (legacy baseline). Pass
+`--association mahalanobis` to run the companion jobs that use `position_mahalanobis`
+(HPHt + filter `base_measurement_noise` as R). `--association both` runs euclidean then
+mahalanobis. Camera MQTT does not yet carry per-detection R; the mahalanobis jobs still
+exercise the production covariance gate.
+
+| Config                                            | Container               | Description                                     |
+| ------------------------------------------------- | ----------------------- | ----------------------------------------------- |
+| `black_box_controller_immediate.yaml`             | `scenescape-controller` | Controller immediate mode, euclidean            |
+| `black_box_controller_tc.yaml`                    | `scenescape-controller` | Controller time-chunking, euclidean             |
+| `black_box_tracker_service.yaml`                  | `scenescape-tracker`    | Tracker Service, euclidean                      |
+| `black_box_controller_immediate_mahalanobis.yaml` | `scenescape-controller` | Same as immediate, `position_mahalanobis`       |
+| `black_box_controller_tc_mahalanobis.yaml`        | `scenescape-controller` | Same as time-chunking, `position_mahalanobis`   |
+| `black_box_tracker_service_mahalanobis.yaml`      | `scenescape-tracker`    | Same as Tracker Service, `position_mahalanobis` |
 
 **Prerequisites** (in addition to the general prerequisites above):
 
@@ -197,7 +207,25 @@ Use `--output` to override, and `--dataset` to choose the config set (default `u
 ```bash
 python -m run_black_box_evaluation --output /custom/output/path
 python -m run_black_box_evaluation --dataset wildtrack
+python -m run_black_box_evaluation --association mahalanobis
+python -m run_black_box_evaluation --association both
 ```
+
+**Experimental observation processor** (disabled by default): every black-box YAML (euclidean and
+mahalanobis) has a `harness.config.observation_processor` block with `enabled: false`. Set
+`enabled: true` in a YAML, or pass `--observation-processor` to enable it for all configs of the
+session (run names get the suffix `-ObservationProcessor`); it combines with `--association`. The
+harness then starts the service container next to the tracker/controller, waits until it is SERVING and sets the experimental client flag, so the
+results can be compared with a legacy run of the same dataset. Both datasets have no scene
+mesh, so the service runs frustum-only (`mode: auto`).
+
+```bash
+python -m run_black_box_evaluation --observation-processor
+```
+
+Extra prerequisite: the `intel/scenescape-observation-processor` image (built from the
+observation processor service branch with `make -C observation_processor`), or another tag set
+in `observation_processor.image`.
 
 **Output structure**:
 
@@ -210,6 +238,7 @@ python -m run_black_box_evaluation --dataset wildtrack
       inputs.jsonl         # All input frames published to MQTT
       outputs.jsonl        # All tracker output frames collected from MQTT
       tracker_logs.txt     # Container stdout/stderr
+      observation_processor_logs.txt  # Only with the observation processor enabled
     evaluators/
       TrackEvalEvaluator/
       DiagnosticEvaluator/
@@ -285,7 +314,7 @@ evaluation/
 | Evaluator                 | Metrics                                                                                                                                                     | Description                                                                                                                                                                                                                         |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TrackEvalEvaluator`      | HOTA, MOTA, IDF1, and more                                                                                                                                  | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                                                                               |
-| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                                                | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames                                                                  |
+| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `LOC_T_Z`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `LOC_T_Z_mae`, `num_matches`                      | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames; x, y and z by default                                           |
 | `JitterEvaluator`         | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio`, `rms_angular_displacement` | Trajectory smoothness metrics based on numerical differentiation of 3D positions and frame-to-frame quaternion angular displacement; GT and ratio variants allow comparing tracker-added positional jitter against test-data jitter |
 | `CameraAccuracyEvaluator` | `DIST_T` → `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}`; `VISIBILITY` → `visibility_{cam}_{obj}` (frames + %)                                | Per-camera, per-object projection accuracy: mean distance error and visibility frame count. Designed to pair with `CameraProjectionHarness`.                                                                                        |
 

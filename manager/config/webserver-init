@@ -95,6 +95,11 @@ fi
 if [ -n "${AUTOCALIBRATION}" ] ; then
     echo "${AUTOCALIBRATION}" | awk '{printf "export AUTOCALIBRATION=%s\n", $2}' >> /etc/apache2/envvars
 fi
+# --enable-mlops-flow (or ENABLE_MLOPS_FLOW in the container environment) turns on the
+# experimental MLOps Flow (ViPPET / DL Streamer Pipeline Server integration) in the web UI.
+if [ -n "${ENABLE_MLOPS_FLOW}" ] ; then
+    printf 'export ENABLE_MLOPS_FLOW=%q\n' "${ENABLE_MLOPS_FLOW}" >> /etc/apache2/envvars
+fi
 AUTOCALIBRATION_HOST=$(echo ${AUTOCALIBRATION} | awk '{printf "%s\n", $2}')
 AUTOCALIBRATION_HOST=${AUTOCALIBRATION_HOST:-autocalibration.scenescape.intel.com}
 if [[ ${AUTOCALIBRATION_HOST} == *":"* ]]; then
