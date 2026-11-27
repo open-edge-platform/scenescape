@@ -34,7 +34,7 @@ jobs:
         with:
           persist-credentials: false
       - name: "Run Zizmor scan"
-        uses: open-edge-platform/geti-ci/actions/zizmor@27a17d738348699840c32f98edc9947f21278154 # v0.1.5
+        uses: open-edge-platform/geti-ci/actions/zizmor@7472e413816546d70cf1b735225ec6fd2af50418 # v0.1.6
         with:
           scan-scope: ${{ contains(fromJSON('["pull_request","merge_group"]'), github.event_name) && 'changed' || 'all' }}
           severity-level: ${{ contains(fromJSON('["pull_request","merge_group"]'), github.event_name) && 'HIGH' || 'LOW' }}
