@@ -225,36 +225,23 @@ Ensure the `mars-small128` model (installed by `make -C model_download install-m
 
 Following are step-by-step instructions for enabling pose estimation for the out-of-box **Queuing** scene.
 
-1. **Download the required models** using the DL Streamer helper script from the external DL Streamer repository:
+1. **Install the required models** with `make -C model_download install-models`. The `yolo11n-pose` model and the `mars-small128` ReID model (used by [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json) `qcam1`) are part of the default model set. Verify they are available in the models volume:
+
+   ```bash
+   docker run --rm -v scenescape_vol-models:/models alpine ls /models/ultralytics/public/yolo11n-pose/FP32 /models/ultralytics/public/mars-small128
+   ```
 
    > [!NOTE]
-   > `download_public_models.sh` no longer exists in the upstream DL Streamer repository; it was replaced by separate scripts under [`scripts/download_models/`](https://github.com/open-edge-platform/dlstreamer/tree/main/scripts/download_models) with different CLI syntax. The link and the commands below are kept for historical reference.
+   > `install-models` does nothing if the models volume was already populated by an earlier run, so models added since then (such as `yolo11n-pose`) are missing. In that case, delete the `model_configs/model_config.json` marker file that marks the volume as installed, then install again. Already downloaded models are kept.
+   >
+   > ```bash
+   > # Delete the marker file from the models volume
+   > docker run --rm -v scenescape_vol-models:/models alpine rm /models/model_configs/model_config.json
+   > # Re-run the model installation, which also recreates the marker file
+   > make -C model_download install-models
+   > ```
 
-   Script: [download_public_models.sh](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/download_public_models.sh)
-   Usage guide: [Download Public Models](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/dev_guide/download_public_models.html)
-
-   Download the YOLO pose model:
-
-   ```bash
-   ./download_public_models.sh yolo11m-pose
-   ```
-
-   For pipelines that combine pose estimation with re-identification (as in [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json) `qcam1`), also download the `mars-small128` ReID model:
-
-   ```bash
-   ./download_public_models.sh mars-small128
-   ```
-
-2. **Copy the downloaded model folders** into the Scenescape models volume (`scenescape_vol-models`):
-
-   ```bash
-   docker create --name scenescape-models -v scenescape_vol-models:/models alpine
-   docker cp ./models/public/yolo11m-pose scenescape-models:/models/public/yolo11m-pose
-   docker cp ./models/public/mars-small128 scenescape-models:/models/public/mars-small128
-   docker rm scenescape-models
-   ```
-
-3. **Use the predefined pipeline configuration** [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json):
+2. **Use the predefined pipeline configuration** [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json):
 
    ```yaml
    configs:
@@ -262,7 +249,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
        file: ./sample_data/demo_scenes/Queuing/queuing-config-pose.json
    ```
 
-4. **Enable pose-based bounding box adjustment** in the Scene Controller (optional):
+3. **Enable pose-based bounding box adjustment** in the Scene Controller (optional):
 
    To enable improved localization using pose keypoints, pass the `--pose-adjustment` flag or set the `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable on the `scene` service. This feature is disabled by default. See the [Scene Controller documentation](../docs/user-guide/microservices/controller/controller.md) for details.
 

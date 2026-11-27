@@ -124,6 +124,24 @@
     },
     {
       "model_downloader": {
+        "name": "yolo11n-pose",
+        "hub": "ultralytics"
+      },
+      "scenescape": {
+        "name": "pose",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "ultralytics/public/yolo11n-pose/FP32/yolo11n-pose.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
         "name": "age-gender-recognition-retail-0013",
         "hub": "omz"
       },
