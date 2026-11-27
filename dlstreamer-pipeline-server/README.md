@@ -232,7 +232,11 @@ Following are step-by-step instructions for enabling pose estimation for the out
    ```
 
    > [!NOTE]
-   > If the volume already contains `model_configs/model_config.json` from an earlier run, the download is skipped. Remove that file and re-run the command to fetch newly added models.
+   > If the volume already contains `model_configs/model_config.json` from an earlier run, the download is skipped. Remove that file and re-run `make -C model_download install-models` to fetch newly added models:
+   >
+   > ```bash
+   > docker run --rm -v scenescape_vol-models:/models alpine rm /models/model_configs/model_config.json
+   > ```
 
 2. **Use the predefined pipeline configuration** [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json):
 
