@@ -13,6 +13,8 @@ surface normal in dense H x W matrices so later lookups are O(1).
 import open3d as o3d
 import numpy as np
 
+from .constants import PEEL_EPS
+
 
 
 
@@ -110,7 +112,7 @@ class DepthMap:
 
 
   def _peel_rays(self, origins: np.ndarray, dirs: np.ndarray,
-                  num_layers: int | None = None, eps: float = 1e-4):
+                  num_layers: int | None = None, eps: float = PEEL_EPS):
     """Cast rays and peel through up to num_layers successive hits along each ray.
 
     origins, dirs: (..., 3) arrays; dirs assumed unit length.

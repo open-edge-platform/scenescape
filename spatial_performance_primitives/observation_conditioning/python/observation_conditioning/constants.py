@@ -4,88 +4,36 @@
 # Vendored from scenescape-v2-architecture/algorithms/amodalreasoner.
 # See NOTICE in this package for provenance requirements.
 
-import numpy as np
+"""Every tuning value in effect, in one place.
 
-PRIORS = {
-  "Pedestrian": {
-    "mu_x": 0.55,
-    "mu_y": 0.55,
-    "mu_z": 1.70,
-    "sigma_x": 0.10,
-    "sigma_y": 0.10,
-    "sigma_z": 0.15,
-  },
-  "Cyclist": {
-    "mu_x": 0.65,
-    "mu_y": 1.10,
-    "mu_z": 1.60,
-    "sigma_x": 0.10,
-    "sigma_y": 0.15,
-    "sigma_z": 0.10,
-  },
-  "Car": {
-    "mu_x": 2.00,
-    "mu_y": 4.50,
-    "mu_z": 1.50,
-    "sigma_x": 0.20,
-    "sigma_y": 0.50,
-    "sigma_z": 0.15,
-  },
-  "Van / SUV": {
-    "mu_x": 2.20,
-    "mu_y": 5.00,
-    "mu_z": 1.90,
-    "sigma_x": 0.25,
-    "sigma_y": 0.60,
-    "sigma_z": 0.20,
-  },
-  "Bus": {
-    "mu_x": 2.50,
-    "mu_y": 9.00,
-    "mu_z": 3.20,
-    "sigma_x": 0.30,
-    "sigma_y": 1.00,
-    "sigma_z": 0.30,
-  },
-  "Drone (consumer)": {
-    "mu_x": 0.30,
-    "mu_y": 0.30,
-    "mu_z": 0.10,
-    "sigma_x": 0.05,
-    "sigma_y": 0.05,
-    "sigma_z": 0.03,
-  },
-  "Retail product": {
-    "mu_x": 0.12,
-    "mu_y": 0.08,
-    "mu_z": 0.20,
-    "sigma_x": 0.05,
-    "sigma_y": 0.04,
-    "sigma_z": 0.12,
-  },
-}
+The values are exactly those the original implementation used as inline literals and
+default arguments (see implementation.md §3); the C++ library mirrors this table 1:1.
+"""
 
-MESH_DEFAULT_SIGMA = np.array([[.01, .01, .01],
-                               [.01, .01, .01],
-                               [.01, .01, .01]])
-
-MESH_DEFAULT_VARIANCE = np.array([[.1]])
-
-# --- Algorithm V2 tuning constants ---
-# Depth peeling
-PEEL_LAYERS = 4           # max surfaces recorded along a ray
+# Depth map
+DEFAULT_NUM_LAYERS = 4    # AmodalReasoner depth-peeling layers (DepthMap itself defaults to 1)
 PEEL_EPS = 1e-4           # ray-advance nudge past each hit (m)
 
-# Occlusion (Step 8)
-OCC_SIGMA_FRAC = 0.1      # naive pre-filter threshold as a fraction of sigma_r
-OCC_EPS = 0.1             # expected-vs-actual floor distance tolerance (m)
-FLOOR_NORMAL_COS_TOL = np.cos(np.deg2rad(30.0))  # floor-like normal alignment with world-up
-FLOOR_CONSISTENCY_RHO = 0.25                     # peeled-vs-expected floor agreement (m)
+# Frames and probes (Steps 1-6)
+DEGENERATE_CROSS_TOL = 1e-6    # |r x up| below this: ray (anti)parallel to up, use the X axis
+PROBE_DEVS_AT_PREMISE = 2.0    # probe offset in sigmas
+PROBE_DEVS_OVER_PREMISE = 2.1  # probe offset in sigmas, just beyond the at-premise probes
+
+# Occlusion (Step 8, naive check)
+OCC_SIGMA_FRAC = 0.1      # occlusion threshold as a fraction of sigma_d
 
 # Wall (Step 9)
-VERT_BAND_LOW_DEG = 75.0   # signed-angle vertical band lower bound
-VERT_BAND_HIGH_DEG = 115.0 # signed-angle vertical band upper bound
-SPECTRUM_SAMPLES = 5       # centroid -> top spectrum ray count
+VERT_BAND_LOW_DEG = 75.0   # vertical band lower bound (signed test; unsigned in the spectrum)
+VERT_BAND_HIGH_DEG = 115.0 # vertical band upper bound (signed test)
+SPECTRUM_SAMPLES = 8       # centroid -> top spectrum ray count
+SPECTRUM_MIN_RISE_M = 0.1  # height gain that makes a horizontal hit a rising support (m)
+
+# Total occlusion (Step 9.5)
+TOTAL_OCC_SAMPLES = 9           # targets along the lower -> top probe column
+TOTAL_OCC_FRACTION = 0.9        # blocked fraction that counts as total occlusion
+TOTAL_OCC_BLOCK_MARGIN_M = 0.1  # a target is blocked if a surface is nearer by more than this (m)
 
 # Update (Step 10)
-ADAPTIVE_DAMPING_K = 2.0   # 1/k damping on unexplained depth innovation
+ADAPTIVE_DAMPING_K = 2.0         # 1/k damping on unexplained depth innovation
+OCC_RESIDUAL_R = 0.0             # r_occ: residual added to the prior variance before inflation
+WALL_OCCLUDER_MARGIN_M = 0.1     # a wall within this of the occluder is the occluder's own face (m)

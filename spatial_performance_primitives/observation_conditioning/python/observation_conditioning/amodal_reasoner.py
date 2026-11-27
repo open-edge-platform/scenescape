@@ -8,6 +8,11 @@
 import open3d as o3d
 import numpy as np
 from scipy.stats import truncnorm
+from .constants import (
+  ADAPTIVE_DAMPING_K, DEFAULT_NUM_LAYERS, DEGENERATE_CROSS_TOL, OCC_RESIDUAL_R, OCC_SIGMA_FRAC,
+  PROBE_DEVS_AT_PREMISE, PROBE_DEVS_OVER_PREMISE, SPECTRUM_MIN_RISE_M, SPECTRUM_SAMPLES,
+  TOTAL_OCC_BLOCK_MARGIN_M, TOTAL_OCC_FRACTION, TOTAL_OCC_SAMPLES, VERT_BAND_HIGH_DEG,
+  VERT_BAND_LOW_DEG, WALL_OCCLUDER_MARGIN_M)
 from .intersection_map import DepthMap
 
 class AmodalReasoner:
@@ -15,7 +20,7 @@ class AmodalReasoner:
   debug = False   # class-level default so instances built without __init__ (e.g. tests) are safe
   # TODO: Potential redesign to factory pattern, where we are producing gaus_objects of somesort.
   # Lots of reuse of gaus_rays but not appropiate to solidify as a object attribute.
-  def __init__(self, mesh: o3d.geometry.TriangleMesh, rwc_z_up: np.ndarray, camera_intrinsics: np.ndarray, camera_extrinsics: np.ndarray, width: int, height: int, num_layers: int = 4):
+  def __init__(self, mesh: o3d.geometry.TriangleMesh, rwc_z_up: np.ndarray, camera_intrinsics: np.ndarray, camera_extrinsics: np.ndarray, width: int, height: int, num_layers: int = DEFAULT_NUM_LAYERS):
     self.rwc_z_up = rwc_z_up
     self.mesh = mesh
     # Layered so query() can peel: first layer is the front hit, deeper layers the floor.
@@ -36,7 +41,7 @@ class AmodalReasoner:
     # e_h = r x z_up; fall back to r x X where r is (near) parallel to z_up (degenerate cross).
     cross = np.cross(e1, z)
     norm_c = np.linalg.norm(cross, axis=1, keepdims=True)
-    cross = np.where(norm_c < 1e-6, np.cross(e1, np.array([1.0, 0.0, 0.0])), cross)
+    cross = np.where(norm_c < DEGENERATE_CROSS_TOL, np.cross(e1, np.array([1.0, 0.0, 0.0])), cross)
     e2 = cross / np.linalg.norm(cross, axis=1, keepdims=True)
     # e_v = r x e_h, unit since e1 and e2 are orthonormal.
     e3 = np.cross(e1, e2)
@@ -53,7 +58,7 @@ class AmodalReasoner:
     lam = frame.mT @ gaus_rays['Sigma'] @ frame
     return lam
 
-  def  _create_probe_points(self, dir_variance: np.ndarray, frame: np.ndarray, centroid_points: np.ndarray, devs: float = 2.0):
+  def  _create_probe_points(self, dir_variance: np.ndarray, frame: np.ndarray, centroid_points: np.ndarray, devs: float = PROBE_DEVS_AT_PREMISE):
     sig_h = np.sqrt(dir_variance[:, 1, 1])[:, None]
     sig_v = np.sqrt(dir_variance[:, 2, 2])[:, None]
     # e3 = e1 x e2 has an arbitrary sign; orient it toward world-up so v_no drops to the floor.
@@ -102,14 +107,14 @@ class AmodalReasoner:
     # e_h = z x r; fall back to z x X when r is (near) parallel to z_up (degenerate cross).
     cross = np.cross(z, r)
     norm_c = np.linalg.norm(cross, axis=1, keepdims=True)
-    cross = np.where(norm_c < 1e-6, np.cross(z, np.array([1.0, 0.0, 0.0])), cross)
+    cross = np.where(norm_c < DEGENERATE_CROSS_TOL, np.cross(z, np.array([1.0, 0.0, 0.0])), cross)
     e_h = cross / np.linalg.norm(cross, axis=1, keepdims=True)
     y = np.einsum('ij,ij->i', np.cross(z, n_c), e_h)
     x = n_c @ z
     return np.degrees(np.arctan2(y, x))
 
   def _wall_spectrum(self, mu: np.ndarray, p_c: np.ndarray, p_top: np.ndarray,
-                       l_v: float = 75.0, num_rays: int = 8):
+                       l_v: float = VERT_BAND_LOW_DEG, num_rays: int = SPECTRUM_SAMPLES):
     """Occluded fallback: fan num_rays from the camera between the centroid and top targets.
 
     Returns (wall_spec, spectrum_depth): per-object vertical-hit-or-rising-backing flag and a
@@ -139,7 +144,7 @@ class AmodalReasoner:
     t_safe = np.where(finite, t_hit, 0.0)                              # avoid inf*0 on misses
     heights = (origins + t_safe[..., None] * dirs) @ z                # (N, M)
     rising = np.zeros_like(v)
-    rising[:, 1:] = (~v[:, 1:]) & finite[:, 1:] & finite[:, :-1] & (heights[:, 1:] > heights[:, :-1]) & (heights[:, 1:] - heights[:, :-1] > .1)  # TODO: Need to add a way to determine if the rate of change is high enough, is the hieght change enough..?
+    rising[:, 1:] = (~v[:, 1:]) & finite[:, 1:] & finite[:, :-1] & (heights[:, 1:] > heights[:, :-1]) & (heights[:, 1:] - heights[:, :-1] > SPECTRUM_MIN_RISE_M)  # TODO: Need to add a way to determine if the rate of change is high enough, is the hieght change enough..?
     # TODO: Create best fit plane (min-OLS); determine gradient of plane - if magnituide of gradient is less than some value simply call noise (random bumps in ground) and not actual increase
     support_sum = rising.sum(axis=1)  # TODO: Recheck: odd thing to be summing mask
     d_wall = np.where(support_sum > 0,
@@ -157,7 +162,7 @@ class AmodalReasoner:
                              lo_vert_over_prem_depths: np.ndarray,
                              prior_depth_est: np.ndarray,
                              free_3d_mask: np.ndarray,
-                             eps: float = .1):
+                             eps: float = OCC_SIGMA_FRAC):
     """Naive occlusion check (Step 8). If no occlusion, depth is set to np.nan (masked at use-time)."""
     # Thresholds in std units: sqrt(ray_var) is sigma_d.
     sigma_d = np.sqrt(ray_var)
@@ -169,7 +174,7 @@ class AmodalReasoner:
 
   def _get_wall_depth(self, mu: np.ndarray, ray: np.ndarray,
             at_prem_probe_points: np.ndarray, at_prem_depths: np.ndarray, at_prem_normals: np.ndarray,
-            centroid_points: np.ndarray, l_v: float = 75.0, u_v: float = 115.0):
+            centroid_points: np.ndarray, l_v: float = VERT_BAND_LOW_DEG, u_v: float = VERT_BAND_HIGH_DEG):
     """Wall depth per object; np.nan where no wall (masked at use-time).
 
     Step 9: the signed-angle test on the centroid hit is primary; objects it does not
@@ -197,7 +202,8 @@ class AmodalReasoner:
     return wall_depth
 
   def _total_occlusion(self, probe_points: np.ndarray, n: int,
-                         num_rays: int = 9, occ_frac: float = 0.9, eps: float = 0.1):
+                         num_rays: int = TOTAL_OCC_SAMPLES, occ_frac: float = TOTAL_OCC_FRACTION,
+                         eps: float = TOTAL_OCC_BLOCK_MARGIN_M):
     """Fraction-based total-occlusion test over the object's vertical 2-sigma extent.
 
     Fans num_rays targets from the lower-vertical (v_no) up to the top (v_po) probe and marks
@@ -224,8 +230,8 @@ class AmodalReasoner:
 
   def _update_depth_gaussian(self, depth_est: np.ndarray, sigma_d_sq: np.ndarray,
                                occlusion_depth: np.ndarray, wall_depth: np.ndarray,
-                               free_3d_mask: np.ndarray, k: float = 2.0, r_occ: float = 0.0,
-                               eps: float = 0.1):
+                               free_3d_mask: np.ndarray, k: float = ADAPTIVE_DAMPING_K,
+                               r_occ: float = OCC_RESIDUAL_R, eps: float = WALL_OCCLUDER_MARGIN_M):
     """Step 10: re-bound the depth Gaussian from occlusion/wall hits (moment-matched).
 
     No-op for free-3D objects or when neither bound fired. Occlusion inflates (adaptive
@@ -284,7 +290,7 @@ class AmodalReasoner:
     frame = self._build_orthonorm_frame(gaus_rays)
     decons_cov = self._deconstruct_cov(frame, gaus_rays)
     at_prem_probe_points = self._create_probe_points(decons_cov, frame, centroid_points)
-    over_prem_probe_points = self._create_probe_points(decons_cov, frame, centroid_points, 2.1)
+    over_prem_probe_points = self._create_probe_points(decons_cov, frame, centroid_points, PROBE_DEVS_OVER_PREMISE)
     at_prem_depths, at_prem_normals = self.depth_map.query(at_prem_probe_points)
     over_prem_depths, over_prem_normals = self.depth_map.query(over_prem_probe_points)
     free3d_mask = self._get_free_3d_mask(at_prem_depths, over_prem_depths, gaus_rays['depth_hi'])
