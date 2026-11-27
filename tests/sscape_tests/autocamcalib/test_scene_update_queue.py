@@ -13,10 +13,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import auto_camera_calibration_context as context_module
 from auto_camera_calibration_api import CameraCalibrationApi
-from auto_camera_calibration_context import CameraCalibrationContext
+from conftest import import_calibration_context
 from markerless_camera_calibration_controller import MarkerlessCameraCalibrationController
+
+context_module = import_calibration_context()
+CameraCalibrationContext = context_module.CameraCalibrationContext
 
 WAIT_TIMEOUT = 5
 SETTLE_SECONDS = 0.1
@@ -62,12 +64,18 @@ def make_context():
     stack.enter_context(patch.object(context_module, "CameraCalibrationModel"))
     stack.enter_context(patch.object(context_module, "ApriltagCameraCalibrationController"))
     stack.enter_context(patch.object(context_module, "PointCloudCalibrationController"))
+    # Native-thread offload is irrelevant here; run the strategy inline in the worker.
+    stack.enter_context(
+        patch.object(context_module.tpool, "execute", side_effect=lambda fn, *a: fn(*a)))
     markerless = stack.enter_context(
         patch.object(context_module, "MarkerlessCameraCalibrationController"))
 
     def _make(strategy):
       markerless.return_value = strategy
       ctx = CameraCalibrationContext(cert=None, root_cert=None, rest_url="", rest_auth="")
+      ctx.socketio = MagicMock()
+      ctx.socketio.start_background_task.side_effect = (
+          lambda fn, *args: threading.Thread(target=fn, args=args).start())
       # None means the scene cannot be reloaded, so a queued run keeps its own copy.
       ctx.calibration_data_interface.scene_with_id.return_value = None
       return ctx
@@ -209,7 +217,7 @@ def test_failed_run_still_runs_queued_update_and_releases_lock(make_context):
   assert state.done.wait(WAIT_TIMEOUT), f"queued update lost after a failed run, calls={state.calls}"
   wait_until_idle(ctx)
   assert ctx.register_thread_lock.locked() is False
-  assert ctx.pending_map_updates == {}
+  assert ctx.pending_registrations == {}
 
 
 def test_failed_run_with_empty_queue_releases_lock(make_context):
@@ -323,9 +331,9 @@ def test_wrapper_reports_whether_it_started_the_run(make_context):
   assert ctx.scene_update_thread_wrapper(make_scene(), map_update=True) is True
   assert state.first_started.wait(WAIT_TIMEOUT)
   assert ctx.scene_update_thread_wrapper(make_scene(), map_update=True) is False
-  assert ctx.pending_map_updates == {}
+  assert ctx.pending_registrations == {}
   assert ctx.scene_update_thread_wrapper(make_scene(), map_update=True, queue_if_busy=True) is False
-  assert len(ctx.pending_map_updates) == 1
+  assert len(ctx.pending_registrations) == 1
 
   state.release.set()
   assert state.done.wait(WAIT_TIMEOUT)
@@ -465,8 +473,8 @@ def test_post_started_returns_202_registering(make_api):
   assert state.done.wait(WAIT_TIMEOUT)
 
 
-def test_post_while_busy_returns_busy_and_queues_without_reset(make_api):
-  """! POST during a run answers busy, and the update is registered afterwards without a reset. """
+def test_post_during_own_run_reports_progress_and_queues_without_reset(make_api):
+  """! POST for the scene being registered reports progress, and the update runs afterwards without a reset. """
   strategy, state = make_blocking_strategy(expected_calls=2)
   strategy.is_map_updated.return_value = True
   client, ctx, _scene = make_api(strategy)
@@ -476,9 +484,10 @@ def test_post_while_busy_returns_busy_and_queues_without_reset(make_api):
   resets_after_patch = strategy.reset_scene.call_count
   response = client.post(REGISTRATION_URL)
 
-  assert response.status_code == 200
-  assert response.get_json()["status"] == "busy"
-  assert len(ctx.pending_map_updates) == 1
+  assert response.status_code == 202
+  assert response.get_json()["status"] == "registering"
+  assert response.get_json()["message"] == "Registration is in progress"
+  assert len(ctx.pending_registrations) == 1
 
   state.release.set()
   assert state.done.wait(WAIT_TIMEOUT), f"POST during a run was dropped, calls={state.calls}"

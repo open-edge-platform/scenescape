@@ -401,7 +401,7 @@ paths:
                     sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
                     message: "Registration is currently busy, the update is queued"
         "202":
-          description: Registration started asynchronously
+          description: Registration started asynchronously or is already in progress for this scene
           content:
             application/json:
               schema:
@@ -431,7 +431,15 @@ paths:
 
     get:
       summary: Get scene registration status
-      description: Checks the status of scene registration
+      description: >-
+        Checks the status of scene registration. When the last registration
+        attempt for the scene failed (for example, too few AprilTags), returns
+        `error` with the failure reason even if the map was processed.
+        Returns `registering` only while this scene's registration runs, and
+        `busy` when the scene still needs registration but none is running for
+        it; POST again to start it. Returns `success` only after a successful
+        registration result was recorded for the scene; with no recorded result
+        (for example, after a service restart) it returns `busy`.
       operationId: getSceneRegistrationStatus
       parameters:
         - name: sceneId

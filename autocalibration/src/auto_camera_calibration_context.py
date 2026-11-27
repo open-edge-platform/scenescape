@@ -3,7 +3,10 @@
 
 import json
 import threading
+import traceback
 from collections import OrderedDict
+
+from eventlet import tpool
 
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 from auto_camera_calibration_model import CameraCalibrationModel
@@ -50,17 +53,25 @@ class CameraCalibrationContext:
     }
 
     self.calibration_results = {}
+    self.registration_results = {}
+    # Bumped on worker start and finish so a stale synchronous result is dropped.
+    self.registration_generations = {}
+    # Requests received while a registration runs, keyed by scene id, oldest first.
+    self.pending_registrations = OrderedDict()
     self.socket_clients = {}
-    self.socket_scene_clients = {}
     self.socketio = None
 
     self.register_thread_lock = threading.Lock()
+    # Guards worker start/finish and pending_registrations so they change together.
+    self.registration_state_lock = threading.RLock()
     self.calibration_thread_lock = threading.Lock()
-    # Requests received while a registration runs, keyed by scene id, oldest first.
-    self.pending_map_updates = OrderedDict()
-    self.pending_map_updates_lock = threading.Lock()
+    self.current_processing_scene = None
 
     return
+
+  @staticmethod
+  def scene_room(scene_id):
+    return f"scene:{scene_id}"
 
   def preprocess_scenes(self):
     """! For all scenes in database, preprocess the scene map and store/update results
@@ -92,6 +103,20 @@ class CameraCalibrationContext:
       log.error(f"Could not check whether the map of scene {sceneobj.name} changed : {e}")
       return False
 
+  def request_scene_registration(self, sceneobj, reset=False):
+    """! Start registering a scene, or queue it while a registration runs.
+    @param   sceneobj      scene object.
+    @param   reset         boolean for resetting the scene before the run.
+
+    @return  "active", "started", or "busy".
+    """
+    with self.registration_state_lock:
+      active = self.current_processing_scene == sceneobj.id
+      if self.scene_update_thread_wrapper(sceneobj, map_update=True, reset=reset,
+                                          queue_if_busy=True):
+        return "started"
+      return "active" if active else "busy"
+
   def scene_update_thread_wrapper(self, sceneobj, map_update=False, reset=False,
                                   queue_if_busy=False):
     """! function starts processing the scene unless a registration is running.
@@ -104,31 +129,41 @@ class CameraCalibrationContext:
 
     @return  True if this call started the run, False otherwise.
     """
-    with self.pending_map_updates_lock:
-      # The lock is taken here, not in the worker thread, so a run is busy from
-      # the moment it is accepted until its queued work is done.
+    with self.registration_state_lock:
+      # The lock is taken here, not in the worker, so a run is busy from the
+      # moment it is accepted until its queued work is done.
       if not self.register_thread_lock.acquire(blocking=False):
         if queue_if_busy:
           self._queue_update(sceneobj, map_update, reset)
         return False
+      self._mark_running(sceneobj)
       try:
-        threading.Thread(target=self.process_scene, args=(sceneobj, map_update, reset)).start()
+        # Emits from a plain OS thread are never flushed by the eventlet Socket.IO server.
+        self.socketio.start_background_task(self.process_scene, sceneobj, map_update, reset)
       except Exception:
+        self.current_processing_scene = None
         self.register_thread_lock.release()
         raise
-    return True
+      return True
+
+  def _mark_running(self, sceneobj):
+    """! records that the scene owns the worker slot. Called with registration_state_lock held. """
+    self.current_processing_scene = sceneobj.id
+    self.pending_registrations.pop(sceneobj.id, None)
+    self.registration_results.pop(sceneobj.id, None)
+    self._bump_registration_generation(sceneobj.id)
 
   def _queue_update(self, sceneobj, map_update, reset):
     """! queues a request for a scene, merging it with one already queued.
-    Called with pending_map_updates_lock held.
+    Called with registration_state_lock held.
     """
-    queued = self.pending_map_updates.get(sceneobj.id)
+    queued = self.pending_registrations.get(sceneobj.id)
     if queued:
       _, queued_map_update, queued_reset = queued
       map_update = map_update or queued_map_update
       reset = reset or queued_reset
     # Re-assigning an existing key keeps its place in the queue.
-    self.pending_map_updates[sceneobj.id] = (sceneobj, map_update, reset)
+    self.pending_registrations[sceneobj.id] = (sceneobj, map_update, reset)
     log.info(f"Scene {sceneobj.name} queued until the current registration finishes")
 
   def process_scene(self, sceneobj, map_update, reset=False):
@@ -145,48 +180,86 @@ class CameraCalibrationContext:
     lock_held = True
     try:
       while request is not None:
-        self._run_registration(*request)
-        request = self._next_queued_update_or_release()
-      lock_held = False
+        sceneobj, map_update, reset = request
+        # Pages already open for the scene must show the spinner while it re-registers.
+        self.notify_scene_registration(sceneobj, {"status": "registering"})
+        result = self._run_registration(sceneobj, map_update, reset)
+        request = self.finish_registration(sceneobj.id, result)
+        lock_held = request is not None
+        self.notify_scene_registration(sceneobj, result)
     finally:
       if lock_held:
-        self.register_thread_lock.release()
+        self._abort_registration()
     return
 
   def _run_registration(self, sceneobj, map_update, reset):
     """! runs one registration. A reset starts from a clean scene, inside the
     locked run so it never races a registration in progress.
-    Any failure is logged so the queue always advances and the lock is released.
+    Any failure becomes an error result so the queue always advances.
     @param   sceneobj      scene object.
     @param   map_update    boolean for re-registering the scene.
     @param   reset         boolean for resetting the scene before the run.
 
-    @return  None
+    @return  registration result dict.
     """
     try:
       strategy = self.scene_strategies[sceneobj.camera_calibration]
+      # CPU-heavy work runs in a native thread so the Socket.IO hub keeps serving.
       if reset:
-        strategy.reset_scene(sceneobj)
-      strategy.process_scene_for_calibration(sceneobj, map_update)
-    except Exception as e:
-      log.error(f"Error in register dataset for scene {sceneobj.name} : {e}")
+        tpool.execute(strategy.reset_scene, sceneobj)
+      return tpool.execute(strategy.process_scene_for_calibration, sceneobj, map_update)
+    except (FileNotFoundError, KeyError) as e:
+      log.error(f"Error in register dataset : {e}")
+      return {"status": "error", "message": str(e)}
+    except Exception:
+      log.error(f"Unexpected error registering scene {sceneobj.id}:\n{traceback.format_exc()}")
+      return {"status": "error", "message": "Scene registration failed"}
 
-  def _next_queued_update_or_release(self):
+  def finish_registration(self, scene_id, result):
+    """! Record the worker result, then hand the worker slot to the next queued
+    request, or free it when none remains.
+
+    @return  tuple of (scene object, map_update, reset) for the next run, or None when idle.
+    """
+    with self.registration_state_lock:
+      try:
+        self.record_registration_result(scene_id, result)
+      finally:
+        self._bump_registration_generation(scene_id)
+        self.current_processing_scene = None
+      if not self.pending_registrations:
+        self.register_thread_lock.release()
+        return None
+    return self._take_next_queued_request()
+
+  def _take_next_queued_request(self):
     """! takes the oldest queued request that still needs to run, or releases the lock.
     The queue check and the lock release happen under one lock, so a request
     accepted at any point is either picked up here or starts a new run.
     @return  tuple of (scene object, map_update, reset) for the next run, or None when idle.
     """
     while True:
-      with self.pending_map_updates_lock:
-        if not self.pending_map_updates:
+      with self.registration_state_lock:
+        if not self.pending_registrations:
           self.register_thread_lock.release()
           return None
-        _, request = self.pending_map_updates.popitem(last=False)
-      # Refreshing calls the manager, so it runs outside pending_map_updates_lock.
+        _, request = self.pending_registrations.popitem(last=False)
+      # Refreshing calls the manager, so it runs outside registration_state_lock.
       request = self._refresh_queued_request(request)
       if request is not None:
+        with self.registration_state_lock:
+          self._mark_running(request[0])
         return request
+
+  def _abort_registration(self):
+    """! frees the worker slot when a run ends without a clean hand-off. """
+    with self.registration_state_lock:
+      scene_id = self.current_processing_scene
+      if scene_id is not None:
+        self.record_registration_result(scene_id, None)
+        self._bump_registration_generation(scene_id)
+        self.current_processing_scene = None
+      self.register_thread_lock.release()
 
   def _refresh_queued_request(self, request):
     """! reloads the scene of a queued request, so the run sees current data, and
@@ -207,6 +280,49 @@ class CameraCalibrationContext:
       log.info(f"Skipping queued update for scene {sceneobj.name}: its map is already processed")
       return None
     return current, map_update, reset
+
+  def notify_scene_registration(self, sceneobj, response):
+    # Every page open for the scene joins its room, so no page misses the result.
+    room = self.scene_room(sceneobj.id)
+    # The calibration type may have changed since the page loaded.
+    self.socketio.emit("register_result", {
+        "scene_id": sceneobj.id,
+        "camera_calibration": sceneobj.camera_calibration,
+        "data": response,
+    }, to=room)
+    log.info(f"Sent WebSocket result to room {room}")
+    return
+
+  def _bump_registration_generation(self, scene_id):
+    self.registration_generations[scene_id] = self.registration_generations.get(scene_id, 0) + 1
+
+  def begin_sync_registration(self, scene_id):
+    """! Snapshot the scene's generation before an in-request registration."""
+    with self.registration_state_lock:
+      return self.registration_generations.get(scene_id, 0)
+
+  def finish_sync_registration(self, scene_id, generation, result):
+    """! Record an in-request result unless a worker started or finished meanwhile.
+
+    @return  True if the result was recorded.
+    """
+    with self.registration_state_lock:
+      if self.registration_generations.get(scene_id, 0) != generation:
+        return False
+      self.record_registration_result(scene_id, result)
+      return True
+
+  def record_registration_result(self, scene_id, result):
+    """! Store a scene's terminal registration result as success or error."""
+    status = result.get("status") if isinstance(result, dict) else None
+    if status == "success":
+      self.registration_results[scene_id] = {"status": "success"}
+    else:
+      message = result.get("message", status) if isinstance(result, dict) else None
+      self.registration_results[scene_id] = {
+          "status": "error",
+          "message": message or "Scene registration failed",
+      }
 
   def calibrate_camera_thread_wrapper(self, sceneobj, cameraId, intrinsics, cam_frame_data):
     """
