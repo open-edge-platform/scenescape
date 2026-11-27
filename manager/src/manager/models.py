@@ -908,6 +908,7 @@ class ChildScene(models.Model):
   cached_rois = models.JSONField("Cached remote rois", default=list, blank=True)
   cached_tripwires = models.JSONField("Cached remote tripwires", default=list, blank=True)
   cached_sensors = models.JSONField("Cached remote sensors", default=list, blank=True)
+  placement = models.JSONField("Placement provenance", default=None, null=True, blank=True, editable=False)
 
   @property
   def cameraPose(self):
