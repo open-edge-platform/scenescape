@@ -85,29 +85,6 @@ class AmodalReasoner:
     free3d_mask = np.logical_and(on_prem_mask, over_prem_mask)
     return free3d_mask
 
-  def _get_avg_local_ground_plane(self, origins: np.ndarray, frame: np.ndarray, start_depths: np.ndarray, end_depths: np.ndarray, num_pins: int):
-    """Pin-dropping along -world-up to estimate a local averaged ground plane (normal, point)."""
-    # TODO: Optimization, remove pins that hit high points that vary outside normal range (1 std)
-    z = self.rwc_z_up / np.linalg.norm(self.rwc_z_up)
-    spaced_pin_depths = np.linspace(start_depths, end_depths, num_pins, axis=1)          # (N, num_pins)
-    spaced_pin_rays = frame[:, :, 0].reshape(-1, 1, 3) * spaced_pin_depths[..., None]     # (N, num_pins, 3)
-    spaced_pin_points = np.repeat(origins, num_pins, axis=0) + spaced_pin_rays.reshape(-1, 3)
-    down = np.broadcast_to(-z, spaced_pin_points.shape)
-    normals, depths = self.depth_map.cast_np(down, spaced_pin_points)
-    # Average only pins that hit the mesh (missed pins are inf depth / nan normal).
-    normals = normals.reshape(-1, num_pins, 3)
-    t_safe = np.where(np.isfinite(depths), depths, 0.0)                                   # avoid inf*0 on misses
-    hits = (spaced_pin_points + t_safe[:, None] * down).reshape(-1, num_pins, 3)
-    valid = np.isfinite(depths).reshape(-1, num_pins)[..., None]
-    count = np.maximum(valid.sum(axis=1), 1)
-    average_normals = np.where(valid, normals, 0.0).sum(axis=1) / count
-    average_points = np.where(valid, hits, 0.0).sum(axis=1) / count
-    if self.debug:
-      self.trace["pin_drop"] = {"origins": spaced_pin_points.reshape(-1, num_pins, 3), "hits": hits,
-                                      "valid": valid[..., 0], "normals": normals,
-                                      "avg_point": average_points, "avg_normal": average_normals}
-    return average_normals, average_points
-
   def _hit_points_from_query(self, probe_points: np.ndarray, depths: np.ndarray):
     """World hit points for the camera-ray t_hit values returned by query()."""
     if depths.ndim > 1:
@@ -190,66 +167,33 @@ class AmodalReasoner:
     return np.where(free_3d_mask, np.nan, np.fmin(at_edge_closer_than_exp, hits_dist_too_far))
 
 
-  def _get_wall_depth(self, mu: np.ndarray, ray: np.ndarray, depth_est: np.ndarray,
-            depth_lo: np.ndarray, depth_hi: np.ndarray, frame: np.ndarray,
+  def _get_wall_depth(self, mu: np.ndarray, ray: np.ndarray,
             at_prem_probe_points: np.ndarray, at_prem_depths: np.ndarray, at_prem_normals: np.ndarray,
-            centroid_points: np.ndarray, occlusion_depth: np.ndarray,
-            l_v: float = 75.0, u_v: float = 115.0, height_eps: float = .1):
+            centroid_points: np.ndarray, l_v: float = 75.0, u_v: float = 115.0):
     """Wall depth per object; np.nan where no wall (masked at use-time).
 
-    Step 9: signed-angle test is primary; a higher horizontal surface counts as backing
-    only when the pin-dropped ground is trustworthy (not occluded) and it is not ground.
-    Occluded objects fall back to the centroid-to-top ray spectrum.
+    Step 9: the signed-angle test on the centroid hit is primary; objects it does not
+    classify as vertical fall back to the centroid-to-top ray spectrum.
     """
-    n = depth_est.shape[0]
-    # Blocks: v_po (top) [2n:3n], v_no (lower) [3n:4n], centroid [4n:5n].
-    top_s, lov_s, cen_s = slice(2 * n, 3 * n), slice(3 * n, 4 * n), slice(4 * n, 5 * n)
+    n = ray.shape[0]
+    # Blocks: v_po (top) [2n:3n], centroid [4n:5n].
+    top_s, cen_s = slice(2 * n, 3 * n), slice(4 * n, 5 * n)
     cand_normals = at_prem_normals[cen_s]
     if cand_normals.ndim > 2:  # peeled layers -> keep the front hit
       cand_normals = cand_normals[:, 0, :]
     cand_depths = at_prem_depths[cen_s]
     cand_depths = cand_depths[..., 0] if cand_depths.ndim > 1 else cand_depths
-    cand_points = self._hit_points_from_query(at_prem_probe_points[cen_s], at_prem_depths[cen_s])
-    lo_vert_points = self._hit_points_from_query(at_prem_probe_points[lov_s], at_prem_depths[lov_s])
-    top_points = self._hit_points_from_query(at_prem_probe_points[top_s], at_prem_depths[top_s])
 
-    # Pin-dropped averaged ground plane over the object's depth band [depth_lo, depth_hi] along
-    # the centroid ray, so the pins fan across the floor footprint (not clustered at the centroid).
-    avg_ground_normals, avg_ground_points = self._get_avg_local_ground_plane(
-      mu, frame, depth_lo, depth_hi, num_pins=4)
-
-    occluded_mask = ~np.isnan(occlusion_depth)
-    if occluded_mask.ndim > 1:
-      occluded_mask = occluded_mask.any(axis=tuple(range(1, occluded_mask.ndim)))
-
-    z = self.rwc_z_up / np.linalg.norm(self.rwc_z_up)
     # Primary: candidate normal is vertical (wall) by the signed test.
     a_s = self._signed_wall_angle(cand_normals, ray)
     is_vertical = (a_s >= l_v) & (a_s < u_v)
-    # Height ordering; differences cancel the world-up origin offset.
-    # h_v = lo_vert_points @ z
-    # f1 = (cand_points @ z) > h_v
-    # f2 = (top_points @ z) > h_v
-    # Pin-dropped averaged ground plane (point + normal): signed distance of a query point.
-    n_g = avg_ground_normals / np.maximum(np.linalg.norm(avg_ground_normals, axis=1, keepdims=True), 1e-12)
-    s_pc = np.einsum('ij,ij->i', centroid_points - avg_ground_points, n_g)
-    s_pt = np.einsum('ij,ij->i', top_points - avg_ground_points, n_g)
-    ground = (s_pc <= 0) & (s_pt <= 0) # If both heights are less than a small error we indicate ground
-    # Higher-than-floor surface is backing only on a trustworthy (unoccluded) floor.
-    # backing = (f1 | f2) & ~ground & ~occluded_mask #TODO: This doesn't work because ground is often sloped/bumpy/uneven in hieght
-    # TODO: To fix this we can create a OLS-fit plane; get gradient of plane and determien if gradients slipe is closer to noise or wall
-    # The reason for this is we were getting false positives of wall-determination on ground where the ground was bumpy
-    #naive_wall = is_vertical | backing
-    # Occluded objects (untrustworthy floor) fall back to the centroid-to-top ray spectrum.
     spec_wall, spec_depth = self._wall_spectrum(mu, centroid_points, at_prem_probe_points[top_s], l_v)
     spec_only =  ~is_vertical & spec_wall
     is_wall = is_vertical | spec_wall
     wall_depth = np.where(is_vertical, cand_depths, np.nan)
     wall_depth = np.where(spec_only, spec_depth, wall_depth)
     if self.debug:
-      self.trace["wall"] = {"cand_points": cand_points, "is_vertical": is_vertical,
-                                  "is_wall": is_wall, "wall_depth": wall_depth,
-                                  "ground_point": avg_ground_points, "ground_normal": avg_ground_normals}
+      self.trace["wall"] = {"is_vertical": is_vertical, "is_wall": is_wall, "wall_depth": wall_depth}
     return wall_depth
 
   def _total_occlusion(self, probe_points: np.ndarray, n: int,
@@ -351,10 +295,8 @@ class AmodalReasoner:
       lo_at, lo_over = lo_at[..., 0], lo_over[..., 0]
     occlusion_depth = self._get_occlusion_depth(decons_cov[:, 0, 0], lo_at, lo_over, gaus_rays['depth_est'], free3d_mask)
 
-    wall_depth = self._get_wall_depth(gaus_rays['mu'], gaus_rays['ray'], gaus_rays['depth_est'],
-                                          gaus_rays['depth_lo'], gaus_rays['depth_hi'], frame,
-                                          at_prem_probe_points, at_prem_depths, at_prem_normals,
-                                          centroid_points, occlusion_depth)
+    wall_depth = self._get_wall_depth(gaus_rays['mu'], gaus_rays['ray'], at_prem_probe_points,
+                                          at_prem_depths, at_prem_normals, centroid_points)
 
     total_occ, nearest_block = self._total_occlusion(at_prem_probe_points, n)
     # A fully-occluded detection cannot lie behind the surface (nothing would be visible), so the
