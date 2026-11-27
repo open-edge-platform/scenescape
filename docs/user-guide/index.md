@@ -69,7 +69,7 @@ For more information, refer to [Observation Processor Service](./microservices/o
 
 ### **Positioning**
 
-Resolves live poses of PTZ cameras. It polls each camera over ONVIF, loads the camera calibration from the Scene Manager, and publishes the resolved poses over MQTT. The Scene Controller uses these poses when its PTZ mode is enabled. For more information, refer to [Positioning Service](./microservices/positioning/positioning.md).
+Polls ONVIF PTZ cameras and publishes a resolved scene pose for each accepted sample. The Scene Controller can use these poses to project detections when its PTZ mode is enabled. The service also publishes MQTT status and exposes health checks. For more information, refer to [Positioning Service](./microservices/positioning/positioning.md).
 
 ### **MQTT Broker**
 
