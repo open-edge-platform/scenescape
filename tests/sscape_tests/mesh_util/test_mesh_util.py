@@ -11,6 +11,7 @@ import numpy as np
 import open3d as o3d
 import pytest
 import trimesh
+from django.test import override_settings
 from PIL import Image
 from plyfile import PlyData, PlyElement
 import tempfile
@@ -370,10 +371,8 @@ def _build_merged_glb_base64(qcam_offset):
 def test_scene_with_cameras():
   """Create a test scene with 3 cameras (mix of prior transforms and empty)."""
   media_tempdir = tempfile.TemporaryDirectory()
-  with patch("django.test.utils.override_settings"):
+  with override_settings(MEDIA_ROOT=media_tempdir.name):
     scene = Scene.objects.create(name="test_scene", map="test_map")
-    scene.map = MagicMock()
-    scene.save = MagicMock()
 
     camera1 = Cam.objects.create(
       sensor_id="camera1", name="camera1", scene=scene, type="camera")
