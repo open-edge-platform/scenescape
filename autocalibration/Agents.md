@@ -126,7 +126,8 @@ for it at startup: AprilTag calibration is available immediately. Docker Compose
 `autocalibration-model-init` in parallel with the application and stores the verified model in
 `vol-netvlad_models`. Kubernetes runs the equivalent as a background sidecar (not a blocking
 init container) against a dedicated PVC, retrying until it succeeds. Both use
-`autocalibration/tools/ondemand_model_loader.py`, which verifies the download checksum.
+`autocalibration/tools/ondemand_model_loader.py`, which downloads to a `.part` file and moves it
+into place only after the checksum is verified, so the application never reads a partial model.
 Markerless calibration becomes available as soon as the verified model appears on the shared
 volume/PVC; requests made before that point fail with a clear error instead of hanging.
 Smoke-test deployments that don't exercise markerless calibration may set

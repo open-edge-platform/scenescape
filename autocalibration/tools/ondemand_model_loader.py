@@ -95,13 +95,15 @@ def ensure_model_exists() -> Optional[Path]:
     logger.info(f"NetVLAD model already exists at {model_path}")
     return model_path
 
-  # Download the model
+  # The application reads the final path as soon as it exists, so it only appears complete and verified.
   logger.info(f"NetVLAD model not found. Starting download...")
-  if download_file(NETVLAD_MODEL_URL, model_path):
-    return model_path
-  else:
+  partial_path = model_path.with_name(model_path.name + ".part")
+  if not download_file(NETVLAD_MODEL_URL, partial_path) or not check_model_integrity(partial_path):
+    partial_path.unlink(missing_ok=True)
     logger.error("Failed to download NetVLAD model")
     return None
+  os.replace(partial_path, model_path)
+  return model_path
 
 def sha256sum(filename: Path) -> str:
   h = hashlib.sha256()
