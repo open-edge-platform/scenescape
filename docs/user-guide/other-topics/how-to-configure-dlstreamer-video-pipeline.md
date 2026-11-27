@@ -53,16 +53,17 @@ By default, only a limited number of models is downloaded during helm chart inst
 
 Use the following short names to refer to each model in the chain:
 
-| Category             | Full Model Name                              | Short Name | Description                               |
-| -------------------- | -------------------------------------------- | ---------- | ----------------------------------------- |
-| **Person Detection** | person-detection-retail-0013                 | retail     | General person detection                  |
-|                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16 | Crossroad multi-class detection           |
-| **Person Analysis**  | person-reidentification-retail-0277          | reid       | Person re-identification                  |
-|                      | person-attributes-recognition-crossroad-0238 | personattr | Person attributes (age, gender, clothing) |
-|                      | age-gender-recognition-retail-0013           | agegender  | Age and gender classification             |
-| **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr    | Vehicle attributes (color, type)          |
-| **Pose Estimation**  | yolo11n-pose                                 | pose       | Person pose estimation with keypoints     |
-| **ReID (Public)**    | mars-small128                                | marsreid   | Lightweight person re-identification      |
+| Category             | Full Model Name                              | Short Name   | Description                               |
+| -------------------- | -------------------------------------------- | ------------ | ----------------------------------------- |
+| **Person Detection** | yolox_s-fp16-ov                              | yolox_s-fp16 | General person detection                  |
+|                      | yolox_s-int8-ov                              | yolox_s-int8 | General person detection                  |
+|                      | person-detection-retail-0013                 | retail       | Legacy general person detection           |
+|                      | person-vehicle-bike-detection-crossroad-1016 | pvbcross16   | Crossroad multi-class detection           |
+| **Person Analysis**  | mars-small128                                | reid         | Person re-identification                  |
+|                      | person-attributes-recognition-crossroad-0238 | personattr   | Person attributes (age, gender, clothing) |
+|                      | age-gender-recognition-retail-0013           | agegender    | Age and gender classification             |
+| **Vehicle Analysis** | vehicle-attributes-recognition-barrier-0042  | vehattr      | Vehicle attributes (color, type)          |
+| **Pose Estimation**  | yolo11n-pose                                 | pose         | Person pose estimation with keypoints     |
 
 ##### Common Chaining Patterns
 
@@ -84,14 +85,14 @@ retail=GPU+agegender=GPU
 
 ```text
 # Pose estimation with re-identification
-pose+marsreid
+pose+reid
 ```
 
-> **Note**: The `yolo11n-pose` and `mars-small128` models are not included in the default model set. They must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
+> **Note**: The `yolo11n-pose` models is not included in the default model set. It must be downloaded separately using the DL Streamer `download_public_models.sh` script and copied into the Models Volume. See the [DL Streamer Pipeline Server documentation](/dlstreamer-pipeline-server/README.md#enable-pose-estimation) for setup instructions.
 
 > **Note**: To enable pose-based bounding box adjustment in the Scene Controller, set the `--pose-adjustment` flag or `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable. See the [Scene Controller documentation](../microservices/controller/controller.md) for details.
 
-> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g., `pose+marsreid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
+> **Note**: Cameras using pose estimation pipelines with `gvatrack` + `gvainference` (e.g., `pose+reid`) cannot use `reidPolicy` as the metadata generation policy — `detectionPolicy` must be used. The `--pose-adjustment` controller flag is also incompatible with Extended ReID (cross-camera re-identification via the configured vector backend).
 
 **Vehicle Analytics Workflows:**
 
@@ -260,7 +261,7 @@ Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice.
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 This example is taken from the bundled Queuing demo scene: its `mediaserver` service republishes the sample video files over RTSP (see [compose.queuing-video.yml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yml)), and the pipeline above consumes that RTSP stream. `multifilesrc` (reading a video file directly, see [Adding custom video files](#adding-custom-video-files) below) is also supported for a fully custom pipeline.

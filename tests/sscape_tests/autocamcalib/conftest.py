@@ -3,8 +3,10 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import importlib
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
@@ -13,6 +15,24 @@ if str(_AUTOCALIBRATION_SRC) not in sys.path:
   sys.path.insert(0, str(_AUTOCALIBRATION_SRC))
 
 scene_map = "tests/resources/maps/atag-calib-demo-map.png"
+
+
+def import_calibration_context():
+  """Import auto_camera_calibration_context, stubbing service-only modules the host venv lacks."""
+  stubs = []
+  for name in ("eventlet", "markerless_camera_calibration_controller",
+               "point_cloud_calibration_controller"):
+    try:
+      importlib.import_module(name)
+    except ImportError:
+      sys.modules[name] = MagicMock()
+      stubs.append(name)
+  try:
+    return importlib.import_module("auto_camera_calibration_context")
+  finally:
+    # Drop only the stubs: modules imported meanwhile (e.g. cv2) must not be re-imported later.
+    for name in stubs:
+      sys.modules.pop(name, None)
 
 @pytest.fixture(scope="module")
 def relative_tolerance():

@@ -21,6 +21,7 @@
 #include <cmath>
 #include <numeric>
 #include <rapidjson/document.h>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -98,9 +99,8 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
     return detail::to_json_string(merged);
 }
 
-/**
- * @brief Build TrackManagerConfig from TrackingConfig.
- */
+} // namespace
+
 rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& config) {
     rv::tracking::TrackManagerConfig rv_config;
 
@@ -110,16 +110,15 @@ rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& conf
     rv_config.mNonMeasurementTimeStatic = config.non_measurement_time_static_s;
     rv_config.mSuspendedTrackMaxAgeSecs = 60.0;
 
-    // Kalman filter noise parameters and motion models shared with the Scene Controller
-    rv_config.mDefaultProcessNoise = rv::tracking::kProductionProcessNoise;
-    rv_config.mDefaultMeasurementNoise = rv::tracking::kProductionMeasurementNoise;
-    rv_config.mInitStateCovariance = rv::tracking::kProductionInitStateCovariance;
+    // Kalman filter noise settings (defaults: the production constants) and the motion models
+    // shared with the Scene Controller
+    rv_config.mDefaultProcessNoise = config.filter.process_noise;
+    rv_config.mDefaultMeasurementNoise = config.filter.base_measurement_noise;
+    rv_config.mInitStateCovariance = config.filter.init_state_covariance;
     rv_config.mMotionModels = rv::tracking::kProductionMotionModels;
 
     return rv_config;
 }
-
-} // namespace
 
 std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state) {
     const double speed = std::hypot(vx, vy);
@@ -135,9 +134,8 @@ std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRot
     return state.rotation;
 }
 
-std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& track,
-                                            bool rotation_from_velocity,
-                                            VelocityRotationState& state) {
+TrackRotation select_track_rotation(const rv::tracking::TrackedObject& track,
+                                    bool rotation_from_velocity, VelocityRotationState& state) {
     using rv::tracking::orientation::orientationObserved;
 
     if (orientationObserved(track)) {
@@ -146,16 +144,16 @@ std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& t
             const double velocity_heading = std::atan2(track.vy, track.vx);
             const double yaw_error = std::abs(rv::angleDifference(velocity_heading, track.yaw));
             if (yaw_error > rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL) {
-                return CoordinateTransformer::yawToQuaternion(velocity_heading);
+                return {CoordinateTransformer::yawToQuaternion(velocity_heading), false};
             }
         }
-        return CoordinateTransformer::yawToQuaternion(track.yaw);
+        return {CoordinateTransformer::yawToQuaternion(track.yaw), true};
     }
 
     if (!rotation_from_velocity) {
-        return {0.0, 0.0, 0.0, 1.0};
+        return {{0.0, 0.0, 0.0, 1.0}, false};
     }
-    return update_velocity_rotation(track.vx, track.vy, state);
+    return {update_velocity_rotation(track.vx, track.vy, state), false};
 }
 
 TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
@@ -163,25 +161,34 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
                                ObjectClassConfig object_class, ClockFn clock_fn)
-    : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
-      publish_callback_(std::move(publish_callback)),
-      rotation_from_velocity_(object_class.rotation_from_velocity),
-      tracker_(build_tracker_config(tracking_config)),
-      association_config_(tracking_config.association), clock_fn_(std::move(clock_fn)) {
-    // Adapt frame-rate-dependent timing parameters
-    tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
-
-    // Build coordinate transformers
-    for (const auto& [camera_id, camera] : cameras) {
-        transformers_.emplace(camera_id, CoordinateTransformer(camera.intrinsics, camera.extrinsics,
-                                                               object_class.shift_type,
-                                                               object_class.footprint_half));
-    }
-
+    : TrackingWorker(
+          std::move(scope), std::move(scene_name), queue_capacity, std::move(publish_callback),
+          tracking_config, std::make_unique<CameraModelProcessor>(cameras, object_class),
+          object_class.rotation_from_velocity, ZReference::FootprintBase, std::move(clock_fn)) {
     LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
              "footprint_half={}, rotation_from_velocity={})",
              cameras.size(), scope_.scene_id, scope_.category, object_class.shift_type,
              object_class.footprint_half.value_or(-1.0), rotation_from_velocity_);
+}
+
+TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
+                               PublishCallback publish_callback,
+                               const TrackingConfig& tracking_config,
+                               std::unique_ptr<ObservationProcessor> processor,
+                               bool rotation_from_velocity, ZReference z_reference,
+                               ClockFn clock_fn)
+    : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
+      publish_callback_(std::move(publish_callback)),
+      rotation_from_velocity_(rotation_from_velocity), z_reference_(z_reference),
+      tracker_(build_tracker_config(tracking_config)),
+      association_config_(tracking_config.association), processor_(std::move(processor)),
+      clock_fn_(std::move(clock_fn)) {
+    if (!processor_) {
+        throw std::invalid_argument("TrackingWorker requires an observation processor");
+    }
+
+    // Adapt frame-rate-dependent timing parameters
+    tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
     worker_thread_ = std::thread(&TrackingWorker::run, this);
 }
@@ -261,7 +268,21 @@ void TrackingWorker::run() {
             break;
         }
 
-        process_chunk(std::move(chunk));
+        // One chunk that fails must not end the worker: an exception leaving the thread function
+        // calls std::terminate and stops every scope. An exception thrown inside robot_vision's
+        // OpenMP loops still terminates; this covers the serial parts of the processor, track()
+        // and the publish callback.
+        const size_t msg_count = chunk.camera_batches.size();
+        try {
+            process_chunk(std::move(chunk));
+        } catch (const std::exception& error) {
+            dropped_count_.fetch_add(1);
+            Metrics::inc_dropped_n(msg_count, {{kAttrScene, scope_.scene_id},
+                                               {kAttrCategory, scope_.category},
+                                               {kAttrReason, kReasonDroppedProcessingError}});
+            LOG_ERROR("Dropped chunk for scope {}/{}: processing failed (messages={}): {}",
+                      scope_.scene_id, scope_.category, msg_count, error.what());
+        }
     }
 
     LOG_INFO("TrackingWorker stopped for scope {}/{} (processed={}, dropped={})", scope_.scene_id,
@@ -280,6 +301,9 @@ void TrackingWorker::process_chunk(Chunk chunk) {
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
     reid_sightings_.reset(std::to_string(++chunk_sequence_));
     auto objects_per_camera = transform_detections(chunk);
+    if (z_reference_ == ZReference::CentreOfMass) {
+        toCentreOfMass(objects_per_camera);
+    }
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
@@ -304,18 +328,34 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 
 std::vector<std::vector<rv::tracking::TrackedObject>>
 TrackingWorker::transform_detections(const Chunk& chunk) {
-    std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera;
-    objects_per_camera.reserve(chunk.camera_batches.size());
+    const auto& batches = chunk.camera_batches;
+    auto processed = processor_->process(batches);
+    if (processed.size() != batches.size()) {
+        LOG_ERROR("Processor returned {} results for {} camera batches, skipping all",
+                  processed.size(), batches.size());
+        return {};
+    }
 
-    for (const auto& batch : chunk.camera_batches) {
-        auto transformer_it = transformers_.find(batch.camera_id);
-        if (transformer_it == transformers_.end()) {
+    std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera;
+    objects_per_camera.reserve(batches.size());
+
+    for (size_t i = 0; i < batches.size(); ++i) {
+        const auto& batch = batches[i];
+        auto& geometry = processed[i];
+        if (!geometry) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
+            continue;
+        }
+        if (!geometry->covers(batch.detections.size())) {
+            LOG_ERROR("Processor returned {} objects and {} geometry flags for {} detections of "
+                      "camera '{}', skipping",
+                      geometry->objects.size(), geometry->has_geometry.size(),
+                      batch.detections.size(), batch.camera_id);
             continue;
         }
         const auto sightings = reid_sightings_.add_batch(batch);
         objects_per_camera.push_back(
-            transformer_it->second.transformDetections(batch.detections, sightings));
+            toTrackerInputs(batch.detections, std::move(*geometry), sightings));
     }
 
     return objects_per_camera;
@@ -349,8 +389,12 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         Track track;
         track.id = id_map_.at(rv_track.id);
         track.category = category;
-        track.translation = {rv_track.x, rv_track.y, rv_track.z};
-        track.velocity = {rv_track.vx, rv_track.vy, 0.0};
+        const double z =
+            z_reference_ == ZReference::CentreOfMass ? footprintBaseZ(rv_track) : rv_track.z;
+        track.translation = {rv_track.x, rv_track.y, z};
+        track.velocity = {rv_track.vx, rv_track.vy, rv_track.vz};
+        // Filter estimates yaw rate about world Z only; ωx and ωy stay 0.
+        track.angular_velocity = {0.0, 0.0, rv_track.w};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
 
         VelocityRotationState default_rotation_state;
@@ -358,11 +402,13 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         if (rotation_from_velocity_) {
             rotation_state = &rotation_states_[rv_track.id];
         }
-        track.rotation = select_track_rotation(rv_track, rotation_from_velocity_, *rotation_state);
+        const auto rotation =
+            select_track_rotation(rv_track, rotation_from_velocity_, *rotation_state);
+        track.rotation = rotation.value;
         track.reid_sighting_json = reid_sightings_.take(rv_track.attributes);
         track.metadata_json = metadataJson(rv_track.attributes);
 
-        // Retrieve confidence stored in attributes by transformDetections().
+        // Retrieve confidence stored in attributes by toTrackerInputs().
         // NOTE: multi-camera last-write-wins — same limitation as metadata_json.
         auto conf_it = rv_track.attributes.find("confidence");
         if (conf_it != rv_track.attributes.end()) {
@@ -375,6 +421,9 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         }
 
         track.association_window = buildAssociationWindow(association_config_, rv_track);
+        if (z_reference_ == ZReference::CentreOfMass) {
+            track.uncertainty = buildTrackUncertainty(rv_track);
+        }
 
         tracks.push_back(std::move(track));
     }
@@ -399,7 +448,13 @@ std::vector<Track> TrackingWorker::match_and_convert(
                                       : omp_get_max_threads();
         ScopedOpenMpThreadLimit openmp_thread_limit(thread_limit);
         tracker_.track(std::move(objects_per_camera), timestamp, association_config_.distanceType(),
-                       association_config_.costThreshold(), 0.5, association_config_.max_radius_m);
+                       association_config_.costThreshold(), 0.5, association_config_.max_radius_m,
+                       association_config_.birth_cluster_radius_m);
+        if (const auto rejected = tracker_.getRejectedDetectionCount(); rejected > 0) {
+            LOG_WARN(
+                "Dropped {} detection(s) with an invalid measurement noise covariance for {}/{}",
+                rejected, scope_.scene_id, scope_.category);
+        }
 
         // Get reliable tracks and map RobotVision int IDs to UUID strings
         rv_tracks = tracker_.getReliableTracks();

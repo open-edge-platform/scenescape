@@ -146,8 +146,15 @@ def _derive_auth_url(api_url):
   return urlunsplit((parts.scheme, parts.netloc, "/api/v1/auth", "", ""))
 
 
+def _verify_setting(cacert, insecure):
+  """TLS verification is on unless the caller explicitly opts out."""
+  if insecure:
+    return False
+  return cacert if cacert else True
+
+
 def resolve_token(api_url, auth=None, token=None, auth_url=None, cacert=None,
-                  timeout=10):
+                  timeout=10, insecure=False):
   """Obtain an API token.
 
   Authentication is handled by the manager service (not the autocalibration
@@ -161,7 +168,7 @@ def resolve_token(api_url, auth=None, token=None, auth_url=None, cacert=None,
     return None
   user, password = _parse_credentials(auth)
   endpoint = auth_url or _derive_auth_url(api_url)
-  verify = cacert if cacert else False
+  verify = _verify_setting(cacert, insecure)
   try:
     reply = requests.post(
         endpoint, data={"username": user, "password": password},
@@ -180,22 +187,22 @@ def resolve_token(api_url, auth=None, token=None, auth_url=None, cacert=None,
 
 
 def build_client(url, auth=None, token=None, auth_url=None, cacert=None,
-                 timeout=10):
+                 timeout=10, insecure=False):
   """Construct an AutoCalibrationClient for the perceptual-sensor endpoints.
 
   Credentials are exchanged for a token at the manager's auth endpoint first,
   then the token is attached to the autocalibration client. TLS verification is
-  disabled by default (self-signed localhost); pass a CA certificate path via
-  `cacert` to enable it.
+  enabled by default; pass a CA certificate path via `cacert` for a private CA,
+  or `insecure=True` to explicitly disable verification (self-signed localhost).
   """
   from autocalibration_client import AutoCalibrationClient  # noqa: E402
 
   resolved = resolve_token(
       url, auth=auth, token=token, auth_url=auth_url, cacert=cacert,
-      timeout=timeout)
-  verify_ssl = cacert if cacert else False
+      timeout=timeout, insecure=insecure)
   return AutoCalibrationClient(
-      url=url, token=resolved, verify_ssl=verify_ssl, timeout=timeout)
+      url=url, token=resolved, verify_ssl=_verify_setting(cacert, insecure),
+      timeout=timeout)
 
 
 def _do_request(client, method, path, **kwargs):
@@ -269,7 +276,7 @@ def cmd_localize(args):
 
   client = build_client(
       args.url, auth=args.auth, token=args.token, auth_url=args.auth_url,
-      cacert=args.cacert, timeout=args.timeout)
+      cacert=args.cacert, timeout=args.timeout, insecure=args.insecure)
   resp = _do_request(
       client, "POST", f"perceptual-sensors/{args.sensor_id}/localization", json=body)
   body = _print_response(resp)
@@ -282,7 +289,7 @@ def cmd_status(args):
   """GET (optionally poll) the localization status for a sensor."""
   client = build_client(
       args.url, auth=args.auth, token=args.token, auth_url=args.auth_url,
-      cacert=args.cacert, timeout=args.timeout)
+      cacert=args.cacert, timeout=args.timeout, insecure=args.insecure)
   path = f"perceptual-sensors/{args.sensor_id}/localization"
 
   deadline = time.monotonic() + args.timeout_poll
@@ -316,7 +323,10 @@ def _add_client_arguments(parser):
       help="Manager auth endpoint (default: derived as scheme://host/api/v1/auth)")
   parser.add_argument("--token", help="Pre-issued API token")
   parser.add_argument(
-      "--cacert", help="CA certificate path to enable TLS verification")
+      "--cacert", help="CA certificate path for TLS verification (private CA)")
+  parser.add_argument(
+      "--insecure", action="store_true",
+      help="Disable TLS certificate verification (self-signed certificates only)")
   parser.add_argument(
       "--timeout", type=float, default=10.0,
       help="Per-request timeout in seconds (default: 10)")

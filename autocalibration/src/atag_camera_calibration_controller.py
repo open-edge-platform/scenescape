@@ -74,7 +74,6 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       except RuntimeError as err:
         response_dict['status'] = "error"
         response_dict['message'] = str(err)
-        self.notify_scene_registration(sceneobj.id, response_dict)
         return response_dict
 
     apriltags_from_db = []
@@ -88,7 +87,6 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     self.cam_calib_objs[sceneobj.id].result_data_3d = result_data_from_db
     if len(self.cam_calib_objs[sceneobj.id].result_data_3d) < MIN_APRILTAG_COUNT:
       response_dict['status'] = f"Cannot auto calibrate. Check scene to ensure there are at least {MIN_APRILTAG_COUNT} april tags"
-    self.notify_scene_registration(sceneobj.id, response_dict)
     return response_dict
 
   def reset_scene(self, scene):

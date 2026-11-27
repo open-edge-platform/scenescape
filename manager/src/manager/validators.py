@@ -22,6 +22,20 @@ SCENE_NAME_DB_PATTERN = rf'^{SCENE_NAME_CHAR_CLASS}+$'
 SCENE_NAME_PATTERN = rf'^(?!.*\.\.)(?!\.){SCENE_NAME_CHAR_CLASS}+$'
 SCENE_NAME_RE = re.compile(SCENE_NAME_PATTERN)
 
+# Camera IDs are used as one MQTT topic level (scenescape/data/camera/<id>) by the publisher.
+CAMERA_ID_MAX_LENGTH = 20
+CAMERA_ID_FORBIDDEN = ('/', '+', '#', '\x00')
+
+def camera_id_topic_error(value):
+  """Return why ``value`` cannot be a camera ID, or None when it can."""
+  if not isinstance(value, str) or not value:
+    return "must be a non-empty MQTT topic segment."
+  if len(value) > CAMERA_ID_MAX_LENGTH:
+    return f"must contain no more than {CAMERA_ID_MAX_LENGTH} characters."
+  if any(character in value for character in CAMERA_ID_FORBIDDEN):
+    return "must be a single MQTT topic segment without '/', '+', '#', or NUL."
+  return None
+
 def is_valid_scene_name(name):
   return bool(name) and bool(SCENE_NAME_RE.fullmatch(name))
 

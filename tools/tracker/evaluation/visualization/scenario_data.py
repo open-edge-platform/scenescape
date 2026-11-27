@@ -8,10 +8,11 @@ A scenario directory holds up to four JSONL files, written by ScenarioRecorder
 
 - groundtruth.jsonl: canonical ground truth, optionally with size, rotation,
   velocity and a "truth" object (speed, yaw_rate, acceleration)
-- detections.jsonl: canonical camera-data frames with 3D detections
+- detections.jsonl: canonical camera-data frames with 3D detections, optionally
+  with a per-detection R ("measurement_noise_covariance")
 - tracks.jsonl: canonical tracker output
 - estimator.jsonl: one "config" line per track, then one "step" line per
-  estimator step
+  estimator step; steps whose detections carry R add "HPHt"
 
 Any file may be missing, e.g. estimator.jsonl for real tracker output. An
 evaluation pipeline run directory (pipeline_engine.py) is read the same way,
@@ -37,6 +38,8 @@ from utils.format_converters import stream_jsonl
 from utils.timeline import parse_timestamp
 from utils.tracks import match_tracks
 
+VERTICAL_EPSILON = 1e-6  # [m] and [m/s] below this a z or vz value counts as no vertical motion
+
 GROUND_TRUTH_FILE = "groundtruth.jsonl"
 DETECTIONS_FILE = "detections.jsonl"
 TRACKS_FILE = "tracks.jsonl"
@@ -51,27 +54,31 @@ PIPELINE_RUN_FILES = {
 
 GROUND_TRUTH_COLUMNS = [
   "t", "object_id", "category", "x", "y", "z", "length", "width", "height", "yaw",
-  "vx", "vy", "speed", "yaw_rate", "acceleration",
+  "vx", "vy", "vz", "speed", "yaw_rate", "acceleration",
 ]
 DETECTION_COLUMNS = [
   "t", "sensor_id", "object_id", "category", "x", "y", "z", "length", "width", "height", "yaw",
+  "measurement_noise_cov",  # the detection's own R (7x7 array), None without one
 ]
 TRACK_COLUMNS = [
-  "t", "track_id", "category", "x", "y", "z", "length", "width", "height", "yaw", "vx", "vy",
+  "t", "track_id", "category", "x", "y", "z", "length", "width", "height", "yaw", "vx", "vy", "vz",
 ]
 
 
 @dataclass
-class EstimatorTrace:
+class EstimatorTrace:  # pylint: disable=too-many-instance-attributes
   """Estimator steps of one track. Arrays are indexed by step, in file order."""
 
   config: Dict[str, Any]
   t: np.ndarray                          # (N,) [s]
   model_probability: np.ndarray          # (N, models)
-  state: np.ndarray                      # (N, 12)
-  covariance: np.ndarray                 # (N, 12, 12)
+  state: np.ndarray                      # (N, states), in config["state_names"] order
+  covariance: np.ndarray                 # (N, states, states)
   predicted_measurement: np.ndarray      # (N, 7), NaN at init
   predicted_measurement_cov: np.ndarray  # (N, 7, 7), NaN at init
+  # (N, 7, 7) H P H^T, S without R: written for steps whose detections carry their own R,
+  # NaN otherwise
+  predicted_state_measurement_cov: Optional[np.ndarray] = None
 
   @property
   def motion_models(self) -> List[str]:
@@ -81,6 +88,10 @@ class EstimatorTrace:
   def state_index(self, name: str) -> int:
     """Index of a state such as "vx" or "yaw_rate" in the state vector."""
     return list(self.config["state_names"]).index(name)
+
+  def has_state(self, name: str) -> bool:
+    """True if `name` is in the state vector (e.g., old 12-state recordings lack "vz")."""
+    return name in self.config.get("state_names", [])
 
 
 @dataclass
@@ -109,6 +120,26 @@ class Scenario:
   def track_ids(self) -> List[str]:
     """Track ids in tracks.jsonl."""
     return sorted(self.tracks["track_id"].unique())
+
+  @property
+  def has_vertical_motion(self) -> bool:
+    """True if any |z| or |vz| exceeds VERTICAL_EPSILON in ground truth, tracks or detections."""
+    columns = []
+    for table in (self.ground_truth, self.tracks, self.detections):
+      for col_name in ("z", "vz"):
+        if col_name in table.columns:
+          columns.append(table[col_name])
+    return _has_values_above(columns)
+
+
+def _has_values_above(columns: List[pd.Series]) -> bool:
+  """True if any column has values exceeding VERTICAL_EPSILON in absolute value, ignoring NaN."""
+  for col in columns:
+    if col.empty or col.isna().all():
+      continue
+    if np.nanmax(np.abs(col.to_numpy())) > VERTICAL_EPSILON:
+      return True
+  return False
 
 
 def yaw_from_quaternion(rotation: Optional[Sequence[float]]) -> float:
@@ -176,13 +207,15 @@ def ground_truth_frame_rate(scenario: Scenario) -> Optional[float]:
   return _frame_rate(scenario.ground_truth_times)
 
 
-def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None) -> List[Tuple[str, str]]:
+def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None,
+                          space: str = "xyz") -> List[Tuple[str, str]]:
   """(track_id, object_id) pairs from utils.tracks.match_tracks.
 
   Times are quantized to frames at `fps`, by default the ground-truth frame rate. Frames
   count from the first track or ground-truth sample, as in the evaluators
   (utils.timeline.reference_timestamp); an earlier detection must not shift the grid.
-  Pairs need utils.tracks.MIN_OVERLAP_FRAMES shared frames.
+  Pairs need utils.tracks.MIN_OVERLAP_FRAMES shared frames. `space` selects the axes of the
+  distance ("xyz", "xy" or "z"); a position without a z is compared in the plane.
   """
   fps = fps or ground_truth_frame_rate(scenario)
   if fps is None or scenario.tracks.empty:
@@ -192,12 +225,14 @@ def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None) -> Li
 
   def positions(table: pd.DataFrame, id_column: str) -> Dict[str, Dict[int, tuple]]:
     result: Dict[str, Dict[int, tuple]] = {}
-    for item_id, t, x, y in zip(table[id_column], table["t"], table["x"], table["y"]):
-      result.setdefault(item_id, {})[round((t - origin) * fps)] = (x, y)
+    for item_id, t, x, y, z in zip(table[id_column], table["t"], table["x"], table["y"],
+                                   table["z"]):
+      point = (x, y) if math.isnan(z) else (x, y, z)
+      result.setdefault(item_id, {})[round((t - origin) * fps)] = point
     return result
 
   return match_tracks(positions(scenario.tracks, "track_id"),
-                      positions(scenario.ground_truth, "object_id"))
+                      positions(scenario.ground_truth, "object_id"), space)
 
 
 def align_track_to_truth(scenario: Scenario, track_id: str, object_id: Optional[str] = None,
@@ -241,12 +276,12 @@ def _ground_truth(lines, seconds) -> pd.DataFrame:
     for obj in frame.get("objects", []):
       x, y, z = _vector(obj.get("translation"), 3)
       length, width, height = _vector(obj.get("size"), 3)
-      vx, vy, _ = _vector(obj.get("velocity"), 3)
+      vx, vy, vz = _vector(obj.get("velocity"), 3)
       truth = obj.get("truth", {})
       rows.append({
         "t": seconds(stamp), "object_id": str(obj["id"]), "category": obj.get("category", ""),
         "x": x, "y": y, "z": z, "length": length, "width": width, "height": height,
-        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy,
+        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy, "vz": vz,
         "speed": truth.get("speed", math.hypot(vx, vy)),
         "yaw_rate": truth.get("yaw_rate", math.nan),
         "acceleration": truth.get("acceleration", math.nan),
@@ -269,6 +304,8 @@ def _detections(lines, seconds) -> pd.DataFrame:
           "object_id": str(obj["id"]) if "id" in obj else "", "category": category,
           "x": x, "y": y, "z": z, "length": length, "width": width, "height": height,
           "yaw": yaw_from_quaternion(obj.get("rotation")),
+          "measurement_noise_cov": (np.asarray(obj["measurement_noise_covariance"], dtype=float)
+                                    if "measurement_noise_covariance" in obj else None),
         })
   return _table(rows, DETECTION_COLUMNS)
 
@@ -279,12 +316,12 @@ def _tracks(lines, seconds) -> pd.DataFrame:
     for obj in frame.get("objects", []):
       x, y, z = obj["translation"]
       length, width, height = _vector(obj.get("size"), 3)
-      vx, vy, _ = _vector(obj.get("velocity"), 3)
+      vx, vy, vz = _vector(obj.get("velocity"), 3)
       rows.append({
         "t": seconds(stamp), "track_id": str(obj["id"]),
         "category": obj.get("category", obj.get("type", "")),
         "x": x, "y": y, "z": z, "length": length, "width": width, "height": height,
-        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy,
+        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy, "vz": vz,
       })
   return _table(rows, TRACK_COLUMNS)
 
@@ -307,7 +344,7 @@ def _estimator(lines, seconds) -> Dict[str, EstimatorTrace]:
 def _trace(config, steps, seconds) -> EstimatorTrace:
   def stack(key: str, shape: Tuple[int, ...]) -> np.ndarray:
     return np.array([
-      np.asarray(step[key], dtype=float) if step[key] is not None else np.full(shape, math.nan)
+      np.asarray(step[key], dtype=float) if step.get(key) is not None else np.full(shape, math.nan)
       for _, step in steps
     ]).reshape((len(steps), *shape))
 
@@ -322,4 +359,5 @@ def _trace(config, steps, seconds) -> EstimatorTrace:
     covariance=stack("P", (states, states)),
     predicted_measurement=stack("z_pred", (measurements,)),
     predicted_measurement_cov=stack("S", (measurements, measurements)),
+    predicted_state_measurement_cov=stack("HPHt", (measurements, measurements)),
   )

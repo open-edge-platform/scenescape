@@ -123,10 +123,10 @@ Explicit detection sizes and library size priors remain unchanged.
 | `category`             | string             |   Yes    | Object class label (e.g. `"person"`, `"car"`)                                                                                                                  |
 | `bounding_box`         | object             | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`)                                                                                              |
 | `bounding_box_px`      | object             | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`)                                                                                  |
-| `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres                                                                                                                    |
+| `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres ③                                                                                                                  |
 | `lat_long_alt`         | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally                                                                              |
 | `size`                 | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                 |
-| `confidence`           | number > 0         |    No    | Inference confidence score for this detection                                                                                                                  |
+| `confidence`           | number (0, 1]      |    No    | Inference confidence score for this detection                                                                                                                  |
 | `id`                   | integer ≥ 0        |  Yes ②   | Per-frame detection index                                                                                                                                      |
 | `rotation`             | array[4] of number |    No    | Object orientation as a quaternion                                                                                                                             |
 | `distance`             | number             |    No    | Distance from the camera to the detection in metres                                                                                                            |
@@ -146,6 +146,11 @@ Explicit detection sizes and library size priors remain unchanged.
 > `category` is in the schema's `required` array). However, the controller accesses
 > `id` unconditionally at runtime and will reject detections that omit it. Always
 > include `id` in every detection object.
+
+> **③ Height reference**: with
+> [experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+> the tracker reads `translation` as the object's centre of mass and publishes tracks at their
+> footprint base (`z` minus half the height).
 
 ### Semantic Metadata Fields (`objects.<category>[*].metadata.<attr>`)
 
@@ -420,6 +425,11 @@ extent may report a point observation. Point objects (no `size`) remain eligible
 position-based ROI, tripwire, and sensor-tagging analytics, but are excluded from
 volume/occupancy/collision analytics.
 
+Report `translation` at the object's centre of mass: with
+[experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+tracked objects are published at their footprint base (`z` minus half the height). Objects with
+`track=false` bypass the tracker and keep the reported `z`.
+
 The top-level source `track` field determines the tracking mode for detection
 objects in the message. When `track` is true or omitted, detections follow the
 normal Scenescape tracking path and the controller assigns the published object
@@ -691,6 +701,7 @@ tracked object contains the following fields:
 | `translation`          | array[3] of number         | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
 | `size`                 | array[3] of number         | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
 | `velocity`             | array[3] of number         | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
+| `angular_velocity`     | array[3] of number         | Angular velocity (`ωx`, `ωy`, `ωz`) in radians per second; only `ωz` is filter-estimated (yaw rate), `ωx` and `ωy` are 0                                                                                                                                         |
 | `rotation`             | array[4] of number         | Orientation quaternion                                                                                                                                                                                                                                           |
 | `visibility`           | array of string            | Camera IDs currently observing this object                                                                                                                                                                                                                       |
 | `source_ids`           | array of strings, optional | External publishers that have contributed observations during this active track's lifetime. Retained until the track expires; this is provenance, not camera visibility                                                                                          |
@@ -705,6 +716,7 @@ tracked object contains the following fields:
 | `metadata`             | object                     | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
 | `camera_bounds`        | object                     | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
 | `association_window`   | object or absent           | Association gate geometry for UI visualization. Present when the producer publishes gate parameters. See note below.                                                                                                                                             |
+| `uncertainty`          | object or absent           | Covariance of the published track state. Present only with the experimental observation processor enabled. See note below.                                                                                                                                       |
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)
@@ -762,8 +774,9 @@ subject to the existing identity-collision checks.
 > - `euclidean` → `{method, shape: "circle", radius_m}` where `radius_m` is `max_radius_m`; without
 >   it, the Scene Controller's gate, the average `tracking_radius` of the frame's objects
 > - `position_mahalanobis` → `{method, shape: "ellipse", semi_major_m, semi_minor_m, angle_rad}`
->   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`), with each
->   semi-axis clipped to `max_radius_m` so the drawn region stays inside the hard association ceiling
+>   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`), the XY shadow
+>   of the track's gate: χ²(`gate_probability`, 3) for a track with measured z, χ²(`gate_probability`, 2)
+>   without; each semi-axis clipped to `max_radius_m` so the drawn region stays inside the hard association ceiling
 >
 > `angle_rad` is the major-axis orientation in the scene XY plane (radians from +X toward +Y),
 > defined modulo π: the ellipse is the same after a half turn.
@@ -771,6 +784,29 @@ subject to the existing identity-collision checks.
 > `translation`, while the gate is centred on the predicted position. The drawing is exact for a
 > track without a detection in that frame and off by the Kalman correction otherwise.
 > Analytics passes the field through on regulated scene output when present.
+
+> **Note on `uncertainty`**: Produced by the Scene Controller and Tracker service only when the
+> experimental observation processor is enabled; legacy output carries no `uncertainty`. It is the
+> covariance of the track state that is published, taken from the filter's posterior covariance
+> after the update (or the coast prediction). Each block is row-major: a 3×3 covariance matrix as
+> 9 numbers. Cross-block terms are not published.
+>
+> | Key           | Unit  | Describes                      |
+> | ------------- | ----- | ------------------------------ |
+> | `translation` | m²    | `translation` (x, y, z)        |
+> | `velocity`    | m²/s² | `velocity` (x, y, z)           |
+> | `size`        | m²    | `size` (length, width, height) |
+>
+> - `translation` describes the published point, so its z entries are those of the footprint base
+>   (z of the centre of mass minus half the height), not of the centre of mass.
+> - `translation` and `velocity` are always 3×3. For a track without measured z the z-related
+>   values (the z row and column, the vz row and column) are 0.
+> - `size`: both producers publish the filter's size with the observation processor, so both carry
+>   a block. Without an observation processor the Scene Controller keeps the detection's or the
+>   object class's size and publishes no `uncertainty` at all.
+> - Yaw variance (`uncertainty.yaw`) is deferred; see the probabilistic-tracking plan.
+> - A block with a non-finite value is omitted.
+> - Analytics passes the field through on regulated scene output when present.
 
 ## Data Scene Output Message Format
 
@@ -817,6 +853,7 @@ by `source_ids`.
       "translation": [2.463, 3.61, 0.0],
       "size": [0.5, 0.5, 1.85],
       "velocity": [-0.045, 0.012, 0.0],
+      "angular_velocity": [0.0, 0.0, 0.02],
       "rotation": [0, 0, 0, 1],
       "visibility": ["atag-qcam1", "atag-qcam2"],
       "metadata": {

@@ -175,7 +175,7 @@ def main(argv=None):
     rest = RESTClient(
       args.rest_url,
       rootcert=None if args.insecure else args.root_cert,
-      verify_ssl=False if args.insecure else args.root_cert)
+      verify_ssl=False if args.insecure else True)
     assert rest.authenticate(args.user, args.password), "REST authentication failed"
 
     scene_data = {

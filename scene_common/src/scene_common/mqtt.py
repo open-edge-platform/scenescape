@@ -46,12 +46,36 @@ class _Topic(Enum):
   POSITIONING_POSE = auto()
   POSITIONING_STATUS = auto()
 
-# Really gross way to put above constants directly into PubSub class
+# Explicit so static analysis can resolve PubSub.<TOPIC>.
 class _PubSubTopicBase:
-  pass
+  CHANNEL = _Topic.CHANNEL
+  CMD_CAMERA = _Topic.CMD_CAMERA
+  CMD_DATABASE = _Topic.CMD_DATABASE
+  CMD_KUBECLIENT = _Topic.CMD_KUBECLIENT
+  CMD_SCENE_UPDATE = _Topic.CMD_SCENE_UPDATE
+  DATA_AUTOCALIB_CAM_POSE = _Topic.DATA_AUTOCALIB_CAM_POSE
+  DATA_CAMERA = _Topic.DATA_CAMERA
+  DATA_EXTERNAL = _Topic.DATA_EXTERNAL
+  DATA_REGION = _Topic.DATA_REGION
+  DATA_REID = _Topic.DATA_REID
+  DATA_REGULATED = _Topic.DATA_REGULATED
+  DATA_SCENE = _Topic.DATA_SCENE
+  DATA_SENSOR = _Topic.DATA_SENSOR
+  EVENT = _Topic.EVENT
+  IMAGE_CALIBRATE = _Topic.IMAGE_CALIBRATE
+  IMAGE_CAMERA = _Topic.IMAGE_CAMERA
+  POINTCLOUD_CAMERA = _Topic.POINTCLOUD_CAMERA
+  SYS_CHILDSCENE_STATUS = _Topic.SYS_CHILDSCENE_STATUS
+  ANALYTICS_CLUSTERS = _Topic.ANALYTICS_CLUSTERS
+  DATA_CHILD_TRIPWIRES = _Topic.DATA_CHILD_TRIPWIRES
+  DATA_CHILD_ROIS = _Topic.DATA_CHILD_ROIS
+  DATA_CHILD_SENSORS = _Topic.DATA_CHILD_SENSORS
+  CMD_CAMERA_CONFIG = _Topic.CMD_CAMERA_CONFIG
+  POSITIONING_POSE = _Topic.POSITIONING_POSE
+  POSITIONING_STATUS = _Topic.POSITIONING_STATUS
 
-for key in _Topic:
-  setattr(_PubSubTopicBase, key.name, key)
+assert {k.name for k in _Topic} <= set(vars(_PubSubTopicBase)), \
+  "_PubSubTopicBase is missing a _Topic member"
 
 class PubSub(_PubSubTopicBase):
   _TopicTemplates = {
@@ -275,7 +299,17 @@ class PubSub(_PubSubTopicBase):
     def wrapper(*args, **kwargs):
       modified_args = list(args)
       modified_args[0] = self
-      return function(*modified_args, **kwargs)
+      try:
+        return function(*modified_args, **kwargs)
+      except Exception as e:
+        # Contain message failures without hiding connection/setup failures.
+        message = args[2] if len(args) > 2 else kwargs.get('message')
+        if not hasattr(message, 'topic'):
+          raise
+        topic = message.topic
+        log.error(f"Exception in MQTT callback {getattr(function, '__name__', function)}"
+                  f"{f' (topic {topic})' if topic else ''}: {type(e).__name__}: {e}")
+        return None
     return wrapper
 
   @staticmethod
@@ -392,29 +426,29 @@ class PubSub(_PubSubTopicBase):
 
   def chunkReceived(self, client, userdata, message):
     # self and client are the same
-    self.receivedCondition.acquire()
+    # The condition must be released on malformed chunks so the waiter in
+    # receiveFile can re-acquire it and finish.
+    with self.receivedCondition:
+      headerLen = struct.calcsize(CHUNK_HEADER)
+      header = struct.unpack(CHUNK_HEADER, message.payload[:headerLen])
+      data = message.payload[headerLen:]
 
-    headerLen = struct.calcsize(CHUNK_HEADER)
-    header = struct.unpack(CHUNK_HEADER, message.payload[:headerLen])
-    data = message.payload[headerLen:]
+      totalSize = header[0]
+      chunkSize = header[1]
+      chunkCount = header[2]
+      idx = header[3]
 
-    totalSize = header[0]
-    chunkSize = header[1]
-    chunkCount = header[2]
-    idx = header[3]
+      if not hasattr(self, 'remaining') or self.remaining is None:
+        self.remaining = list(range(chunkCount))
+        self.received = bytearray(totalSize)
 
-    if not hasattr(self, 'remaining') or self.remaining is None:
-      self.remaining = list(range(chunkCount))
-      self.received = bytearray(totalSize)
+      if idx in self.remaining:
+        offset = idx * chunkSize
+        self.received[offset:offset + len(data)] = data
+        self.remaining.remove(idx)
+        self.complete = len(self.remaining) == 0
 
-    if idx in self.remaining:
-      offset = idx * chunkSize
-      self.received[offset:offset + len(data)] = data
-      self.remaining.remove(idx)
-      self.complete = len(self.remaining) == 0
-
-    self.receivedCondition.notify()
-    self.receivedCondition.release()
+      self.receivedCondition.notify()
     return
 
 def initializeMqttClient(**kwargs):

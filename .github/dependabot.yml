@@ -65,6 +65,7 @@ updates:
       - "/tools/v2x"
       - "/tracker"
       - "/tracker/test/load"
+      - "/observation_processor"
     schedule:
       interval: "monthly"
       time: "04:00"
@@ -99,6 +100,7 @@ updates:
       - "/sample_data/demo_scenes/Retail"
       - "/sample_data/lidar_intersection"
       - "/sample_data/sample_app"
+      - "/sample_data/mlops_flow"
       - "/tests/compose"
       - "/tests/compose/dlstreamer"
       - "/tests/compose/hierarchy"
@@ -156,6 +158,8 @@ updates:
       - "/tools/v2x"
       - "/tracker/test/load"
       - "/tracker/test/service"
+      - "/observation_processor"
+      - "/spatial_performance_primitives/frustum_gaussian"
     schedule:
       interval: "monthly"
       time: "04:00"
