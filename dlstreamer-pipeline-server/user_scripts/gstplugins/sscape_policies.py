@@ -3,6 +3,7 @@
 
 import struct
 import base64
+import sys
 
 ## Policies to post process data
 
@@ -56,24 +57,72 @@ def _extractKeypointsFromGvametaconvert(item):
         }
   return {}
 
-def _extractKeypoints(item):
-  # Format 1: keypoints in tensors (older model-proc based pipelines)
-  for tensor in item.get('tensors', []):
-    if tensor.get('format') == 'keypoints':
-      data = tensor.get('data', [])
-      names = tensor.get('point_names', [])
-      keypoints = [
-        {'name': names[i], 'x': data[i * 2], 'y': data[i * 2 + 1]}
-        for i in range(len(names))
-        if i * 2 + 1 < len(data)
-      ]
-      return {
-        'keypoints': keypoints,
-        'keypoint_connections': tensor.get('point_connections', [])
-      }
+def _isKeypointsTensor(tensor):
+  return tensor.get('type') == 'keypoints'
 
-  # Format 2: keypoints from gvametaconvert (yolo11-pose and similar)
-  return _extractKeypointsFromGvametaconvert(item)
+def _tensorConfidences(tensor, count):
+  confidences = tensor.get('confidence', [])
+  # gvametaconvert collapses the list to a scalar when all values are equal
+  if isinstance(confidences, (int, float)):
+    return [confidences] * count
+  return confidences if isinstance(confidences, list) else []
+
+def _tensorPointStep(tensor):
+  dims = tensor.get('dims')
+  if isinstance(dims, list) and len(dims) == 2 and isinstance(dims[1], int) and dims[1] >= 2:
+    return dims[1]
+  return 2
+
+def _resolveConnectionEndpoint(endpoint, names):
+  if isinstance(endpoint, str):
+    return endpoint
+  if isinstance(endpoint, int) and 0 <= endpoint < len(names):
+    return names[endpoint]
+  return None
+
+def _tensorConnections(tensor, names):
+  raw = tensor.get('point_connections', [])
+  connections = []
+  for i in range(0, len(raw) - 1, 2):
+    start = _resolveConnectionEndpoint(raw[i], names)
+    end = _resolveConnectionEndpoint(raw[i + 1], names)
+    if start is not None and end is not None:
+      connections.extend([start, end])
+  return connections
+
+def _extractKeypointsFromTensor(tensor):
+  """Extract keypoints from a keypoints tensor (DL Streamer 2026.2+)."""
+  data = tensor.get('data', [])
+  names = tensor.get('point_names', [])
+  confidences = _tensorConfidences(tensor, len(names))
+  step = _tensorPointStep(tensor)
+  keypoints = []
+  for i, name in enumerate(names):
+    if i * step + 1 >= len(data):
+      break
+    # x, y are relative to the detection bounding box (0..1)
+    keypoint = {'name': name, 'x': data[i * step], 'y': data[i * step + 1]}
+    if i < len(confidences):
+      keypoint['confidence'] = confidences[i]
+    keypoints.append(keypoint)
+
+  return {
+    'keypoints': keypoints,
+    'keypoint_connections': _tensorConnections(tensor, names),
+  }
+
+def _extractKeypoints(item):
+  # Malformed keypoints must not drop the detection or the rest of the frame
+  try:
+    for tensor in item.get('tensors', []):
+      if _isKeypointsTensor(tensor):
+        return _extractKeypointsFromTensor(tensor)
+
+    # DL Streamer < 2026.2 emitted a top-level 'keypoints' field instead of a tensor
+    return _extractKeypointsFromGvametaconvert(item)
+  except Exception as e:
+    print(f"Warning: skipping malformed keypoints: {type(e).__name__}: {e}", file=sys.stderr)
+    return {}
 
 def detectionPolicy(pobj, item, fw, fh):
   if not _isDetection(item):

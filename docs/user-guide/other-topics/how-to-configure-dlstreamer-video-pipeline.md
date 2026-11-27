@@ -376,7 +376,7 @@ This section describes the metadata schema and the format that the payload needs
   system clock automatically.
 - **cameraid** (string): Unique identifier for the camera.
 - **metadatagenpolicy** (string): Policy for generating metadata. Possible values:
-  - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) with normalized x/y coordinates and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object.
+  - `detectionPolicy` (default): Metadata for object detection. When a pose estimation model is used (e.g. `yolo11n-pose`), also includes `keypoints` (e.g. joints) and `keypoint_connections` (e.g. skeleton bone pairs) in each detection object. Keypoint `x`/`y` are relative to the detection bounding box (0..1), not the frame; the Scene Controller converts them to pixels as `bbox_x + x * bbox_width` and `bbox_y + y * bbox_height`. Keypoints are read from the inference tensor, so the pipeline must use `gvametaconvert add-tensor-data=true`. Without it no error is raised, but no keypoints are published and pose adjustment has no effect.
   - `reidPolicy`: Metadata for re-identification.
   - `classificationPolicy`: Metadata for classification.
 - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.

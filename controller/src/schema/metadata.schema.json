@@ -246,7 +246,7 @@
     "keypoint": {
       "type": "object",
       "title": "Pose Keypoint",
-      "description": "Single pose keypoint with normalized coordinates.",
+      "description": "Single pose keypoint with coordinates relative to the detection bounding box.",
       "properties": {
         "name": {
           "type": "string",
@@ -254,11 +254,11 @@
         },
         "x": {
           "type": "number",
-          "description": "Normalized x coordinate in image space (0 to 1)."
+          "description": "x coordinate relative to the detection bounding box (0 = left edge, 1 = right edge)."
         },
         "y": {
           "type": "number",
-          "description": "Normalized y coordinate in image space (0 to 1)."
+          "description": "y coordinate relative to the detection bounding box (0 = top edge, 1 = bottom edge)."
         }
       },
       "required": ["name", "x", "y"]
@@ -266,7 +266,7 @@
     "keypoints": {
       "type": "array",
       "title": "Pose Keypoints",
-      "description": "Pose keypoints when a pose estimation model is used. Coordinates are normalized to frame dimensions.",
+      "description": "Pose keypoints when a pose estimation model is used. Coordinates are relative to the detection bounding box (0 to 1), not the frame.",
       "items": {
         "$ref": "#/definitions/keypoint"
       }

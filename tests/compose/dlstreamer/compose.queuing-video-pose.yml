@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Runs the Queuing cameras with the yolo11n-pose pipeline. Layer after compose.queuing-video.yml.
+configs:
+  queuing-config:
+    file: ./sample_data/demo_scenes/Queuing/queuing-config-pose.json

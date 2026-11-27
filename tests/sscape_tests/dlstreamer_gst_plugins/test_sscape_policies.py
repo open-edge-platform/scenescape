@@ -108,6 +108,91 @@ class TestOcrPolicyGuard:
     ocrPolicy(pobj, non_detection_item, 1280, 720)
     assert pobj == {}
 
+class TestDetectionPolicyKeypoints:
+
+  @pytest.fixture
+  def pose_tensor_item(self, valid_detection_item):
+    """yolo11n-pose output from gvametaconvert in DL Streamer 2026.2+."""
+    valid_detection_item['tensors'] = [{
+      'name': 'keypoints',
+      'type': 'keypoints',
+      'format': 'body-pose/coco-17',
+      'semantic_tag': 'Model0/body-pose/coco-17',
+      'dims': [3, 2],
+      'data': [0.85, 0.24, 0.89, 0.21, 0.88, 0.20],
+      'confidence': [0.63, 0.65, 0.14],
+      'point_names': ['nose', 'eye_l', 'eye_r'],
+      'point_connections': [0, 1, 0, 2],
+    }]
+    return valid_detection_item
+
+  def test_keypoints_tensor_is_extracted(self, pose_tensor_item):
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert pobj['keypoints'] == [
+      {'name': 'nose', 'x': 0.85, 'y': 0.24, 'confidence': 0.63},
+      {'name': 'eye_l', 'x': 0.89, 'y': 0.21, 'confidence': 0.65},
+      {'name': 'eye_r', 'x': 0.88, 'y': 0.20, 'confidence': 0.14},
+    ]
+    assert pobj['keypoint_connections'] == ['nose', 'eye_l', 'nose', 'eye_r']
+
+  def test_scalar_confidence_is_applied_to_all_keypoints(self, pose_tensor_item):
+    pose_tensor_item['tensors'][0]['confidence'] = 0.5
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert [kp['confidence'] for kp in pobj['keypoints']] == [0.5, 0.5, 0.5]
+
+  def test_point_step_follows_dims(self, pose_tensor_item):
+    tensor = pose_tensor_item['tensors'][0]
+    tensor['dims'] = [3, 3]
+    tensor['data'] = [0.85, 0.24, 9.0, 0.89, 0.21, 9.0, 0.88, 0.20, 9.0]
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert [(kp['x'], kp['y']) for kp in pobj['keypoints']] == [
+      (0.85, 0.24), (0.89, 0.21), (0.88, 0.20),
+    ]
+
+  def test_non_keypoints_type_is_ignored(self, pose_tensor_item):
+    pose_tensor_item['tensors'][0]['type'] = 'classification'
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert 'keypoints' not in pobj
+
+  def test_invalid_connection_pair_is_dropped(self, pose_tensor_item):
+    pose_tensor_item['tensors'][0]['point_connections'] = [0, 1, 0, 99, 1, 2]
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert pobj['keypoint_connections'] == ['nose', 'eye_l', 'eye_l', 'eye_r']
+
+  @pytest.mark.parametrize('field', ['data', 'point_names', 'point_connections'])
+  def test_malformed_tensor_keeps_detection(self, pose_tensor_item, field, capsys):
+    pose_tensor_item['tensors'][0][field] = None
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert pobj['category'] == 'person'
+    assert pobj['bounding_box_px'] == {'x': 100, 'y': 50, 'width': 200, 'height': 400}
+    assert 'keypoints' not in pobj
+    assert 'keypoint_connections' not in pobj
+    assert 'malformed keypoints' in capsys.readouterr().err
+
+  def test_legacy_top_level_keypoints_are_extracted(self, valid_detection_item):
+    valid_detection_item['keypoints'] = [{
+      'points': [
+        {'name': 'nose', 'index': 0, 'x': 1232, 'y': 413, 'confidence': 0.63},
+        {'name': 'eye_l', 'index': 1, 'x': 1244, 'y': 402, 'confidence': 0.65},
+      ],
+      'skeleton': [[0, 1]],
+    }]
+    pobj = {}
+    detectionPolicy(pobj, valid_detection_item, 1280, 720)
+    assert [kp['name'] for kp in pobj['keypoints']] == ['nose', 'eye_l']
+    assert pobj['keypoint_connections'] == ['nose', 'eye_l']
+
+  def test_no_keypoints_when_absent(self, valid_detection_item):
+    pobj = {}
+    detectionPolicy(pobj, valid_detection_item, 1280, 720)
+    assert 'keypoints' not in pobj
+
 class TestWithRealMetadata:
   """Verify policies against real DLS metadata samples."""
 
