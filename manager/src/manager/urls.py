@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.urls import include, path
 from django.conf.urls.static import static
 from django.conf import settings
-from manager import views
+from manager import child_link_views, views
 from manager.calculate_intrinsics_view import CalculateCameraIntrinsics
 from manager.model_directory_view import ModelDirectory
 
@@ -64,6 +64,8 @@ urlpatterns = [
   path('api/v1/save-geospatial-snapshot/', views.SaveGeospatialSnapshot.as_view(), name='save_geospatial_snapshot'),
   path('api/v1/scene/<uuid:scene_uid>/osm-roi-previews', views.OsmRoiPreviews.as_view(), name='osm_roi_previews'),
   path('api/v1/scene/<uuid:scene_uid>/osm-rois', views.OsmRois.as_view(), name='osm_rois'),
+  path('api/v1/scene/<uuid:scene_uid>/child-links', child_link_views.ChildLinks.as_view(), name='child_links'),
+  path('api/v1/scene/<uuid:scene_uid>/child-links/placed', child_link_views.PlacedChild.as_view(), name='child_links_placed'),
   path('api/v1/scene/<uuid:scene_uid>/geospatial-glb-preview', views.GeospatialGlbPreview.as_view(), name='geospatial_glb_preview'),
   path('api/v1/scene/<uuid:scene_uid>/geospatial-glbs', views.GeospatialGlbLayers.as_view(), name='geospatial_glbs'),
   path('api/v1/scene/<uuid:scene_uid>/geospatial-glbs/apply-all', views.GeospatialGlbApplyAll.as_view(), name='geospatial_glb_apply_all'),

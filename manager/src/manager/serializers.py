@@ -24,6 +24,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
 
+from manager import hierarchy
 from manager.validators import camera_id_topic_error, validate_scene_name
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
@@ -990,17 +991,10 @@ class SceneSerializer(NonNullSerializer):
 
   @staticmethod
   def check_circular_dependency(parent_scene, child_scene):
-    # Check if any of the descendants of the child scene are the parent before linking
-    child_scene_children = ChildScene.objects.filter(parent=child_scene)
-    for child in child_scene_children:
-      stack = [child]
-      while stack:
-        current_child = stack.pop()
-        if parent_scene == current_child.child:
-          raise serializers.ValidationError(f"Cannot link \"{parent_scene}\" with "
-                                            f"\"{child_scene}\" due to circular dependency")
-        for child_node in ChildScene.objects.filter(parent=current_child.child):
-          stack.append(child_node)
+    try:
+      hierarchy.ensure_no_cycle(parent_scene, child_scene)
+    except hierarchy.HierarchyError as error:
+      raise serializers.ValidationError(str(error)) from error
     return
 
   def link_parent(self, parent_uid, child_scene):
@@ -1456,6 +1450,22 @@ class ChildSceneSerializer(NonNullSerializer):
           'transform9', 'transform10', 'transform11', 'transform12', \
           'transform13', 'transform14', 'transform15', 'transform16']
     validators = []
+
+class ChildLinkSerializer(serializers.Serializer):
+  child = serializers.UUIDField()
+
+
+class ChildLinkBatchSerializer(serializers.Serializer):
+  children = ChildLinkSerializer(many=True, allow_empty=False, max_length=hierarchy.MAX_BATCH_CHILDREN)
+
+
+class PlacedChildSerializer(serializers.Serializer):
+  name = serializers.CharField(max_length=200)
+  x = serializers.FloatField()
+  y = serializers.FloatField()
+  width = serializers.FloatField()
+  height = serializers.FloatField()
+
 
 class CalibrationMarkerSerializer(NonNullSerializer):
 

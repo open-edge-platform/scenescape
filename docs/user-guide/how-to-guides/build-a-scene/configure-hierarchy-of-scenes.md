@@ -51,6 +51,35 @@ _Figure 1: Creating new local child scene link._
 
 _Figure 2: Local Child scene on scene detail page._
 
+## Attach Many Georeferenced Children
+
+When the parent and each child are geospatial scenes, the child-links API places every child from its own corner coordinates, so no transform is typed by hand. Use it for batches, such as one city parent with many intersections.
+
+- Only two levels are supported through this API: the parent is a root scene, and every child is a leaf. The single-link form above still allows deeper levels; the API does not.
+- A child has one parent. A child linked with a manual transform is rejected; edit that link with the link form instead.
+- A batch is all-or-nothing. If any child is rejected, the response lists the errors per child and nothing is written.
+- Placement is planar: a rotation about the vertical axis plus a translation. The two frames must agree on scale to within 1 % and on corner positions to within 1 m. Otherwise the child is rejected and the response reports the measured disagreement.
+
+Attach children (administrators only):
+
+```bash
+curl -X POST https://<host>/api/v1/scene/<parent-uuid>/child-links \
+  -H "Authorization: Token <token>" -H "Content-Type: application/json" \
+  -d '{"children": [{"child": "<child-uuid-1>"}, {"child": "<child-uuid-2>"}]}'
+```
+
+Re-posting is idempotent. Up-to-date links return `unchanged`, and links whose parent or child frame changed return `recomputed`. To find stale links, call `GET /api/v1/scene/<parent-uuid>/child-links`; it reports `stale: true` for any link whose frame changed after it was placed.
+
+Create a child from a rectangle inside the parent frame (metres from the parent's south-west corner):
+
+```bash
+curl -X POST https://<host>/api/v1/scene/<parent-uuid>/child-links/placed \
+  -H "Authorization: Token <token>" -H "Content-Type: application/json" \
+  -d '{"name": "Intersection 12", "x": 10, "y": 20, "width": 30, "height": 40}'
+```
+
+The new child has no map, sensors or regions. Upload its content afterwards, then re-post the child to refresh its placement if its frame changed. Until its map is uploaded, the child cannot be included in a scene archive export. The full request and response schemas are in the [API specification](../../api-docs/api.yaml).
+
 ## Steps to Add a Remote Child Scene
 
 ### Exporting and Restoring a Hierarchy
