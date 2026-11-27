@@ -4,6 +4,7 @@
 """Scene registration must always notify the open calibration page."""
 
 import threading
+from collections import OrderedDict
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -20,7 +21,7 @@ def _context(strategy):
   ctx.registration_state_lock = threading.RLock()
   ctx.registration_results = {}
   ctx.registration_generations = {}
-  ctx.pending_registrations = set()
+  ctx.pending_registrations = OrderedDict()
   # State as left by scene_update_thread_wrapper, which claims the worker slot.
   ctx.register_thread_lock.acquire()
   ctx.current_processing_scene = "scene-1"

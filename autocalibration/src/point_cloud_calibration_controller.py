@@ -58,9 +58,11 @@ class PointCloudCalibrationController(PerceptualSensorCalibrationController):
       response_dict['status'] = "Error: Scene has no map"
       return response_dict
 
+    # Stamp the start of the run, not its end, so a map uploaded during it stays pending.
+    started_at = get_iso_time()
     try:
       self._ensure_scene_cloud(sceneobj, map_update)
-      self.calibration_data_interface.update_map_processed(sceneobj.id, get_iso_time())
+      self.calibration_data_interface.update_map_processed(sceneobj.id, started_at)
     except (FileNotFoundError, ValueError, PointCloudRegistrationError) as e:
       response_dict['status'] = f"Error: {e}"
       return response_dict
@@ -79,7 +81,11 @@ class PointCloudCalibrationController(PerceptualSensorCalibrationController):
     if not sceneobj.map:
       self.reset_scene(sceneobj)
       return False
-    return sceneobj.map_processed is None
+    return self.is_map_stale(sceneobj)
+
+  def is_map_stale(self, sceneobj):
+    """Report whether the scene map needs (re)processing, without resetting the scene."""
+    return bool(sceneobj.map) and sceneobj.map_processed is None
 
   def generate_calibration(self, sceneobj, sensor_config, msg):
     """Register a sensor point cloud against the scene point cloud.

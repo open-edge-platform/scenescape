@@ -199,7 +199,7 @@ class _ReadyContext:
       _SUCCESS_SCENE: {"status": "success"},
       _REJECTED_SCENE: {"status": "error", "message": _TOO_FEW_TAGS},
     }
-    self.pending_registrations = set()
+    self.pending_registrations = {}
     self.calibration_thread_lock = _ViewLock({_CAM_BUSY})
     self.calibration_results = _Results({
       _CAM_SUCCESS: {
@@ -222,17 +222,17 @@ class _ReadyContext:
     })
     self.socket_clients = {}
 
-  def scene_update_thread_wrapper(self, scene, map_update=False):
+  def scene_update_thread_wrapper(self, scene, map_update=False, reset=False, queue_if_busy=False):
     """Accept an update trigger only if the simulated worker is idle."""
     return not self.register_thread_lock.locked()
 
-  def request_scene_registration(self, scene):
+  def request_scene_registration(self, scene, reset=False):
     """Start, report active, or queue the scene like the real context."""
     if self.current_processing_scene == scene.id:
       return "active"
-    if self.scene_update_thread_wrapper(scene, map_update=True):
+    if self.scene_update_thread_wrapper(scene, map_update=True, reset=reset):
       return "started"
-    self.pending_registrations.add(scene.id)
+    self.pending_registrations[scene.id] = (scene, True, reset)
     return "busy"
 
   def begin_sync_registration(self, scene_id):
@@ -428,7 +428,7 @@ def test_registration_retry_does_not_rerun_active_scene(monkeypatch):
 def test_registration_retry_keeps_worker_error_when_busy(monkeypatch):
   """A refused retry keeps the last error but GET reports the retry as waiting."""
   error = {"status": "error", "message": _TOO_FEW_TAGS}
-  monkeypatch.setattr(_api.calibrationContext, "pending_registrations", set())
+  monkeypatch.setattr(_api.calibrationContext, "pending_registrations", {})
   monkeypatch.setitem(_api.calibrationContext.registration_results, _BUSY_SCENE, error)
   with _api.app.test_client() as client:
     response = client.post(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})
@@ -442,7 +442,7 @@ def test_refused_scene_update_keeps_error_and_waits(monkeypatch):
   """A PATCH that cannot start a worker must not erase the last error or report success."""
   context = _api.calibrationContext
   error = {"status": "error", "message": _TOO_FEW_TAGS}
-  monkeypatch.setattr(context, "pending_registrations", set())
+  monkeypatch.setattr(context, "pending_registrations", {})
   monkeypatch.setitem(context.registration_results, _BUSY_SCENE, error)
   with _api.app.test_client() as client:
     client.patch(f"{API_PREFIX}/scenes/{_BUSY_SCENE}/registration", json={})

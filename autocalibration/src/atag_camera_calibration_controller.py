@@ -44,6 +44,9 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     """
     response_dict = {'status': "success"}
     log.info("processing apriltags scene for calibration for ", sceneobj.name)
+    # Stamp the start of the run, not its end: an upload landing after the map
+    # is read then stays newer than the stamp and is picked up by a re-run.
+    started_at = get_iso_time()
 
     if sceneobj is None:
       log.error("Topic Structure mismatch")
@@ -66,7 +69,8 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
                                                                     TILE_SIZE,
                                                                     DEFAULT_ROTATION_MATRIX)
           if self.cam_calib_objs[sceneobj.id].result_data_3d is not None:
-            self.save_to_database(sceneobj, self.cam_calib_objs[sceneobj.id].result_data_3d)
+            self.save_to_database(sceneobj, self.cam_calib_objs[sceneobj.id].result_data_3d,
+                                  started_at)
           log.info("Apriltag center points in 3D identified and saved to database.")
       except FileNotFoundError:
         response_dict['status'] = "Error: Glb file not found"
@@ -103,10 +107,20 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if not sceneobj.map:
       self.reset_scene(sceneobj)
       return False
+    return self.is_map_stale(sceneobj)
+
+  def is_map_stale(self, sceneobj):
+    """! side-effect free check whether the map needs (re)processing.
+    @param   sceneobj      scene object.
+
+    @return  True/False
+    """
+    if not sceneobj.map:
+      return False
     # map_processed is None (explicit invalidate) or map file is newer than last run
     return sceneobj.map_processed is None or self.is_map_processed(sceneobj)
 
-  def save_to_database(self, scene, atag_points_3d):
+  def save_to_database(self, scene, atag_points_3d, map_processed=None):
     """! Replace stored AprilTag markers with the newly detected set.
 
     Always clear then insert so a smaller scan cannot leave the scene with
@@ -117,6 +131,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
 
     @param   scene             Scene database object.
     @param   atag_points_3d   Apriltag centers in 3d plane.
+    @param   map_processed    ISO timestamp of when the processed run started; now if omitted.
 
     @return  None
     """
@@ -136,7 +151,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         raise RuntimeError(
             f"Failed to persist calibration marker {key} for scene {scene.id}")
     updated = self.calibration_data_interface.update_map_processed(
-        scene.id, get_iso_time())
+        scene.id, map_processed or get_iso_time())
     if not updated:
       raise RuntimeError(
           f"Failed to mark map processed for scene {scene.id}")

@@ -4,6 +4,7 @@
 """Scene registration start, queueing, and finish must not interleave."""
 
 import threading
+from collections import OrderedDict
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -14,7 +15,7 @@ CameraCalibrationContext = import_calibration_context().CameraCalibrationContext
 _WAIT = 5
 
 
-class _BlockingPendingSet(set):
+class _BlockingPending(OrderedDict):
   """Pause the first insertion so a concurrent request can race it."""
 
   def __init__(self):
@@ -22,12 +23,12 @@ class _BlockingPendingSet(set):
     self.adding = threading.Event()
     self.proceed = threading.Event()
 
-  def add(self, item):
+  def __setitem__(self, key, value):
     """Signal the insertion, then wait before storing the item."""
     if not self.adding.is_set():
       self.adding.set()
       self.proceed.wait(_WAIT)
-    super().add(item)
+    super().__setitem__(key, value)
 
 
 def _context():
@@ -35,18 +36,22 @@ def _context():
   context.register_thread_lock = threading.Lock()
   context.registration_state_lock = threading.RLock()
   context.current_processing_scene = None
-  context.pending_registrations = _BlockingPendingSet()
+  context.pending_registrations = _BlockingPending()
   context.registration_results = {}
   context.registration_generations = {}
+  context.calibration_data_interface = MagicMock()
+  # None means the scene cannot be reloaded, so a queued run keeps its own copy.
+  context.calibration_data_interface.scene_with_id.return_value = None
   context.socketio = MagicMock()
-  context.process_scene = lambda scene, map_update: None
+  context.process_scene = lambda scene, map_update, reset=False: None
   return context
 
 
-def test_late_queue_cannot_overwrite_a_started_worker():
-  """Tab 1 queues B while A runs; tab 2 starts B once A finishes. B must not stay pending."""
+def test_late_queue_cannot_be_lost_when_the_worker_finishes():
+  """Tab 1 queues B while A runs; A finishes meanwhile. B must be handed over, not left pending."""
   context = _context()
-  scene_a, scene_b = SimpleNamespace(id="A"), SimpleNamespace(id="B")
+  scene_a = SimpleNamespace(id="A", name="a")
+  scene_b = SimpleNamespace(id="B", name="b")
   assert context.scene_update_thread_wrapper(scene_a, map_update=True)
 
   outcomes = {}
@@ -55,19 +60,19 @@ def test_late_queue_cannot_overwrite_a_started_worker():
   first.start()
   assert context.pending_registrations.adding.wait(_WAIT)
 
-  second = threading.Thread(target=lambda: (
-    context.finish_registration("A", {"status": "success"}),
-    outcomes.setdefault("second", context.request_scene_registration(scene_b))))
+  second = threading.Thread(target=lambda: outcomes.setdefault(
+    "second", context.finish_registration("A", {"status": "success"})))
   second.start()
   second.join(0.5)
-  assert second.is_alive(), "A finished and B started while B was being queued"
+  assert second.is_alive(), "A finished while B was being queued"
 
   context.pending_registrations.proceed.set()
   first.join(_WAIT)
   second.join(_WAIT)
-  assert outcomes == {"first": "busy", "second": "started"}
+  assert outcomes == {"first": "busy", "second": (scene_b, True, False)}
   assert "B" not in context.pending_registrations
   assert context.current_processing_scene == "B"
+  assert context.register_thread_lock.locked()
 
 
 def test_stale_sync_result_cannot_overwrite_worker_error():

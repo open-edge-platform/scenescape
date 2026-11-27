@@ -407,14 +407,15 @@ class CameraCalibrationApi:
     return strategy.is_map_updated(scene)
 
   def _request_scene_update(self, scene):
-    self.calibrationContext.request_scene_registration(scene)
+    # The reset runs inside the locked worker so it never races a registration in progress.
+    self.calibrationContext.request_scene_registration(scene, reset=True)
 
   def _request_scene_registration(self, scene_id: str, scene) -> dict:
     status = self.OpenApi.Status
     outcome, message = {
         "active": (status.REGISTERING, "Registration is in progress"),
         "started": (status.REGISTERING, "Registration started"),
-        "busy": (status.BUSY, "Registration is currently busy"),
+        "busy": (status.BUSY, "Registration is currently busy, the update is queued"),
     }[self.calibrationContext.request_scene_registration(scene)]
     response = {
         self.OpenApi.STATUS: outcome,
@@ -599,7 +600,6 @@ class CameraCalibrationApi:
       strategy = self._get_calibration_strategy(scene)
 
       if strategy.is_map_updated(scene):
-        strategy.reset_scene(scene)
         self._request_scene_update(scene)
         log.info(f"Scene update triggered for {sceneId}")
         return jsonify({self.OpenApi.MESSAGE: "Scene update triggered"}), 202
