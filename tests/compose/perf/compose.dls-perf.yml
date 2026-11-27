@@ -183,7 +183,7 @@ services:
     pids_limit: 1000
 
   mediaserver:
-    image: bluenviron/mediamtx:1.21.3
+    image: bluenviron/mediamtx:1.21.4
     networks:
       scenescape:
         aliases:
