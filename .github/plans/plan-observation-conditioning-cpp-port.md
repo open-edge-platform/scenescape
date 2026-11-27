@@ -72,6 +72,27 @@ Each phase ends with a review checkpoint.
 | pA, pB | Standard-normal truncated PDF evaluated at α and β. |
 | empty interval | `d_occ ≥ d_wall`: the bounds conflict, so the midpoint fallback is used. |
 | mesh foot | Service feature: ray-cast the bottom-center pixel to the mesh to place the object (`cast_np`). |
+| **Constants** (`constants.py`; the C++ `constants.hpp` mirrors them) | |
+| `DEFAULT_NUM_LAYERS` | Depth-peeling layers of `AmodalReasoner`: 4 in the original, 1 after I3. `DepthMap` itself always defaulted to 1. |
+| `PEEL_EPS` = 1e-4 m | Distance the ray origin is advanced past each hit when peeling, so the same surface is not hit again. |
+| `DEGENERATE_CROSS_TOL` = 1e-6 | When `‖r × up‖` is below this, r is (anti)parallel to world-up and the frame uses the X axis instead. |
+| `PROBE_DEVS_AT_PREMISE` = 2.0 | At-premise probe offset from the centroid, in σ (along e_h and e_v). |
+| `PROBE_DEVS_OVER_PREMISE` = 2.1 | Over-premise probe offset in σ, just beyond the at-premise probes. |
+| `OCC_SIGMA_FRAC` = 0.1 | Naive occlusion threshold as a fraction of σ_d. |
+| `VERT_BAND_LOW_DEG` = 75°, `VERT_BAND_HIGH_DEG` = 115° | Signed vertical band for the centroid hit normal (the spectrum uses the lower bound as an unsigned limit). |
+| `SPECTRUM_SAMPLES` = 8 | Rays in the centroid → top spectrum fan. |
+| `SPECTRUM_MIN_RISE_M` = 0.1 m | Height gain between consecutive spectrum hits that makes a horizontal hit a rising support. |
+| `TOTAL_OCC_SAMPLES` = 9 | Targets along the lower → top probe column in the total-occlusion test. |
+| `TOTAL_OCC_FRACTION` = 0.9 | Blocked fraction of the column that counts as total occlusion. |
+| `TOTAL_OCC_BLOCK_MARGIN_M` = 0.1 m | A target is blocked when a surface is nearer than the target by more than this. |
+| `ADAPTIVE_DAMPING_K` = 2.0 | Damping k in the adaptive variance inflation `max(0, δ² − (σ_d² + r_occ)) / k`. |
+| `OCC_RESIDUAL_R` = 0.0 | `r_occ`, the residual added to σ_d² before the inflation. |
+| `WALL_OCCLUDER_MARGIN_M` = 0.1 m | A wall within this of the occluder (or in front of it) is the occluder's own face and is dropped. |
+| **Test and baseline artifacts** | |
+| baseline, `.ocb` | Frozen outputs of the original MVP on the scenario corpus, in the OCB1 named-array container (`tests/data/mvp-original.ocb`). |
+| corpus | The 16 deterministic scenarios (synthetic meshes and the rolling-terrain GLB) that together reach every decision branch. |
+| decision flags | Per-object bit mask: FREE_3D, OCCLUDED, WALL_VERTICAL, WALL_SPECTRUM, TOTAL_OCCLUSION, WALL_DROPPED, EMPTY_INTERVAL, UPDATED. |
+| legacy backups, `*.py.backup` | Byte-identical copies of the original MVP files changed by the cleanup, loadable as `observation_conditioning_legacy`. |
 | **Software and HW** | |
 | MVP | The current Python implementation, the reference for parity. |
 | fg | The `frustum_gaussian` library (C++ namespace `fg`). |
@@ -173,7 +194,7 @@ Measured on an Intel Core Ultra 9 288V (8C, no AVX-512) with the service-pinned 
 | D1 | **Parity target = effective MVP behavior.** Port what `generate` actually computes, quirks included (I3–I5). Skip dead or unused computation that does not affect outputs (I1 non-naive occlusion, I2 unused pin-drop, unused hit points). Behavior fixes (I4–I6, I8, I9) go to a follow-up ticket. |
 | D2 | **Mesh input is format-agnostic (option A).** The core takes world-frame `float` vertices and `uint32` triangle indices. GLB loading stays with the caller; the service keeps Open3D for it. A C++ GLB loader module (cgltf, behind an opt-in build flag, with parity tests against Open3D and a fuzz target) is a follow-up (option B), for when in-process Tracker integration is scheduled. |
 | D3 | **Service harness** = an in-process gRPC Observation Processor test, run with the Python and C++ backends, comparing responses numerically. |
-| D4 | **Pre-port cleanup of the MVP, with no output change.** Remove I1 (dead non-naive occlusion) and I2 (unused pin-drop and hit points). Consolidate I7 (constants keep their effective values). For I3, change the `num_layers` default from 4 to 1 in the service and `AmodalReasoner`; peeling itself is kept and ported. A baseline from the original MVP is frozen first, and the cleaned MVP must match it exactly. Done as separate commits at the start of Phase 4. Details and open points for the original authors are in [implementation.md](../../spatial_performance_primitives/observation_conditioning/implementation.md). The authors may follow up by integrating or extending some of the removed parts. |
+| D4 | **Pre-port cleanup of the MVP, with no output change.** Remove I1 (dead non-naive occlusion) and I2 (unused pin-drop and hit points). Consolidate I7 (constants keep their effective values). For I3, change the `num_layers` default from 4 to 1 in the service and `AmodalReasoner`; peeling itself is kept and ported. A baseline from the original MVP is frozen first, and the cleaned MVP must match it exactly. Done as separate commits at the start of Phase 4. Details and open points for the original authors are in [implementation.md](../../spatial_performance_primitives/observation_conditioning/implementation.md). The authors may follow up by integrating or extending some of the removed parts. The original files stay in the repository as `*.py.backup`, with a loader (`tests/oc_corpus/legacy.py`) that runs them next to the current package, so the cleaned code can always be compared with the legacy; they are removed once the authors' follow-up is settled. |
 | D5 | **Embree is built from source:** the pinned 4.3.3 tarball, static, internal tasking, hidden symbols (design §5.7). Conan `embree` is rejected because it brings a second TBB. |
 | D6 | **CI:** add a path-filtered workflow for the C++ build, gtest, coverage gates, Python parity and the service harness (WP 4.9). |
 | D7 | **HW evaluation** covers a Xeon (AVX-512) host in addition to the local Core Ultra 9 288V (AVX2). |
@@ -276,7 +297,7 @@ The design is in [docs/design/observation-conditioning-cpp.md](../../docs/design
 | --- | --- | --- |
 | **4.0 Test environments and baseline freeze** | Pinned Python venv (`make venv`, OP runtime versions) and the dedicated test container (`Dockerfile.test` on common-base: GCC 12.2, Python 3.11), as in design §5.9. Corpus generator: synthetic scenario meshes as code, plus the rolling-terrain GLB, seeded and threshold-edge observations. `.ocb` writer. Generate `mvp-original.ocb` from the original MVP (`5cc7f08a8`). | The venv and the container build reproducibly. Every corpus scenario reaches its target branch (asserted from the MVP `trace`). Baseline committed, generated in the container (Python 3.11). |
 | **4.1 Layout move** | `git mv` to the `fg`-style layout (`python/`, `cpp/`, `tests/`). Update the root `Makefile` (`SPATIAL_PERFORMANCE_*`, `COMPLEXITY_SOURCES`), the OP `Dockerfile`, the OP test `conftest.py` and doc links. | No logic diff. The library and OP unit suites are green. |
-| **4.2 MVP cleanup (D4)** | One commit each for I1, I2, I7 and I3 (defaults, plus the `t_hit_map` test update). Add a debug-only decision trace to the reference. Generate `reference.ocb`. Update the README, AGENTS and algorithm doc pointers. | Bit-exact match against `mvp-original.ocb`. implementation.md status set to "applied". |
+| **4.2 MVP cleanup (D4)** | `*.py.backup` copies of the original files plus the legacy loader (one commit), then one commit each for I1, I2, I7 and I3 (defaults, plus the `t_hit_map` test update). Add a debug-only decision trace to the reference. Generate `reference.ocb`. Update the README, AGENTS and algorithm doc pointers. | Bit-exact match against `mvp-original.ocb`. implementation.md status set to "applied". |
 | **4.3 C++ core: geometry and maps** | CMake, pinned Embree source build, `Device`, `SceneGeometry`, `DepthMap` (bake, peel, query, cast), conan for test dependencies, gtest. | Maps match Open3D within the §5.5 targets (via a temporary pybind smoke module or the C++ reader). Unit tests green. |
 | **4.4 Truncated normal** | `detail::truncnorm_mv` plus the SciPy grid fixture generator. | rtol 1e-12 on the grid, including ±inf and the tails. |
 | **4.5 C++ core: reasoner** | `AmodalReasoner::condition`, `DecisionTrace`, `constants.hpp`, TBB path, `ExecutionOptions`. Corpus regression in C++. | Decisions identical, values within tolerance against `reference.ocb`. Concurrency test green. |
