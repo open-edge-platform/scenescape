@@ -21,7 +21,7 @@ COCO17_NAMES = [
   'shoulder_l', 'shoulder_r', 'elbow_l', 'elbow_r', 'wrist_l', 'wrist_r',
   'hip_l', 'hip_r', 'knee_l', 'knee_r', 'ankle_l', 'ankle_r',
 ]
-MIN_PERSONS = 20
+MIN_PERSONS_PER_CAMERA = 5
 MESSAGE_TIMEOUT = 120
 # Bbox-relative coordinates may sit marginally outside the box.
 COORD_TOLERANCE = 0.05
@@ -33,10 +33,11 @@ def docker_backend(request):
     pytest.skip('Pose pipeline compose override is Docker-only')
 
 
-def _collect_persons(params, cameras, min_persons):
+def _collect_persons(params, cameras):
   """Return person objects published by DLStreamer on the given camera topics."""
   topics = [PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=cam) for cam in cameras]
   persons = []
+  counts = {cam: 0 for cam in cameras}
   subscribed = []
 
   def on_connect(connection, userdata, flags, result):
@@ -45,8 +46,11 @@ def _collect_persons(params, cameras, min_persons):
 
   def on_message(connection, userdata, message):
     payload = json.loads(message.payload)
+    camera_id = payload.get('id')
     for obj in payload.get('objects', {}).get('person', []):
-      persons.append((payload.get('id'), obj))
+      persons.append((camera_id, obj))
+      if camera_id in counts:
+        counts[camera_id] += 1
 
   client = PubSub(params['auth'], None, params['rootcert'],
                   params['broker_url'], params['broker_port'])
@@ -56,14 +60,17 @@ def _collect_persons(params, cameras, min_persons):
   try:
     client.connect()
     deadline = time.monotonic() + MESSAGE_TIMEOUT
-    while len(persons) < min_persons and time.monotonic() < deadline:
+    while (min(counts.values()) < MIN_PERSONS_PER_CAMERA
+           and time.monotonic() < deadline):
       client.client.loop(timeout=0.2)
   finally:
     client.client.disconnect()
 
   assert subscribed, f'MQTT subscription to {topics} was not acknowledged'
-  assert len(persons) >= min_persons, (
-    f'Only {len(persons)} person detections on {cameras} within {MESSAGE_TIMEOUT}s')
+  short = {cam: n for cam, n in counts.items() if n < MIN_PERSONS_PER_CAMERA}
+  assert not short, (
+    f'Cameras below {MIN_PERSONS_PER_CAMERA} person detections within '
+    f'{MESSAGE_TIMEOUT}s: {short}')
   return persons
 
 
@@ -110,7 +117,7 @@ def test_pose_pipeline_publishes_keypoints(docker_backend, scenescape_env, param
   4. Verify every detection has 17 COCO keypoints with bbox-relative x/y,
      per-joint confidence and name-pair connections.
   """
-  persons = _collect_persons(params, POSE_CAMERAS, MIN_PERSONS)
+  persons = _collect_persons(params, POSE_CAMERAS)
   for camera_id, obj in persons:
     _check_keypoints(camera_id, obj)
   result_recorder.success()
@@ -136,7 +143,7 @@ def test_non_pose_pipeline_publishes_no_keypoints(
   3. Collect person detections.
   4. Verify none carries keypoints or keypoint_connections.
   """
-  persons = _collect_persons(params, NON_POSE_CAMERAS, MIN_PERSONS)
+  persons = _collect_persons(params, NON_POSE_CAMERAS)
   for camera_id, obj in persons:
     assert 'keypoints' not in obj, f'{camera_id}: unexpected keypoints in {obj}'
     assert 'keypoint_connections' not in obj, (
