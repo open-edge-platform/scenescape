@@ -32,7 +32,7 @@
     "bounding_box": {
       "type": "object",
       "title": "Bounding Box",
-      "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in normalized camera space.",
+      "description": "Bounding box for signaling the normalized camera coordinates of a detected object. These coordinates should be in normalized camera space. The origin is the principal point, so x and y can be negative and values are not limited to [0, 1].",
       "properties": {
         "x": {
           "type": "number",
@@ -120,7 +120,9 @@
           "title": "Translation",
           "type": "array",
           "description": "Camera position in scene coordinates (x, y, z).",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "minItems": 3,
           "maxItems": 3
         },
@@ -128,7 +130,9 @@
           "title": "Rotation",
           "type": "array",
           "description": "Camera orientation as intrinsic XYZ Euler degrees (3) or quaternion [x, y, z, w] (4).",
-          "items": { "type": "number" },
+          "items": {
+            "type": "number"
+          },
           "minItems": 3,
           "maxItems": 4
         }
@@ -140,20 +144,48 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "k1": { "type": "number" },
-        "k2": { "type": "number" },
-        "p1": { "type": "number" },
-        "p2": { "type": "number" },
-        "k3": { "type": "number" },
-        "k4": { "type": "number" },
-        "k5": { "type": "number" },
-        "k6": { "type": "number" },
-        "s1": { "type": "number" },
-        "s2": { "type": "number" },
-        "s3": { "type": "number" },
-        "s4": { "type": "number" },
-        "taux": { "type": "number" },
-        "tauy": { "type": "number" }
+        "k1": {
+          "type": "number"
+        },
+        "k2": {
+          "type": "number"
+        },
+        "p1": {
+          "type": "number"
+        },
+        "p2": {
+          "type": "number"
+        },
+        "k3": {
+          "type": "number"
+        },
+        "k4": {
+          "type": "number"
+        },
+        "k5": {
+          "type": "number"
+        },
+        "k6": {
+          "type": "number"
+        },
+        "s1": {
+          "type": "number"
+        },
+        "s2": {
+          "type": "number"
+        },
+        "s3": {
+          "type": "number"
+        },
+        "s4": {
+          "type": "number"
+        },
+        "taux": {
+          "type": "number"
+        },
+        "tauy": {
+          "type": "number"
+        }
       }
     },
     "semantic_metadata_attribute": {
@@ -301,7 +333,8 @@
           "type": "number",
           "description": "Inferencing confidence result for this detection.",
           "examples": [0.899463546, 0.93243],
-          "exclusiveMinimum": 0.0
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0
         },
         "id": {
           "title": "Detection ID",
@@ -328,12 +361,20 @@
       },
       "required": ["category"],
       "oneOf": [
-        { "required": ["translation", "size"] },
-        { "required": ["lat_long_alt", "size"] },
+        {
+          "required": ["translation", "size"]
+        },
+        {
+          "required": ["lat_long_alt", "size"]
+        },
         {
           "anyOf": [
-            { "required": ["bounding_box"] },
-            { "required": ["bounding_box_px"] }
+            {
+              "required": ["bounding_box"]
+            },
+            {
+              "required": ["bounding_box_px"]
+            }
           ]
         }
       ]
@@ -413,8 +454,12 @@
       },
       "required": ["category"],
       "oneOf": [
-        { "required": ["translation"] },
-        { "required": ["bounding_box_px"] }
+        {
+          "required": ["translation"]
+        },
+        {
+          "required": ["bounding_box_px"]
+        }
       ]
     },
     "external_pose": {
@@ -476,7 +521,11 @@
       },
       "required": ["reference_frame"],
       "if": {
-        "properties": { "reference_frame": { "const": "wgs84" } }
+        "properties": {
+          "reference_frame": {
+            "const": "wgs84"
+          }
+        }
       },
       "then": {
         "required": ["lat_long_alt"]
@@ -617,13 +666,24 @@
         }
       },
       "required": ["timestamp", "source_id"],
-      "anyOf": [{ "required": ["objects"] }, { "required": ["cameras"] }],
+      "anyOf": [
+        {
+          "required": ["objects"]
+        },
+        {
+          "required": ["cameras"]
+        }
+      ],
       "allOf": [
         {
           "not": {
             "anyOf": [
-              { "required": ["camera_mount"] },
-              { "required": ["resolution"] }
+              {
+                "required": ["camera_mount"]
+              },
+              {
+                "required": ["resolution"]
+              }
             ]
           }
         },
@@ -634,8 +694,12 @@
           "then": {
             "not": {
               "anyOf": [
-                { "required": ["intrinsics"] },
-                { "required": ["distortion"] }
+                {
+                  "required": ["intrinsics"]
+                },
+                {
+                  "required": ["distortion"]
+                }
               ]
             },
             "properties": {
@@ -691,8 +755,15 @@
       "description": "Resolved, timestamped pose published by the Positioning service on scenescape/positioning/pose/{source_id}. Draft-04 compatible and self-contained (no $ref) so the Tracker can reuse it unchanged.",
       "type": "object",
       "properties": {
-        "schema_version": { "type": "integer", "enum": [1] },
-        "source_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "schema_version": {
+          "type": "integer",
+          "enum": [1]
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
         "timestamp": {
           "type": "string",
           "format": "date-time",
@@ -703,17 +774,29 @@
           "format": "date-time",
           "maxLength": 64
         },
-        "sequence": { "type": "integer", "minimum": 0 },
-        "valid": { "type": "boolean" },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "valid": {
+          "type": "boolean"
+        },
         "pose": {
           "type": "object",
           "properties": {
-            "frame_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "frame_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
             "transform_direction": {
               "type": "string",
               "enum": ["scene_from_camera"]
             },
-            "matrix_layout": { "type": "string", "enum": ["row_major"] },
+            "matrix_layout": {
+              "type": "string",
+              "enum": ["row_major"]
+            },
             "matrix_4x4": {
               "type": "array",
               "minItems": 4,
@@ -722,10 +805,15 @@
                 "type": "array",
                 "minItems": 4,
                 "maxItems": 4,
-                "items": { "type": "number" }
+                "items": {
+                  "type": "number"
+                }
               }
             },
-            "translation_unit": { "type": "string", "enum": ["m"] }
+            "translation_unit": {
+              "type": "string",
+              "enum": ["m"]
+            }
           },
           "required": [
             "frame_id",
@@ -740,8 +828,14 @@
           "type": "string",
           "enum": ["stationary", "slewing", "settling", "unknown"]
         },
-        "sample_age_s": { "type": "number", "minimum": 0 },
-        "timestamp_uncertainty_s": { "type": "number", "minimum": 0 },
+        "sample_age_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "timestamp_uncertainty_s": {
+          "type": "number",
+          "minimum": 0
+        },
         "calibration_version": {
           "type": "string",
           "minLength": 1,
@@ -750,14 +844,25 @@
         "quality": {
           "type": "object",
           "properties": {
-            "score": { "type": "number", "minimum": 0, "maximum": 1 },
-            "temporal_score": { "type": "number", "minimum": 0, "maximum": 1 },
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "temporal_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
             "calibration_score": {
               "type": "number",
               "minimum": 0,
               "maximum": 1
             },
-            "reprojection_rms_px": { "type": "number", "minimum": 0 }
+            "reprojection_rms_px": {
+              "type": "number",
+              "minimum": 0
+            }
           },
           "required": [
             "score",
@@ -800,19 +905,33 @@
       "additionalProperties": false,
       "oneOf": [
         {
-          "properties": { "valid": { "enum": [true] } },
+          "properties": {
+            "valid": {
+              "enum": [true]
+            }
+          },
           "required": ["pose", "quality"],
           "not": {
             "anyOf": [
-              { "required": ["invalid_reason"] },
-              { "required": ["reason_detail"] }
+              {
+                "required": ["invalid_reason"]
+              },
+              {
+                "required": ["reason_detail"]
+              }
             ]
           }
         },
         {
-          "properties": { "valid": { "enum": [false] } },
+          "properties": {
+            "valid": {
+              "enum": [false]
+            }
+          },
           "required": ["invalid_reason"],
-          "not": { "required": ["pose"] }
+          "not": {
+            "required": ["pose"]
+          }
         }
       ]
     },
@@ -821,8 +940,15 @@
       "description": "Retained status/LWT published on scenescape/positioning/status/{resolver_id}. timestamp is the session start time. Draft-04 compatible and self-contained (no $ref).",
       "type": "object",
       "properties": {
-        "resolver_id": { "type": "string", "minLength": 1, "maxLength": 256 },
-        "status": { "type": "string", "enum": ["online", "offline"] },
+        "resolver_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "status": {
+          "type": "string",
+          "enum": ["online", "offline"]
+        },
         "timestamp": {
           "type": "string",
           "format": "date-time",
@@ -869,6 +995,9 @@
         "id": {
           "$ref": "#/definitions/id"
         },
+        "rate": {
+          "$ref": "#/definitions/rate"
+        },
         "objects": {
           "title": "Detected Objects by Category",
           "type": "object",
@@ -905,15 +1034,24 @@
           "oneOf": [
             {
               "type": "array",
-              "items": { "type": "integer", "exclusiveMinimum": 0 },
+              "items": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
               "minItems": 2,
               "maxItems": 2
             },
             {
               "type": "object",
               "properties": {
-                "width": { "type": "integer", "exclusiveMinimum": 0 },
-                "height": { "type": "integer", "exclusiveMinimum": 0 }
+                "width": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "height": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                }
               },
               "required": ["width", "height"],
               "additionalProperties": false

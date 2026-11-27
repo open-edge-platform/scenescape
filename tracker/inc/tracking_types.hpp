@@ -5,6 +5,7 @@
 
 #include "association_window.hpp"
 #include "observability_context.hpp"
+#include "track_uncertainty.hpp"
 
 #include <array>
 #include <chrono>
@@ -97,14 +98,18 @@ struct Track {
     std::string category; ///< Object category (e.g., person, vehicle)
     std::array<double, 3> translation; ///< World position [x, y, z] meters
     std::array<double, 3> velocity;    ///< Velocity [vx, vy, vz] m/s
-    std::array<double, 3> size;        ///< Object size [length, width, height] meters
-    std::array<double, 4> rotation;    ///< Orientation quaternion [x, y, z, w]
+    std::array<double, 3>
+        angular_velocity;           ///< Angular velocity [ωx, ωy, ωz] rad/s (only ωz from filter)
+    std::array<double, 3> size;     ///< Object size [length, width, height] meters
+    std::array<double, 4> rotation; ///< Orientation quaternion [x, y, z, w]
     std::string
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>
         confidence; ///< Detection confidence score in [0, 1] (absent if not available)
     std::optional<AssociationWindow> association_window; ///< Gate geometry for UI visualization
     std::string reid_sighting_json; ///< Current-chunk detection crop and embedding, if any
+    std::optional<TrackUncertainty>
+        uncertainty; ///< Covariance of the published state (experimental observation processor)
 };
 
 /**

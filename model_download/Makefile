@@ -5,7 +5,7 @@ COMPOSE_PROJECT_NAME ?= scenescape
 MODEL_VOLUME := $(COMPOSE_PROJECT_NAME)_vol-models
 
 MODEL_DOWNLOADER_CONTAINER ?= $(COMPOSE_PROJECT_NAME)-model-download
-MODEL_DOWNLOADER_IMAGE ?= intel/model-download:2026.2.0-ww32
+MODEL_DOWNLOADER_IMAGE ?= intel/model-download:2026.3.0-rc2
 MODEL_DOWNLOADER_HOST_PORT ?= 8200
 MODEL_DOWNLOADER_CONTAINER_PORT ?= 8000
 MODEL_DOWNLOADER_URL ?= http://127.0.0.1:$(MODEL_DOWNLOADER_HOST_PORT)
@@ -29,7 +29,7 @@ MODEL_DOWNLOADER_GID ?= 1000
 
 # if models should be taken from other sources - add those sources here, e.g. --plugins omz,huggingface
 # bear in mind that some sources may require additional configuration - check the model_downloader documentation for details
-MODEL_DOWNLOADER_CMD ?= --plugins omz
+MODEL_DOWNLOADER_CMD ?= --plugins omz,huggingface,ultralytics
 MODEL_DOWNLOADER_RUN_ARGS ?=
 
 .PHONY: install-models

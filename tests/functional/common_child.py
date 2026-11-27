@@ -8,12 +8,11 @@ import json
 import threading
 import time
 
-import numpy as np
-
 from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
+from tests.functional.functional import apply_demo_sweep_box, demo_sweep_locations
 
 # Ceiling for waiting on ROI/tripwire/sensor events after geometry is ready.
 # One y-sweep pass is ~11s at 10fps; leave margin for reliability gate + MQTT lag.
@@ -48,12 +47,8 @@ class ChildSceneTest:
 
   # Object bounding-box y-sweep that produces world-coordinate trajectories
   # crossing both the ROI and the tripwire defined in setup_scenes().
-  # Range matches FunctionalTest.getLocations() used by tc_tripwire_mqtt.py.
-  _STEP = 0.02
-  _OBJ_Y_LOCATIONS = np.concatenate([
-    np.arange(-0.5, 0.6, _STEP),
-    np.flip(np.arange(-0.5, 0.6, _STEP))[2:],
-  ])
+  # Same in-range sweep as FunctionalTest.getLocations().
+  _OBJ_Y_LOCATIONS = demo_sweep_locations()
 
   def __init__(self, params):
     """Initialise helper with test parameters dict (from conftest ``params`` fixture)."""
@@ -426,7 +421,7 @@ class ChildSceneTest:
         if stop_event.is_set():
           return
         obj_data["timestamp"] = get_iso_time()
-        obj_data["objects"][self._PERSON][0]["bounding_box"]["y"] = float(y)
+        apply_demo_sweep_box(obj_data, y, self._PERSON)
         obj_data["objects"][self._PERSON][0]["category"] = self._PERSON
         client.publish(topic, json.dumps(obj_data))
         time.sleep(1.0 / self._FRAME_RATE)

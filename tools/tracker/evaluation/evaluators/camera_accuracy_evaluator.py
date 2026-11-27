@@ -98,8 +98,8 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
     # Structures filled by process_tracker_outputs()
     # {(cam_id, obj_id): {frame_num: (x, y)}}
     self._projected_tracks: Dict[Tuple[str, str], Dict[int, Tuple[float, float]]] = {}
-    # {obj_id: {frame_num: (x, y)}}
-    self._gt_tracks: Dict[str, Dict[int, Tuple[float, float]]] = {}
+    # {obj_id: {frame_num: (x, y, z)}}; only x and y are used
+    self._gt_tracks: Dict[str, Dict[int, Tuple[float, ...]]] = {}
     # {obj_id: category string} populated from projected outputs
     self._obj_categories: Dict[str, str] = {}
     # {cam_id: (x, y)} camera world position derived from harness output
@@ -398,7 +398,7 @@ class CameraAccuracyEvaluator(TrackerEvaluator):
         overlap_frames = sorted(set(proj_track) & set(gt_track))
         for frame in overlap_frames:
           px, py = proj_track[frame]
-          gx, gy = gt_track[frame]
+          gx, gy = gt_track[frame][:2]
           dist = math.sqrt((px - gx) ** 2 + (py - gy) ** 2)
           obj_distances.append(dist)
           distance_rows.append({

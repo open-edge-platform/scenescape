@@ -13,6 +13,7 @@
 #include <rv/Utils.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
+#include <rv/tracking/PositionGate.hpp>
 #include <rv/tracking/TrackManager.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
@@ -21,6 +22,33 @@
 TEST(ObjectMatchingTest, Chi2ThresholdMatchesExpectedQuantile)
 {
   EXPECT_NEAR(rv::chi2Threshold(0.99, 2), 9.21034, 1e-3);
+  EXPECT_NEAR(rv::chi2Threshold(0.99, 3), 11.3449, 1e-3);
+  EXPECT_NEAR(rv::chi2Threshold(0.95, 3), 7.81473, 1e-3);
+}
+
+TEST(ObjectMatchingTest, PositionGateCentralizesXyVersusXyz)
+{
+  rv::tracking::TrackedObject planar;
+  rv::tracking::TrackedObject measured;
+  measured.z_measured = true;
+
+  EXPECT_FALSE(rv::tracking::position_gate::gatesZ(planar, measured));
+  EXPECT_FALSE(rv::tracking::position_gate::gatesZ(measured, planar));
+  EXPECT_TRUE(rv::tracking::position_gate::gatesZ(measured, measured));
+  EXPECT_FALSE(rv::tracking::position_gate::trackCanGateZ(planar));
+  EXPECT_TRUE(rv::tracking::position_gate::trackCanGateZ(measured));
+  EXPECT_EQ(rv::tracking::position_gate::positionDof(false), 2);
+  EXPECT_EQ(rv::tracking::position_gate::positionDof(true), 3);
+  EXPECT_NEAR(rv::tracking::position_gate::positionChi2(0.99, false), rv::chi2Threshold(0.99, 2), 1e-9);
+  EXPECT_NEAR(rv::tracking::position_gate::positionChi2(0.99, true), rv::chi2Threshold(0.99, 3), 1e-9);
+
+  std::vector<int> rows;
+  rv::tracking::position_gate::appendPositionMeasurementRows(rows, false);
+  EXPECT_EQ(rows, (std::vector<int>{rv::tracking::MeasurementIndex::X, rv::tracking::MeasurementIndex::Y}));
+  rows.clear();
+  rv::tracking::position_gate::appendPositionMeasurementRows(rows, true);
+  EXPECT_EQ(rows, (std::vector<int>{rv::tracking::MeasurementIndex::X, rv::tracking::MeasurementIndex::Y,
+                                    rv::tracking::MeasurementIndex::Z}));
 }
 
 TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
@@ -75,7 +103,7 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
   lateral.x = pred_x;
   lateral.y = pred_y + 2.0;
 
-  const double chi2_gate = rv::chi2Threshold(0.99, 2);
+  const double chi2_gate = rv::chi2Threshold(0.99, 3);
   const double max_radius = 10.0;
 
   const std::vector<rv::tracking::TrackedObject> tracks = {track};
@@ -101,14 +129,127 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
 
   // Equal Euclidean distance, both inside a wide gate: the matcher takes the along-track detection, the lower cost.
   EXPECT_EQ(assignedMeasurements({lateral, ahead}, 100.0), std::vector<size_t>{1});
-  // At chi2(0.99, 2) the along-track detection is inside the gate and the lateral one outside.
+  // At chi2(0.99, 3) the along-track detection is inside the gate and the lateral one outside.
   EXPECT_EQ(assignedMeasurements({ahead}, chi2_gate), std::vector<size_t>{0});
   EXPECT_TRUE(assignedMeasurements({lateral}, chi2_gate).empty());
+}
+
+TEST(ObjectMatchingTest, EuclideanSeparatesStackedFloors)
+{
+  rv::tracking::TrackedObject track;
+  track.x = 1.0;
+  track.y = 2.0;
+  track.z = 0.0;
+  track.z_measured = true; // floors are told apart by measured z only
+  track.length = track.width = track.height = 0.5;
+
+  rv::tracking::TrackedObject sameFloor = track;
+  sameFloor.z = 0.1;
+
+  rv::tracking::TrackedObject upperFloor = track;
+  upperFloor.z = 3.0; // > 2 m birth / Euclidean gate
+
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  rv::tracking::match({track}, {sameFloor, upperFloor}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::Euclidean, 2.0, 2.0);
+  ASSERT_EQ(assignments.size(), 1U);
+  EXPECT_EQ(assignments[0].second, 0U);
+
+  assignments.clear();
+  unassignedTracks.clear();
+  unassignedMeasurements.clear();
+  rv::tracking::match({track}, {upperFloor}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::Euclidean, 2.0, 2.0);
+  EXPECT_TRUE(assignments.empty());
+}
+
+TEST(ObjectMatchingTest, EuclideanBirthUsesXyUnlessBothZMeasured)
+{
+  rv::tracking::TrackedObject planar;
+  planar.x = 1.0;
+  planar.y = 2.0;
+  planar.z = 0.0;
+  planar.z_measured = false;
+  planar.length = planar.width = planar.height = 0.5;
+
+  rv::tracking::TrackedObject measured = planar;
+  measured.z = 1.5;
+  measured.z_measured = true;
+
+  rv::tracking::TrackedObject upperMeasured = planar;
+  upperMeasured.z = 4.0; // Δz > kDefaultBirthClusterRadiusM
+  upperMeasured.z_measured = true;
+
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  // Mixed planar + measured Z: XY distance (~0) must match within 2 m.
+  rv::tracking::match({planar}, {measured}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::EuclideanBirth, 2.0, 2.0);
+  ASSERT_EQ(assignments.size(), 1U);
+
+  assignments.clear();
+  unassignedTracks.clear();
+  unassignedMeasurements.clear();
+  // Both measured, Δz = 4 m: reject.
+  rv::tracking::match({measured}, {upperMeasured}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::EuclideanBirth, 2.0, 2.0);
+  EXPECT_TRUE(assignments.empty());
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  rv::tracking::TrackManager trackManager(trackerConfig);
+
+  rv::tracking::TrackedObject seed;
+  seed.x = 0.0;
+  seed.y = 0.0;
+  seed.z = 0.0;
+  seed.z_measured = true; // floors are told apart by measured z only
+  seed.length = seed.width = seed.height = 0.5;
+
+  auto timestamp = std::chrono::system_clock::now();
+  auto trackId = trackManager.createTrack(seed, timestamp);
+  for (int i = 0; i < 5; ++i)
+  {
+    timestamp += std::chrono::milliseconds(100);
+    trackManager.predict(timestamp); // predict() drops pending measurements, so measure after it
+    trackManager.setMeasurement(trackId, seed);
+    trackManager.correct();
+  }
+  timestamp += std::chrono::milliseconds(100);
+  trackManager.predict(timestamp);
+  auto track = trackManager.getTracks().front();
+
+  rv::tracking::TrackedObject sameFloor = seed;
+  sameFloor.z = 0.05;
+  rv::tracking::TrackedObject upperFloor = seed;
+  upperFloor.z = 4.0;
+
+  const double chi2_gate = rv::chi2Threshold(0.99, 3);
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  rv::tracking::match({track}, {sameFloor, upperFloor}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, 10.0);
+  ASSERT_EQ(assignments.size(), 1U);
+  EXPECT_EQ(assignments[0].second, 0U);
 }
 
 // Defined in ObjectMatching.cpp, not declared in its header.
 namespace rv::tracking {
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track);
+double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track);
 double calculateMulticlassScaledDistance(const TrackedObject &measurement, const TrackedObject &track);
 } // namespace rv::tracking
 
@@ -117,8 +258,9 @@ namespace {
 using namespace rv::tracking;
 using test::makeDetection;
 
-constexpr int kYaw = TrackedObject::MeasurementSize - 1;
+constexpr int kYaw = MeasurementIndex::YAW;
 constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+static_assert(kYaw == kWithoutYaw, "yaw must be the last measurement");
 
 // Symmetric positive definite S with strong yaw↔position coupling so zeroing ν_yaw ≠ marginalizing yaw.
 TrackedObject makeTrack()
@@ -265,6 +407,146 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesYawOnlyWhenBothSidesHaveOrientat
                 expectedDistance(measurement, track, scenario.expectYaw),
                 1e-12);
   }
+}
+
+TEST(ObjectMatchingTest, MahalanobisDistanceUsesMeasurementNoise)
+{
+  // With R on the detection, S = H P H^T + R replaces the track's cached S^-1 for this pair.
+  auto track = makeTrack();
+  track.predictedStateMeasurementCov = TrackedObject::MeasurementMatrix::eye() * 0.5;
+  auto measurement = makeMeasurement();
+  measurement.measurementNoiseCov
+    = TrackedObject::MeasurementMatrix::diag(TrackedObject::MeasurementVector(0.5, 1.5, 3.5, 0.5, 0.5, 0.5, 0.5));
+  const TrackedObject::MeasurementVector variance(1.0, 2.0, 4.0, 1.0, 1.0, 1.0, 1.0);
+
+  const auto innovation = measurement.measurementVector() - track.predictedMeasurementMean;
+  double squared = 0.0;
+  for (int i = 0; i < TrackedObject::MeasurementSize; ++i)
+  {
+    if (i != kYaw) // neither side has orientation
+    {
+      squared += innovation(i) * innovation(i) / variance(i);
+    }
+  }
+  EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), 0.5 * std::sqrt(squared), 1e-12);
+
+  // Both sides oriented: the yaw row is used, also with S = H P H^T + R.
+  orientation::setHasOrientation(measurement, true);
+  track.attributes[orientation::ORIENTATION_OBSERVED] = orientation::TRUE_VALUE;
+  const double withYaw = squared + innovation(kYaw) * innovation(kYaw) / variance(kYaw);
+  EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), 0.5 * std::sqrt(withYaw), 1e-12);
+  measurement.attributes.clear();
+  track.attributes.clear();
+
+  measurement.measurementNoiseCov.reset();
+  EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), expectedDistance(measurement, track, false), 1e-12);
+}
+
+TrackedObject predictedStaticTrack()
+{
+  TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  TrackManager trackManager(trackerConfig);
+
+  const auto seed = makeDetection(0.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  auto timestamp = std::chrono::system_clock::now();
+  const auto trackId = trackManager.createTrack(seed, timestamp);
+  for (int i = 0; i < 5; ++i)
+  {
+    timestamp += std::chrono::milliseconds(100);
+    trackManager.predict(timestamp); // predict() drops pending measurements, so measure after it
+    trackManager.setMeasurement(trackId, seed);
+    trackManager.correct();
+  }
+  timestamp += std::chrono::milliseconds(100);
+  trackManager.predict(timestamp);
+  return trackManager.getTracks().front();
+}
+
+bool isGated(const TrackedObject &track, const TrackedObject &detection, double maxRadius = 10.0)
+{
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+  match({track},
+        {detection},
+        assignments,
+        unassignedTracks,
+        unassignedMeasurements,
+        DistanceType::PositionMahalanobis,
+        rv::chi2Threshold(0.99, 3),
+        maxRadius);
+  return assignments.size() == 1U;
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGateUsesMeasurementNoise)
+{
+  const auto track = predictedStaticTrack();
+  // Predict publishes H P H^T next to S = H P H^T + R_default.
+  ASSERT_NEAR(track.predictedStateMeasurementCov(MeasurementIndex::X, MeasurementIndex::X),
+              track.predictedMeasurementCov(MeasurementIndex::X, MeasurementIndex::X) - 0.2,
+              1e-12);
+  ASSERT_GT(track.predictedStateMeasurementCov(MeasurementIndex::X, MeasurementIndex::X), 0.0);
+
+  // 3 m off along x: outside the default-R gate, inside when the detection's own R is wide along x.
+  const auto defaultR = makeDetection(3.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  auto wideAlongX = defaultR;
+  wideAlongX.measurementNoiseCov = test::diagonalMeasurementNoise(25.0, 0.2, 0.2);
+  auto wideAlongY = defaultR;
+  wideAlongY.measurementNoiseCov = test::diagonalMeasurementNoise(0.2, 25.0, 0.2);
+
+  EXPECT_FALSE(isGated(track, defaultR));
+  EXPECT_TRUE(isGated(track, wideAlongX));
+  EXPECT_FALSE(isGated(track, wideAlongY)) << "R must act along its own axes, not inflate the gate isotropically";
+  EXPECT_NEAR(calculatePositionMahalanobisSquaredDistance(wideAlongX, track),
+              9.0 / (track.predictedStateMeasurementCov(MeasurementIndex::X, MeasurementIndex::X) + 25.0),
+              1e-9);
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGateWithMeasurementNoiseKeepsRadiusCeiling)
+{
+  const auto track = predictedStaticTrack();
+  auto farButVague = makeDetection(12.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  farButVague.measurementNoiseCov = test::diagonalMeasurementNoise(1000.0, 0.2, 0.2);
+
+  EXPECT_TRUE(isGated(track, farButVague, 20.0));
+  EXPECT_FALSE(isGated(track, farButVague, 10.0)) << "max_radius_m must still cap a wide R";
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGateWithMeasurementNoiseGatesZPerPair)
+{
+  // As without R: z only when the track and the detection both measured it, x/y at the same gate probability otherwise.
+  const auto planarTrack = predictedStaticTrack();
+  auto measuredTrack = planarTrack;
+  measuredTrack.z_measured = true;
+
+  // 2 m above the track with a tight z variance: rejected only when z is gated.
+  auto planarAbove = makeDetection(0.0, 0.0, 2.0, 0.5, 0.5, 0.5);
+  planarAbove.measurementNoiseCov = test::diagonalMeasurementNoise(0.2, 0.2, 0.01);
+  auto measuredAbove = planarAbove;
+  measuredAbove.z_measured = true;
+
+  EXPECT_TRUE(isGated(planarTrack, measuredAbove)) << "planar track";
+  EXPECT_TRUE(isGated(measuredTrack, planarAbove)) << "planar detection";
+  EXPECT_FALSE(isGated(measuredTrack, measuredAbove)) << "both measured z";
+
+  // x/y pairs pass at chi2(p, 2), x/y/z pairs at chi2(p, 3): an x offset with d^2 between the two passes only in x/y/z.
+  const double chi2Xy = rv::chi2Threshold(0.99, 2);
+  const double chi2Xyz = rv::chi2Threshold(0.99, 3);
+  const double squared = 0.5 * (chi2Xy + chi2Xyz);
+  const double sxx = planarTrack.predictedStateMeasurementCov(MeasurementIndex::X, MeasurementIndex::X) + 0.2;
+  auto planarBeside = makeDetection(std::sqrt(squared * sxx), 0.0, 0.0, 0.5, 0.5, 0.5);
+  planarBeside.measurementNoiseCov = test::diagonalMeasurementNoise(0.2, 0.2, 0.2);
+  auto measuredBeside = planarBeside;
+  measuredBeside.z_measured = true;
+
+  EXPECT_NEAR(calculatePositionMahalanobisSquaredDistance(planarBeside, measuredTrack), squared, 1e-6);
+  EXPECT_NEAR(calculatePositionMahalanobisSquaredDistance(measuredBeside, measuredTrack), squared, 1e-6);
+  EXPECT_FALSE(isGated(measuredTrack, planarBeside)) << "x/y pair, scaled to the chi2(p, 3) threshold";
+  EXPECT_TRUE(isGated(measuredTrack, measuredBeside)) << "x/y/z pair";
 }
 
 // A track predicted at (0, 0) with position covariance s00, s01, s11 and unit variance in the other measurement rows.
@@ -457,25 +739,129 @@ TEST(ObjectMatchingTest, MaxRadiusRejectsPairsAtThresholdsAboveTheBoundCost)
             0U);
 }
 
+TEST(ObjectMatchingTest, PositionMahalanobisGatesZOnlyWhenBothSidesMeasuredIt)
+{
+  // S = I. A detection 5 m above the prediction: z is gated only when the detection and the track both have measured
+  // z; otherwise only x and y are, and the max_radius_m ceiling uses the XY distance too.
+  const double chi2 = rv::chi2Threshold(0.99, 3);
+  auto track = makePositionTrack(1.0, 0.0, 1.0);
+  auto above = makePerson(0.0, 0.0);
+  above.z = 5.0;
+  auto farAbove = above;
+  farAbove.z = 20.0;
+
+  const struct
+  {
+    const char *name;
+    bool trackZ, detectionZ;
+    size_t expected;
+  } cases[] = {{"planar track and detection", false, false, 1U},
+               {"planar track", false, true, 1U},
+               {"planar detection", true, false, 1U},
+               {"both measured", true, true, 0U}};
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    track.z_measured = testCase.trackZ;
+    above.z_measured = farAbove.z_measured = testCase.detectionZ;
+    EXPECT_EQ(assignedCount(track, above, DistanceType::PositionMahalanobis, chi2, 10.0), testCase.expected);
+    EXPECT_EQ(assignedCount(track, farAbove, DistanceType::PositionMahalanobis, chi2, 10.0), testCase.expected)
+      << "20 m above, ceiling 10 m";
+  }
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGatesXyPairsAtTwoDegreesOfFreedom)
+{
+  // The services pass chi2(p, 3). A pair gated on x and y only is a 2-DOF test, so it gets chi2(p, 2) (9.21 at 0.99),
+  // the gate before z tracking; a pair gated on x, y and z keeps chi2(p, 3) (11.34). S = I, d^2 = 10 between the two.
+  const double chi2 = rv::chi2Threshold(0.99, 3);
+  auto track = makePositionTrack(1.0, 0.0, 1.0);
+  const auto between = makePerson(std::sqrt(10.0), 0.0);
+  const auto inside = makePerson(std::sqrt(9.0), 0.0);
+
+  EXPECT_EQ(assignedCount(track, between, DistanceType::PositionMahalanobis, chi2, 10.0), 0U) << "planar";
+  EXPECT_EQ(assignedCount(track, inside, DistanceType::PositionMahalanobis, chi2, 10.0), 1U) << "planar";
+
+  track.z_measured = true;
+  auto measuredBetween = between;
+  measuredBetween.z_measured = true;
+  EXPECT_EQ(assignedCount(track, measuredBetween, DistanceType::PositionMahalanobis, chi2, 10.0), 1U) << "measured z";
+}
+
+TEST(ObjectMatchingTest, EuclideanGatesZOnlyWhenBothSidesMeasuredIt)
+{
+  // A detection 3 m above the track at the same x, y, with a 2 m gate: rejected only when both have measured z.
+  rv::tracking::TrackedObject track = makePerson(1.0, 2.0);
+  rv::tracking::TrackedObject above = track;
+  above.z = 3.0;
+
+  const struct
+  {
+    const char *name;
+    bool trackZ, detectionZ;
+    size_t expected;
+  } cases[] = {{"planar track and detection", false, false, 1U},
+               {"planar track", false, true, 1U},
+               {"planar detection", true, false, 1U},
+               {"both measured", true, true, 0U}};
+  for (const auto &testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    track.z_measured = testCase.trackZ;
+    above.z_measured = testCase.detectionZ;
+    EXPECT_EQ(assignedCount(track, above, DistanceType::Euclidean, 2.0, 2.0), testCase.expected);
+  }
+}
+
 TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithDegenerateCovariance)
 {
-  // |det S_xy| < 1e-12 gives the bound cost (1000), so the track is not assigned below that threshold, not even a
-  // detection exactly at the prediction.
+  // A singular or nearly singular S (an axis whose variance given the other axes is below 1e-12 of its own) gives the
+  // bound cost (1000), so the track is not assigned below that threshold, not even a detection exactly at the
+  // prediction. A sharp but well-conditioned S is assigned, whatever its determinant.
   struct Case
   {
     const char *name;
     double s00, s01, s11;
     size_t expected;
   };
-  for (const auto &[name, s00, s01, s11, expected] : {Case{"zero", 0.0, 0.0, 0.0, 0U},
-                                                      Case{"rank one", 1.0, 1.0, 1.0, 0U},
-                                                      Case{"det 1e-14", 1e-7, 0.0, 1e-7, 0U},
-                                                      Case{"det 1e-10", 1e-5, 0.0, 1e-5, 1U}})
+  for (const auto &[name, s00, s01, s11, expected] :
+       {Case{"zero", 0.0, 0.0, 0.0, 0U},
+        Case{"rank one", 1.0, 1.0, 1.0, 0U},
+        Case{"nearly rank one", 1.0, 1.0 - 1e-14, 1.0, 0U},
+        Case{"nearly rank one, small", 1e-4, 1e-4 * (1.0 - 1e-14), 1e-4, 0U},
+        Case{"sharp, det 1e-14", 1e-7, 0.0, 1e-7, 1U},
+        Case{"det 1e-10", 1e-5, 0.0, 1e-5, 1U}})
   {
     SCOPED_TRACE(name);
     EXPECT_EQ(
       assignedCount(makePositionTrack(s00, s01, s11), makePerson(0.0, 0.0), DistanceType::PositionMahalanobis, 100.0),
       expected);
+  }
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGateWithSharpMeasurementNoiseAssignsDetectionAtPrediction)
+{
+  // H P H^T = v I and R = v I give S = 2v I: perfectly conditioned, but det S = 8v^3 is below 1e-12 for v = 1e-5
+  // (x/y/z) and det S_xy = 4v^2 for v = 1e-7 (x/y). A detection at the prediction must be assigned (Copilot review
+  // of #2129).
+  for (const double variance : {1e-5, 1e-7})
+  {
+    for (const bool zMeasured : {true, false})
+    {
+      SCOPED_TRACE(testing::Message() << "variance " << variance << (zMeasured ? ", x/y/z" : ", x/y"));
+      TrackedObject track;
+      track.predictedMeasurementMean = TrackedObject::MeasurementVector::zeros();
+      track.predictedStateMeasurementCov = TrackedObject::MeasurementMatrix::eye() * variance;
+      track.predictedMeasurementCov = TrackedObject::MeasurementMatrix::eye() * (variance + 0.2);
+      track.z_measured = zMeasured;
+      auto detection = makeDetection(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+      detection.z_measured = zMeasured;
+      detection.measurementNoiseCov = TrackedObject::MeasurementMatrix::eye() * variance;
+
+      EXPECT_NEAR(calculatePositionMahalanobisSquaredDistance(detection, track), 0.0, 1e-9);
+      EXPECT_EQ(assignedCount(track, detection, DistanceType::PositionMahalanobis, rv::chi2Threshold(0.99, 3), 10.0),
+                1U);
+    }
   }
 }
 
@@ -509,6 +895,17 @@ TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithNonSpdCovarianc
   EXPECT_EQ(assignments.size(), 1U);
   EXPECT_EQ(assignments.front().first, 1U);  // PSD track
   EXPECT_EQ(assignments.front().second, 0U); // near detection
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisRejectsAsymmetricPositionCovariance)
+{
+  // Asymmetric S_xy used to pass the principal-minor checks and invert to a negative d^2.
+  auto track = makePositionTrack(1.0, 0.0, 1.0);
+  track.predictedMeasurementCov(0, 1) = 5.0;
+  track.predictedMeasurementCov(1, 0) = 0.0;
+  EXPECT_EQ(assignedCount(track, makePerson(0.0, 0.0), DistanceType::PositionMahalanobis,
+                          rv::chi2Threshold(0.99, 2)),
+            0U);
 }
 
 } // namespace

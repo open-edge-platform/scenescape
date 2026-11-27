@@ -21,6 +21,7 @@ import argparse
 import json
 import os
 import signal
+import ssl
 import threading
 import time
 import sys
@@ -310,15 +311,30 @@ class PipelineRunner:
     client.on_message = on_message
 
     ca_cert = os.path.join(self.secrets_dir, "certs", "scenescape-ca.pem")
+    if not os.path.isfile(ca_cert):
+      raise FileNotFoundError(
+        f"MQTT TLS CA certificate not found: {ca_cert}. "
+        "Run `make certificates` (or init-secrets) before collecting detections."
+      )
     client.tls_set(ca_certs=ca_cert)
     client.tls_insecure_set(True)  # hostname won't match "localhost"
 
-    # Wait for the broker to become ready before subscribing
+    # Wait for the broker to become ready before subscribing.
+    # SSL verify failures are permanent config errors — do not retry them as
+    # "broker not ready" (SSLCertVerificationError is an OSError subclass).
     deadline = time.monotonic() + BROKER_CONNECT_TIMEOUT
     while True:
       try:
         client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
         break
+      except ssl.SSLError as exc:
+        raise RuntimeError(
+          f"TLS verify failed connecting to MQTT broker "
+          f"{BROKER_HOST}:{BROKER_PORT} using CA {ca_cert}: {exc}. "
+          "Ensure scenescape-broker.crt was issued by the same CA as "
+          "scenescape-ca.pem (re-run `make certificates` and recreate "
+          "the pipeline compose stack)."
+        ) from exc
       except (ConnectionRefusedError, OSError):
         if time.monotonic() >= deadline:
           raise TimeoutError(

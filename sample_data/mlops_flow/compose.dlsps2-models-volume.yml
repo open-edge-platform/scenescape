@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+services:
+  dlstreamer-pipeline-server:
+    volumes:
+      - vippet-models:/models:ro
+
+volumes:
+  vippet-models:
+    external: true
+    name: ${VIPPET_MODELS_VOLUME:?set VIPPET_MODELS_VOLUME to ViPPET's models volume}

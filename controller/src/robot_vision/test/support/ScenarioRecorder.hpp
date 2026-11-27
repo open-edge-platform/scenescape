@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
@@ -12,6 +13,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <string>
@@ -272,10 +274,12 @@ inline std::array<double, 4> yawQuaternion(double yaw)
 
 // Writes one scenario as JSONL files for tools/tracker/evaluation/visualization:
 //   groundtruth.jsonl  canonical ground truth with size, rotation, velocity and a "truth" object
-//   detections.jsonl   canonical camera-data frames with the 3D detections fed to the run, one frame per sensor id
+//   detections.jsonl   canonical camera-data frames with the 3D detections fed to the run, one frame per sensor id;
+//                      a detection with a per-detection R adds it as "measurement_noise_covariance" (7x7)
 //   tracks.jsonl       canonical tracker output: the FilterRun estimate after every step, or the reliable
 //                      TrackerRun tracks after every frame
-//   estimator.jsonl    one "config" line per track, then one "step" line per step of that track
+//   estimator.jsonl    one "config" line per track, then one "step" line per step of that track; a step whose
+//                      detections carry R adds "HPHt", S without R, so their gate is HPHt + R
 // Records only when RV_SCENARIO_DIR is set. Files go to $RV_SCENARIO_DIR/<Suite>.<Test>/<caseName>/ and are written
 // on destruction. Detection ids are the ground-truth object ids. Reads private estimator and tracker members (tests
 // build with -fno-access-control).
@@ -336,10 +340,10 @@ public:
       json.beginObject();
       json.key("id").value(objectId);
       json.key("category").value(sample.box.category);
-      json.key("translation").value(std::array{sample.x, sample.y, 0.0});
+      json.key("translation").value(std::array{sample.x, sample.y, sample.z});
       json.key("size").value(std::array{sample.box.length, sample.box.width, sample.box.height});
       json.key("rotation").value(yawQuaternion(sample.heading));
-      json.key("velocity").value(std::array{sample.vx(), sample.vy(), 0.0});
+      json.key("velocity").value(std::array{sample.vx(), sample.vy(), sample.vz});
       json.key("truth").beginObject();
       json.key("speed").value(sample.speed);
       json.key("yaw_rate").value(sample.yawRate);
@@ -370,7 +374,8 @@ public:
       mEstimatorConfigs[run.trackId()] = configLine(estimator, run.config(), run.trackId(), nullptr);
     }
     mTracks[{time, run.trackId()}] = estimator.currentState();
-    mEstimatorSteps.push_back(stepLine(estimator, run.trackId(), time, initStep));
+    const bool withMeasurementNoise = observation && observation->detection.measurementNoiseCov.has_value();
+    mEstimatorSteps.push_back(stepLine(estimator, run.trackId(), time, initStep, withMeasurementNoise));
     mDirty = true;
   }
 
@@ -386,6 +391,9 @@ public:
       recordDetection(observation, observation.objectId);
     }
     const auto time = toMicroseconds(t);
+    const bool withMeasurementNoise = std::ranges::any_of(observations, [](const Observation &observation) {
+      return observation.detection.measurementNoiseCov.has_value();
+    });
     for (const Id trackId : run.reliableTrackIds())
     {
       const auto &estimator = run.estimator(trackId);
@@ -396,7 +404,7 @@ public:
         mEstimatorConfigs[trackId] = configLine(estimator, run.config(), trackId, &run.association());
       }
       mTracks[{time, trackId}] = state;
-      mEstimatorSteps.push_back(stepLine(estimator, trackId, time, false));
+      mEstimatorSteps.push_back(stepLine(estimator, trackId, time, false, withMeasurementNoise));
     }
     mDirty = true;
   }
@@ -446,6 +454,10 @@ private:
     if (orientation::hasOrientation(detection))
     {
       json.key("rotation").value(yawQuaternion(detection.yaw));
+    }
+    if (detection.measurementNoiseCov)
+    {
+      json.key("measurement_noise_covariance").value(*detection.measurementNoiseCov);
     }
     json.endObject();
     mDetections[{toMicroseconds(observation.t), observation.sensorId}].push_back({objectId, json.str()});
@@ -514,6 +526,13 @@ private:
     return found != mTrackCategories.end() ? found->second : category(trackId);
   }
 
+  // In StateIndex / MeasurementIndex order.
+  static constexpr const char *kStateNames[]
+    = {"x", "y", "vx", "vy", "ax", "ay", "z", "vz", "length", "width", "height", "yaw", "yaw_rate"};
+  static constexpr const char *kMeasurementNames[] = {"x", "y", "z", "length", "width", "height", "yaw"};
+  static_assert(std::size(kStateNames) == TrackedObject::StateSize);
+  static_assert(std::size(kMeasurementNames) == TrackedObject::MeasurementSize);
+
   // `association` is set for TrackerRun tracks, the gate the tracker matched them with.
   static std::string configLine(const MultiModelKalmanEstimator &estimator,
                                 const TrackManagerConfig &config,
@@ -542,13 +561,13 @@ private:
     json.key("min_probability").value(estimator.mMinProbability);
     json.key("max_probability").value(estimator.mMaxProbability);
     json.key("state_names").beginArray();
-    for (const char *name : {"x", "y", "vx", "vy", "ax", "ay", "z", "length", "width", "height", "yaw", "yaw_rate"})
+    for (const char *name : kStateNames)
     {
       json.value(name);
     }
     json.endArray();
     json.key("measurement_names").beginArray();
-    for (const char *name : {"x", "y", "z", "length", "width", "height", "yaw"})
+    for (const char *name : kMeasurementNames)
     {
       json.value(name);
     }
@@ -568,7 +587,12 @@ private:
     return json.str();
   }
 
-  static std::string stepLine(const MultiModelKalmanEstimator &estimator, int trackId, std::int64_t time, bool initStep)
+  // `withMeasurementNoise`: the step's detections carry R, so HPHt is written to rebuild their gate HPHt + R.
+  static std::string stepLine(const MultiModelKalmanEstimator &estimator,
+                              int trackId,
+                              std::int64_t time,
+                              bool initStep,
+                              bool withMeasurementNoise)
   {
     const auto &state = estimator.currentState();
     JsonWriter json;
@@ -591,6 +615,10 @@ private:
       // From the predict step; correct() leaves them unchanged.
       json.key("z_pred").value(state.predictedMeasurementMean);
       json.key("S").value(state.predictedMeasurementCov);
+      if (withMeasurementNoise)
+      {
+        json.key("HPHt").value(state.predictedStateMeasurementCov);
+      }
     }
     json.endObject();
     return json.str();
@@ -668,7 +696,7 @@ private:
         json.key("id").value(std::to_string(trackId));
         json.key("category").value(trackCategory(trackId));
         json.key("translation").value(std::array{state.x, state.y, state.z});
-        json.key("velocity").value(std::array{state.vx, state.vy, 0.0});
+        json.key("velocity").value(std::array{state.vx, state.vy, state.vz});
         json.key("size").value(std::array{state.length, state.width, state.height});
         json.key("rotation").value(yawQuaternion(state.yaw));
         json.endObject();

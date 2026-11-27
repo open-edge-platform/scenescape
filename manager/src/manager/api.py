@@ -734,10 +734,9 @@ class CameraManager(APIView):
     return Response(status=status.HTTP_404_NOT_FOUND)
 
   def imageReceived(self, pubsub, userdata, message):
-    self.imageCondition.acquire()
-    self.received = json.loads(str(message.payload.decode("utf-8")))
-    self.imageCondition.notify()
-    self.imageCondition.release()
+    with self.imageCondition:
+      self.received = json.loads(str(message.payload.decode("utf-8")))
+      self.imageCondition.notify()
     return
 
   def getVideo(self, camera, params, pubsub):

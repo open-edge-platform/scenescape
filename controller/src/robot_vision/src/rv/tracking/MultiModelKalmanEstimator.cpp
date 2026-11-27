@@ -8,8 +8,8 @@
 #include "rv/tracking/CPModel.hpp"
 #include "rv/tracking/Classification.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
+#include "rv/tracking/PositionGate.hpp"
 
-#include <numeric>
 #include <vector>
 
 namespace rv {
@@ -26,14 +26,38 @@ predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat 
   return measurement;
 }
 
-// Measurement components a prepared detection observes: yaw only with a usable orientation.
-std::vector<int> observedMeasurementRows(const TrackedObject &measurement)
+/// The detection's R for the UKF update; empty (default R) when the detection carries none. Used as is: track() drops
+/// detections with an invalid R and keeps the others symmetrized; a fused R is symmetrized, or cleared when it is not
+/// positive definite, where it is built.
+cv::Mat measurementNoise(const TrackedObject &measurement)
 {
-  std::vector<int> rows(TrackedObject::MeasurementSize);
-  std::iota(rows.begin(), rows.end(), 0);
-  if (!orientation::hasOrientation(measurement))
+  return measurement.measurementNoiseCov ? cv::Mat(*measurement.measurementNoiseCov) : cv::Mat();
+}
+
+/// H P H^T of the filter's last predict, from its sigma points as the update with a detection's R uses it. Not S - r I:
+/// with a default r much larger than H P H^T the subtraction rounds H P H^T away, and the gate would disagree with the
+/// update.
+TrackedObject::MeasurementMatrix
+predictedMeasurementCovWithoutNoise(const cv::detail::tracking::UnscentedKalmanFilterMod &filter)
+{
+  return filter.getPredictedMeasurementCovWithoutNoise();
+}
+
+// Measurement components a prepared detection observes. Include z when the detection measured it, or
+// when the track has never measured z (planar floor lock). Omit z only to protect sticky measured
+// height from later planar ground points. Yaw is omitted without orientation.
+std::vector<int> observedMeasurementRows(const TrackedObject &track, const TrackedObject &measurement)
+{
+  std::vector<int> rows;
+  rows.reserve(TrackedObject::MeasurementSize);
+  const bool includeZ = measurement.z_measured || !track.z_measured;
+  position_gate::appendPositionMeasurementRows(rows, includeZ);
+  rows.push_back(MeasurementIndex::LENGTH);
+  rows.push_back(MeasurementIndex::WIDTH);
+  rows.push_back(MeasurementIndex::HEIGHT);
+  if (orientation::hasOrientation(measurement))
   {
-    rows.pop_back(); // measurementVector() ends with yaw
+    rows.push_back(MeasurementIndex::YAW);
   }
   return rows;
 }
@@ -48,9 +72,9 @@ MultiModelKalmanEstimator::MultiModelKalmanEstimator(double alpha, double beta)
   mMP = TrackedObject::MeasurementSize;
   mCP = 1;            // Control vector is time
   // kappa = 3 - n puts the sigma points at sqrt(3) sigma, which matches a Gaussian's fourth moment along each axis. The
-  // centre weight is then negative (-3 for 12 states), so the predicted mean extrapolates from the centre point; with
-  // beta = 2 the covariance stays positive semi-definite. Only CTRV is nonlinear: for a turn-rate uncertainty of 1 rad
-  // over one step its mean speed is 1 % off the exact value, where kappa = 0 is 38 % too fast.
+  // centre weight is then negative (-10/3 for 13 states), so the predicted mean extrapolates from the centre point;
+  // with beta = 2 the covariance stays positive semi-definite. Only CTRV is nonlinear: for a turn-rate uncertainty of
+  // 1 rad over one step its mean speed is 1 % off the exact value, where kappa = 0 is 41 % too fast.
   mKappa = 3.0 - mDP;
 }
 
@@ -58,7 +82,6 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
 {
   mLastTimestamp = timestamp;
   mProcessNoise = processNoise;
-  mMeasurementNoise = measurementNoise;
 
   mSystemModels.clear();
   mModelTypes.clear();
@@ -105,18 +128,42 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
 
   // Structured initial P: measured pose/size start near measurement noise. A new track starts at rest, so its velocity
   // variance must cover objects that enter already moving; acceleration, yaw and yaw rate are capped.
+  // State: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
   cv::Mat errorCovInit = cv::Mat::zeros(mDP, mDP, CV_64F);
-  const int measuredIdx[] = {0, 1, 6, 7, 8, 9}; // x, y, z, length, width, height
+  const int measuredIdx[] = {
+    StateIndex::X, StateIndex::Y, StateIndex::Z,
+    StateIndex::LENGTH, StateIndex::WIDTH, StateIndex::HEIGHT};
   for (int idx : measuredIdx)
   {
     errorCovInit.at<double>(idx, idx) = measurementNoise;
   }
-  errorCovInit.at<double>(2, 2) = initStateCovariance; // vx
-  errorCovInit.at<double>(3, 3) = initStateCovariance; // vy
-  errorCovInit.at<double>(4, 4) = std::min(initStateCovariance, 0.1);  // ax
-  errorCovInit.at<double>(5, 5) = std::min(initStateCovariance, 0.1);  // ay
-  errorCovInit.at<double>(10, 10) = std::min(initStateCovariance, 0.05); // yaw
-  errorCovInit.at<double>(11, 11) = std::min(initStateCovariance, 0.01); // yaw rate
+  errorCovInit.at<double>(StateIndex::VX, StateIndex::VX) = initStateCovariance;
+  errorCovInit.at<double>(StateIndex::VY, StateIndex::VY) = initStateCovariance;
+  errorCovInit.at<double>(StateIndex::AX, StateIndex::AX) = std::min(initStateCovariance, 0.1);
+  errorCovInit.at<double>(StateIndex::AY, StateIndex::AY) = std::min(initStateCovariance, 0.1);
+  errorCovInit.at<double>(StateIndex::VZ, StateIndex::VZ) = initStateCovariance;
+  errorCovInit.at<double>(StateIndex::YAW, StateIndex::YAW) = std::min(initStateCovariance, 0.05);
+  errorCovInit.at<double>(StateIndex::YAW_RATE, StateIndex::YAW_RATE) = std::min(initStateCovariance, 0.01);
+
+  // Seed measured pose/size uncertainty from the birth detection's R (incl. x/y/z cross terms).
+  if (track.measurementNoiseCov)
+  {
+    const int measuredPairs[][2] = {{MeasurementIndex::X, StateIndex::X},
+                                    {MeasurementIndex::Y, StateIndex::Y},
+                                    {MeasurementIndex::Z, StateIndex::Z},
+                                    {MeasurementIndex::LENGTH, StateIndex::LENGTH},
+                                    {MeasurementIndex::WIDTH, StateIndex::WIDTH},
+                                    {MeasurementIndex::HEIGHT, StateIndex::HEIGHT}};
+    for (const auto &row : measuredPairs)
+    {
+      for (const auto &col : measuredPairs)
+      {
+        errorCovInit.at<double>(row[1], col[1]) = (*track.measurementNoiseCov)(row[0], col[0]);
+      }
+    }
+  }
+  // Per-detection R is a measurement input; tracks must not carry it forward.
+  track.measurementNoiseCov.reset();
 
   for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
@@ -125,7 +172,7 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
     modelParams.stateInit = track.stateVector().clone();
     modelParams.errorCovInit = errorCovInit.clone();
     modelParams.measurementNoiseCov = cv::Mat::eye(mMP, mMP, CV_64F) * measurementNoise;
-    modelParams.processNoiseCov = processNoiseCov(mModelTypes[i], processNoise, track.vx, track.vy, 1e-1);
+    modelParams.processNoiseCov = processNoiseCov(mModelTypes[i], processNoise, track.vx, track.vy, track.vz, 1e-1);
     modelParams.alpha = mAlpha;
     modelParams.beta = mBeta;
     modelParams.k = mKappa;
@@ -140,8 +187,8 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   }
 }
 
-cv::Mat
-MultiModelKalmanEstimator::processNoiseCov(MotionModel model, double processNoise, double vx, double vy, double deltaT)
+cv::Mat MultiModelKalmanEstimator::processNoiseCov(MotionModel model, double processNoise, double vx, double vy,
+                                                   double vz, double deltaT)
 {
   // Scales map the legacy scalar (historically applied isotropically to all states,
   // including position) into spectral densities that yield meter-scale along-track
@@ -162,9 +209,11 @@ MultiModelKalmanEstimator::processNoiseCov(MotionModel model, double processNois
   const double sa = (speed > 1e-3) ? (vy / speed) : 0.0;
 
   // Faster tracks carry more along-track model uncertainty; cross-track stays tight.
+  // Vertical uses the same (1 + |speed|) inflation on |vz|, independent of planar heading.
   const double qVel = std::max(processNoise * kVelocityNoiseScale, kMinNoiseDensity);
   const double qAlong = qVel * (1.0 + speed);
   const double qCross = qVel * kCrossTrackRatio;
+  const double qVz = qVel * (1.0 + std::fabs(vz));
 
   const double qxx = (ca * ca * qAlong + sa * sa * qCross) * dt;
   const double qxy = (ca * sa * (qAlong - qCross)) * dt;
@@ -192,17 +241,20 @@ MultiModelKalmanEstimator::processNoiseCov(MotionModel model, double processNois
 
   cv::Mat Q = cv::Mat::zeros(TrackedObject::StateSize, TrackedObject::StateSize, CV_64F);
   // No direct position/size process noise — position uncertainty grows via f(x) from velocity.
-  cv::Mat(alignedNoise).copyTo(Q(cv::Rect(2, 2, 2, 2)));      // vx, vy
-  cv::Mat(accelerationNoise).copyTo(Q(cv::Rect(4, 4, 2, 2))); // ax, ay
-  Q.at<double>(10, 10) = processNoise * kYawNoiseRatio * dt;  // yaw
-  Q.at<double>(11, 11) = yawRateNoise;                        // yaw rate
+  static_assert(StateIndex::VY == StateIndex::VX + 1 && StateIndex::AY == StateIndex::AX + 1,
+                "vx/vy and ax/ay must be adjacent for the 2x2 noise blocks");
+  cv::Mat(alignedNoise).copyTo(Q(cv::Rect(StateIndex::VX, StateIndex::VX, 2, 2)));
+  cv::Mat(accelerationNoise).copyTo(Q(cv::Rect(StateIndex::AX, StateIndex::AX, 2, 2)));
+  Q.at<double>(StateIndex::VZ, StateIndex::VZ) = qVz * dt;
+  Q.at<double>(StateIndex::YAW, StateIndex::YAW) = processNoise * kYawNoiseRatio * dt;
+  Q.at<double>(StateIndex::YAW_RATE, StateIndex::YAW_RATE) = yawRateNoise;
   return Q;
 }
 
 void MultiModelKalmanEstimator::singleModelPredict(double deltaT)
 {
-  mKalmanFilters[0]->setProcessNoiseCov(
-    processNoiseCov(mModelTypes[0], mProcessNoise, mCurrentState.vx, mCurrentState.vy, deltaT));
+  mKalmanFilters[0]->setProcessNoiseCov(processNoiseCov(mModelTypes[0], mProcessNoise, mCurrentState.vx,
+                                                        mCurrentState.vy, mCurrentState.vz, deltaT));
 
   cv::Mat deltaTVector = cv::Mat(mCP, 1, CV_64F, cv::Scalar(deltaT));
   cv::Mat noiseVector = cv::Mat::zeros(mMP, 1, CV_64F);
@@ -222,6 +274,8 @@ void MultiModelKalmanEstimator::singleModelPredict(double deltaT)
   {
     mCurrentState.predictedMeasurementCov = mKalmanFilters[0]->getMeasurementCov();
   }
+
+  mCurrentState.predictedStateMeasurementCov = predictedMeasurementCovWithoutNoise(*mKalmanFilters[0]);
 
   if (deltaT >= 1e-3)
   {
@@ -280,8 +334,12 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
   {
     mKalmanFilters[i]->setStateAndCovariance(stateEstimate[i], covarianceEstimate[i]);
     // Each model's noise follows its own dynamics and mixed velocity.
-    mKalmanFilters[i]->setProcessNoiseCov(processNoiseCov(
-      mModelTypes[i], mProcessNoise, stateEstimate[i].at<double>(2), stateEstimate[i].at<double>(3), deltaT));
+    mKalmanFilters[i]->setProcessNoiseCov(processNoiseCov(mModelTypes[i],
+                                                          mProcessNoise,
+                                                          stateEstimate[i].at<double>(StateIndex::VX),
+                                                          stateEstimate[i].at<double>(StateIndex::VY),
+                                                          stateEstimate[i].at<double>(StateIndex::VZ),
+                                                          deltaT));
     auto predictedState = mKalmanFilters[i]->predict(deltaTVector);
     predictedStates.push_back(predictedState);
     predictedStateCovariances.push_back(mKalmanFilters[i]->getErrorCov());
@@ -341,6 +399,7 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
   }
   mCurrentState.predictedMeasurementMean = combinedMeasurement;
   mCurrentState.predictedMeasurementCov = measurementCovariances[bestModel];
+  mCurrentState.predictedStateMeasurementCov = predictedMeasurementCovWithoutNoise(*mKalmanFilters[bestModel]);
 
   if (deltaT >= 1e-3)
   {
@@ -353,16 +412,19 @@ void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurem
 {
   auto newMeasurement = measurement;
   orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
-  auto correctedState
-    = mKalmanFilters[0]->correct(newMeasurement.measurementVector(), observedMeasurementRows(newMeasurement));
+  const TrackedObject priorState = mCurrentState;
+  auto correctedState = mKalmanFilters[0]->correct(newMeasurement.measurementVector(),
+                                                   observedMeasurementRows(priorState, newMeasurement),
+                                                   measurementNoise(newMeasurement));
 
   mCurrentState.errorCovariance = mKalmanFilters[0]->getErrorCov();
   mCurrentState.setStateVector(correctedState);
 
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
-  const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
+  // Sticky like orientation_observed: z is gated once any update has measured it.
+  mCurrentState.z_measured = priorState.z_measured || measurement.z_measured;
   mCurrentState.corrected = true;
 }
 
@@ -375,7 +437,9 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
 
   auto newMeasurement = measurement;
   orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
-  const auto observedRows = observedMeasurementRows(newMeasurement);
+  const TrackedObject priorState = mCurrentState;
+  const auto observedRows = observedMeasurementRows(priorState, newMeasurement);
+  const cv::Mat noise = measurementNoise(newMeasurement);
 
   std::vector<cv::Mat> states;
   std::vector<cv::Mat> covariances;
@@ -388,7 +452,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
 
   for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
-    auto correctedState = mKalmanFilters[i]->correct(newMeasurement.measurementVector(), observedRows);
+    auto correctedState = mKalmanFilters[i]->correct(newMeasurement.measurementVector(), observedRows, noise);
     mSystemModelStates[i].setStateVector(correctedState);
 
     states.push_back(correctedState);
@@ -415,9 +479,10 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   mCurrentState.setStateVector(combinedState);
 
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
-  const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
   orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
+  // Sticky like orientation_observed: z is gated once any update has measured it.
+  mCurrentState.z_measured = priorState.z_measured || measurement.z_measured;
 
   mCurrentState.corrected = true;
 }
