@@ -86,10 +86,16 @@ if(BUILD_PYTHON_BINDINGS)
   )
 
   pybind11_add_module(tracking MODULE ${TRACKING_MODULE_SOURCE_LIST})
-  target_link_libraries(tracking PUBLIC ${PROJECT_NAME} Python::Python)
+  target_link_libraries(tracking
+    PUBLIC ${PROJECT_NAME} Python::Python
+    PRIVATE scenescape::security_options
+  )
 
   pybind11_add_module(types MODULE  ${CMAKE_CURRENT_SOURCE_DIR}/python/src/robot_vision/extensions/types.cpp)
-  target_link_libraries(types PUBLIC ${PROJECT_NAME} Python::Python)
+  target_link_libraries(types
+    PUBLIC ${PROJECT_NAME} Python::Python
+    PRIVATE scenescape::security_options
+  )
 endif()
 
 #####################################################################
