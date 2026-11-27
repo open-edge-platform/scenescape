@@ -4,8 +4,8 @@
 
 """Freeze the original MVP's behavior on the scenario corpus into an OCB1 baseline.
 
-Run it in the test container (`make baseline-original`) with the *original* sources on
-PYTHONPATH; it refuses to run when they differ from the recorded original commit.
+Run it in the test container (`make baseline-original`). It runs the original MVP from the
+`*.py.backup` copies and refuses to run when they differ from the recorded original commit.
 """
 
 import argparse
@@ -22,18 +22,18 @@ import numpy as np  # noqa: E402
 
 from oc_corpus import baseline  # noqa: E402
 from oc_corpus.capture import capture_decisions, evaluate_core, reached_flags  # noqa: E402
+from oc_corpus.legacy import BACKUPS, load_legacy  # noqa: E402
 from oc_corpus.ocb import write_ocb  # noqa: E402
 from oc_corpus.scenarios import build_corpus  # noqa: E402
 
 
 def require_original_sources():
-  import observation_conditioning
-  root = Path(observation_conditioning.__file__).resolve().parent
-  for path in baseline.ORIGINAL_SOURCES:
+  """The legacy backups must be byte-identical to the original commit's files."""
+  for backup in BACKUPS:
+    path = f"spatial_performance_primitives/observation_conditioning/{backup.name[:-len('.backup')]}"
     original = baseline.git_show(baseline.ORIGINAL_COMMIT, path)
-    current = (root / Path(path).name).read_bytes()
-    if original is None or original != current:
-      raise SystemExit(f"{path} differs from {baseline.ORIGINAL_COMMIT}: not the original MVP")
+    if original is None or original != backup.read_bytes():
+      raise SystemExit(f"{backup.name} differs from {path} at {baseline.ORIGINAL_COMMIT}")
 
 
 def main():
@@ -41,7 +41,7 @@ def main():
   parser.add_argument("--out", required=True, type=Path)
   args = parser.parse_args()
   require_original_sources()
-  from observation_conditioning import AmodalReasoner
+  AmodalReasoner = load_legacy().AmodalReasoner
 
   arrays, scenarios_meta = {}, {}
   for name, scenario in build_corpus().items():

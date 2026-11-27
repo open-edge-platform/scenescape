@@ -17,6 +17,30 @@ remains. The plan is in
 [plan-observation-conditioning-cpp-port.md](../../.github/plans/plan-observation-conditioning-cpp-port.md)
 (decision D4).
 
+## Legacy backups
+
+The original versions of the files the cleanup changes are kept next to the sources, so the
+legacy behavior can be run and compared at any time:
+
+| File | Changed by |
+| --- | --- |
+| `python/observation_conditioning/amodal_reasoner.py.backup` | §1, §2, §3, §4 |
+| `python/observation_conditioning/intersection_map.py.backup` | §3 |
+| `python/observation_conditioning/constants.py.backup` | §1, §3 |
+
+They are byte-identical to the files at `5cc7f08a8` (a test checks the SHA-256). The helper
+`tests/oc_corpus/legacy.py` imports them as the separate package
+`observation_conditioning_legacy`, so original and current code run side by side:
+
+```python
+from oc_corpus.legacy import load_legacy
+legacy = load_legacy()               # legacy.AmodalReasoner, legacy.DepthMap
+```
+
+The baseline generator (`make baseline-original-in-container`) runs the original MVP from them.
+Remove the backups, `legacy.py` and the related tests once the authors' follow-up plan is
+settled.
+
 ## Guarantee: no change in output
 
 Every item below is either **unreachable** or computes values that **never reach the outputs**

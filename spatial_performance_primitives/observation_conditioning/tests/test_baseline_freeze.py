@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from observation_conditioning import AmodalReasoner  # noqa: E402
 from oc_corpus import baseline  # noqa: E402
 from oc_corpus.capture import capture_decisions, evaluate_core, reached_flags  # noqa: E402
+from oc_corpus.legacy import BACKUPS, load_legacy  # noqa: E402
 from oc_corpus.ocb import read_ocb, write_ocb  # noqa: E402
 from oc_corpus.scenarios import FLAGS, build_corpus  # noqa: E402
 
@@ -101,6 +102,31 @@ def test_current_implementation_reproduces_the_original_outputs(name):
     warnings.simplefilter("ignore")
     core = evaluate_core(scenario, AmodalReasoner)
     decisions = capture_decisions(scenario, AmodalReasoner)
+  for key, value in core.items():
+    assert_same(value, stored[key], f"{name}/{key}")
+  for key, value in decisions.items():
+    if not key.startswith("dec/_"):
+      assert_same(value, stored[key], f"{name}/{key}")
+
+
+def test_legacy_backups_are_the_original_files():
+  recorded = META["source"]["files"]
+  for backup in BACKUPS:
+    key = f"spatial_performance_primitives/observation_conditioning/{backup.name[:-len('.backup')]}"
+    assert baseline.sha256(backup.read_bytes()) == recorded[key], backup.name
+
+
+@pytest.mark.parametrize("name", SCENARIOS)
+def test_legacy_backups_reproduce_the_original_outputs(name):
+  """The `*.py.backup` copies run side by side with the current package."""
+  legacy = load_legacy()
+  assert legacy.AmodalReasoner is not AmodalReasoner
+  scenario = baseline.load_scenario(ARRAYS, META, name)
+  stored = baseline.stored_results(ARRAYS, name)
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    core = evaluate_core(scenario, legacy.AmodalReasoner)
+    decisions = capture_decisions(scenario, legacy.AmodalReasoner)
   for key, value in core.items():
     assert_same(value, stored[key], f"{name}/{key}")
   for key, value in decisions.items():
