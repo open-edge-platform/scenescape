@@ -14,6 +14,14 @@ const source = await readFile(
   "utf8",
 );
 
+const geometrySource = await readFile(
+  new URL(
+    "../../../manager/src/manager/static/js/thing/scenemapgeometry.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+
 const validationSource = await readFile(
   new URL(
     "../../../manager/src/manager/static/js/thing/controls/validateinputcontrols.js",
@@ -146,6 +154,11 @@ async function harness() {
   }
   const module = new vm.SourceTextModule(source, { context });
   await module.link(async (specifier) => {
+    if (specifier.includes("scenemapgeometry")) {
+      const geometry = new vm.SourceTextModule(geometrySource, { context });
+      await geometry.link(() => {});
+      return geometry;
+    }
     const exports = specifier.includes("three.module")
       ? {
           MathUtils: {
