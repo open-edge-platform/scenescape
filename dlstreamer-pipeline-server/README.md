@@ -262,6 +262,8 @@ Following are step-by-step instructions for enabling pose estimation for the out
        file: ./sample_data/demo_scenes/Queuing/queuing-config-pose.json
    ```
 
+   For a custom pose pipeline, set `gvametaconvert add-tensor-data=true`. Keypoints are read from the inference tensor; without that option no error is raised, but no keypoints are published and pose adjustment has no effect. Published keypoint `x`/`y` values are relative to the detection bounding box (0..1), not the frame.
+
 4. **Enable pose-based bounding box adjustment** in the Scene Controller (optional):
 
    To enable improved localization using pose keypoints, pass the `--pose-adjustment` flag or set the `CONTROLLER_ENABLE_POSE_ADJUSTMENT=true` environment variable on the `scene` service. This feature is disabled by default. See the [Scene Controller documentation](../docs/user-guide/microservices/controller/controller.md) for details.
