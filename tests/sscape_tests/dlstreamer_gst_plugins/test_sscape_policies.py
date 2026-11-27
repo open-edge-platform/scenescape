@@ -136,6 +136,34 @@ class TestDetectionPolicyKeypoints:
     ]
     assert pobj['keypoint_connections'] == ['nose', 'eye_l', 'nose', 'eye_r']
 
+  def test_scalar_confidence_is_applied_to_all_keypoints(self, pose_tensor_item):
+    pose_tensor_item['tensors'][0]['confidence'] = 0.5
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert [kp['confidence'] for kp in pobj['keypoints']] == [0.5, 0.5, 0.5]
+
+  def test_point_step_follows_dims(self, pose_tensor_item):
+    tensor = pose_tensor_item['tensors'][0]
+    tensor['dims'] = [3, 3]
+    tensor['data'] = [0.85, 0.24, 9.0, 0.89, 0.21, 9.0, 0.88, 0.20, 9.0]
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert [(kp['x'], kp['y']) for kp in pobj['keypoints']] == [
+      (0.85, 0.24), (0.89, 0.21), (0.88, 0.20),
+    ]
+
+  def test_non_keypoints_type_is_ignored(self, pose_tensor_item):
+    pose_tensor_item['tensors'][0]['type'] = 'classification'
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert 'keypoints' not in pobj
+
+  def test_invalid_connection_pair_is_dropped(self, pose_tensor_item):
+    pose_tensor_item['tensors'][0]['point_connections'] = [0, 1, 0, 99, 1, 2]
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert pobj['keypoint_connections'] == ['nose', 'eye_l', 'eye_l', 'eye_r']
+
   def test_legacy_top_level_keypoints_are_extracted(self, valid_detection_item):
     valid_detection_item['keypoints'] = [{
       'points': [
