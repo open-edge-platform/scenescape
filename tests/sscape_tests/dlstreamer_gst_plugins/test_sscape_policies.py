@@ -164,6 +164,17 @@ class TestDetectionPolicyKeypoints:
     detectionPolicy(pobj, pose_tensor_item, 1280, 720)
     assert pobj['keypoint_connections'] == ['nose', 'eye_l', 'eye_l', 'eye_r']
 
+  @pytest.mark.parametrize('field', ['data', 'point_names', 'point_connections'])
+  def test_malformed_tensor_keeps_detection(self, pose_tensor_item, field, capsys):
+    pose_tensor_item['tensors'][0][field] = None
+    pobj = {}
+    detectionPolicy(pobj, pose_tensor_item, 1280, 720)
+    assert pobj['category'] == 'person'
+    assert pobj['bounding_box_px'] == {'x': 100, 'y': 50, 'width': 200, 'height': 400}
+    assert 'keypoints' not in pobj
+    assert 'keypoint_connections' not in pobj
+    assert 'malformed keypoints' in capsys.readouterr().err
+
   def test_legacy_top_level_keypoints_are_extracted(self, valid_detection_item):
     valid_detection_item['keypoints'] = [{
       'points': [

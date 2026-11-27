@@ -3,6 +3,7 @@
 
 import struct
 import base64
+import sys
 
 ## Policies to post process data
 
@@ -111,12 +112,17 @@ def _extractKeypointsFromTensor(tensor):
   }
 
 def _extractKeypoints(item):
-  for tensor in item.get('tensors', []):
-    if _isKeypointsTensor(tensor):
-      return _extractKeypointsFromTensor(tensor)
+  # Malformed keypoints must not drop the detection or the rest of the frame
+  try:
+    for tensor in item.get('tensors', []):
+      if _isKeypointsTensor(tensor):
+        return _extractKeypointsFromTensor(tensor)
 
-  # DL Streamer < 2026.2 emitted a top-level 'keypoints' field instead of a tensor
-  return _extractKeypointsFromGvametaconvert(item)
+    # DL Streamer < 2026.2 emitted a top-level 'keypoints' field instead of a tensor
+    return _extractKeypointsFromGvametaconvert(item)
+  except Exception as e:
+    print(f"Warning: skipping malformed keypoints: {type(e).__name__}: {e}", file=sys.stderr)
+    return {}
 
 def detectionPolicy(pobj, item, fw, fh):
   if not _isDetection(item):
